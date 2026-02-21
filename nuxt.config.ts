@@ -34,8 +34,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/': { swr: 3600 },
-    '/**': { swr: 3600 }
+    '/': { prerender: true },
+    '/**': { prerender: true }
   },
 
   nitro: {
@@ -46,8 +46,7 @@ export default defineNuxtConfig({
   },
 
   experimental: {
-    payloadExtraction: true,
-    renderJsonPayloads: true
+    payloadExtraction: false
   },
 
   vite: {
