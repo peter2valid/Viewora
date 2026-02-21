@@ -1,6 +1,8 @@
 import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
+  ssr: false,
+
   // Include our custom CSS across all pages
   css: ['@/assets/css/main.css'],
 
