@@ -81,17 +81,20 @@
         
         <div class="grid-3" style="align-items: start;">
           <div class="card text-center">
-            <div style="background: var(--bg-surface-alt); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.5rem; font-weight: bold; color: var(--primary);">1</div>
+            <img src="/images/home/hardware-setup.png" alt="Photography Hardware" style="width: 100%; height: 160px; object-fit: cover; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border);" />
+            <div style="background: var(--bg-surface-alt); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: bold; color: var(--primary);">1</div>
             <h3 class="mb-4">Upload Panoramas</h3>
             <p class="text-muted">Take 360° photos using any compatible camera and upload them directly to your Viewora dashboard.</p>
           </div>
           <div class="card text-center">
-            <div style="background: var(--bg-surface-alt); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.5rem; font-weight: bold; color: var(--primary);">2</div>
+            <img src="/images/home/white-label-editor.png" alt="Tour Editor Interface" style="width: 100%; height: 160px; object-fit: cover; object-position: top; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border);" />
+            <div style="background: var(--bg-surface-alt); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: bold; color: var(--primary);">2</div>
             <h3 class="mb-4">Connect Rooms</h3>
             <p class="text-muted">Use our intuitive visual editor to link rooms together, creating a seamless walkthrough experience.</p>
           </div>
           <div class="card text-center">
-            <div style="background: var(--bg-surface-alt); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.5rem; font-weight: bold; color: var(--primary);">3</div>
+            <img src="/images/home/tiny-planet-vr.png" alt="VR 360 Tiny Planet View" style="width: 100%; height: 160px; object-fit: cover; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border);" />
+            <div style="background: var(--bg-surface-alt); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: bold; color: var(--primary);">3</div>
             <h3 class="mb-4">Publish & Share</h3>
             <p class="text-muted">Get a shareable link instantly. Embed on your website, add to Airbnb, or share on social media.</p>
           </div>
@@ -210,8 +213,10 @@
     <!-- Who It's For -->
     <section class="section">
       <div class="container grid-2" style="align-items: center;">
-        <div>
-          <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&q=80" alt="Real Estate Professional showing property" class="card" style="padding: 0; width: 100%; object-fit: cover; border-radius: 1rem;" />
+        <div style="position: relative;">
+          <!-- blueprint subtle backdrop -->
+          <div style="position: absolute; inset: -2rem; background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%); z-index: 0; pointer-events: none;"></div>
+          <img src="/images/home/cross-platform-hero.png" alt="Viewora on all devices" class="img-fluid" style="width: 100%; position: relative; z-index: 1; transform: scale(1.1);" />
         </div>
         <div>
           <h2 class="section-title">Built for Property Professionals</h2>
