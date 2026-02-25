@@ -1,60 +1,47 @@
 <template>
-  <!-- Section highlighting a few example use cases for AR Codes -->
-  <section class="features">
+  <section class="section section-bg">
     <div class="container">
-      <h2 class="section-title">Add Augmented Reality experiences anywhere</h2>
-      <p class="section-description">
-        AR Code technology has the potential to enhance a wide variety of
-        products and materials. By using AR QR Codes, businesses and
-        organizations can easily add interactive, digital experiences to
-        these materials, making them more engaging and informative for
-        users.
-      </p>
-      <div class="grid">
-        <!-- Feature 1 -->
-        <div class="feature-item">
-          <NuxtImg
-            src="https://ar-code.com/images/product-packaging.webp"
-            alt="Product Packaging"
-            width="400"
-            format="webp"
-            loading="lazy"
-          />
-          <h3>Product Packaging</h3>
-          <p>
-            Integrate AR Codes on packaging for immersive AR experiences,
-            easily scanned on Android and iOS devices.
-          </p>
+      <div class="section-header">
+        <h2 class="section-title">Built for Every Property Professional</h2>
+        <p class="section-subtitle">From solo agents to property developers — Viewora grows with your business.</p>
+      </div>
+
+      <div class="grid-3">
+        <!-- Real Estate -->
+        <div class="card text-center">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">🏡</div>
+          <h3 class="mb-3">Real Estate Agents</h3>
+          <p class="text-muted">Pre-qualify buyers before the viewing. Let clients explore every room from their phone — saving you time and closing more deals.</p>
+          <ul style="text-align: left; margin-top: 1.25rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Unlimited property tours</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Shareable link for listings</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Embed on your website</li>
+          </ul>
         </div>
-        <!-- Feature 2 -->
-        <div class="feature-item">
-          <NuxtImg
-            src="https://ar-code.com/images/food-packaging.webp"
-            alt="Beverage Packaging"
-            width="400"
-            format="webp"
-            loading="lazy"
-          />
-          <h3>Beverage Packaging</h3>
-          <p>
-            Employ AR QR Codes on drink packaging for immersive AR
-            experiences, boosting brand engagement.
-          </p>
+
+        <!-- Airbnb & Short-Term Rentals -->
+        <div class="card text-center" style="border: 2px solid var(--primary);">
+          <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); margin-bottom: 0.75rem;">Most Popular</div>
+          <div style="font-size: 3rem; margin-bottom: 1rem;">🛎️</div>
+          <h3 class="mb-3">Airbnb & Short-Term Rentals</h3>
+          <p class="text-muted">Reduce guest queries about layout and boost booking confidence. Hosts with virtual tours see significantly higher conversion rates.</p>
+          <ul style="text-align: left; margin-top: 1.25rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Works on any device</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Gyroscope support on mobile</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Instant public link</li>
+          </ul>
         </div>
-        <!-- Feature 3 -->
-        <div class="feature-item">
-          <NuxtImg
-            src="https://ar-code.com/images/banners-posters.webp"
-            alt="Event Banners &amp; Posters"
-            width="400"
-            format="webp"
-            loading="lazy"
-          />
-          <h3>Event Banners &amp; Posters</h3>
-          <p>
-            Incorporate AR Codes on signage for interactive content such
-            as product demos and event schedules.
-          </p>
+
+        <!-- Property Developers -->
+        <div class="card text-center">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">🏗️</div>
+          <h3 class="mb-3">Property Developers</h3>
+          <p class="text-muted">Showcase show houses and model apartments to off-plan investors worldwide — before construction even completes.</p>
+          <ul style="text-align: left; margin-top: 1.25rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Custom branding & white-label</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> 8K high-resolution support</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Multi-unit project management</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -62,7 +49,5 @@
 </template>
 
 <script setup lang="ts">
-// Presentational component: no script logic is necessary here
+// Presentational component
 </script>
-
-<!-- Feature styling is defined in the global stylesheet -->
