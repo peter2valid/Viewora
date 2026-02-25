@@ -16,7 +16,7 @@
         <!-- Logged Out View -->
         <template v-if="!user">
           <NuxtLink to="/login" class="nav-link">Log in</NuxtLink>
-          <NuxtLink to="/register" class="btn btn-primary">Start Free</NuxtLink>
+          <NuxtLink to="/register" class="btn btn-dark" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Start Free</NuxtLink>
         </template>
         <!-- Logged In View -->
         <template v-else>
@@ -32,7 +32,7 @@
     </div>
     
     <!-- Mobile Navigation Overlay (Simple) -->
-    <div v-show="isMobileMenuOpen" class="mobile-menu-overlay" style="position: absolute; top: 100%; left: 0; right: 0; background: white; padding: 1rem; border-bottom: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); z-index: 99;">
+    <div v-show="isMobileMenuOpen" class="mobile-menu-overlay" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--paper); padding: 1.25rem; border-bottom: 1px solid var(--border); box-shadow: var(--shadow-float); z-index: 99;">
       <div style="display: flex; flex-direction: column; gap: 1rem;">
         <NuxtLink to="/product" class="nav-link" @click="isMobileMenuOpen = false">Product</NuxtLink>
         <NuxtLink to="/pricing" class="nav-link" @click="isMobileMenuOpen = false">Pricing</NuxtLink>
@@ -42,7 +42,7 @@
         
         <template v-if="!user">
           <NuxtLink to="/login" class="nav-link" @click="isMobileMenuOpen = false">Log in</NuxtLink>
-          <NuxtLink to="/register" class="btn btn-primary btn-block" @click="isMobileMenuOpen = false">Start Free</NuxtLink>
+          <NuxtLink to="/register" class="btn btn-dark btn-block" @click="isMobileMenuOpen = false">Start Free</NuxtLink>
         </template>
         <template v-else>
           <NuxtLink to="/" class="nav-link font-bold text-primary" @click="isMobileMenuOpen = false">Dashboard</NuxtLink>

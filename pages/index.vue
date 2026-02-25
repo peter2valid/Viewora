@@ -4,7 +4,7 @@
     <section class="hero section-bg">
       <div class="container grid-2" style="align-items: center;">
         <div>
-          <div class="badge">The #1 Virtual Tour Platform for Property Professionals</div>
+          <div class="badge">↗ The #1 Virtual Tour Platform</div>
           <h1 class="hero-title">
             Win More Business with <span class="highlight">Interactive 360° Tours</span>
           </h1>
@@ -12,8 +12,8 @@
             Upload panoramas, connect rooms, and share a stunning virtual tour in minutes. No coding. No app required. Works on every device.
           </p>
           <div class="hero-actions">
-            <NuxtLink to="/register" class="btn btn-primary btn-lg">Start Free — No Card Needed</NuxtLink>
-            <NuxtLink to="/product" class="btn btn-outline btn-lg">See How It Works</NuxtLink>
+            <NuxtLink to="/register" class="btn btn-primary btn-lg btn-float">Start Free — No Card Needed</NuxtLink>
+            <NuxtLink to="/product" class="btn btn-outline btn-lg">See How It Works →</NuxtLink>
           </div>
           <p style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">✓ Free forever plan &nbsp;&nbsp; ✓ No credit card &nbsp;&nbsp; ✓ Publish in 5 minutes</p>
         </div>
@@ -48,24 +48,24 @@
     </section>
 
     <!-- Stats Bar -->
-    <section style="background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); padding: 2.5rem 0;">
+    <section style="background: var(--ink); padding: 2.5rem 0; border-top: 1px solid var(--border-dark); border-bottom: 1px solid var(--border-dark);">
       <div class="container">
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center;">
-          <div style="color: white;">
-            <div style="font-size: 2.25rem; font-weight: 800; font-family: var(--font-display);">500+</div>
-            <div style="font-size: 0.875rem; opacity: 0.85; margin-top: 0.25rem;">Tours Published</div>
+          <div style="color: var(--paper);">
+            <div style="font-size: 2.25rem; font-weight: 900; font-family: var(--font-display); letter-spacing: -0.04em;">500+</div>
+            <div style="font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;">Tours Published</div>
           </div>
-          <div style="color: white;">
-            <div style="font-size: 2.25rem; font-weight: 800; font-family: var(--font-display);">30+</div>
-            <div style="font-size: 0.875rem; opacity: 0.85; margin-top: 0.25rem;">Countries</div>
+          <div style="color: var(--paper);">
+            <div style="font-size: 2.25rem; font-weight: 900; font-family: var(--font-display); letter-spacing: -0.04em;">30+</div>
+            <div style="font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;">Countries</div>
           </div>
-          <div style="color: white;">
-            <div style="font-size: 2.25rem; font-weight: 800; font-family: var(--font-display);">4.8/5</div>
-            <div style="font-size: 0.875rem; opacity: 0.85; margin-top: 0.25rem;">Rating</div>
+          <div style="color: var(--paper);">
+            <div style="font-size: 2.25rem; font-weight: 900; font-family: var(--font-display); letter-spacing: -0.04em;">4.8/5</div>
+            <div style="font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;">Rating</div>
           </div>
-          <div style="color: white;">
-            <div style="font-size: 2.25rem; font-weight: 800; font-family: var(--font-display);">Free</div>
-            <div style="font-size: 0.875rem; opacity: 0.85; margin-top: 0.25rem;">To Start</div>
+          <div style="color: var(--paper);">
+            <div style="font-size: 2.25rem; font-weight: 900; font-family: var(--font-display); letter-spacing: -0.04em;">Free</div>
+            <div style="font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;">To Start</div>
           </div>
         </div>
       </div>
@@ -243,14 +243,17 @@
     </section>
 
     <!-- Final CTA -->
-    <section style="background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); padding: 5rem 0; text-align: center;">
-      <div class="container" style="max-width: 650px;">
-        <h2 style="font-size: 2.5rem; font-weight: 800; color: white; margin-bottom: 1rem; font-family: var(--font-display);">Ready to Elevate Your Properties?</h2>
-        <p style="color: rgba(255,255,255,0.85); font-size: 1.125rem; margin-bottom: 2.5rem;">Join the growing community of professionals closing more deals with Viewora. Your first tour is on us.</p>
-        <NuxtLink to="/register" class="btn btn-lg" style="background: white; color: var(--primary); font-weight: 700; border: none; padding: 1rem 2.5rem; border-radius: 0.75rem; font-size: 1.05rem;">
+    <section style="background: var(--ink); padding: 6rem 0; text-align: center; border-top: 1px solid var(--border-dark); position: relative; overflow: hidden;">
+      <!-- blueprint grid overlay for dark section -->
+      <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none;"></div>
+      <div class="container" style="max-width: 650px; position: relative;">
+        <div class="mono" style="color: var(--accent); margin-bottom: 1.25rem;">↗ Start today</div>
+        <h2 style="font-size: 3rem; font-weight: 900; color: var(--paper); margin-bottom: 1rem; letter-spacing: -0.04em; line-height: 1.0;">Ready to Elevate<br>Your Properties?</h2>
+        <p style="color: #6b7280; font-size: 1.05rem; margin-bottom: 3rem; line-height: 1.7;">Join the growing community of professionals closing more deals with Viewora. Your first tour is on us.</p>
+        <NuxtLink to="/register" class="btn btn-primary btn-lg btn-float">
           Start Your Free Tour Now →
         </NuxtLink>
-        <p style="color: rgba(255,255,255,0.65); font-size: 0.85rem; margin-top: 1rem;">✓ No credit card required &nbsp;&nbsp; ✓ Free forever plan &nbsp;&nbsp; ✓ Publish in 5 minutes</p>
+        <p style="color: #4b5563; font-size: 0.8rem; margin-top: 1.5rem; font-family: var(--font-mono); letter-spacing: 0.04em;">✓ No credit card required &nbsp; ✓ Free forever plan &nbsp; ✓ Live in 5 min</p>
       </div>
     </section>
   </div>
