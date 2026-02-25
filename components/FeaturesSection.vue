@@ -6,7 +6,7 @@
         <p class="section-subtitle">From solo agents to property developers — Viewora grows with your business.</p>
       </div>
 
-      <div class="grid-3">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
         <!-- Real Estate -->
         <div class="card text-center">
           <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;">
@@ -47,6 +47,20 @@
             <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Custom branding & white-label</li>
             <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> 8K high-resolution support</li>
             <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Multi-unit project management</li>
+          </ul>
+        </div>
+
+        <!-- Car Dealerships -->
+        <div class="card text-center">
+          <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;">
+            <img src="/images/home/hardware-setup.png" loading="lazy" alt="Car Dealership 360 View" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+          </div>
+          <h3 class="mb-3">Car Dealerships</h3>
+          <p class="text-muted">Put buyers behind the wheel from anywhere. Showcase interior and exterior 360° views to drive higher engagement and foot traffic.</p>
+          <ul style="text-align: left; margin-top: 1.25rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> High-res interior views</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Exterior walkarounds</li>
+            <li style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem;"><span style="color: var(--primary);">✓</span> Embed in online showrooms</li>
           </ul>
         </div>
       </div>

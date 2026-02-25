@@ -237,7 +237,7 @@
           <img src="/images/home/cross-platform-hero.png" alt="Viewora on all devices" class="img-fluid" style="width: 100%; position: relative; z-index: 1; transform: scale(1.1);" />
         </div>
         <div>
-          <h2 class="section-title">Built for Property Professionals</h2>
+          <h2 class="section-title">Built for Sales Professionals</h2>
           <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2rem;">
             <div style="display: flex; gap: 1rem;">
               <div style="color: var(--primary); flex-shrink: 0;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div>
@@ -258,6 +258,13 @@
               <div>
                 <h4 class="font-bold mb-1">Property Developers</h4>
                 <p class="text-muted text-sm">Showcase show houses and model layouts to off-plan investors.</p>
+              </div>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <div style="color: var(--primary); flex-shrink: 0;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="2" x2="12" y2="9"></line><line x1="22" y1="12" x2="15" y2="12"></line><line x1="12" y1="22" x2="12" y2="15"></line><line x1="2" y1="12" x2="9" y2="12"></line></svg></div>
+              <div>
+                <h4 class="font-bold mb-1">Car Dealerships</h4>
+                <p class="text-muted text-sm">Sell cars faster by putting buyers behind the wheel from their phone.</p>
               </div>
             </div>
           </div>
