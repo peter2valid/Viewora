@@ -64,6 +64,7 @@ export default defineNuxtConfig({
       title: 'Viewora',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'google-site-verification', content: '5A7Cbn0o8coBfTjMnq95edJ2uRY3PIDIAvxcUG642Eo' },
       ],
       link: []
     }
