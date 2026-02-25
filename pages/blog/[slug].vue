@@ -47,6 +47,22 @@
 </style>
 
 <script setup lang="ts">
-// SEO meta is automatically handled by ContentDoc for the most part, 
-// but can be customized further if needed.
+const route = useRoute()
+
+// Fetch doc for SEO meta
+const { data: doc } = await useAsyncData(`blog-${route.params.slug}`, () =>
+  queryContent('/blog', route.params.slug as string).findOne()
+)
+
+if (doc.value) {
+  useSeoMeta({
+    title: `${doc.value.title} | Viewora Blog`,
+    description: doc.value.description,
+    ogTitle: doc.value.title,
+    ogDescription: doc.value.description,
+    ogImage: doc.value.image,
+    twitterCard: 'summary_large_image',
+  })
+}
 </script>
+

@@ -1,8 +1,6 @@
 import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
-  ssr: false,
-
   // Include our custom CSS across all pages
   css: ['@/assets/css/main.css'],
 
@@ -23,6 +21,10 @@ export default defineNuxtConfig({
     name: 'Viewora',
     description: 'Create interactive 360° virtual tours for your properties. The subscription-based platform for Airbnb hosts, real estate agents, and property developers.',
     defaultLocale: 'en',
+  },
+
+  ogImage: {
+    enabled: true,
   },
 
   googleFonts: {
