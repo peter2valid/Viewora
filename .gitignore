@@ -10,6 +10,8 @@ dist/
 .env
 .env.local
 .env.*.local
+*.backup
+*.bak
 
 # IDE
 .vscode/
