@@ -3,9 +3,13 @@
     <section class="section section-bg text-center">
       <div class="container" style="max-width: 800px;">
         <h1 class="section-title">Bridging the Gap Between Screen and Reality</h1>
-        <p class="section-subtitle">
+        <p class="section-subtitle" style="margin-bottom: 3rem;">
           We are Viewora. We believe that finding a home, booking a stay, or investing in property should be a transparent and immersive experience.
         </p>
+        
+        <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.75rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; width: 100%;">
+          <img src="/images/home/dollhouse-commercial.png" loading="lazy" alt="Viewora 3D Virtual Tour" style="max-width: 100%; object-fit: contain; border-radius: 0.375rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
+        </div>
       </div>
     </section>
 

@@ -81,19 +81,25 @@
         
         <div class="grid-3" style="align-items: start;">
           <div class="card text-center">
-            <img src="/images/home/hardware-setup.png" alt="Photography Hardware" style="width: 100%; height: 160px; object-fit: cover; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border);" />
+            <div style="background: var(--paper-dim); padding: 1.25rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); height: 180px; display: flex; align-items: center; justify-content: center;">
+              <img src="/images/home/hardware-setup.png" loading="lazy" alt="Photography Hardware" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+            </div>
             <div style="background: var(--bg-surface-alt); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: bold; color: var(--primary);">1</div>
             <h3 class="mb-4">Upload Panoramas</h3>
             <p class="text-muted">Take 360° photos using any compatible camera and upload them directly to your Viewora dashboard.</p>
           </div>
           <div class="card text-center">
-            <img src="/images/home/white-label-editor.png" alt="Tour Editor Interface" style="width: 100%; height: 160px; object-fit: cover; object-position: top; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border);" />
+            <div style="background: var(--paper-dim); padding: 1.25rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); height: 180px; display: flex; align-items: center; justify-content: center;">
+              <img src="/images/home/white-label-editor.png" loading="lazy" alt="Tour Editor Interface" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+            </div>
             <div style="background: var(--bg-surface-alt); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: bold; color: var(--primary);">2</div>
             <h3 class="mb-4">Connect Rooms</h3>
             <p class="text-muted">Use our intuitive visual editor to link rooms together, creating a seamless walkthrough experience.</p>
           </div>
           <div class="card text-center">
-            <img src="/images/home/tiny-planet-vr.png" alt="VR 360 Tiny Planet View" style="width: 100%; height: 160px; object-fit: cover; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border);" />
+            <div style="background: var(--paper-dim); padding: 1.25rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); height: 180px; display: flex; align-items: center; justify-content: center;">
+              <img src="/images/home/tiny-planet-vr.png" loading="lazy" alt="VR 360 Tiny Planet View" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+            </div>
             <div style="background: var(--bg-surface-alt); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: bold; color: var(--primary);">3</div>
             <h3 class="mb-4">Publish & Share</h3>
             <p class="text-muted">Get a shareable link instantly. Embed on your website, add to Airbnb, or share on social media.</p>

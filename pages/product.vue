@@ -22,8 +22,8 @@
             </p>
           </div>
           <div style="order: 2;" :style="{ order: isDesktop ? 2 : 1 }">
-            <div class="card" style="background: var(--bg-surface-alt); display: flex; align-items: center; justify-content: center; min-height: 250px; padding: 2rem;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 250px;">
+              <img src="/images/home/hardware-setup.png" loading="lazy" alt="Upload Panoramas" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
             </div>
           </div>
         </div>
@@ -31,8 +31,8 @@
         <!-- Step 2 -->
         <div class="grid-2 mb-12" style="align-items: center;">
           <div style="order: 1;">
-            <div class="card" style="background: var(--bg-surface-alt); display: flex; align-items: center; justify-content: center; min-height: 250px; padding: 2rem;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+            <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 250px;">
+              <img src="/images/home/white-label-editor.png" loading="lazy" alt="Visual Editor" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
             </div>
           </div>
           <div style="order: 2;">
@@ -54,8 +54,8 @@
             </p>
           </div>
           <div style="order: 2;" :style="{ order: isDesktop ? 2 : 1 }">
-            <div class="card" style="background: var(--bg-surface-alt); display: flex; align-items: center; justify-content: center; min-height: 250px; padding: 2rem;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+            <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 250px;">
+              <img src="/images/home/tiny-planet-vr.png" loading="lazy" alt="Publish Virtual Tour" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
             </div>
           </div>
         </div>
@@ -63,8 +63,8 @@
         <!-- Step 4 -->
         <div class="grid-2" style="align-items: center;">
           <div style="order: 1;">
-            <div class="card" style="background: var(--bg-surface-alt); display: flex; align-items: center; justify-content: center; min-height: 250px; padding: 2rem;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 250px;">
+              <img src="/images/home/cross-platform-hero.png" loading="lazy" alt="Share on any device" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
             </div>
           </div>
           <div style="order: 2;">

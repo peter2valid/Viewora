@@ -9,7 +9,9 @@
       <div class="grid-3">
         <!-- Real Estate -->
         <div class="card text-center">
-          <img src="/images/home/mobile-tours.png" alt="Real Estate Tours on Mobile" style="width: 100%; height: auto; border-radius: 0.5rem; margin-bottom: 1.5rem; object-fit: cover; aspect-ratio: 4/3; border: 1px solid var(--border);" />
+          <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;">
+            <img src="/images/home/mobile-tours.png" loading="lazy" alt="Real Estate Tours on Mobile" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+          </div>
           <h3 class="mb-3">Real Estate Agents</h3>
           <p class="text-muted">Pre-qualify buyers before the viewing. Let clients explore every room from their phone — saving you time and closing more deals.</p>
           <ul style="text-align: left; margin-top: 1.25rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
@@ -22,7 +24,9 @@
         <!-- Airbnb & Short-Term Rentals -->
         <div class="card text-center" style="border: 2px solid var(--primary);">
           <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); margin-bottom: 0.75rem;">Most Popular</div>
-          <img src="/images/home/dollhouse-commercial.png" alt="3D Dollhouse View" style="width: 100%; height: auto; border-radius: 0.5rem; margin-bottom: 1.5rem; object-fit: cover; aspect-ratio: 4/3; border: 1px solid var(--border);" />
+          <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;">
+            <img src="/images/home/dollhouse-commercial.png" loading="lazy" alt="3D Dollhouse View" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+          </div>
           <h3 class="mb-3">Airbnb & Short-Term Rentals</h3>
           <p class="text-muted">Reduce guest queries about layout and boost booking confidence. Hosts with virtual tours see significantly higher conversion rates.</p>
           <ul style="text-align: left; margin-top: 1.25rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
@@ -34,7 +38,9 @@
 
         <!-- Property Developers -->
         <div class="card text-center">
-          <img src="/images/home/floorplan-hotspots.png" alt="Hotspot Floorplan Navigation" style="width: 100%; height: auto; border-radius: 0.5rem; margin-bottom: 1.5rem; object-fit: cover; aspect-ratio: 4/3; border: 1px solid var(--border);" />
+          <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;">
+            <img src="/images/home/floorplan-hotspots.png" loading="lazy" alt="Hotspot Floorplan Navigation" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+          </div>
           <h3 class="mb-3">Property Developers</h3>
           <p class="text-muted">Showcase show houses and model apartments to off-plan investors worldwide — before construction even completes.</p>
           <ul style="text-align: left; margin-top: 1.25rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
