@@ -62,10 +62,11 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Viewora',
+      title: 'Viewora | Immersive 360° Space Showcase Platform',
       meta: [
+        { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'google-site-verification', content: '5A7Cbn0o8coBfTjMnq95edJ2uRY3PIDIAvxcUG642Eo' },
+        { name: 'description', content: 'Create, host, and share interactive 360° virtual tours in minutes. The ultimate immersive showcase platform for real estate, hospitality, automotive, and retail spaces.' },
       ],
       link: []
     }

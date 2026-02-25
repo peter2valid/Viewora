@@ -4,12 +4,12 @@
     <section class="hero section-bg">
       <div class="container grid-2" style="align-items: center;">
         <div>
-          <div class="badge">↗ The #1 Virtual Tour Platform</div>
+          <div class="badge">↗ The #1 Immersive Showcase Platform</div>
           <h1 class="hero-title">
-            Win More Business with <span class="highlight">Interactive 360° Tours</span>
+            Showcase Any Space with <span class="highlight">Interactive 360° Tours</span>
           </h1>
           <p class="hero-subtitle">
-            Upload panoramas, connect rooms, and share a stunning virtual tour in minutes. No coding. No app required. Works on every device.
+            Upload panoramas, connect rooms, and build trust before they visit. Perfect for real estate, hospitality, showrooms, and events.
           </p>
           <div class="hero-actions">
             <NuxtLink to="/register" class="btn btn-primary btn-lg btn-float">Start Free — No Card Needed</NuxtLink>
@@ -115,8 +115,8 @@
     <section class="section">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title">Everything You Need to Sell Properties Faster</h2>
-          <p class="section-subtitle">Professional-grade tools that used to cost thousands — now available to everyone.</p>
+          <h2 class="section-title">Everything You Need to Showcase Spaces</h2>
+          <p class="section-subtitle">Professional-grade immersion tools that build trust and drive conversions.</p>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
           <div class="card" style="display: flex; gap: 1rem; align-items: flex-start;">
@@ -181,8 +181,8 @@
     <section class="section section-bg">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title">Property Professionals Love Viewora</h2>
-          <p class="section-subtitle">Join hundreds of real estate agents, hosts, and developers growing their business with virtual tours.</p>
+          <h2 class="section-title">Trusted by Thousands Across Industries</h2>
+          <p class="section-subtitle">From solo agents to luxury resorts — Viewora powers the spaces people love.</p>
         </div>
         <div class="grid-3">
           <div class="card">
@@ -278,8 +278,8 @@
       <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none;"></div>
       <div class="container" style="max-width: 650px; position: relative;">
         <div class="mono" style="color: var(--accent); margin-bottom: 1.25rem;">↗ Start today</div>
-        <h2 style="font-size: 3rem; font-weight: 900; color: var(--paper); margin-bottom: 1rem; letter-spacing: -0.04em; line-height: 1.0;">Ready to Elevate<br>Your Properties?</h2>
-        <p style="color: #6b7280; font-size: 1.05rem; margin-bottom: 3rem; line-height: 1.7;">Join the growing community of professionals closing more deals with Viewora. Your first tour is on us.</p>
+        <h2 style="font-size: 3rem; font-weight: 900; color: var(--paper); margin-bottom: 1rem; letter-spacing: -0.04em; line-height: 1.0;">Ready to Showcase<br>Your Spaces?</h2>
+        <p style="color: #6b7280; font-size: 1.05rem; margin-bottom: 3rem; line-height: 1.7;">Join the growing community of professionals closing more deals and driving traffic with Viewora. Your first tour is on us.</p>
         <NuxtLink to="/register" class="btn btn-primary btn-lg btn-float">
           Start Your Free Tour Now →
         </NuxtLink>
@@ -291,7 +291,7 @@
 
 <script setup lang="ts">
 useSeoMeta({
-  title: 'Viewora | Premium 360° Virtual Tour SaaS for Real Estate',
-  description: 'Create, host, and share interactive 360° virtual property tours in minutes. Join top Airbnb hosts, estate agents, and hotels leveraging Viewora.'
+  title: 'Viewora | Immersive 360° Space Showcase Platform',
+  description: 'Create, host, and share interactive 360° virtual tours for real estate, hotels, car dealerships, and retail spaces in minutes.'
 })
 </script>

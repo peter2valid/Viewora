@@ -102,7 +102,7 @@ onMounted(() => {
 });
 
 useSeoMeta({
-  title: 'How Viewora Works | 360° Panorama Software for Real Estate',
-  description: 'See how easy it is to upload panoramas, connect rooms, and publish stunning interactive property tours without any coding skills.'
+  title: 'How Viewora Works | Immersive 360° Space Showcase Software',
+  description: 'See how easy it is to upload panoramas, connect rooms, and publish stunning interactive 360° tours for any space without any coding skills.'
 })
 </script>
