@@ -5,7 +5,7 @@
         <div class="footer-brand">
           <div class="footer-logo">Viewora</div>
           <p class="footer-desc">
-            The premium virtual tour platform for Airbnb hosts, real estate agents, and property developers. Create immersive 360° experiences that drive bookings and sales.
+            The ultimate immersive showcase platform for real estate, hospitality, automotive, and retail spaces. Create interactive 360° experiences that drive bookings and sales.
           </p>
         </div>
         
