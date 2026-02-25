@@ -10,7 +10,7 @@
         <!-- Real Estate -->
         <div class="card text-center">
           <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;">
-            <img src="/images/home/mobile-tours.png" loading="lazy" alt="Real Estate Tours on Mobile" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+            <img src="/images/home/plain land.png" loading="lazy" alt="Real Estate Tours on Mobile" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
           </div>
           <h3 class="mb-3">Real Estate Agents</h3>
           <p class="text-muted">Pre-qualify buyers before the viewing. Let clients explore every room from their phone — saving you time and closing more deals.</p>
@@ -53,7 +53,7 @@
         <!-- Car Dealerships -->
         <div class="card text-center">
           <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3;">
-            <img src="/images/home/hardware-setup.png" loading="lazy" alt="Car Dealership 360 View" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
+            <img src="/images/home/car dealership.png" loading="lazy" alt="Car Dealership 360 View" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
           </div>
           <h3 class="mb-3">Car Dealerships</h3>
           <p class="text-muted">Put buyers behind the wheel from anywhere. Showcase interior and exterior 360° views to drive higher engagement and foot traffic.</p>

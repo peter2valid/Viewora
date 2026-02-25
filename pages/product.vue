@@ -64,7 +64,7 @@
         <div class="grid-2" style="align-items: center;">
           <div style="order: 1;">
             <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 250px;">
-              <img src="/images/home/cross-platform-hero.png" loading="lazy" alt="Share on any device" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
+              <img src="/images/home/cross-platform-hero2.png" loading="lazy" alt="Share on any device" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
             </div>
           </div>
           <div style="order: 2;">

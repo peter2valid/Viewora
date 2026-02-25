@@ -234,7 +234,7 @@
         <div style="position: relative;">
           <!-- blueprint subtle backdrop -->
           <div style="position: absolute; inset: -2rem; background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%); z-index: 0; pointer-events: none;"></div>
-          <img src="/images/home/cross-platform-hero.png" alt="Viewora on all devices" class="img-fluid" style="width: 100%; position: relative; z-index: 1; transform: scale(1.1);" />
+          <img src="/images/home/cross-platform-hero.png" alt="Interactive 360 tour example" class="img-fluid" style="width: 100%; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.1));" />
         </div>
         <div>
           <h2 class="section-title">Built for Sales Professionals</h2>
