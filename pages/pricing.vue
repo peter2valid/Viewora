@@ -16,55 +16,107 @@
           <span :class="{'font-bold': billingFreq === 'yearly', 'text-muted': billingFreq !== 'yearly'}">Yearly <span class="badge" style="margin-top: 0; margin-bottom: 0; margin-left: 0.5rem; font-size: 0.75rem;">Save 20%</span></span>
         </div>
 
-        <div class="grid-3">
-          <!-- Starter -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+          <!-- Basic -->
           <div class="card" style="display: flex; flex-direction: column; text-align: left;">
-            <h3 class="mb-2">Starter</h3>
-            <p class="text-muted mb-6">Perfect for individual Airbnb hosts.</p>
-            <div class="mb-6">
-              <span style="font-size: 2.5rem; font-weight: 800; font-family: var(--font-display);">KSh {{ billingFreq === 'monthly' ? '1,500' : '14,400' }}</span>
-              <span class="text-muted">/{{ billingFreq === 'monthly' ? 'mo' : 'yr' }}</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #22c55e;"></div>
+              <h3 style="margin: 0;">Basic</h3>
             </div>
-            <NuxtLink to="/register" class="btn btn-secondary btn-block mb-8">Start Free Trial</NuxtLink>
-            <ul style="list-style: none; display: flex; flex-direction: column; gap: 1rem; flex: 1;">
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> 1 Active Property</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Up to 5 Rooms per property</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Standard Support</li>
+            <p class="text-muted mb-6" style="font-size: 0.9rem;">For landlords, small agents, budget users</p>
+            <div class="mb-6">
+              <span style="font-size: 2rem; font-weight: 800; font-family: var(--font-display);">KES {{ billingFreq === 'monthly' ? '1,500' : '15,000' }}</span>
+              <span class="text-muted text-sm">/{{ billingFreq === 'monthly' ? 'mo' : 'yr' }}</span>
+            </div>
+            <NuxtLink to="/register" class="btn btn-secondary btn-block mb-6">Start Free Trial</NuxtLink>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem; flex: 1; margin-bottom: 1.5rem; font-size: 0.9rem;">
+              <li style="display: flex; gap: 0.5rem; font-weight: bold;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 2 Active 360 Tours</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Standard image quality</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Shareable tour link & QR code</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Property info panel & map</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Basic analytics (views)</li>
+              <li style="display: flex; gap: 0.5rem; color: var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Viewora branding</li>
+              <li style="display: flex; gap: 0.5rem; color: var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 2 GB storage</li>
             </ul>
+            <div style="border-top: 1px solid var(--border); padding-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+              <strong>Add-ons:</strong> Extra tour (200), HD upgrade (300), Photography (4,000)
+            </div>
           </div>
 
-          <!-- Professional -->
-          <div class="card" style="display: flex; flex-direction: column; text-align: left; border: 2px solid var(--primary); transform: scale(1.05); z-index: 1;">
-            <div style="background: var(--primary); color: white; text-align: center; padding: 0.25rem; font-weight: bold; border-radius: 9999px; font-size: 0.875rem; width: max-content; margin: -3rem auto 1rem auto; padding: 0.25rem 1rem;">Most Popular</div>
-            <h3 class="mb-2">Professional</h3>
-            <p class="text-muted mb-6">For real estate agents and managers.</p>
-            <div class="mb-6">
-              <span style="font-size: 2.5rem; font-weight: 800; font-family: var(--font-display);">KSh {{ billingFreq === 'monthly' ? '4,500' : '43,200' }}</span>
-              <span class="text-muted">/{{ billingFreq === 'monthly' ? 'mo' : 'yr' }}</span>
+          <!-- Plus -->
+          <div class="card" style="display: flex; flex-direction: column; text-align: left; border: 2px solid var(--primary); position: relative;">
+            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 2px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; white-space: nowrap;">Most Popular</div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #3b82f6;"></div>
+              <h3 style="margin: 0;">Plus</h3>
             </div>
-            <NuxtLink to="/register" class="btn btn-primary btn-block mb-8">Start Free Trial</NuxtLink>
-            <ul style="list-style: none; display: flex; flex-direction: column; gap: 1rem; flex: 1;">
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Up to 10 Active Properties</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Up to 15 Rooms per property</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Priority Email Support</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Analytics Dashboard</li>
+            <p class="text-muted mb-6" style="font-size: 0.9rem;">For active agents</p>
+            <div class="mb-6">
+              <span style="font-size: 2rem; font-weight: 800; font-family: var(--font-display);">KES {{ billingFreq === 'monthly' ? '4,000' : '40,000' }}</span>
+              <span class="text-muted text-sm">/{{ billingFreq === 'monthly' ? 'mo' : 'yr' }}</span>
+            </div>
+            <NuxtLink to="/register" class="btn btn-primary btn-block mb-6">Start Free Trial</NuxtLink>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem; flex: 1; margin-bottom: 1.5rem; font-size: 0.9rem;">
+              <li style="display: flex; gap: 0.5rem; font-weight: bold;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 15 Active Tours</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> HD panoramas</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Website embed & Photo gallery</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Lead capture button</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Hotspot navigation</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Advanced analytics & Branded pages</li>
+              <li style="display: flex; gap: 0.5rem; color: var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 8 GB storage</li>
             </ul>
+            <div style="border-top: 1px solid var(--border); padding-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+              <strong>Add-ons:</strong> Extra tour (150), Photography (3,800)
+            </div>
           </div>
 
-          <!-- Business -->
+          <!-- Pro -->
           <div class="card" style="display: flex; flex-direction: column; text-align: left;">
-            <h3 class="mb-2">Business</h3>
-            <p class="text-muted mb-6">For developers and large agencies.</p>
-            <div class="mb-6">
-              <span style="font-size: 2.5rem; font-weight: 800; font-family: var(--font-display);">KSh {{ billingFreq === 'monthly' ? '12,000' : '115,200' }}</span>
-              <span class="text-muted">/{{ billingFreq === 'monthly' ? 'mo' : 'yr' }}</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #a855f7;"></div>
+              <h3 style="margin: 0;">Pro</h3>
             </div>
-            <NuxtLink to="/register" class="btn btn-secondary btn-block mb-8">Start Free Trial</NuxtLink>
-            <ul style="list-style: none; display: flex; flex-direction: column; gap: 1rem; flex: 1;">
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Unlimited Active Properties</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Unlimited Rooms</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Custom Agency Branding</li>
-              <li style="display: flex; gap: 0.75rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Dedicated Account Manager</li>
+            <p class="text-muted mb-6" style="font-size: 0.9rem;">For agencies & serious sellers</p>
+            <div class="mb-6">
+              <span style="font-size: 2rem; font-weight: 800; font-family: var(--font-display);">KES {{ billingFreq === 'monthly' ? '8,500' : '85,000' }}</span>
+              <span class="text-muted text-sm">/{{ billingFreq === 'monthly' ? 'mo' : 'yr' }}</span>
+            </div>
+            <NuxtLink to="/register" class="btn btn-secondary btn-block mb-6">Start Free Trial</NuxtLink>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem; flex: 1; margin-bottom: 1.5rem; font-size: 0.9rem;">
+              <li style="display: flex; gap: 0.5rem; font-weight: bold;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 40 Active Tours</li>
+              <li style="display: flex; gap: 0.5rem; font-weight: bold; color: var(--primary);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Includes {{ billingFreq === 'monthly' ? '1 photo shoot / mo' : '12 photo shoots / yr' }}</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Branding control (your logo)</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Google Street View publishing</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Multi-property dashboard</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Project / apartment mode</li>
+              <li style="display: flex; gap: 0.5rem; color: var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Priority hosting & 20 GB storage</li>
+            </ul>
+            <div style="border-top: 1px solid var(--border); padding-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+              <strong>Add-ons:</strong> Extra shoots (3,500)
+            </div>
+          </div>
+
+          <!-- Elite -->
+          <div class="card" style="display: flex; flex-direction: column; text-align: left;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #eab308;"></div>
+              <h3 style="margin: 0;">Elite</h3>
+            </div>
+            <p class="text-muted mb-6" style="font-size: 0.9rem;">For developers & large orgs</p>
+            <div class="mb-6">
+              <span style="font-size: 2rem; font-weight: 800; font-family: var(--font-display);">KES {{ billingFreq === 'monthly' ? '18,000' : '180,000' }}</span>
+              <span class="text-muted text-sm">/{{ billingFreq === 'monthly' ? 'mo' : 'yr' }}</span>
+            </div>
+            <NuxtLink to="/contact" class="btn btn-secondary btn-block mb-6">Contact Sales</NuxtLink>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem; flex: 1; margin-bottom: 1.5rem; font-size: 0.9rem;">
+              <li style="display: flex; gap: 0.5rem; font-weight: bold;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 120 Active Tours</li>
+              <li style="display: flex; gap: 0.5rem; font-weight: bold; color: var(--primary);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Includes {{ billingFreq === 'monthly' ? '3 photo shoots / mo' : '36 photo shoots / yr' }}</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Custom domain option</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> White-label viewer</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Team accounts & Analytics suite</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Nearby amenities map</li>
+              <li style="display: flex; gap: 0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Featured property badges</li>
+              <li style="display: flex; gap: 0.5rem; color: var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Priority support & 50 GB storage</li>
             </ul>
           </div>
         </div>
