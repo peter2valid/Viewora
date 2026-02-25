@@ -120,42 +120,54 @@
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
           <div class="card" style="display: flex; gap: 1rem; align-items: flex-start;">
-            <div style="font-size: 1.75rem; flex-shrink: 0;">🧭</div>
+            <div style="color: var(--primary); flex-shrink: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+            </div>
             <div>
               <h4 class="font-bold mb-2">Hotspot Navigation</h4>
               <p class="text-muted text-sm">Place clickable hotspots to guide viewers from room to room with smooth transitions.</p>
             </div>
           </div>
           <div class="card" style="display: flex; gap: 1rem; align-items: flex-start;">
-            <div style="font-size: 1.75rem; flex-shrink: 0;">📱</div>
+            <div style="color: var(--primary); flex-shrink: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            </div>
             <div>
               <h4 class="font-bold mb-2">Mobile & Gyroscope</h4>
               <p class="text-muted text-sm">Tours automatically scale and use gyroscopic sensors for immersive navigation on iOS and Android.</p>
             </div>
           </div>
           <div class="card" style="display: flex; gap: 1rem; align-items: flex-start;">
-            <div style="font-size: 1.75rem; flex-shrink: 0;">🎨</div>
+            <div style="color: var(--primary); flex-shrink: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+            </div>
             <div>
               <h4 class="font-bold mb-2">White-Label & Branding</h4>
               <p class="text-muted text-sm">Remove Viewora branding and replace with your own agency logo for a fully branded experience.</p>
             </div>
           </div>
           <div class="card" style="display: flex; gap: 1rem; align-items: flex-start;">
-            <div style="font-size: 1.75rem; flex-shrink: 0;">📋</div>
+            <div style="color: var(--primary); flex-shrink: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+            </div>
             <div>
               <h4 class="font-bold mb-2">Lead Capture Forms</h4>
               <p class="text-muted text-sm">Collect buyer and renter enquiries directly inside the tour — turn viewers into leads automatically.</p>
             </div>
           </div>
           <div class="card" style="display: flex; gap: 1rem; align-items: flex-start;">
-            <div style="font-size: 1.75rem; flex-shrink: 0;">🔗</div>
+            <div style="color: var(--primary); flex-shrink: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            </div>
             <div>
               <h4 class="font-bold mb-2">Instant Public Link</h4>
               <p class="text-muted text-sm">No app needed for viewers. Share a simple URL via WhatsApp, email, or social media — it just works.</p>
             </div>
           </div>
           <div class="card" style="display: flex; gap: 1rem; align-items: flex-start;">
-            <div style="font-size: 1.75rem; flex-shrink: 0;">🖼️</div>
+            <div style="color: var(--primary); flex-shrink: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="14.31" y1="8" x2="20.05" y2="17.94"></line><line x1="9.69" y1="8" x2="21.17" y2="8"></line><line x1="7.38" y1="12" x2="13.12" y2="2.06"></line><line x1="9.69" y1="16" x2="3.95" y2="6.06"></line><line x1="14.31" y1="16" x2="2.83" y2="16"></line><line x1="16.62" y1="12" x2="10.88" y2="21.94"></line></svg>
+            </div>
             <div>
               <h4 class="font-bold mb-2">8K High-Resolution</h4>
               <p class="text-muted text-sm">Upload multi-megapixel panoramas without quality loss. Every tile, fixture, and finish stays crystal clear.</p>
