@@ -1,104 +1,75 @@
 <template>
-  <div class="app-layout">
-    <aside class="app-sidebar">
+  <div class="app-shell">
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="isSidebarOpen" 
+      class="app-sidebar-backdrop" 
+      @click="isSidebarOpen = false"
+    ></div>
+
+    <aside :class="['app-sidebar', { 'app-sidebar--open': isSidebarOpen }]">
       <div class="sidebar-brand">
-        <NuxtLink to="/app/spaces" class="logo text-xl font-bold">Viewora</NuxtLink>
+        <NuxtLink to="/app/spaces" class="sidebar-logo">Viewora</NuxtLink>
+        <button class="sidebar-close-btn" @click="isSidebarOpen = false" aria-label="Close menu">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
+
       <nav class="sidebar-nav">
-        <NuxtLink to="/app/spaces" class="nav-item">Spaces</NuxtLink>
-        <NuxtLink to="/app/settings" class="nav-item">Settings</NuxtLink>
+        <NuxtLink to="/app/spaces" class="sidebar-link" active-class="sidebar-link--active" @click="isSidebarOpen = false">
+          Spaces
+        </NuxtLink>
+        <NuxtLink to="/app/settings" class="sidebar-link" active-class="sidebar-link--active" @click="isSidebarOpen = false">
+          Settings
+        </NuxtLink>
+        <NuxtLink to="/app/billing" class="sidebar-link" active-class="sidebar-link--active" @click="isSidebarOpen = false">
+          Billing
+        </NuxtLink>
       </nav>
+
       <div class="sidebar-footer">
-        <button @click="logout" class="nav-item text-red-500 w-full text-left">
-          Log Out
+        <div class="sidebar-user" v-if="user">
+          <div class="sidebar-avatar">{{ user.email?.charAt(0).toUpperCase() }}</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-email">{{ user.email }}</div>
+            <div class="sidebar-user-plan">Free Plan</div>
+          </div>
+        </div>
+        <button @click="logout" class="sidebar-signout">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+           Log Out
         </button>
       </div>
     </aside>
 
-    <main class="app-main">
-      <header class="app-header">
-        <div class="user-profile">
-          {{ user?.email }}
-        </div>
+    <div class="app-main-wrapper">
+      <header class="app-topbar">
+        <button class="app-topbar-menu" @click="isSidebarOpen = true" aria-label="Open menu">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <NuxtLink to="/app/spaces" class="app-topbar-logo">Viewora</NuxtLink>
       </header>
-      <div class="app-content">
+      
+      <main class="app-main">
         <slot />
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+
+const isSidebarOpen = ref(false)
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 
 const logout = async () => {
   await supabase.auth.signOut()
-  await navigateTo('/')
+  const router = useRouter()
+  router.push('/')
 }
 </script>
-
-<style scoped>
-.app-layout {
-  display: flex;
-  min-height: 100vh;
-  background-color: #f9fafb;
-}
-.app-sidebar {
-  width: 250px;
-  background-color: white;
-  border-right: 1px solid #e5e7eb;
-  display: flex;
-  flex-direction: column;
-}
-.sidebar-brand {
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-.sidebar-nav {
-  flex: 1;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.nav-item {
-  display: block;
-  padding: 0.75rem 1rem;
-  border-radius: 0.375rem;
-  color: #374151;
-  text-decoration: none;
-  transition: background-color 0.2s;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  font-size: 1rem;
-}
-.nav-item:hover, .router-link-active {
-  background-color: #f3f4f6;
-  color: #111827;
-}
-.sidebar-footer {
-  padding: 1rem;
-  border-top: 1px solid #e5e7eb;
-}
-.app-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.app-header {
-  height: 64px;
-  background-color: white;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 1.5rem;
-}
-.app-content {
-  padding: 1.5rem;
-  flex: 1;
-  overflow-y: auto;
-}
-</style>

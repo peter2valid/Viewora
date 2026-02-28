@@ -307,12 +307,16 @@ header.nav {
   font-weight: 600;
   font-family: var(--font-sans);
   font-size: 0.9rem;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   cursor: pointer;
   border: 1px solid transparent;
   outline: none;
   text-decoration: none;
   letter-spacing: -0.01em;
+}
+
+.btn:active {
+  transform: scale(0.96) !important;
 }
 
 /* Primary — accent fill */
@@ -328,8 +332,8 @@ header.nav {
   background-color: var(--primary-hover);
   color: var(--ink);
   opacity: 1;
-  box-shadow: 0 0 0 4px var(--accent-glow);
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 6px var(--accent-glow);
+  transform: translateY(-2px);
 }
 
 /* Secondary */
@@ -342,7 +346,8 @@ header.nav {
 
 .btn-secondary:hover {
   border-color: var(--border-sharp);
-  box-shadow: var(--shadow-float);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
   opacity: 1;
 }
 
@@ -368,7 +373,8 @@ header.nav {
 
 .btn-dark:hover {
   background-color: var(--ink-soft);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
   opacity: 1;
 }
 
@@ -509,13 +515,13 @@ header.nav {
   border: 1px solid var(--border);
   padding: 1.75rem;
   box-shadow: var(--shadow-float);
-  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   animation: fade-up 0.6s ease both;
 }
 
 .card:hover {
   box-shadow: var(--shadow-lift);
-  transform: translateY(-4px);
+  transform: translateY(-6px);
   border-color: var(--border-sharp);
 }
 
@@ -698,6 +704,11 @@ header.nav {
   border: none;
   color: var(--ink);
   cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.mobile-menu-btn:active {
+  transform: scale(0.9);
 }
 
 @media (max-width: 768px) {
@@ -933,7 +944,9 @@ header.nav {
   line-height: 0;
 }
 
-.app-topbar-menu:hover { color: var(--paper); }
+.app-topbar-menu:hover {
+  color: var(--paper);
+}
 
 .app-topbar-logo {
   font-family: var(--font-display);
@@ -1001,12 +1014,13 @@ header.nav {
   box-shadow: var(--shadow-float);
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .space-card:hover {
   box-shadow: var(--shadow-lift);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  border-color: var(--border-sharp);
 }
 
 .space-card-accent {
@@ -1090,13 +1104,29 @@ header.nav {
   margin-bottom: 0.75rem;
 }
 
-.skeleton-line--title  { height: 18px; width: 70%; }
-.skeleton-line--meta   { height: 13px; width: 45%; }
-.skeleton-line--badge  { height: 13px; width: 30%; }
+.skeleton-line--title {
+  height: 18px;
+  width: 70%;
+}
+
+.skeleton-line--meta {
+  height: 13px;
+  width: 45%;
+}
+
+.skeleton-line--badge {
+  height: 13px;
+  width: 30%;
+}
 
 @keyframes skeleton-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ── Empty / error state box ── */
@@ -1167,7 +1197,7 @@ header.nav {
   background: var(--paper);
   border-radius: 0.875rem;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-lift), 0 0 0 1px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-lift), 0 0 0 1px rgba(0, 0, 0, 0.04);
   width: 100%;
   max-width: 480px;
   overflow: hidden;
@@ -1269,7 +1299,7 @@ header.nav {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(0,0,0,0.2);
+  border: 2px solid rgba(0, 0, 0, 0.2);
   border-top-color: var(--ink);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
@@ -1278,7 +1308,9 @@ header.nav {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Confirm page spinner ── */
@@ -1388,7 +1420,7 @@ header.nav {
   .app-sidebar-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.4);
+    background: rgba(0, 0, 0, 0.4);
     z-index: 199;
   }
 
@@ -1861,7 +1893,7 @@ header.nav {
   padding: 0.375rem 0.875rem;
   border-radius: 99px;
   backdrop-filter: blur(4px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ── Marzipano hotspot DOM elements ── */
@@ -1883,14 +1915,14 @@ header.nav {
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(8px);
-  border: 2px solid rgba(255,255,255,0.25);
+  border: 2px solid rgba(255, 255, 255, 0.25);
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
 .mz-hotspot:hover .mz-hotspot-icon {
   transform: scale(1.1);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .mz-hotspot--nav .mz-hotspot-icon {
@@ -1907,12 +1939,12 @@ header.nav {
   font-size: 0.7rem;
   font-weight: 600;
   color: #fff;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   padding: 2px 8px;
   border-radius: 99px;
   white-space: nowrap;
   backdrop-filter: blur(4px);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Hotspot picker modal ── */
@@ -1993,7 +2025,7 @@ header.nav {
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(0,0,0,0.2);
+  border: 2px solid rgba(0, 0, 0, 0.2);
   border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
