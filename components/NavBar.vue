@@ -20,7 +20,7 @@
         </template>
         <!-- Logged In View -->
         <template v-else>
-          <NuxtLink to="/" class="nav-link">Dashboard</NuxtLink>
+          <NuxtLink to="/app/spaces" class="nav-link">Dashboard</NuxtLink>
           <button @click="signOut" class="btn btn-outline" style="padding: 0.5rem 1rem;">Log Out</button>
         </template>
       </div>
@@ -45,7 +45,7 @@
           <NuxtLink to="/register" class="btn btn-dark btn-block" @click="isMobileMenuOpen = false">Start Free</NuxtLink>
         </template>
         <template v-else>
-          <NuxtLink to="/" class="nav-link font-bold text-primary" @click="isMobileMenuOpen = false">Dashboard</NuxtLink>
+          <NuxtLink to="/app/spaces" class="nav-link font-bold text-primary" @click="isMobileMenuOpen = false">Dashboard</NuxtLink>
           <button @click="signOut(); isMobileMenuOpen = false" class="btn btn-outline btn-block text-center">Log Out</button>
         </template>
       </div>
@@ -63,6 +63,6 @@ const user = useSupabaseUser()
 const signOut = async () => {
   await supabase.auth.signOut()
   const router = useRouter()
-  router.push('/login')
+  router.push('/')
 }
 </script>

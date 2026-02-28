@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@nuxtjs/supabase": "^2.0.4",
+    "marzipano": "^0.10.2",
     "nuxt": "^3.10.0"
   },
   "devDependencies": {

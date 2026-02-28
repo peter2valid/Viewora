@@ -56,6 +56,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+definePageMeta({
+  middleware: 'guest'
+})
+
 const supabase = useSupabaseClient()
 const email = ref('')
 const password = ref('')
@@ -71,11 +75,10 @@ const signIn = async () => {
       email: email.value,
       password: password.value,
     })
-    
+
     if (error) throw error
-    
-    const router = useRouter()
-    router.push('/')
+
+    await navigateTo('/app/spaces')
   } catch (err: any) {
     errorMsg.value = err.message || 'An error occurred during log in.'
   } finally {

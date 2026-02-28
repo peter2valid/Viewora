@@ -7,12 +7,13 @@ export default defineNuxtConfig({
   modules: ['@nuxt/image', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@nuxt/content', '@nuxtjs/supabase'],
 
   supabase: {
-    url: process.env.SUPABASE_URL,
     key: process.env.SUPABASE_KEY,
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
-      exclude: ['/', '/about', '/pricing', '/product', '/contact', '/blog', '/blog/*', '/register'] // Public routes
+      include: ['/app(/*)?'],
+      exclude: [],
+      cookieRedirect: false,
     }
   },
 
@@ -39,8 +40,21 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // Marketing pages — prerendered for SEO and performance
     '/': { prerender: true },
-    '/**': { prerender: true }
+    '/about': { prerender: true },
+    '/pricing': { prerender: true },
+    '/product': { prerender: true },
+    '/contact': { prerender: true },
+    '/register': { prerender: true },
+    '/login': { prerender: true },
+    '/confirm': { prerender: true },
+    '/blog/**': { prerender: true },
+    '/legal/**': { prerender: true },
+    // Public tours — client-side rendering
+    '/tours/**': { ssr: false },
+    // App dashboard — client-side only (user-specific, auth-protected)
+    '/app/**': { ssr: false },
   },
 
   nitro: {
@@ -57,6 +71,9 @@ export default defineNuxtConfig({
   vite: {
     build: {
       sourcemap: false
+    },
+    optimizeDeps: {
+      include: ['marzipano']
     }
   },
 

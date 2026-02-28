@@ -69,6 +69,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+definePageMeta({
+  middleware: 'guest'
+})
+
 const supabase = useSupabaseClient()
 const fullName = ref('')
 const email = ref('')
