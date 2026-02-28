@@ -20,6 +20,7 @@ export const useSpaces = () => {
 
   const fetchSpaces = async () => {
     if (!user.value) return
+    console.log('[DEBUG] user.value inside useSpaces:', user.value)
     pending.value = true
     error.value = null
     try {
