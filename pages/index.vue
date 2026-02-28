@@ -85,8 +85,8 @@
               <img src="/images/home/hardware-setup.png" loading="lazy" alt="Photography Hardware" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));" />
             </div>
             <div style="background: var(--bg-surface-alt); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: bold; color: var(--primary);">1</div>
-            <h3 class="mb-4">Upload Panoramas</h3>
-            <p class="text-muted">Take 360° photos using any compatible camera and upload them directly to your Viewora dashboard.</p>
+            <h3 class="mb-4">Capture</h3>
+            <p class="text-muted" style="line-height: 1.5;">Use any 360º camera, video<br>or the Viewora mobile app</p>
           </div>
           <div class="card text-center">
             <div style="background: var(--paper-dim); padding: 1.25rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); height: 180px; display: flex; align-items: center; justify-content: center;">
