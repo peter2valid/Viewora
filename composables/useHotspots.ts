@@ -34,20 +34,6 @@ export const useHotspots = () => {
     }
   }
 
-  const fetchAllHotspotsForSpace = async (spaceId: string) => {
-    pending.value = true
-    error.value = null
-    try {
-      // Need a join here if possible, but let's query all scenes first then hotspots
-      // Alternatively, we can use the RLS public policy and just select in a loop or `in`
-      // For now, let's keep it simple: the user can query scenes, and we fetch hotspots per scene or just load all scenes and their hotspots
-    } catch (err: any) {
-      error.value = err.message
-    } finally {
-      pending.value = false
-    }
-  }
-
   const createHotspot = async (sceneId: string, yaw: number, pitch: number, type = 'info', payload = {}) => {
     pending.value = true
     error.value = null

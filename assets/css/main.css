@@ -1456,6 +1456,403 @@ header.nav {
 }
 
 /* ============================================================
+   SPACES — STATS BAR, TOOLBAR, CARDS V2, EMPTY STATE, TOAST
+   ============================================================ */
+
+/* ── Stats bar ── */
+.spaces-stats {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  width: fit-content;
+}
+
+.spaces-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 3rem;
+  text-align: center;
+}
+
+.spaces-stat-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.spaces-stat-value--live {
+  color: var(--accent);
+}
+
+.spaces-stat-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--slate-light);
+}
+
+.spaces-stat-divider {
+  width: 1px;
+  height: 2rem;
+  background: var(--border);
+}
+
+/* ── Toolbar (search + sort) ── */
+.spaces-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 1.5rem;
+}
+
+.spaces-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 360px;
+}
+
+.spaces-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--slate-light);
+  pointer-events: none;
+}
+
+.spaces-search-input {
+  width: 100%;
+  padding: 0.5rem 2.25rem 0.5rem 2.25rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spaces-search-input::placeholder {
+  color: var(--slate-light);
+}
+
+.spaces-search-input:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.06);
+}
+
+.spaces-search-clear {
+  position: absolute;
+  right: 0.625rem;
+  background: none;
+  border: none;
+  color: var(--slate-light);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.125rem;
+  border-radius: 50%;
+  transition: color 0.15s ease;
+}
+
+.spaces-search-clear:hover {
+  color: var(--ink);
+}
+
+.spaces-sort {
+  padding: 0.5rem 0.75rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--ink);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  padding-right: 2rem;
+}
+
+.spaces-sort:focus {
+  border-color: var(--ink);
+}
+
+/* ── Card accent variants ── */
+.space-card-accent--live {
+  background: linear-gradient(135deg, var(--accent) 0%, #00b86c 100%) !important;
+}
+
+/* ── Status pill ── */
+.space-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
+}
+
+.space-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 99px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.space-status-pill--live {
+  background: rgba(0, 220, 130, 0.12);
+  color: #008a50;
+}
+
+.space-status-pill--draft {
+  background: var(--border);
+  color: var(--slate);
+}
+
+.space-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Quick publish toggle ── */
+.space-toggle-btn {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  letter-spacing: 0.02em;
+}
+
+.space-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.space-toggle-btn--publish {
+  background: var(--accent-dim);
+  color: #008a50;
+  border-color: rgba(0, 220, 130, 0.3);
+}
+
+.space-toggle-btn--publish:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.space-toggle-btn--unpublish {
+  background: transparent;
+  color: var(--slate);
+  border-color: var(--border);
+}
+
+.space-toggle-btn--unpublish:hover:not(:disabled) {
+  background: #fff5f5;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+/* ── Card delete button (icon-only ghost) ── */
+.space-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--slate-light);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.space-delete-btn:hover {
+  background: #fff5f5;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+/* ── Fancy empty state ── */
+.spaces-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 4rem 2rem;
+  border: 1.5px dashed var(--border);
+  border-radius: 0.875rem;
+  background: var(--paper);
+  gap: 1rem;
+}
+
+.spaces-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--paper-alt);
+  border: 1px solid var(--border);
+  color: var(--border-sharp);
+  margin-bottom: 0.25rem;
+}
+
+.spaces-empty-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.spaces-empty-desc {
+  font-size: 0.875rem;
+  color: var(--slate);
+  max-width: 360px;
+  line-height: 1.6;
+}
+
+.spaces-empty-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0.25rem 0;
+}
+
+.spaces-empty-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--slate);
+  font-weight: 500;
+}
+
+.spaces-empty-step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.spaces-empty-step-arrow {
+  font-size: 0.75rem;
+  color: var(--border-sharp);
+}
+
+/* ── Toast notification ── */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-lift);
+  z-index: 9999;
+  max-width: 320px;
+  pointer-events: none;
+}
+
+.toast--success {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.toast--error {
+  background: #1c0808;
+  color: #fca5a5;
+}
+
+/* ── Vue Transition: modal ── */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active .modal-card,
+.modal-leave-active .modal-card {
+  transition: transform 0.18s ease;
+}
+
+.modal-enter-from .modal-card {
+  transform: scale(0.96) translateY(10px);
+}
+
+.modal-leave-to .modal-card {
+  transform: scale(0.96) translateY(10px);
+}
+
+/* ── Vue Transition: toast ── */
+.toast-enter-active {
+  animation: toast-slide-in 0.22s ease both;
+}
+
+.toast-leave-active {
+  animation: toast-slide-in 0.18s ease reverse both;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Card enter animation ── */
+.space-card {
+  animation: fade-up 0.25s ease both;
+}
+
+/* ============================================================
    TOUR EDITOR
    ============================================================ */
 
@@ -1473,7 +1870,7 @@ header.nav {
 .editor-grid {
   display: grid;
   grid-template-rows: 52px 1fr;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px 1fr 280px;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -1832,6 +2229,19 @@ header.nav {
 .scene-delete-btn:hover {
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
+}
+
+
+/* ── Inspector panel (right) ── */
+.editor-inspector-panel {
+  grid-column: 3;
+  grid-row: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #111;
+  border-left: 1px solid #1f1f1f;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Viewer area ── */

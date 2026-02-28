@@ -85,6 +85,76 @@ export const useSpaces = () => {
     }
   }
 
+  const renameSpace = async (id: string, title: string) => {
+    pending.value = true
+    error.value = null
+    try {
+      const { data, error: err } = await supabase
+        .from('spaces')
+        .update({ title })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (err) throw err
+      const idx = spaces.value.findIndex(s => s.id === id)
+      if (idx !== -1) spaces.value[idx] = data
+      if (currentSpace.value?.id === id) currentSpace.value = data
+      return data
+    } catch (err: any) {
+      error.value = err.message
+      return null
+    } finally {
+      pending.value = false
+    }
+  }
+
+  const deleteSpace = async (id: string) => {
+    pending.value = true
+    error.value = null
+    try {
+      const { error: err } = await supabase
+        .from('spaces')
+        .delete()
+        .eq('id', id)
+
+      if (err) throw err
+      spaces.value = spaces.value.filter(s => s.id !== id)
+    } catch (err: any) {
+      error.value = err.message
+    } finally {
+      pending.value = false
+    }
+  }
+
+  const togglePublish = async (space: Space) => {
+    pending.value = true
+    error.value = null
+    try {
+      const updates: Partial<Space> = { is_published: !space.is_published }
+      if (!space.is_published && !space.slug) {
+        const base = space.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        updates.slug = `${base}-${Math.random().toString(36).substring(2, 7)}`
+      }
+      const { data, error: err } = await supabase
+        .from('spaces')
+        .update(updates)
+        .eq('id', space.id)
+        .select()
+        .single()
+      if (err) throw err
+      const idx = spaces.value.findIndex(s => s.id === space.id)
+      if (idx !== -1) spaces.value[idx] = data
+      if (currentSpace.value?.id === space.id) currentSpace.value = data
+      return data
+    } catch (err: any) {
+      error.value = err.message
+      return null
+    } finally {
+      pending.value = false
+    }
+  }
+
   const publishSpace = async (id: string, slug: string) => {
     pending.value = true
     error.value = null
@@ -117,6 +187,9 @@ export const useSpaces = () => {
     fetchSpaces,
     fetchSpace,
     createSpace,
+    renameSpace,
+    deleteSpace,
+    togglePublish,
     publishSpace
   }
 }

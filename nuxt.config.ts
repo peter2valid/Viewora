@@ -11,7 +11,7 @@ export default defineNuxtConfig({
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
-      include: ['/app(/*)?'],
+      include: ['/app/**'],
       exclude: [],
       cookieRedirect: false,
     }
@@ -48,7 +48,7 @@ export default defineNuxtConfig({
     '/contact': { prerender: true },
     '/register': { prerender: true },
     '/login': { prerender: true },
-    '/confirm': { prerender: true },
+    '/confirm': { ssr: false },
     '/blog/**': { prerender: true },
     '/legal/**': { prerender: true },
     // Public tours — client-side rendering

@@ -22,14 +22,31 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import type { Database } from '~/types/database.types'
 
-type Scene = Database['public']['Tables']['scenes']['Row']
-type Hotspot = Database['public']['Tables']['hotspots']['Row']
+// Local viewer-compatible scene/hotspot interfaces
+// (editor page maps the DB schema to these before passing as props)
+export interface ViewerScene {
+  id: string
+  panorama_url: string | null
+  initial_yaw: number
+  initial_pitch: number
+  initial_fov: number
+  name: string
+}
+
+export interface ViewerHotspot {
+  id: string
+  scene_id: string
+  yaw: number
+  pitch: number
+  type: string
+  target_scene_id: string | null
+  label: string
+}
 
 const props = defineProps<{
-  scenes: Scene[]
-  hotspots: Hotspot[]
+  scenes: ViewerScene[]
+  hotspots: ViewerHotspot[]
   activeSceneId: string | null
   addHotspotMode: boolean
 }>()
@@ -52,8 +69,6 @@ const hasActivePanorama = computed(() => {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  // Marzipano uses document/canvas APIs, must run client-side only.
-  // Since /app/** is ssr: false, this is guaranteed to be client-side.
   const mod = await import('marzipano')
   MarzipanoLib = (mod as any).default ?? mod
 
@@ -61,7 +76,6 @@ onMounted(async () => {
     controls: { mouseViewMode: 'drag' },
   })
 
-  // Add all scenes that already have panoramas
   for (const scene of props.scenes) {
     if (scene.panorama_url) {
       addMarzipanoScene(scene)
@@ -70,7 +84,6 @@ onMounted(async () => {
 
   syncHotspots()
 
-  // Switch to active scene if set
   if (props.activeSceneId) {
     switchToScene(props.activeSceneId)
   }
@@ -84,7 +97,6 @@ onBeforeUnmount(() => {
 
 // ── Watchers ──────────────────────────────────────────────────────────────────
 
-// New scenes uploaded → add to viewer
 watch(
   () => props.scenes,
   (scenes) => {
@@ -98,17 +110,15 @@ watch(
   { deep: true }
 )
 
-// Active scene changed → switch viewer
 watch(() => props.activeSceneId, (id) => {
   if (id) switchToScene(id)
 })
 
-// Hotspots changed → re-render
 watch(() => props.hotspots, () => { syncHotspots() }, { deep: true })
 
 // ── Marzipano helpers ────────────────────────────────────────────────────────
 
-function addMarzipanoScene(scene: Scene) {
+function addMarzipanoScene(scene: ViewerScene) {
   if (!viewer || !MarzipanoLib || !scene.panorama_url) return
 
   const source = MarzipanoLib.ImageUrlSource.fromString(scene.panorama_url)
@@ -139,14 +149,12 @@ function switchToScene(sceneId: string) {
 function syncHotspots() {
   if (!viewer || !MarzipanoLib) return
 
-  // Clear all existing hotspots from every scene
   for (const mScene of mSceneMap.values()) {
     const container = mScene.hotspotContainer()
     const existing = container.listHotspots()
     for (const h of existing) container.destroyHotspot(h)
   }
 
-  // Re-inject current hotspots
   for (const hotspot of props.hotspots) {
     const mScene = mSceneMap.get(hotspot.scene_id)
     if (!mScene) continue
@@ -157,7 +165,7 @@ function syncHotspots() {
   }
 }
 
-function buildHotspotEl(hotspot: Hotspot): HTMLElement {
+function buildHotspotEl(hotspot: ViewerHotspot): HTMLElement {
   const el = document.createElement('div')
   el.className = 'mz-hotspot'
 
@@ -222,8 +230,6 @@ function handleClick(e: MouseEvent) {
   emit('hotspot-placed', { yaw: coords.yaw, pitch: coords.pitch })
 }
 
-// Attach/detach click handler depending on addHotspotMode to avoid
-// conflicting with Marzipano's own drag controls.
 watch(() => props.addHotspotMode, (active) => {
   if (!viewerEl.value) return
   if (active) {
