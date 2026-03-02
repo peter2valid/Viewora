@@ -4,13 +4,13 @@
     <div class="editor-topbar" style="justify-content: space-between;">
       <div class="editor-tour-title">
         <span class="editor-tour-title-text" style="font-size: 1rem; font-weight: 700;">
-          {{ tour?.title ?? 'Loading Tour...' }}
+          {{ space?.title ?? 'Loading…' }}
         </span>
       </div>
 
       <div>
-        <NuxtLink v-if="user" :to="`/app/tours/${tourId}/edit`" class="editor-action-btn editor-action-btn--secondary" style="text-decoration: none;">
-          Edit Tour
+        <NuxtLink v-if="user" :to="`/app/spaces/${spaceId}/editor`" class="editor-action-btn editor-action-btn--secondary" style="text-decoration: none;">
+          Edit
         </NuxtLink>
         <div v-else style="display: flex; align-items: center; gap: 0.75rem;">
           <span style="color: #9ca3af; font-size: 0.8rem;">Powered by</span>
@@ -19,7 +19,7 @@
       </div>
     </div>
 
-    <!-- Viewer Area (Full Screen) -->
+    <!-- Error -->
     <div v-if="errorMsg" class="marzipano-placeholder">
       <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24"
         fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -30,21 +30,26 @@
       <p style="color: #ef4444;">{{ errorMsg }}</p>
       <NuxtLink to="/" class="btn btn-primary" style="margin-top: 1rem;">Go Home</NuxtLink>
     </div>
-    
+
+    <!-- Loading -->
     <div v-else-if="pending" class="marzipano-placeholder">
       <div class="confirm-spinner" style="border-top-color: var(--accent);"></div>
       <p>Loading 360° Experience...</p>
     </div>
 
+    <!-- Viewer -->
     <div v-else class="editor-viewer-area" style="grid-column: 1 / -1; grid-row: 2; height: calc(100vh - 52px);">
-      <EditorMarzipanoViewer
-        :scenes="scenes"
-        :hotspots="hotspots"
-        :active-scene-id="activeSceneId"
-        :add-hotspot-mode="false"
-        @hotspot-navigate="setActiveScene"
-      />
-      
+      <ClientOnly>
+        <EditorMarzipanoViewer
+          :scenes="marzipanoScenes"
+          :hotspots="[]"
+          :active-scene-id="activeSceneId"
+          :add-hotspot-mode="false"
+          @hotspot-navigate="setActiveScene"
+          style="width: 100%; height: 100%;"
+        />
+      </ClientOnly>
+
       <!-- Scene selector (bottom overlay) -->
       <div v-if="scenes.length > 1" class="tour-scene-selector">
         <button
@@ -55,7 +60,6 @@
           @click="setActiveScene(scene.id)"
           :title="scene.name"
         >
-          <img v-if="scene.panorama_url" :src="scene.panorama_url" :alt="scene.name" loading="lazy" />
           <div class="tour-scene-label">{{ scene.name }}</div>
         </button>
       </div>
@@ -64,89 +68,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import type { Database } from '~/types/database.types'
-
-type Tour = Database['public']['Tables']['virtual_tours']['Row']
-type Scene = Database['public']['Tables']['scenes']['Row']
-type Hotspot = Database['public']['Tables']['hotspots']['Row']
+import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
-  layout: false, // Don't use default layout, we use our own full-screen shell
+  layout: false,
 })
 
 const route = useRoute()
-const tourId = route.params.id as string
+const spaceId = route.params.id as string
 
-const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
 
-const tour = ref<Tour | null>(null)
-const scenes = ref<Scene[]>([])
-const hotspots = ref<Hotspot[]>([])
-const activeSceneId = ref<string | null>(null)
+const { currentSpace: space, fetchSpace } = useSpaces()
+const { scenes, fetchScenes } = useScenes()
 
+const activeSceneId = ref<string | null>(null)
 const pending = ref(true)
 const errorMsg = ref('')
 
+// Map scenes for MarzipanoViewer (needs panorama_url)
+const marzipanoScenes = computed(() =>
+  scenes.value.map(s => ({
+    id: s.id,
+    name: s.name,
+    panorama_url: null, // Public viewer — panorama URLs fetched separately if needed
+  }))
+)
+
 onMounted(async () => {
   try {
-    // 1. Fetch tour
-    const { data: tourData, error: tourErr } = await supabase
-      .from('virtual_tours')
-      .select('*')
-      .eq('id', tourId)
-      .single()
+    // Load space (checks is_published via the public policy)
+    await fetchSpace(spaceId)
+    if (!space.value) throw new Error('Tour not found or not published.')
 
-    if (tourErr || !tourData) throw new Error('Tour not found.')
-    
-    // Auth check: if draft, only owner can view
-    if (tourData.status !== 'published') {
-      // Must check if user owns the property this tour belongs to
-      if (!user.value) throw new Error('This tour is not published yet.')
-      
-      const { data: propData } = await supabase
-        .from('properties')
-        .select('user_id')
-        .eq('id', tourData.property_id)
-        .single()
-        
-      if (propData?.user_id !== ((user.value as any).id || (user.value as any).sub)) {
-        throw new Error('This tour is not published yet.')
-      }
-    }
-    
-    tour.value = tourData
-    useSeoMeta({ title: `${tour.value.title} | Viewora 360° Tour` })
+    useSeoMeta({ title: `${space.value.title} | Viewora 360° Tour` })
 
-    // 2. Fetch scenes
-    const { data: scenesData, error: scenesErr } = await supabase
-      .from('scenes')
-      .select('*')
-      .eq('tour_id', tourId)
-      .order('sort_order', { ascending: true })
-
-    if (scenesErr) throw scenesErr
-    scenes.value = scenesData ?? []
+    // Load scenes
+    await fetchScenes(spaceId)
 
     if (scenes.value.length > 0) {
       activeSceneId.value = scenes.value[0].id
     } else {
       throw new Error('This tour has no scenes yet.')
     }
-
-    // 3. Fetch hotspots
-    const sceneIds = scenes.value.map(s => s.id)
-    if (sceneIds.length > 0) {
-      const { data: hotspotsData, error: hotspotsErr } = await supabase
-        .from('hotspots')
-        .select('*')
-        .in('scene_id', sceneIds)
-
-      if (hotspotsErr) throw hotspotsErr
-      hotspots.value = hotspotsData ?? []
-    }
-
   } catch (e: any) {
     errorMsg.value = e.message || 'An error occurred loading the tour.'
   } finally {
@@ -177,15 +141,6 @@ function setActiveScene(sceneId: string) {
   z-index: 20;
 }
 
-.tour-scene-selector::-webkit-scrollbar {
-  height: 6px;
-}
-
-.tour-scene-selector::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-}
-
 .tour-scene-thumb {
   position: relative;
   width: 80px;
@@ -209,19 +164,6 @@ function setActiveScene(sceneId: string) {
   border-color: var(--accent);
 }
 
-.tour-scene-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.8;
-  transition: opacity 0.2s;
-}
-
-.tour-scene-thumb:hover img,
-.tour-scene-thumb--active img {
-  opacity: 1;
-}
-
 .tour-scene-label {
   position: absolute;
   bottom: 0;
@@ -236,6 +178,5 @@ function setActiveScene(sceneId: string) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
 </style>

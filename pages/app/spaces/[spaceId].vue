@@ -11,9 +11,9 @@
           All Spaces
         </NuxtLink>
         <h1 class="app-page-title" style="margin-top: 0.5rem;">
-          {{ space?.name ?? '…' }}
+          {{ currentSpace?.title ?? '…' }}
         </h1>
-        <p class="app-page-subtitle">{{ typeLabel(space?.property_type) }}</p>
+        <p class="app-page-subtitle">Virtual Tour Space</p>
       </div>
       <button class="btn btn-primary" @click="showCreateModal = true">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -132,24 +132,11 @@ const spaceId = route.params.spaceId as string
 useSeoMeta({ title: 'Tours | Viewora' })
 
 // ── Space details ────────────────────────────────────────────────────────────
-const supabase = useSupabaseClient()
-
-interface SpaceRow {
-  id: string
-  name: string
-  property_type: string
-}
-
-const space = ref<SpaceRow | null>(null)
+// ── Space ─────────────────────────────────────────────────────────────────────
+const { currentSpace, fetchSpace } = useSpaces()
 
 async function loadSpace() {
-  const { data } = await supabase
-    .from('properties')
-    .select('id, name, property_type')
-    .eq('id', spaceId)
-    .single()
-
-  if (data) space.value = data
+  await fetchSpace(spaceId)
 }
 
 // ── Tours ────────────────────────────────────────────────────────────────────
