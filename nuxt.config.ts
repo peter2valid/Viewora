@@ -31,17 +31,17 @@ export default defineNuxtConfig({
 
   googleFonts: {
     families: {
-      Inter: [300, 400, 500, 600, 700, 800, 900],
-      Outfit: [400, 500, 600, 700, 800],
-      'JetBrains+Mono': [400, 500, 600]
+      Inter: [400, 500, 600, 700],
+      Outfit: [600, 700],
     },
     display: 'swap',
     prefetch: true,
-    preconnect: true
+    preconnect: true,
+    download: true,
   },
 
   routeRules: {
-    // Marketing pages — prerendered for SEO and performance
+    // Marketing pages — prerendered as static HTML
     '/': { prerender: true },
     '/about': { prerender: true },
     '/pricing': { prerender: true },
@@ -49,13 +49,17 @@ export default defineNuxtConfig({
     '/contact': { prerender: true },
     '/register': { prerender: true },
     '/login': { prerender: true },
+    '/reset-password': { prerender: true },
     '/confirm': { ssr: false },
     '/blog/**': { prerender: true },
     '/legal/**': { prerender: true },
-    // Public tours — client-side rendering
+    // Public tours — client-side (pulls from Supabase, no auth)
     '/tours/**': { ssr: false },
-    // App dashboard — client-side only (user-specific, auth-protected)
-    '/app/**': { ssr: false },
+    // App dashboard — client-side only (auth-protected, user-specific)
+    '/app/**': { ssr: false, headers: { 'Cache-Control': 'no-store' } },
+    // API routes — short cache + stale-while-revalidate
+    '/api/spaces': { headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' } },
+    '/api/spaces/**': { headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' } },
   },
 
   nitro: {
@@ -65,16 +69,26 @@ export default defineNuxtConfig({
   },
 
   experimental: {
-    payloadExtraction: false
+    payloadExtraction: true,
+    renderJsonPayloads: true,
   },
 
   vite: {
     build: {
-      sourcemap: false
+      sourcemap: false,
+      // Split large vendor chunks for better caching
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-marzipano': ['marzipano'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+          },
+        },
+      },
     },
     optimizeDeps: {
-      include: ['marzipano']
-    }
+      include: ['marzipano'],
+    },
   },
 
   app: {
@@ -85,7 +99,12 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'description', content: 'Create, host, and share interactive 360° virtual tours in minutes. The ultimate immersive showcase platform for real estate, hospitality, automotive, and retail spaces.' },
       ],
-      link: []
-    }
-  }
+      link: [
+        // DNS prefetch for external services
+        { rel: 'dns-prefetch', href: 'https://fonts.googleapis.com' },
+        { rel: 'dns-prefetch', href: process.env.SUPABASE_URL || '' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+      ],
+    },
+  },
 })

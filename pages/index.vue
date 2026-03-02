@@ -38,9 +38,21 @@
               </div>
               <div style="width: 45px;"></div>
             </div>
-            <!-- Iframe -->
-            <div style="flex: 1; width: 100%; height: 100%; position: relative;">
-              <iframe src="https://www.marzipano.net/demos/sample-tour/" style="width: 100%; height: 100%; border: none;" allowfullscreen title="Sample 360 Virtual Tour" loading="lazy"></iframe>
+            <!-- Deferred iframe: only loads after user clicks -->
+            <div style="flex: 1; width: 100%; height: 100%; position: relative; cursor: pointer;" @click="showDemo = true">
+              <iframe
+                v-if="showDemo"
+                src="https://www.marzipano.net/demos/sample-tour/"
+                style="width: 100%; height: 100%; border: none;"
+                allowfullscreen
+                title="Sample 360 Virtual Tour"
+              ></iframe>
+              <div v-else style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+                <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.15); transition: transform 0.2s;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </div>
+                <p style="color: rgba(255,255,255,0.7); font-size: 0.85rem; letter-spacing: 0.04em; font-family: var(--font-mono);">Click to launch 360° demo</p>
+              </div>
             </div>
           </div>
         </div>
@@ -295,8 +307,19 @@ useSeoMeta({
   description: 'Create, host, and share interactive 360° virtual tours for real estate, hotels, car dealerships, and retail spaces in minutes.'
 })
 
-const user = useSupabaseUser()
-watch(user, (u) => {
-  if (u) navigateTo('/app/spaces')
-}, { immediate: true })
+// Defer demo iframe load until user clicks — prevents iframe from blocking LCP
+const showDemo = ref(false)
+
+// Auth redirect: run client-side only, doesn't block SSR page paint
+onMounted(() => {
+  const user = useSupabaseUser()
+  if (user.value) {
+    navigateTo('/app/spaces')
+    return
+  }
+  // Watch for lazy auth resolve
+  const unwatch = watch(user, (u) => {
+    if (u) { unwatch(); navigateTo('/app/spaces') }
+  })
+})
 </script>

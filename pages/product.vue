@@ -13,7 +13,7 @@
       <div class="container">
         <!-- Step 1 -->
         <div class="grid-2 mb-12" style="align-items: center;">
-          <div style="order: 1;" :style="{ order: isDesktop ? 1 : 2 }">
+          <div class="product-text-col">
             <h2 class="mb-4" style="font-size: 2rem;">1. Upload 360° Panoramas</h2>
             <p class="text-muted text-lg">
               Take photos with any 360° camera (Insta360, Ricoh Theta, GoPro MAX) or even a smartphone panorama app. 
@@ -21,7 +21,7 @@
               to ensure fast loading times on any device.
             </p>
           </div>
-          <div style="order: 2;" :style="{ order: isDesktop ? 2 : 1 }">
+          <div class="product-img-col">
             <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 250px;">
               <img src="/images/home/hardware-setup.png" loading="lazy" alt="Upload Panoramas" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
             </div>
@@ -46,14 +46,14 @@
 
         <!-- Step 3 -->
         <div class="grid-2 mb-12" style="align-items: center;">
-          <div style="order: 1;" :style="{ order: isDesktop ? 1 : 2 }">
+          <div class="product-text-col">
             <h2 class="mb-4" style="font-size: 2rem;">3. Publish Virtual Tour</h2>
             <p class="text-muted text-lg">
               Once your connections are set, click "Publish". Viewora instantly generates an optimized version of your tour. 
               The tour is hosted on our secure, lightning-fast servers, so you don't need to worry about hosting or bandwidth.
             </p>
           </div>
-          <div style="order: 2;" :style="{ order: isDesktop ? 2 : 1 }">
+          <div class="product-img-col">
             <div style="background: var(--paper-dim); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 250px;">
               <img src="/images/home/tiny-planet-vr.png" loading="lazy" alt="Publish Virtual Tour" style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 0.25rem; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));" />
             </div>
@@ -89,20 +89,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-
-const isDesktop = ref(true);
-
-onMounted(() => {
-  const checkWidth = () => {
-    isDesktop.value = window.innerWidth >= 768;
-  };
-  checkWidth();
-  window.addEventListener('resize', checkWidth);
-});
-
 useSeoMeta({
   title: 'How Viewora Works | Immersive 360° Space Showcase Software',
   description: 'See how easy it is to upload panoramas, connect rooms, and publish stunning interactive 360° tours for any space without any coding skills.'
 })
 </script>
+
+<style scoped>
+/* On mobile, text should appear before image */
+@media (max-width: 767px) {
+  .product-text-col { order: 1 !important; }
+  .product-img-col  { order: 2 !important; }
+}
+</style>
