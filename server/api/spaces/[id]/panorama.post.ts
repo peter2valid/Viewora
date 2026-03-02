@@ -2,9 +2,9 @@
  * POST /api/spaces/:id/panorama
  * Body: { key: string }
  * Attaches an already-uploaded R2 key to a space.
- * Call this after the browser has finished the presigned PUT upload.
  */
 import { requireUser } from '~/server/utils/auth'
+import { serverDb } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -15,22 +15,27 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'key is required' })
   }
 
-  const db = (event.context as any).cloudflare.env.DB
+  const db = serverDb()
 
-  const existing = await db
-    .prepare('SELECT id FROM spaces WHERE id = ? AND owner_id = ?')
-    .bind(id, user.id)
-    .first()
+  const { data: existing } = await db
+    .from('spaces')
+    .select('id')
+    .eq('id', id)
+    .eq('owner_id', user.id)
+    .single()
 
   if (!existing) {
     throw createError({ statusCode: 404, statusMessage: 'Space not found' })
   }
 
-  await db
-    .prepare('UPDATE spaces SET panorama_key = ? WHERE id = ?')
-    .bind(body.key, id)
-    .run()
+  const { data, error } = await db
+    .from('spaces')
+    .update({ panorama_key: body.key })
+    .eq('id', id)
+    .select()
+    .single()
 
-  const updated = await db.prepare('SELECT * FROM spaces WHERE id = ?').bind(id).first()
-  return { ...updated, is_published: Boolean(updated.is_published) }
+  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+
+  return data
 })

@@ -4,18 +4,21 @@
  */
 import { requireUser } from '~/server/utils/auth'
 import { generateGetUrl } from '~/server/utils/r2'
+import { serverDb } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')
-  const db = (event.context as any).cloudflare.env.DB
+  const db = serverDb()
 
-  const space = await db
-    .prepare('SELECT * FROM spaces WHERE id = ? AND owner_id = ?')
-    .bind(id, user.id)
-    .first()
+  const { data: space, error } = await db
+    .from('spaces')
+    .select('*')
+    .eq('id', id)
+    .eq('owner_id', user.id)
+    .single()
 
-  if (!space) {
+  if (error || !space) {
     throw createError({ statusCode: 404, statusMessage: 'Space not found' })
   }
 
@@ -24,5 +27,5 @@ export default defineEventHandler(async (event) => {
     panorama_url = await generateGetUrl(space.panorama_key as string)
   }
 
-  return { ...space, is_published: Boolean(space.is_published), panorama_url }
+  return { ...space, panorama_url }
 })

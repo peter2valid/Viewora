@@ -2,17 +2,17 @@
  * POST /api/uploads/panorama-url
  * Body: { spaceId: string, fileName: string, contentType: string }
  *
- * Returns:
- *   { uploadUrl, key }
+ * Returns: { uploadUrl, key }
  *
  * Flow:
  *   1. Client calls this endpoint → receives a presigned PUT URL + R2 key
  *   2. Client PUTs the file directly to `uploadUrl` (browser → R2, no proxy)
  *   3. Client calls POST /api/spaces/:id/panorama with the returned `key`
- *      to attach it to the space record in D1
+ *      to attach it to the space record in Supabase
  */
 import { requireUser } from '~/server/utils/auth'
 import { generatePutUrl, makePanoramaKey } from '~/server/utils/r2'
+import { serverDb } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -25,18 +25,19 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Validate content type — only images accepted
   if (!body.contentType.startsWith('image/')) {
     throw createError({ statusCode: 400, statusMessage: 'Only image uploads are accepted' })
   }
 
-  const db = (event.context as any).cloudflare.env.DB
+  const db = serverDb()
 
   // Confirm the caller owns the space
-  const space = await db
-    .prepare('SELECT id FROM spaces WHERE id = ? AND owner_id = ?')
-    .bind(body.spaceId, user.id)
-    .first()
+  const { data: space } = await db
+    .from('spaces')
+    .select('id')
+    .eq('id', body.spaceId)
+    .eq('owner_id', user.id)
+    .single()
 
   if (!space) {
     throw createError({ statusCode: 404, statusMessage: 'Space not found' })

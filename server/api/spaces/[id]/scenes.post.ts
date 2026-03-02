@@ -4,6 +4,7 @@
  * Creates a new scene inside a space.
  */
 import { requireUser } from '~/server/utils/auth'
+import { serverDb } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -14,33 +15,38 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'name is required' })
   }
 
-  const db = (event.context as any).cloudflare.env.DB
+  const db = serverDb()
 
   // Confirm ownership
-  const space = await db
-    .prepare('SELECT id FROM spaces WHERE id = ? AND owner_id = ?')
-    .bind(id, user.id)
-    .first()
+  const { data: space } = await db
+    .from('spaces')
+    .select('id')
+    .eq('id', id)
+    .eq('owner_id', user.id)
+    .single()
 
   if (!space) {
     throw createError({ statusCode: 404, statusMessage: 'Space not found' })
   }
 
-  // Determine next order_index
-  const countRow = await db
-    .prepare('SELECT COUNT(*) AS cnt FROM scenes WHERE space_id = ?')
-    .bind(id)
-    .first()
+  // Get next order_index
+  const { count } = await db
+    .from('scenes')
+    .select('*', { count: 'exact', head: true })
+    .eq('space_id', id)
 
-  const sceneId = crypto.randomUUID()
-  const now = new Date().toISOString()
+  const { data, error } = await db
+    .from('scenes')
+    .insert({
+      space_id: id,
+      name: body.name.trim(),
+      image_path: body.image_path ?? null,
+      order_index: count ?? 0,
+    })
+    .select()
+    .single()
 
-  await db
-    .prepare(
-      'INSERT INTO scenes (id, space_id, name, image_path, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    )
-    .bind(sceneId, id, body.name.trim(), body.image_path ?? null, (countRow as any).cnt, now)
-    .run()
+  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
-  return db.prepare('SELECT * FROM scenes WHERE id = ?').bind(sceneId).first()
+  return data
 })

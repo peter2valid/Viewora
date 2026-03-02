@@ -4,27 +4,28 @@
  * Verifies the caller owns the parent space.
  */
 import { requireUser } from '~/server/utils/auth'
+import { serverDb } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')
-  const db = (event.context as any).cloudflare.env.DB
+  const db = serverDb()
 
-  // Join to spaces to confirm ownership
-  const scene = await db
-    .prepare(
-      `SELECT s.id FROM scenes s
-       JOIN spaces sp ON sp.id = s.space_id
-       WHERE s.id = ? AND sp.owner_id = ?`,
-    )
-    .bind(id, user.id)
-    .first()
+  // Confirm ownership via join
+  const { data: scene } = await db
+    .from('scenes')
+    .select('id, spaces!inner(owner_id)')
+    .eq('id', id)
+    .eq('spaces.owner_id', user.id)
+    .single()
 
   if (!scene) {
     throw createError({ statusCode: 404, statusMessage: 'Scene not found' })
   }
 
-  await db.prepare('DELETE FROM scenes WHERE id = ?').bind(id).run()
+  const { error } = await db.from('scenes').delete().eq('id', id)
+
+  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
   return { deleted: true }
 })

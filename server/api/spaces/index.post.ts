@@ -4,6 +4,7 @@
  * Creates a new space for the authenticated user.
  */
 import { requireUser } from '~/server/utils/auth'
+import { serverDb } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -13,16 +14,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'title is required' })
   }
 
-  const db = (event.context as any).cloudflare.env.DB
-  const id = crypto.randomUUID()
-  const now = new Date().toISOString()
+  const db = serverDb()
 
-  await db
-    .prepare('INSERT INTO spaces (id, owner_id, title, created_at) VALUES (?, ?, ?, ?)')
-    .bind(id, user.id, body.title.trim(), now)
-    .run()
+  const { data, error } = await db
+    .from('spaces')
+    .insert({
+      owner_id: user.id,
+      title: body.title.trim(),
+      description: body.description ?? null,
+    })
+    .select()
+    .single()
 
-  const space = await db.prepare('SELECT * FROM spaces WHERE id = ?').bind(id).first()
+  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
-  return { ...space, is_published: Boolean(space.is_published) }
+  return data
 })
