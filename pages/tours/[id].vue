@@ -111,7 +111,7 @@ onMounted(async () => {
         .eq('id', tourData.property_id)
         .single()
         
-      if (propData?.user_id !== user.value.id) {
+      if (propData?.user_id !== ((user.value as any).id || (user.value as any).sub)) {
         throw new Error('This tour is not published yet.')
       }
     }

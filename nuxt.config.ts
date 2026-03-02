@@ -4,9 +4,10 @@ export default defineNuxtConfig({
   // Include our custom CSS across all pages
   css: ['@/assets/css/main.css'],
 
-  modules: ['@nuxt/image', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@nuxt/content', '@nuxtjs/supabase'],
+  modules: ['@nuxt/image', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@nuxt/content', '@nuxtjs/supabase', 'nitro-cloudflare-dev'],
 
   supabase: {
+    url: process.env.SUPABASE_URL,
     key: process.env.SUPABASE_KEY,
     redirectOptions: {
       login: '/login',
@@ -58,6 +59,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    preset: 'cloudflare-pages',   // builds for Cloudflare Pages Functions
     compressPublicAssets: true,
     prerender: {
       failOnError: false

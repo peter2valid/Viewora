@@ -12,18 +12,27 @@
         <NuxtLink to="/contact" class="nav-link">Contact</NuxtLink>
       </nav>
 
-      <div class="nav-actions">
-        <!-- Logged Out View -->
-        <template v-if="!user">
-          <NuxtLink to="/login" class="nav-link">Log in</NuxtLink>
-          <NuxtLink to="/register" class="btn btn-dark" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Start Free</NuxtLink>
+      <ClientOnly>
+        <div class="nav-actions">
+          <!-- Logged Out View -->
+          <template v-if="!user">
+            <NuxtLink to="/login" class="nav-link">Log in</NuxtLink>
+            <NuxtLink to="/register" class="btn btn-dark" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Start Free</NuxtLink>
+          </template>
+          <!-- Logged In View -->
+          <template v-else>
+            <NuxtLink to="/app/spaces" class="nav-link">Dashboard</NuxtLink>
+            <button @click="signOut" class="btn btn-outline" style="padding: 0.5rem 1rem;">Log Out</button>
+          </template>
+        </div>
+        <template #fallback>
+          <!-- SSR placeholder — same size as the logged-out buttons to avoid layout shift -->
+          <div class="nav-actions" style="visibility: hidden;">
+            <span class="nav-link">Log in</span>
+            <span class="btn btn-dark" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Start Free</span>
+          </div>
         </template>
-        <!-- Logged In View -->
-        <template v-else>
-          <NuxtLink to="/app/spaces" class="nav-link">Dashboard</NuxtLink>
-          <button @click="signOut" class="btn btn-outline" style="padding: 0.5rem 1rem;">Log Out</button>
-        </template>
-      </div>
+      </ClientOnly>
 
       <!-- Mobile Menu Button -->
       <button class="mobile-menu-btn" aria-label="Toggle menu" @click="isMobileMenuOpen = !isMobileMenuOpen">
@@ -41,14 +50,16 @@
           <NuxtLink to="/contact" class="nav-link" @click="isMobileMenuOpen = false">Contact</NuxtLink>
           <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;" />
           
-          <template v-if="!user">
-            <NuxtLink to="/login" class="nav-link" @click="isMobileMenuOpen = false">Log in</NuxtLink>
-            <NuxtLink to="/register" class="btn btn-dark btn-block" @click="isMobileMenuOpen = false">Start Free</NuxtLink>
-          </template>
-          <template v-else>
-            <NuxtLink to="/app/spaces" class="nav-link font-bold text-primary" @click="isMobileMenuOpen = false">Dashboard</NuxtLink>
-            <button @click="signOut(); isMobileMenuOpen = false" class="btn btn-outline btn-block text-center">Log Out</button>
-          </template>
+          <ClientOnly>
+            <template v-if="!user">
+              <NuxtLink to="/login" class="nav-link" @click="isMobileMenuOpen = false">Log in</NuxtLink>
+              <NuxtLink to="/register" class="btn btn-dark btn-block" @click="isMobileMenuOpen = false">Start Free</NuxtLink>
+            </template>
+            <template v-else>
+              <NuxtLink to="/app/spaces" class="nav-link font-bold text-primary" @click="isMobileMenuOpen = false">Dashboard</NuxtLink>
+              <button @click="signOut(); isMobileMenuOpen = false" class="btn btn-outline btn-block text-center">Log Out</button>
+            </template>
+          </ClientOnly>
         </div>
       </div>
     </Transition>

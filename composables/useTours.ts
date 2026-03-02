@@ -1,85 +1,68 @@
-import type { Database } from '~/types/database.types'
+/**
+ * composables/useTours.ts  (Cloudflare D1 backed — no Supabase DB calls)
+ *
+ * In the new architecture a "tour" = a "space".
+ * This composable is kept for backward compatibility with pages/tours/[id].vue.
+ * It delegates to the same /api/spaces/* endpoints as useSpaces.
+ */
+import type { Space } from './useSpaces'
 
-type Tour = Database['public']['Tables']['virtual_tours']['Row']
-
-export interface CreateTourInput {
-  title: string
-  property_id: string
-}
+// Re-export Space as Tour for pages that import from here
+export type Tour = Space
 
 export const useTours = () => {
-  const supabase = useSupabaseClient<Database>()
+  const { apiFetch } = useApiFetch()
 
   const tours = ref<Tour[]>([])
   const pending = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchTours(spaceId: string) {
+  async function fetchTours(spaceId?: string) {
     pending.value = true
     error.value = null
-
     try {
-      const { data, error: err } = await supabase
-        .from('virtual_tours')
-        .select('*')
-        .eq('property_id', spaceId)
-        .order('created_at', { ascending: false })
-
-      if (err) throw err
-      tours.value = data ?? []
+      // If called with a spaceId it returns tours linked to that space
+      // In the new schema a space IS the tour, so we return the single space
+      if (spaceId) {
+        const space = await apiFetch<Tour>(`/api/spaces/${spaceId}`)
+        tours.value = [space]
+      } else {
+        tours.value = await apiFetch<Tour[]>('/api/spaces')
+      }
     } catch (e: any) {
-      error.value = e.message ?? 'Failed to load tours.'
+      error.value = e.data?.statusMessage ?? e.message
     } finally {
       pending.value = false
     }
   }
 
   async function fetchTour(tourId: string): Promise<Tour> {
-    const { data, error: err } = await supabase
-      .from('virtual_tours')
-      .select('*')
-      .eq('id', tourId)
-      .single()
-
-    if (err) throw err
-    return data
+    return apiFetch<Tour>(`/api/spaces/${tourId}`)
   }
 
-  async function createTour(input: CreateTourInput): Promise<Tour> {
-    const { data, error: err } = await supabase
-      .from('virtual_tours')
-      .insert({
-        property_id: input.property_id,
-        title: input.title,
-        status: 'draft',
-      })
-      .select()
-      .single()
-
-    if (err) throw err
+  async function createTour(input: { title: string; property_id?: string }): Promise<Tour> {
+    const data = await apiFetch<Tour>('/api/spaces', {
+      method: 'POST',
+      body: { title: input.title },
+    })
     tours.value.unshift(data)
     return data
   }
 
   async function updateTourStatus(tourId: string, status: 'draft' | 'published') {
-    const { error: err } = await supabase
-      .from('virtual_tours')
-      .update({ status })
-      .eq('id', tourId)
-
-    if (err) throw err
-
+    await apiFetch(`/api/spaces/${tourId}/publish`, {
+      method: 'POST',
+      body: { publish: status === 'published' },
+    })
     const t = tours.value.find(t => t.id === tourId)
-    if (t) t.status = status
+    if (t) t.is_published = status === 'published'
   }
 
   async function updateTourTitle(tourId: string, title: string) {
-    const { error: err } = await supabase
-      .from('virtual_tours')
-      .update({ title })
-      .eq('id', tourId)
-
-    if (err) throw err
+    await apiFetch(`/api/spaces/${tourId}`, {
+      method: 'PATCH',
+      body: { title },
+    })
   }
 
   return {

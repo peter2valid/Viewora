@@ -323,7 +323,7 @@ const handleCreateSpace = async () => {
     if (newSpace) {
       closeModal()
       showToast(`"${newSpace.title}" created`)
-      navigateTo(`/app/spaces/${newSpace.id}`)
+      navigateTo('/app/spaces/new/editor')
     } else {
       modalError.value = error.value ?? 'Failed to create space.'
     }

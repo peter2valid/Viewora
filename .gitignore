@@ -6,6 +6,9 @@ node_modules/
 .output/
 dist/
 
+# Wrangler local state (local D1/R2 data — not for source control)
+.wrangler/
+
 # Environment variables (NEVER commit these)
 .env
 .env.local

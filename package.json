@@ -6,17 +6,25 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "generate": "nuxt generate",
-    "start": "node .output/server/index.mjs"
+    "start": "node .output/server/index.mjs",
+    "deploy": "nuxt build && wrangler pages deploy .output/public",
+    "db:migrate:local": "wrangler d1 execute viewora-db --local  --file=database/migrations/0001_initial.sql",
+    "db:migrate:remote": "wrangler d1 execute viewora-db --remote --file=database/migrations/0001_initial.sql"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1000.0",
+    "@aws-sdk/s3-request-presigner": "^3.1000.0",
     "@nuxtjs/supabase": "^2.0.4",
     "marzipano": "^0.10.2",
     "nuxt": "^3.10.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260301.1",
     "@nuxt/content": "^2.13.4",
     "@nuxt/image": "^2.0.0",
     "@nuxtjs/google-fonts": "^3.2.0",
-    "@nuxtjs/seo": "^3.4.0"
+    "@nuxtjs/seo": "^3.4.0",
+    "nitro-cloudflare-dev": "^0.2.2",
+    "wrangler": "^4.69.0"
   }
 }

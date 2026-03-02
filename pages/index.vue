@@ -294,4 +294,9 @@ useSeoMeta({
   title: 'Viewora | Immersive 360° Space Showcase Platform',
   description: 'Create, host, and share interactive 360° virtual tours for real estate, hotels, car dealerships, and retail spaces in minutes.'
 })
+
+const user = useSupabaseUser()
+watch(user, (u) => {
+  if (u) navigateTo('/app/spaces')
+}, { immediate: true })
 </script>

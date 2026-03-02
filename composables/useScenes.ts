@@ -1,16 +1,19 @@
-import { ref } from 'vue'
+/**
+ * composables/useScenes.ts  (Cloudflare D1 backed — no Supabase DB calls)
+ */
 
 export interface Scene {
   id: string
   space_id: string
-  image_path: string | null
   name: string
+  image_path: string | null   // R2 object key
   order_index: number
   created_at: string
 }
 
 export const useScenes = () => {
-  const supabase = useSupabaseClient()
+  const { apiFetch } = useApiFetch()
+
   const scenes = ref<Scene[]>([])
   const pending = ref(false)
   const error = ref<string | null>(null)
@@ -19,16 +22,9 @@ export const useScenes = () => {
     pending.value = true
     error.value = null
     try {
-      const { data, error: err } = await supabase
-        .from('scenes')
-        .select('*')
-        .eq('space_id', spaceId)
-        .order('order_index', { ascending: true })
-
-      if (err) throw err
-      scenes.value = data || []
-    } catch (err: any) {
-      error.value = err.message
+      scenes.value = await apiFetch<Scene[]>(`/api/spaces/${spaceId}/scenes`)
+    } catch (e: any) {
+      error.value = e.data?.statusMessage ?? e.message
     } finally {
       pending.value = false
     }
@@ -38,23 +34,14 @@ export const useScenes = () => {
     pending.value = true
     error.value = null
     try {
-      const orderIndex = scenes.value.length
-      const { data, error: err } = await supabase
-        .from('scenes')
-        .insert({
-          space_id: spaceId,
-          name,
-          image_path: imagePath,
-          order_index: orderIndex
-        })
-        .select()
-        .single()
-
-      if (err) throw err
+      const data = await apiFetch<Scene>(`/api/spaces/${spaceId}/scenes`, {
+        method: 'POST',
+        body: { name, image_path: imagePath },
+      })
       scenes.value.push(data)
       return data
-    } catch (err: any) {
-      error.value = err.message
+    } catch (e: any) {
+      error.value = e.data?.statusMessage ?? e.message
       return null
     } finally {
       pending.value = false
@@ -65,26 +52,14 @@ export const useScenes = () => {
     pending.value = true
     error.value = null
     try {
-      const { error: err } = await supabase
-        .from('scenes')
-        .delete()
-        .eq('id', id)
-
-      if (err) throw err
+      await apiFetch(`/api/scenes/${id}`, { method: 'DELETE' })
       scenes.value = scenes.value.filter(s => s.id !== id)
-    } catch (err: any) {
-      error.value = err.message
+    } catch (e: any) {
+      error.value = e.data?.statusMessage ?? e.message
     } finally {
       pending.value = false
     }
   }
 
-  return {
-    scenes,
-    pending,
-    error,
-    fetchScenes,
-    createScene,
-    deleteScene
-  }
+  return { scenes, pending, error, fetchScenes, createScene, deleteScene }
 }

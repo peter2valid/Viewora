@@ -1,34 +1,18 @@
 <template>
-  <div class="editor-grid">
-    <!-- Top bar (spans both columns) -->
-    <EditorEditorTopBar
-      :title="tourTitle"
-      :status="tourStatus"
-      :space-id="spaceId"
-      :add-hotspot-mode="addHotspotMode"
-      :saving="saving"
-      @update:title="onTitleUpdate"
-      @save="save"
-      @publish="togglePublish"
-      @toggle-hotspot-mode="addHotspotMode = !addHotspotMode"
-    />
-
-    <!-- Scene list panel -->
-    <div class="editor-scene-panel">
-      <EditorSceneListPanel
-        :scenes="scenes"
-        :hotspots="hotspots"
-        :active-scene-id="activeSceneId"
-        :uploading="uploading"
-        :upload-error="uploadError"
-        @select-scene="setActiveScene"
-        @delete-scene="confirmDeleteScene"
-        @upload-file="handleUpload"
-      />
-    </div>
-
-    <!-- Marzipano viewer -->
-    <div class="editor-viewer-area" :class="{ 'editor-viewer-area--crosshair': addHotspotMode }">
+  <EditorSpaceEditorShell
+    :scenes="shellScenes"
+    :space-name="tourTitle"
+    :space-id="spaceId"
+    :active-scene-id="activeSceneId"
+    :is-published="tourStatus === 'published'"
+    :is-publishing="saving"
+    :add-hotspot-mode="addHotspotMode"
+    :show-hotspot-toggle="true"
+    @select-scene="setActiveScene"
+    @toggle-hotspot-mode="addHotspotMode = !addHotspotMode"
+    @publish="togglePublish"
+  >
+    <template #viewer>
       <EditorMarzipanoViewer
         :scenes="scenes"
         :hotspots="hotspots"
@@ -36,22 +20,23 @@
         :add-hotspot-mode="addHotspotMode"
         @hotspot-placed="onHotspotPlaced"
         @hotspot-navigate="setActiveScene"
+        style="width: 100%; height: 100%;"
       />
-    </div>
+    </template>
+  </EditorSpaceEditorShell>
 
-    <!-- Hotspot picker modal -->
-    <EditorHotspotPickerModal
-      v-if="showHotspotPicker"
-      :scenes="scenes"
-      :current-scene-id="activeSceneId"
-      @confirm="onHotspotConfirm"
-      @cancel="cancelHotspot"
-    />
-  </div>
+  <!-- Hotspot picker modal -->
+  <EditorHotspotPickerModal
+    v-if="showHotspotPicker"
+    :scenes="scenes"
+    :current-scene-id="activeSceneId"
+    @confirm="onHotspotConfirm"
+    @cancel="cancelHotspot"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
   layout: 'editor',
@@ -76,6 +61,15 @@ const saving = ref(false)
 // Hotspot placement state
 const showHotspotPicker = ref(false)
 const pendingHotspotCoords = ref<{ yaw: number; pitch: number } | null>(null)
+
+// Map DB scenes to shell format
+const shellScenes = computed(() =>
+  scenes.value.map(s => ({
+    id: s.id,
+    name: s.name,
+    hasImage: !!s.panorama_url,
+  }))
+)
 
 onMounted(async () => {
   try {
@@ -109,9 +103,7 @@ function setActiveScene(sceneId: string) {
 async function handleUpload(file: File) {
   try {
     const scene = await uploadAndCreateScene(tourId, file)
-    // Switch to the newly uploaded scene
     activeSceneId.value = scene.id
-    // Hotspots don't need re-fetch — new scene has none
   } catch {
     // uploadError is set inside the composable
   }
@@ -125,7 +117,6 @@ async function confirmDeleteScene(sceneId: string) {
 
   await deleteScene(sceneId)
 
-  // Re-fetch hotspots since scene's hotspots are cascade-deleted
   const sceneIds = scenes.value.map(s => s.id)
   await fetchHotspots(sceneIds)
 }
@@ -169,8 +160,6 @@ async function onTitleUpdate(newTitle: string) {
 async function save() {
   saving.value = true
   try {
-    // Save current scene camera positions (initial_yaw/pitch/fov not yet tracked
-    // from the viewer's live state — persisted on creation only for now)
     await updateTourTitle(tourId, tourTitle.value)
   } finally {
     saving.value = false
