@@ -16,36 +16,38 @@ useSeoMeta({
   description,
   ogTitle: title,
   ogDescription: description,
-  ogImage: '/og-image.jpg', // Placeholder
-  ogUrl: 'https://viewora.com',
+  ogImage: '/og-image.jpg',
+  ogUrl: 'https://viewora.software',
   twitterCard: 'summary_large_image',
   twitterTitle: title,
   twitterDescription: description,
   twitterImage: '/og-image.jpg',
-  themeColor: '#0f172a' // slate-900
+  themeColor: '#0f172a'
 })
 
 useHead({
-  htmlAttrs: {
-    lang: 'en'
-  },
-  meta: [
-    { name: 'google-site-verification', content: 'YOUR_GOOGLE_SEARCH_CONSOLE_CODE_HERE' }
-  ],
+  htmlAttrs: { lang: 'en' },
   link: [
     { rel: 'icon', type: 'image/png', href: '/favicon.ico' }
   ],
+  // Analytics deferred via requestIdleCallback so it never blocks page paint
   script: [
     {
-      src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX',
-      async: true
-    },
-    {
       innerHTML: `
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-XXXXXXXXXX');
+        (function(){
+          if(typeof window === 'undefined') return;
+          var load = function() {
+            var s = document.createElement('script');
+            s.src = 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX';
+            s.async = true;
+            document.head.appendChild(s);
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);} window.gtag=gtag;
+            gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');
+          };
+          if ('requestIdleCallback' in window) requestIdleCallback(load, { timeout: 4000 });
+          else setTimeout(load, 3000);
+        })();
       `
     },
     {
