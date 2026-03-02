@@ -67,6 +67,8 @@ export default defineNuxtConfig({
     '/legal/**': { prerender: true },
     // Public tours — client-side (pulls from Supabase, no auth)
     '/tours/**': { ssr: false },
+    // Legacy tour edit URL — redirect to spaces dashboard (old path deleted)
+    '/app/tours/**': { redirect: { to: '/app/spaces', statusCode: 301 } },
     // App dashboard — client-side only (auth-protected, user-specific)
     '/app/**': { ssr: false, headers: { 'Cache-Control': 'no-store' } },
     // API routes — short cache + stale-while-revalidate
