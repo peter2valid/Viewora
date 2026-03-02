@@ -107,7 +107,40 @@ const submitForm = () => {
 };
 
 useSeoMeta({
-  title: 'Contact',
-  description: 'Get in touch with Viewora support or sales for all your virtual tour needs.'
+  title: 'Contact Us | Viewora',
+  description: 'Get in touch with Viewora. Reach our sales or support team via phone, email, WhatsApp, or the contact form. Based in Nairobi, Kenya.',
+  ogTitle: 'Contact Viewora | Virtual Tour Support & Sales',
+  ogDescription: 'Have questions about virtual tours? Talk to the Viewora team via phone, email or WhatsApp. Mon–Fri 9am–6pm EAT.',
+  ogUrl: 'https://viewora.software/contact',
+  ogImage: '/og-image.jpg',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Contact Viewora',
+  twitterDescription: 'Reach our sales or support team. We usually respond within 24 hours.',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://viewora.software/contact' }],
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'ContactPage',
+      name: 'Contact Viewora',
+      url: 'https://viewora.software/contact',
+      mainEntity: {
+        '@type': 'Organization',
+        name: 'Viewora',
+        telephone: '+254117537025',
+        email: 'hello@viewora.software',
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: 'Juja',
+          addressRegion: 'Kiambu County',
+          addressCountry: 'KE',
+        },
+        openingHours: 'Mo-Fr 09:00-18:00',
+      }
+    })
+  }]
 })
 </script>

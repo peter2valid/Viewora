@@ -91,7 +91,33 @@
 <script setup lang="ts">
 useSeoMeta({
   title: 'How Viewora Works | Immersive 360° Space Showcase Software',
-  description: 'See how easy it is to upload panoramas, connect rooms, and publish stunning interactive 360° tours for any space without any coding skills.'
+  description: 'See how easy it is to upload panoramas, connect rooms, and publish stunning interactive 360° tours for any space without any coding skills.',
+  ogTitle: 'How Viewora Works — 4 Simple Steps to a Virtual Tour',
+  ogDescription: 'Upload your 360° photos, link rooms with hotspots, publish and share. No coding, no hardware, no experience needed.',
+  ogUrl: 'https://viewora.software/product',
+  ogImage: '/og-image.jpg',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'How Viewora Works',
+  twitterDescription: 'Create interactive 360° virtual tours in 4 steps. Upload, connect, publish, share.',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://viewora.software/product' }],
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'HowTo',
+      name: 'How to Create a 360° Virtual Tour with Viewora',
+      description: 'Create an interactive virtual tour in 4 simple steps using Viewora’s web-based platform.',
+      step: [
+        { '@type': 'HowToStep', position: 1, name: 'Upload 360° Panoramas', text: 'Take photos with any 360° camera and upload them to your Viewora dashboard.' },
+        { '@type': 'HowToStep', position: 2, name: 'Create Room Connections', text: 'Use the visual editor to add hotspot navigation between panoramas.' },
+        { '@type': 'HowToStep', position: 3, name: 'Publish Virtual Tour', text: 'Click Publish. Viewora generates an optimized, hosted tour instantly.' },
+        { '@type': 'HowToStep', position: 4, name: 'Share With Clients', text: 'Share a unique public link via WhatsApp, email, or embed it on your website.' },
+      ]
+    })
+  }]
 })
 </script>
 

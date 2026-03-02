@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Block private app and API routes
+Disallow: /app/
+Disallow: /api/
+Disallow: /confirm
+Disallow: /_nuxt/
+
+# Block auth pages from indexing (no SEO value)
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+Disallow: /update-password
+
+Sitemap: https://viewora.software/sitemap.xml

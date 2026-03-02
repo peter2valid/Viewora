@@ -49,6 +49,34 @@
 <script setup lang="ts">
 useSeoMeta({
   title: 'About Us | Viewora',
-  description: 'Viewora is a Kenyan SaaS company making immersive virtual tours accessible for any business that needs to visually present spaces or environments.'
+  description: 'Viewora is a Kenyan SaaS company making immersive virtual tours accessible for any business that needs to visually present spaces or environments.',
+  ogTitle: 'About Viewora | Our Story & Mission',
+  ogDescription: 'Founded in Kenya to democratize spatial marketing. Viewora empowers agents, hosts and developers to create immersive 360° virtual tours in minutes.',
+  ogUrl: 'https://viewora.software/about',
+  ogImage: '/og-image.jpg',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'About Viewora',
+  twitterDescription: 'The story behind the #1 immersive space showcase platform built in Kenya for the world.',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://viewora.software/about' }],
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'AboutPage',
+      name: 'About Viewora',
+      url: 'https://viewora.software/about',
+      description: 'Viewora is a SaaS platform for creating interactive 360° virtual tours for real estate, hospitality, automotive, and retail spaces.',
+      publisher: {
+        '@type': 'Organization',
+        name: 'Viewora',
+        url: 'https://viewora.software',
+        foundingLocation: 'Nairobi, Kenya',
+        foundingDate: '2024',
+      }
+    })
+  }]
 })
 </script>

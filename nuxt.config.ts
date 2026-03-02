@@ -4,7 +4,19 @@ export default defineNuxtConfig({
   // Include our custom CSS across all pages
   css: ['@/assets/css/main.css'],
 
-  modules: ['@nuxt/image', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@nuxt/content', '@nuxtjs/supabase'],
+  modules: ['@nuxt/image', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@nuxt/content', '@nuxtjs/supabase', '@nuxtjs/sitemap'],
+
+  sitemap: {
+    hostname: 'https://viewora.software',
+    urls: [
+      { loc: '/', priority: 1.0, changefreq: 'weekly' },
+      { loc: '/product', priority: 0.9, changefreq: 'monthly' },
+      { loc: '/pricing', priority: 0.9, changefreq: 'monthly' },
+      { loc: '/about', priority: 0.7, changefreq: 'monthly' },
+      { loc: '/contact', priority: 0.7, changefreq: 'monthly' },
+      { loc: '/blog', priority: 0.8, changefreq: 'weekly' },
+    ],
+  },
 
   supabase: {
     url: process.env.SUPABASE_URL,

@@ -303,8 +303,33 @@
 
 <script setup lang="ts">
 useSeoMeta({
-  title: 'Viewora | Immersive 360° Space Showcase Platform',
-  description: 'Create, host, and share interactive 360° virtual tours for real estate, hotels, car dealerships, and retail spaces in minutes.'
+  title: 'Viewora | Create & Share Interactive 360° Virtual Tours',
+  description: 'Create, host, and share interactive 360° virtual tours for real estate, hotels, car dealerships, and retail spaces in minutes.',
+  ogTitle: 'Viewora — The #1 Immersive 360° Space Showcase Platform',
+  ogDescription: 'Upload panoramas, connect rooms and publish stunning virtual tours in minutes. Free to start. No credit card required.',
+  ogUrl: 'https://viewora.software',
+  ogImage: '/og-image.jpg',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Viewora | 360° Virtual Tours Made Easy',
+  twitterDescription: 'Upload, connect rooms and go live in 5 minutes. The fastest virtual tour platform for real estate & hospitality.',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://viewora.software' }],
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'Viewora',
+      url: 'https://viewora.software',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: 'https://viewora.software/search?q={search_term_string}',
+        'query-input': 'required name=search_term_string'
+      }
+    })
+  }]
 })
 
 // Defer demo iframe load until user clicks — prevents iframe from blocking LCP

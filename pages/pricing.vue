@@ -137,6 +137,34 @@ const billingFreq = ref('monthly');
 
 useSeoMeta({
   title: 'Pricing & Plans | Viewora Virtual Tour Software',
-  description: 'Transparent pricing for every property professional. Start your free trial today and scale your virtual real estate marketing.'
+  description: 'Transparent pricing for every property professional. Plans from KES 1,500/mo. Free trial available. No hidden fees.',
+  ogTitle: 'Viewora Pricing — From KES 1,500/mo',
+  ogDescription: 'Start free, scale as you grow. Viewora plans for solo agents, active sellers, agencies and large developers. Cancel anytime.',
+  ogUrl: 'https://viewora.software/pricing',
+  ogImage: '/og-image.jpg',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Viewora Pricing & Plans',
+  twitterDescription: 'Plans from KES 1,500/mo. Free trial, no credit card required.',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://viewora.software/pricing' }],
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Viewora',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'All',
+      url: 'https://viewora.software',
+      offers: [
+        { '@type': 'Offer', name: 'Basic', price: '1500', priceCurrency: 'KES', billingIncrement: 'monthly' },
+        { '@type': 'Offer', name: 'Plus', price: '4000', priceCurrency: 'KES', billingIncrement: 'monthly' },
+        { '@type': 'Offer', name: 'Pro', price: '8500', priceCurrency: 'KES', billingIncrement: 'monthly' },
+        { '@type': 'Offer', name: 'Elite', price: '18000', priceCurrency: 'KES', billingIncrement: 'monthly' },
+      ]
+    })
+  }]
 })
 </script>
