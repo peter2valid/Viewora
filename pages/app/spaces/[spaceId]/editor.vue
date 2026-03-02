@@ -92,16 +92,19 @@ definePageMeta({ layout: 'editor', middleware: 'auth' })
 
 const route = useRoute()
 const spaceId = route.params.spaceId as string
-const supabase = useSupabaseClient()
 
 const { currentSpace, fetchSpace, publishSpace } = useSpaces()
 const { scenes, fetchScenes } = useScenes()
 const { hotspots, fetchHotspots, createHotspot, deleteHotspot } = useHotspots()
+const { apiFetch } = useApiFetch()
 
 const activeSceneId = ref<string | null>(null)
 const addHotspotMode = ref(false)
 const showHotspotModal = ref(false)
 const isPending = ref(false)
+
+// R2 signed GET URLs keyed by image_path (R2 object key)
+const signedUrlCache = ref<Record<string, string>>({})
 
 const newHotspotForm = ref({
   yaw: 0,
@@ -115,16 +118,38 @@ onMounted(async () => {
   await fetchScenes(spaceId)
   if (scenes.value.length > 0) {
     activeSceneId.value = scenes.value[0].id
+    // Pre-load R2 signed URLs for all scenes
+    await loadSignedUrls(scenes.value)
   }
 })
 
+// Load presigned GET URLs for any scenes not yet cached
+async function loadSignedUrls(sceneList: typeof scenes.value) {
+  await Promise.all(
+    sceneList
+      .filter(s => s.image_path && !signedUrlCache.value[s.image_path])
+      .map(async (s) => {
+        try {
+          const { url } = await apiFetch<{ url: string }>(
+            `/api/uploads/panorama-signed-url?key=${encodeURIComponent(s.image_path!)}`
+          )
+          signedUrlCache.value[s.image_path!] = url
+        } catch { /* skip */ }
+      })
+  )
+}
+
 // Fetch hotspots whenever active scene changes
 watch(activeSceneId, async (newId) => {
-  if (newId) await fetchHotspots(newId)
+  if (newId) {
+    await fetchHotspots(newId)
+    // Ensure the new scene's signed URL is ready
+    const scene = scenes.value.find(s => s.id === newId)
+    if (scene?.image_path && !signedUrlCache.value[scene.image_path]) {
+      await loadSignedUrls([scene])
+    }
+  }
 })
-
-const getPublicUrl = (path: string) =>
-  supabase.storage.from('tours').getPublicUrl(path).data.publicUrl
 
 // Map DB scenes → shell format { id, name, hasImage }
 const shellScenes = computed(() =>
@@ -135,16 +160,18 @@ const shellScenes = computed(() =>
   }))
 )
 
-// Map DB scene schema → ViewerScene (adds panorama_url + viewer defaults)
+// Map DB scene schema → ViewerScene with R2 presigned URL
 const mappedScenes = computed((): ViewerScene[] =>
-  scenes.value.map(s => ({
-    id: s.id,
-    name: s.name,
-    panorama_url: s.image_path ? getPublicUrl(s.image_path) : null,
-    initial_yaw: 0,
-    initial_pitch: 0,
-    initial_fov: 1.0,
-  }))
+  scenes.value
+    .filter(s => s.image_path && signedUrlCache.value[s.image_path])
+    .map(s => ({
+      id: s.id,
+      name: s.name,
+      panorama_url: signedUrlCache.value[s.image_path!],
+      initial_yaw: 0,
+      initial_pitch: 0,
+      initial_fov: 1.0,
+    }))
 )
 
 // Only hotspots belonging to the active scene

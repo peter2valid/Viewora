@@ -52,13 +52,25 @@ const scenes = ref<any[]>([])
 const hotspots = ref<any[]>([])
 const activeSceneId = ref<string | null>(null)
 
-// NOTE: image_path is an R2 object key. Presigned GET URLs require server auth.
-// For the public viewer via /tours/[slug] this is acceptable (no auth needed for public spaces).
-// For draft spaces the viewer is inside the editor which uses auth tokens.
-const getPublicUrl = (path: string) => {
-  // Fallback: if images were stored in Supabase Storage bucket 'tours', return that URL.
-  // New uploads go to R2, and panorama_url is resolved by the /api/spaces/:id endpoint.
-  return supabase.storage.from('tours').getPublicUrl(path).data.publicUrl
+// R2 presigned GET URL cache: image_path → signed URL
+const signedUrlCache = ref<Record<string, string>>({})
+
+async function loadSignedUrls(sceneList: typeof scenes.value) {
+  if (!sceneList.length) return
+  await Promise.all(
+    sceneList
+      .filter(s => s.image_path && !signedUrlCache.value[s.image_path])
+      .map(async (s) => {
+        try {
+          // Public tour viewer uses an unauthenticated fetch; the server route
+          // generates the presigned URL server-side using R2 credentials.
+          const res = await $fetch<{ url: string }>(
+            `/api/uploads/panorama-signed-url?key=${encodeURIComponent(s.image_path)}`
+          )
+          signedUrlCache.value[s.image_path] = res.url
+        } catch { /* skip */ }
+      })
+  )
 }
 
 onMounted(async () => {
@@ -87,6 +99,16 @@ onMounted(async () => {
     
     if (scenes.value.length > 0) {
       activeSceneId.value = scenes.value[0].id
+      // Load R2 signed URLs for all scenes upfront
+      await loadSignedUrls(scenes.value)
+
+      // 3. Load ALL hotspots for all scenes at once (avoids per-scene network trips)
+      const sceneIds = scenes.value.map(s => s.id)
+      const { data: allHotspots } = await supabase
+        .from('hotspots')
+        .select('*')
+        .in('scene_id', sceneIds)
+      hotspots.value = allHotspots || []
     }
   } catch (err: any) {
     error.value = err.message
@@ -95,30 +117,19 @@ onMounted(async () => {
   }
 })
 
-// When active scene changes, load its hotspots
-watch(activeSceneId, async (newId) => {
-  if (!newId) return
-  try {
-    const { data, error: hotspotErr } = await supabase
-      .from('hotspots')
-      .select('*')
-      .eq('scene_id', newId)
-    if (!hotspotErr && data) {
-      hotspots.value = data
-    }
-  } catch (e) {
-    console.error('Failed to load hotspots')
-  }
-})
+// No longer need per-scene hotspot fetching — loaded all upfront
+// Only filter clientside for current scene hotspots
 
 const mappedScenes = computed(() => {
-  return scenes.value.map(s => ({
-    ...s,
-    panorama_url: s.image_path ? getPublicUrl(s.image_path) : null,
-    initial_yaw: 0,
-    initial_pitch: 0,
-    initial_fov: 1.0
-  }))
+  return scenes.value
+    .filter(s => s.image_path && signedUrlCache.value[s.image_path])
+    .map(s => ({
+      ...s,
+      panorama_url: signedUrlCache.value[s.image_path] ?? null,
+      initial_yaw: 0,
+      initial_pitch: 0,
+      initial_fov: 1.0
+    }))
 })
 
 const currentHotspots = computed(() => {
