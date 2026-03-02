@@ -310,14 +310,12 @@ useSeoMeta({
 // Defer demo iframe load until user clicks — prevents iframe from blocking LCP
 const showDemo = ref(false)
 
-// Auth redirect: run client-side only, doesn't block SSR page paint
+// useSupabaseUser must be called at setup level (not inside onMounted)
+const user = useSupabaseUser()
+
+// Auth redirect: runs client-side only, doesn't block SSR page paint
 onMounted(() => {
-  const user = useSupabaseUser()
-  if (user.value) {
-    navigateTo('/app/spaces')
-    return
-  }
-  // Watch for lazy auth resolve
+  if (user.value) { navigateTo('/app/spaces'); return }
   const unwatch = watch(user, (u) => {
     if (u) { unwatch(); navigateTo('/app/spaces') }
   })
