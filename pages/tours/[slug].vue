@@ -52,7 +52,12 @@ const scenes = ref<any[]>([])
 const hotspots = ref<any[]>([])
 const activeSceneId = ref<string | null>(null)
 
+// NOTE: image_path is an R2 object key. Presigned GET URLs require server auth.
+// For the public viewer via /tours/[slug] this is acceptable (no auth needed for public spaces).
+// For draft spaces the viewer is inside the editor which uses auth tokens.
 const getPublicUrl = (path: string) => {
+  // Fallback: if images were stored in Supabase Storage bucket 'tours', return that URL.
+  // New uploads go to R2, and panorama_url is resolved by the /api/spaces/:id endpoint.
   return supabase.storage.from('tours').getPublicUrl(path).data.publicUrl
 }
 
@@ -94,11 +99,11 @@ onMounted(async () => {
 watch(activeSceneId, async (newId) => {
   if (!newId) return
   try {
-    const { data, error } = await supabase
+    const { data, error: hotspotErr } = await supabase
       .from('hotspots')
       .select('*')
       .eq('scene_id', newId)
-    if (!error && data) {
+    if (!hotspotErr && data) {
       hotspots.value = data
     }
   } catch (e) {

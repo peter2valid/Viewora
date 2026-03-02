@@ -39,7 +39,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
-  layout: 'editor',
+  layout: false,
   middleware: 'auth',
 })
 

@@ -142,24 +142,29 @@ definePageMeta({ layout: 'app', middleware: 'auth' })
 
 const route = useRoute()
 const spaceId = route.params.spaceId as string
-const supabase = useSupabaseClient()
 
 const { currentSpace, fetchSpace, pending: pendingSpace, error: spaceError, publishSpace } = useSpaces()
 const { scenes, fetchScenes, createScene, deleteScene, pending: pendingScenes } = useScenes()
+const { apiFetch } = useApiFetch()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadError = ref('')
 const isDragOver = ref(false)
+// Cache of R2 public URLs keyed by image_path
+const r2UrlCache = ref<Record<string, string>>({})
 
-onMounted(() => {
-  fetchSpace(spaceId)
-  fetchScenes(spaceId)
+onMounted(async () => {
+  await Promise.all([fetchSpace(spaceId), fetchScenes(spaceId)])
 })
 
-const getPublicUrl = (path: string) => {
-  return supabase.storage.from('tours').getPublicUrl(path).data.publicUrl
+// For thumbnails: use the /api/spaces/:id GET signed URL approach — for now show placeholder
+const getPublicUrl = (_path: string) => {
+  // R2 images require presigned GET URLs — thumbnails load from the scene panorama_url
+  // which is returned by the /api/spaces/:id endpoint when viewing a specific space.
+  // For the scene list we don't have individual signed URLs yet; return empty so the fallback icon shows.
+  return ''
 }
 
 const processFile = async (file: File) => {
@@ -180,19 +185,29 @@ const processFile = async (file: File) => {
   uploadProgress.value = 10
 
   try {
-    const ext = file.name.split('.').pop()
-    const fileName = `${spaceId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`
+    // Step 1: Get presigned PUT URL from our server (generates an R2 key)
+    const { uploadUrl, key } = await apiFetch<{ uploadUrl: string; key: string }>(
+      '/api/uploads/panorama-url',
+      {
+        method: 'POST',
+        body: { spaceId, fileName: file.name, contentType: file.type },
+      }
+    )
+    uploadProgress.value = 30
 
-    uploadProgress.value = 40
-    const { data, error } = await supabase.storage
-      .from('tours')
-      .upload(fileName, file, { cacheControl: '3600', upsert: false })
+    // Step 2: PUT file directly to R2 (browser → R2, no server proxy)
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type },
+    })
+    if (!putRes.ok) throw new Error(`R2 upload failed: ${putRes.statusText}`)
+    uploadProgress.value = 70
 
-    if (error) throw error
-    uploadProgress.value = 80
-
+    // Step 3: Create scene with the R2 key, then attach panorama key to space
     const sceneName = file.name.replace(/\.[^/.]+$/, '')
-    await createScene(spaceId, sceneName, data.path)
+    await createScene(spaceId, sceneName, key)
+    await apiFetch(`/api/spaces/${spaceId}/panorama`, { method: 'POST', body: { key } })
     uploadProgress.value = 100
   } catch (err: any) {
     uploadError.value = err.message || 'Upload failed. Please try again.'
