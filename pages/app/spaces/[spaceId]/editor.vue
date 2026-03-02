@@ -131,7 +131,8 @@ async function loadSignedUrls(sceneList: typeof scenes.value) {
           const { url } = await apiFetch<{ url: string }>(
             `/api/uploads/panorama-signed-url?key=${encodeURIComponent(s.image_path!)}`
           )
-          signedUrlCache.value[s.image_path!] = url
+          // Spread-assign to trigger Vue reactivity on the cache object
+          signedUrlCache.value = { ...signedUrlCache.value, [s.image_path!]: url }
         } catch { /* skip */ }
       })
   )
@@ -200,13 +201,15 @@ const onHotspotPlaced = (coords: { yaw: number; pitch: number }) => {
 
 const saveHotspot = async () => {
   if (!activeSceneId.value) return
-  await createHotspot(
-    activeSceneId.value,
-    newHotspotForm.value.yaw,
-    newHotspotForm.value.pitch,
-    newHotspotForm.value.type,
-    newHotspotForm.value.payload
-  )
+  const form = newHotspotForm.value
+  await createHotspot({
+    scene_id: activeSceneId.value,
+    yaw: form.yaw,
+    pitch: form.pitch,
+    type: form.type as 'nav' | 'info',
+    target_scene_id: form.type === 'nav' ? (form.payload.target_scene_id ?? null) : null,
+    label: form.type === 'info' ? (form.payload.label ?? null) : null,
+  })
   showHotspotModal.value = false
 }
 

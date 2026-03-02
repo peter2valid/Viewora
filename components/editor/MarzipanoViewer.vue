@@ -91,8 +91,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   viewerEl.value?.removeEventListener('click', handleClick)
-  viewer?.destroy()
+  // Marzipano doesn't expose a public destroy() — clean up scenes manually
   mSceneMap.clear()
+  viewer = null
+  MarzipanoLib = null
 })
 
 // ── Watchers ──────────────────────────────────────────────────────────────────

@@ -67,7 +67,7 @@ async function loadSignedUrls(sceneList: typeof scenes.value) {
           const res = await $fetch<{ url: string }>(
             `/api/uploads/panorama-signed-url?key=${encodeURIComponent(s.image_path)}`
           )
-          signedUrlCache.value[s.image_path] = res.url
+          signedUrlCache.value = { ...signedUrlCache.value, [s.image_path]: res.url }
         } catch { /* skip */ }
       })
   )
