@@ -13,18 +13,16 @@
     @publish="publish"
   >
     <template #viewer>
-      <ClientOnly>
-        <EditorMarzipanoViewer
-          v-if="mappedScenes.length > 0"
-          :scenes="mappedScenes"
-          :hotspots="mappedHotspots"
-          :active-scene-id="activeSceneId"
-          :add-hotspot-mode="addHotspotMode"
-          @hotspot-placed="onHotspotPlaced"
-          @hotspot-navigate="activeSceneId = $event"
-          style="width: 100%; height: 100%;"
-        />
-      </ClientOnly>
+      <EditorMarzipanoViewer
+        v-if="mappedScenes.length > 0"
+        :scenes="mappedScenes"
+        :hotspots="mappedHotspots"
+        :active-scene-id="activeSceneId"
+        :add-hotspot-mode="addHotspotMode"
+        @hotspot-placed="onHotspotPlaced"
+        @hotspot-navigate="activeSceneId = $event"
+        style="width: 100%; height: 100%;"
+      />
     </template>
   </EditorSpaceEditorShell>
 
@@ -88,7 +86,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import type { ViewerScene, ViewerHotspot } from '~/components/editor/MarzipanoViewer.vue'
 
-definePageMeta({ layout: 'editor', middleware: 'auth' })
+definePageMeta({ layout: false, middleware: 'auth' })
 
 const route = useRoute()
 const spaceId = route.params.spaceId as string
