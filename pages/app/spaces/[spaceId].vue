@@ -81,16 +81,16 @@
         <!-- Status accent bar -->
         <div
           class="space-card-accent"
-          :style="{ background: tour.status === 'published' ? '#10b981' : '#6b7280' }"
+          :style="{ background: tour.is_published ? '#10b981' : '#6b7280' }"
         ></div>
 
         <div class="space-card-body">
           <!-- Status badge -->
           <span
             class="space-type-badge"
-            :style="{ background: tour.status === 'published' ? 'rgba(16,185,129,.12)' : 'rgba(107,114,128,.12)', color: tour.status === 'published' ? '#10b981' : '#9ca3af' }"
+            :style="{ background: tour.is_published ? 'rgba(16,185,129,.12)' : 'rgba(107,114,128,.12)', color: tour.is_published ? '#10b981' : '#9ca3af' }"
           >
-            {{ tour.status === 'published' ? 'Live' : 'Draft' }}
+            {{ tour.is_published ? 'Live' : 'Draft' }}
           </span>
 
           <h3 class="space-card-name">{{ tour.title }}</h3>
@@ -155,20 +155,6 @@ const showCreateModal = ref(false)
 function onTourCreated(tourId: string) {
   showCreateModal.value = false
   navigateTo(`/app/tours/${tourId}/edit`)
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const TYPE_LABELS: Record<string, string> = {
-  residential: 'Residential',
-  hospitality: 'Hospitality',
-  commercial: 'Commercial',
-  automotive: 'Automotive',
-  events: 'Event Space',
-  general: 'General',
-}
-
-function typeLabel(type: string | null | undefined): string {
-  return TYPE_LABELS[type ?? ''] ?? 'Space'
 }
 
 function formatDate(iso: string): string {

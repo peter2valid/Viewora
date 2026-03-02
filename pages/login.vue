@@ -35,7 +35,7 @@
           <div class="form-group mb-6">
             <div class="label-row" style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
               <label for="password" class="font-semibold text-sm">Password</label>
-              <NuxtLink to="#" class="auth-link text-sm text-primary">(Forgot Password?)</NuxtLink>
+              <NuxtLink to="/reset-password" class="auth-link text-sm text-primary">(Forgot Password?)</NuxtLink>
             </div>
             <input id="password" type="password" v-model="password" placeholder="Password" class="form-input w-full p-3 border rounded-lg outline-none" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
           </div>

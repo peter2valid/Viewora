@@ -1,9 +1,8 @@
 /**
- * composables/useTours.ts  (Cloudflare D1 backed — no Supabase DB calls)
+ * composables/useTours.ts
  *
- * In the new architecture a "tour" = a "space".
- * This composable is kept for backward compatibility with pages/tours/[id].vue.
- * It delegates to the same /api/spaces/* endpoints as useSpaces.
+ * Tour = Space in the current schema. This composable is kept for backward
+ * compatibility and delegates to the same /api/spaces/* endpoints as useSpaces.
  */
 import type { Space } from './useSpaces'
 

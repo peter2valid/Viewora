@@ -1,5 +1,6 @@
 /**
- * composables/useHotspots.ts  (Cloudflare D1 backed — no Supabase DB calls)
+ * composables/useHotspots.ts
+ * All data access goes through /api/scenes/:id/hotspots and /api/hotspots/* routes.
  */
 
 export interface Hotspot {
@@ -31,19 +32,28 @@ export const useHotspots = () => {
     }
   }
 
-  const createHotspot = async (
-    sceneId: string,
-    yaw: number,
-    pitch: number,
-    type = 'info',
-    payload: Record<string, unknown> = {},
-  ) => {
+  const createHotspot = async (payload: {
+    scene_id: string
+    yaw: number
+    pitch: number
+    type?: string
+    target_scene_id?: string | null
+    label?: string | null
+  }) => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Hotspot>(`/api/scenes/${sceneId}/hotspots`, {
+      const data = await apiFetch<Hotspot>(`/api/scenes/${payload.scene_id}/hotspots`, {
         method: 'POST',
-        body: { yaw, pitch, type, payload },
+        body: {
+          yaw: payload.yaw,
+          pitch: payload.pitch,
+          type: payload.type ?? 'info',
+          payload: {
+            target_scene_id: payload.target_scene_id ?? null,
+            label: payload.label ?? null,
+          },
+        },
       })
       hotspots.value.push(data)
       return data

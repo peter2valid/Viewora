@@ -1,5 +1,6 @@
 /**
- * composables/useScenes.ts  (Cloudflare D1 backed — no Supabase DB calls)
+ * composables/useScenes.ts
+ * All data access goes through /api/spaces/:id/scenes and /api/scenes/* routes.
  */
 
 export interface Scene {

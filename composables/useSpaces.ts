@@ -1,8 +1,8 @@
 /**
- * composables/useSpaces.ts  (Cloudflare D1 backed — no Supabase DB calls)
+ * composables/useSpaces.ts
  *
  * All data access goes through /api/spaces/* server routes.
- * The server routes run on Cloudflare Pages Functions and talk directly to D1.
+ * Server routes use Supabase Postgres (via serverDb()).
  */
 
 export interface Space {
