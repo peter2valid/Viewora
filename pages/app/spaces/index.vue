@@ -226,10 +226,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import type { Space } from '~/composables/useSpaces'
-
 definePageMeta({ layout: 'app', middleware: 'auth' })
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 useSeoMeta({ title: 'Tours | Viewora' })
 
 const { spaces, pending, error, fetchSpaces, createSpace, deleteSpace, togglePublish } = useSpaces()

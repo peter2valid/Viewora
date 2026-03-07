@@ -148,15 +148,13 @@
           </div>
         </div>
       </div>
-
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, computed, onMounted } from 'vue'
 
-definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Dashboard | Viewora' })
 
 const user = useSupabaseUser()

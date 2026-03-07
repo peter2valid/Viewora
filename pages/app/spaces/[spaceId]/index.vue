@@ -136,9 +136,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-
 definePageMeta({ layout: 'app', middleware: 'auth' })
+import { ref, onMounted } from 'vue'
 
 const route = useRoute()
 const spaceId = route.params.spaceId as string
