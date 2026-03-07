@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="app">
-    <div class="news-page">
+  <div class="news-page">
 
       <div class="news-header">
         <div>
@@ -53,12 +52,11 @@
         </div>
       </div>
 
-    </div>
-  </NuxtLayout>
+  </div>
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: "What's New | Viewora" })
 
 const changelog = [

@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="app">
-    <div class="dash">
+  <div class="dash">
 
       <!-- Hero bar -->
       <div class="dash-hero">
@@ -151,13 +150,13 @@
       </div>
 
     </div>
-  </NuxtLayout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Dashboard | Viewora' })
 
 const user = useSupabaseUser()

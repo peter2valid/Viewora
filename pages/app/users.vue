@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="app">
-    <div class="users-page">
+  <div class="users-page">
 
       <!-- Header -->
       <div class="users-header">
@@ -104,14 +103,13 @@
         </Transition>
       </Teleport>
 
-    </div>
-  </NuxtLayout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Users | Viewora' })
 
 const user = useSupabaseUser()

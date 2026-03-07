@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="app">
-    <div class="analytics">
+  <div class="analytics">
 
       <!-- Header -->
       <div class="an-header">
@@ -117,14 +116,13 @@
         <span>View tracking and visitor analytics are launching in an upcoming update. Your data will appear here automatically once enabled.</span>
       </div>
 
-    </div>
-  </NuxtLayout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Analytics | Viewora' })
 
 const activeRange = ref('7d')

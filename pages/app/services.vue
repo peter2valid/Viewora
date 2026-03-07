@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="app">
-    <div class="services-page">
+  <div class="services-page">
 
       <!-- Hero -->
       <div class="svc-hero">
@@ -140,14 +139,13 @@
         </Transition>
       </Teleport>
 
-    </div>
-  </NuxtLayout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Capture Services | Viewora' })
 
 const showBooking = ref(false)
