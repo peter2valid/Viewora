@@ -856,7 +856,7 @@ header.nav {
 }
 
 .sidebar-link--active .sidebar-icon {
-  color: #e11d48; /* Red icon for active */
+  color: var(--paper); /* White icon for active */
 }
 
 .icon-wrap-active {
@@ -866,7 +866,7 @@ header.nav {
   width: 36px;
   height: 36px;
   border-radius: 8px; /* Slightly rounded */
-  background: #ffe4e6; /* Very light red */
+  background: var(--ink); /* Black background */
   margin-left: -8px; /* Offset the extra padding the wrap adds compared to raw icons */
   margin-right: -2px;
 }
