@@ -1,70 +1,53 @@
 <template>
-  <div class="app-page">
-
+  <div class="app-page tours-page">
     <!-- Page header -->
-    <div class="app-page-header">
-      <div>
-        <h1 class="app-page-title">Spaces</h1>
-        <p class="app-page-subtitle">Your 360° virtual tour spaces.</p>
+    <div class="tours-header-wrapper">
+      <div class="tours-header-top">
+        <h1 class="tours-page-title">Your Tours</h1>
+        <button class="btn btn-primary tours-live-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.4rem;"><path d="M15.6 11.6L22 7v10l-6.4-4.5v-1zM4 5h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7c0-1.1.9-2 2-2z"></path></svg>
+          Talk Live Now
+        </button>
       </div>
-      <button class="btn btn-dark" @click="openCreateModal">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        New Space
-      </button>
-    </div>
 
-    <!-- Stats bar -->
-    <div v-if="!pending && !error && spaces.length > 0" class="spaces-stats">
-      <div class="spaces-stat">
-        <span class="spaces-stat-value">{{ spaces.length }}</span>
-        <span class="spaces-stat-label">{{ spaces.length === 1 ? 'Space' : 'Spaces' }}</span>
-      </div>
-      <div class="spaces-stat-divider"></div>
-      <div class="spaces-stat">
-        <span class="spaces-stat-value spaces-stat-value--live">{{ publishedCount }}</span>
-        <span class="spaces-stat-label">Live</span>
-      </div>
-      <div class="spaces-stat-divider"></div>
-      <div class="spaces-stat">
-        <span class="spaces-stat-value">{{ draftCount }}</span>
-        <span class="spaces-stat-label">Draft</span>
+      <div class="tours-tabs">
+        <button class="tours-tab active">My Tours</button>
+        <button class="tours-tab">Shared with me</button>
+        <button class="tours-tab">Published to GSV</button>
+        <button class="tours-tab">Recycle Bin</button>
       </div>
     </div>
 
-    <!-- Toolbar (search + sort) -->
-    <div v-if="!pending && !error && spaces.length > 0" class="spaces-toolbar">
-      <div class="spaces-search">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spaces-search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input v-model="search" type="text" class="spaces-search-input" placeholder="Search spaces…" autocomplete="off" />
-        <button v-if="search" class="spaces-search-clear" @click="search = ''" aria-label="Clear search">×</button>
+    <!-- Toolbar (search + filter) -->
+    <div class="tours-toolbar">
+      <div class="tours-search-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tours-search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input v-model="search" type="text" class="tours-search-input" placeholder="Search my tours" autocomplete="off" />
       </div>
-      <select v-model="sortBy" class="spaces-sort">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="name">A → Z</option>
-        <option value="status">Live first</option>
-      </select>
-    </div>
-
-    <!-- Loading skeletons -->
-    <div v-if="pending" class="spaces-grid">
-      <div v-for="n in 3" :key="n" class="space-card space-card--skeleton">
-        <div class="space-card-accent" style="background: var(--border);"></div>
-        <div class="space-card-body">
-          <div class="skeleton-line skeleton-line--badge"></div>
-          <div class="skeleton-line skeleton-line--title"></div>
-          <div class="skeleton-line skeleton-line--meta"></div>
-          <div class="skeleton-line skeleton-line--meta" style="width: 40%;"></div>
-        </div>
-        <div class="space-card-footer" style="display: flex; gap: 0.5rem;">
-          <div class="skeleton-line" style="width: 80px; height: 32px; border-radius: 6px; margin: 0;"></div>
-          <div class="skeleton-line" style="width: 56px; height: 32px; border-radius: 6px; margin: 0;"></div>
-        </div>
+      <div class="tours-filter-wrapper">
+        <input type="text" class="tours-filter-input" placeholder="Filter by tags" readonly />
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tours-filter-icon"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </div>
+      
+      <div class="tours-toolbar-spacer"></div>
+      
+      <div class="tours-sort-wrapper">
+        <select v-model="sortBy" class="tours-sort-select">
+          <option value="newest">By date</option>
+          <option value="oldest">Oldest first</option>
+          <option value="name">A → Z</option>
+        </select>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tours-sort-icon"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </div>
+      
+      <div class="tours-view-toggles">
+        <button class="tours-view-btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg></button>
+        <button class="tours-view-btn active"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></button>
       </div>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="app-state-box app-state-box--error">
+    <div v-if="error" class="app-state-box app-state-box--error">
       <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
       <p>{{ isSchemaError ? 'Database not set up yet — run migration 004 in your Supabase Dashboard SQL Editor.' : error }}</p>
       <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem; flex-wrap: wrap; justify-content: center;">
@@ -73,83 +56,87 @@
       </div>
     </div>
 
-    <!-- Empty state (no spaces exist) -->
-    <div v-else-if="spaces.length === 0" class="spaces-empty">
-      <div class="spaces-empty-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-      </div>
-      <h3 class="spaces-empty-title">No spaces yet</h3>
-      <p class="spaces-empty-desc">Create your first space to start building interactive 360° virtual tours.</p>
-      <div class="spaces-empty-steps">
-        <div class="spaces-empty-step">
-          <span class="spaces-empty-step-num">1</span>
-          <span>Create a space</span>
-        </div>
-        <div class="spaces-empty-step-arrow">→</div>
-        <div class="spaces-empty-step">
-          <span class="spaces-empty-step-num">2</span>
-          <span>Upload panoramas</span>
-        </div>
-        <div class="spaces-empty-step-arrow">→</div>
-        <div class="spaces-empty-step">
-          <span class="spaces-empty-step-num">3</span>
-          <span>Add hotspots &amp; publish</span>
-        </div>
-      </div>
-      <button class="btn btn-dark" @click="openCreateModal">Create Your First Space →</button>
-    </div>
-
-    <!-- No search results -->
-    <div v-else-if="filteredSpaces.length === 0" class="app-state-box">
-      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <p>No spaces match <strong>"{{ search }}"</strong></p>
-      <button class="btn btn-secondary" @click="search = ''">Clear search</button>
-    </div>
-
-    <!-- Spaces grid -->
-    <div v-else class="spaces-grid">
-      <article
-        v-for="(space, i) in filteredSpaces"
-        :key="space.id"
-        class="space-card"
-        :style="{ animationDelay: `${i * 0.06}s` }"
-      >
-        <div :class="['space-card-accent', space.is_published ? 'space-card-accent--live' : '']"></div>
-        <div class="space-card-body">
-          <div class="space-card-meta-row">
-            <span :class="['space-status-pill', space.is_published ? 'space-status-pill--live' : 'space-status-pill--draft']">
-              <span class="space-status-dot"></span>
-              {{ space.is_published ? 'Live' : 'Draft' }}
-            </span>
-            <button
-              :class="['space-toggle-btn', space.is_published ? 'space-toggle-btn--unpublish' : 'space-toggle-btn--publish']"
-              :disabled="toggling === space.id"
-              @click.prevent="handleTogglePublish(space)"
-              :title="space.is_published ? 'Unpublish this space' : 'Publish this space'"
-            >
-              {{ toggling === space.id ? '…' : space.is_published ? 'Unpublish' : 'Publish' }}
-            </button>
+    <!-- Tours grid -->
+    <div v-else class="tours-grid">
+      <!-- Fixed Add Cards -->
+      <div class="tour-card tour-card--add" @click="openCreateModal">
+        <div class="tour-add-content">
+          <div class="tour-add-icon-wrapper tour-add-icon-wrapper--cyan">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           </div>
-          <h3 class="space-card-name">{{ space.title }}</h3>
-          <p v-if="space.description" class="space-card-meta" style="margin-top: 0.25rem; line-height: 1.4;">{{ space.description }}</p>
-          <p class="space-card-meta" style="margin-top: 0.375rem; font-size: 0.72rem; color: var(--text-muted);">
-            {{ relativeTime(space.created_at) }}
-          </p>
+          <span class="tour-add-text">Create New Tour</span>
         </div>
-        <div class="space-card-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-          <NuxtLink :to="`/app/spaces/${space.id}`" class="btn btn-secondary space-card-btn">
-            Open →
+      </div>
+      
+      <div class="tour-card tour-card--add tour-card--dashed">
+        <div class="tour-add-content">
+          <div class="tour-add-icon-wrapper tour-add-icon-wrapper--purple">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </div>
+          <span class="tour-add-text">Create New Collection</span>
+        </div>
+      </div>
+
+      <!-- Loading skeletons -->
+      <template v-if="pending">
+        <div v-for="n in 5" :key="n" class="tour-card tour-card--skeleton">
+          <div class="tour-card-thumbnail" style="background: var(--border);"></div>
+          <div class="tour-card-body">
+            <div class="skeleton-line skeleton-line--title"></div>
+            <div class="skeleton-line skeleton-line--meta" style="width: 40%; margin-top: 0.5rem;"></div>
+          </div>
+        </div>
+      </template>
+      
+      <!-- Actual Items -->
+      <template v-else>
+        <div v-for="(space, i) in filteredSpaces" :key="space.id" class="tour-card">
+          <NuxtLink :to="`/app/spaces/${space.id}/editor`" class="tour-card-thumbnail">
+            <!-- Background Image Placeholder (Fallback/Mock) -->
+            <div class="tour-thumbnail-placeholder"></div>
+            <div class="tour-status-badge">{{ space.is_published ? 'Published' : 'Unpublished' }}</div>
           </NuxtLink>
-          <button class="space-delete-btn" @click="confirmDelete(space)" title="Delete space">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>
-          </button>
+          <div class="tour-card-body">
+            <NuxtLink :to="`/app/spaces/${space.id}/editor`" class="tour-title-link">
+              <h3 class="tour-card-title">{{ space.title }}</h3>
+            </NuxtLink>
+            <div class="tour-card-meta">
+              <div class="tour-meta-group">
+                <span class="tour-meta-item" title="Views">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  0
+                </span>
+                <span class="tour-meta-item" title="Date Created">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                  {{ formatDate(space.created_at) }}
+                </span>
+              </div>
+              
+              <!-- More Menu Dropdown -->
+              <div class="tour-more-wrapper">
+                <button class="tour-more-btn" @click.stop.prevent="toggleDropdown(space.id, $event)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle><circle cx="5" cy="12" r="1.5"></circle></svg>
+                </button>
+                <div v-if="activeDropdown === space.id" class="tour-dropdown-menu">
+                  <button class="tour-dropdown-item" @click="handleTogglePublish(space)">
+                    {{ space.is_published ? 'Unpublish' : 'Publish' }}
+                  </button>
+                  <NuxtLink :to="`/app/spaces/${space.id}`" class="tour-dropdown-item">
+                    View Public Page
+                  </NuxtLink>
+                  <button class="tour-dropdown-item text-danger" @click="confirmDelete(space)">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </article>
+      </template>
     </div>
 
-    <!-- ── Modals + Toast via Teleport (fixes position:fixed in overflow:hidden shell) ── -->
+    <!-- ── Modals + Toast via Teleport ── -->
     <Teleport to="body">
-
       <!-- Create Modal -->
       <Transition name="modal">
         <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
@@ -170,7 +157,7 @@
                     v-model="newSpaceForm.title"
                     type="text"
                     class="form-input"
-                    placeholder="e.g. Nairobi Apartment"
+                    placeholder="e.g. Modern Apartment Virtual Tour"
                     required
                     autofocus
                   />
@@ -190,7 +177,7 @@
               <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
                 <button type="submit" class="btn btn-dark" :disabled="creating">
-                  <span v-if="creating" class="btn-spinner"></span>
+                  <span v-if="creating" class="btn-spinner-xs" style="margin-right: 0.5rem"></span>
                   {{ creating ? 'Creating…' : 'Create Space' }}
                 </button>
               </div>
@@ -218,7 +205,7 @@
             <div class="modal-footer">
               <button class="btn btn-secondary" @click="spaceToDelete = null">Cancel</button>
               <button class="btn btn-danger" :disabled="deleting" @click="handleDelete">
-                <span v-if="deleting" class="btn-spinner"></span>
+                <span v-if="deleting" class="btn-spinner-xs" style="margin-right: 0.5rem"></span>
                 {{ deleting ? 'Deleting…' : 'Delete Space' }}
               </button>
             </div>
@@ -234,17 +221,16 @@
           {{ toast.message }}
         </div>
       </Transition>
-
     </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Space } from '~/composables/useSpaces'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
-useSeoMeta({ title: 'Spaces | Viewora' })
+useSeoMeta({ title: 'Tours | Viewora' })
 
 const { spaces, pending, error, fetchSpaces, createSpace, deleteSpace, togglePublish } = useSpaces()
 
@@ -255,45 +241,49 @@ const newSpaceForm = ref({ title: '', description: '' })
 const modalError = ref<string | null>(null)
 const creating = ref(false)
 const deleting = ref(false)
-const toggling = ref<string | null>(null)
 const search = ref('')
-const sortBy = ref<'newest' | 'oldest' | 'name' | 'status'>('newest')
+const sortBy = ref<'newest' | 'oldest' | 'name'>('newest')
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
-onMounted(() => fetchSpaces())
+const activeDropdown = ref<string | null>(null)
+const toggleDropdown = (id: string, event: Event) => {
+  event.preventDefault()
+  activeDropdown.value = activeDropdown.value === id ? null : id
+}
+const closeDropdowns = () => { activeDropdown.value = null }
+
+onMounted(() => {
+  fetchSpaces()
+  if (import.meta.client) window.addEventListener('click', closeDropdowns)
+})
+
+onUnmounted(() => {
+  if (import.meta.client) window.removeEventListener('click', closeDropdowns)
+})
 
 // Computed
-const publishedCount = computed(() => spaces.value.filter(s => s.is_published).length)
-const draftCount = computed(() => spaces.value.filter(s => !s.is_published).length)
 const isSchemaError = computed(() => !!error.value?.includes('schema cache'))
 
 const filteredSpaces = computed(() => {
   let list = spaces.value.slice()
   if (search.value.trim()) {
     const q = search.value.toLowerCase()
-    list = list.filter(s =>
+    list = list.filter((s: Space) =>
       s.title.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q)
     )
   }
-  if (sortBy.value === 'oldest') list.sort((a, b) => a.created_at.localeCompare(b.created_at))
-  else if (sortBy.value === 'name') list.sort((a, b) => a.title.localeCompare(b.title))
-  else if (sortBy.value === 'status') list.sort((a, b) => Number(b.is_published) - Number(a.is_published))
-  else list.sort((a, b) => b.created_at.localeCompare(a.created_at))
+  if (sortBy.value === 'oldest') list.sort((a: Space, b: Space) => a.created_at.localeCompare(b.created_at))
+  else if (sortBy.value === 'name') list.sort((a: Space, b: Space) => a.title.localeCompare(b.title))
+  else list.sort((a: Space, b: Space) => b.created_at.localeCompare(a.created_at))
   return list
 })
 
 // Helpers
-const relativeTime = (dateStr: string) => {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `${d}d ago`
-  return new Date(dateStr).toLocaleDateString()
+const formatDate = (dateStr: string) => {
+  const d = new Date(dateStr)
+  const month = d.toLocaleString('en-US', { month: 'short' })
+  return `${month}. ${d.getDate()}, ${d.getFullYear()}`
 }
 
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -332,7 +322,10 @@ const handleCreateSpace = async () => {
   }
 }
 
-const confirmDelete = (space: Space) => { spaceToDelete.value = space }
+const confirmDelete = (space: Space) => {
+  spaceToDelete.value = space
+  activeDropdown.value = null
+}
 
 const handleDelete = async () => {
   if (!spaceToDelete.value) return
@@ -346,10 +339,9 @@ const handleDelete = async () => {
 }
 
 const handleTogglePublish = async (space: Space) => {
-  toggling.value = space.id
   const wasLive = space.is_published
   await togglePublish(space)
-  toggling.value = null
+  activeDropdown.value = null
   if (error.value) showToast(error.value, 'error')
   else showToast(wasLive ? `"${space.title}" unpublished` : `"${space.title}" is now live`)
 }

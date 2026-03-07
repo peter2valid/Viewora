@@ -2440,3 +2440,417 @@ header.nav {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
+/* ── Tours Page Specific Styles ── */
+
+.tours-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.tours-header-wrapper {
+  margin-bottom: 1.5rem;
+}
+
+.tours-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.tours-page-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.tours-live-btn {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  box-shadow: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+}
+.tours-live-btn:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.tours-tabs {
+  display: flex;
+  gap: 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tours-tab {
+  background: none;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--slate);
+  padding: 0.5rem 0 0.75rem;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.tours-tab:hover {
+  color: var(--ink);
+}
+
+.tours-tab.active {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.tours-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #22c55e;
+}
+
+.tours-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.tours-search-wrapper,
+.tours-filter-wrapper,
+.tours-sort-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tours-search-wrapper {
+  flex: 1;
+  min-width: 250px;
+}
+
+.tours-search-input,
+.tours-filter-input,
+.tours-sort-select {
+  width: 100%;
+  padding: 0.6rem 2.5rem 0.6rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: var(--paper);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.tours-search-input {
+  padding-left: 2.25rem;
+}
+
+.tours-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--slate-light);
+  pointer-events: none;
+}
+
+.tours-filter-icon,
+.tours-sort-icon {
+  position: absolute;
+  right: 0.875rem;
+  color: var(--slate-light);
+  pointer-events: none;
+}
+
+.tours-search-input:focus,
+.tours-filter-input:focus,
+.tours-sort-select:focus {
+  border-color: var(--slate);
+}
+
+.tours-sort-select {
+  appearance: none;
+  padding-right: 2.25rem;
+  min-width: 130px;
+}
+
+.tours-toolbar-spacer {
+  flex: 1;
+}
+
+.tours-view-toggles {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tours-view-btn {
+  background: var(--paper);
+  border: none;
+  padding: 0.5rem 0.6rem;
+  color: var(--slate-light);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.tours-view-btn + .tours-view-btn {
+  border-left: 1px solid var(--border);
+}
+
+.tours-view-btn:hover {
+  color: var(--slate);
+  background: var(--paper-dim);
+}
+
+.tours-view-btn.active {
+  color: var(--ink);
+  background: var(--paper-dim);
+}
+
+/* ── Tours Grid ── */
+.tours-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+/* ── Tour Cards ── */
+.tour-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+  min-height: 250px;
+}
+
+.tour-card:hover {
+  border-color: var(--border-sharp);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Add Cards (Dashed/Normal) */
+.tour-card--add {
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-color: var(--border-sharp);
+}
+
+.tour-card--dashed {
+  border: 1px dashed var(--border-sharp);
+}
+
+.tour-card--add:hover {
+  background: var(--paper-dim);
+}
+
+.tour-add-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tour-add-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.tour-add-icon-wrapper--cyan {
+  background: #38bdf8;
+}
+
+.tour-add-icon-wrapper--purple {
+  background: #8b5cf6;
+}
+
+.tour-add-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Item Cards */
+.tour-card-thumbnail {
+  position: relative;
+  height: 170px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid var(--border);
+  display: block;
+}
+
+.tour-thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+}
+
+.tour-thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.tour-card:hover .tour-thumbnail-img {
+  transform: scale(1.05);
+}
+
+.tour-status-badge {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--slate);
+  pointer-events: none;
+}
+
+.tour-card-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tour-title-link {
+  text-decoration: none;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+.tour-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #334155;
+  transition: color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tour-title-link:hover .tour-card-title {
+  color: #0f172a;
+}
+
+.tour-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.tour-meta-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.tour-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.tour-more-wrapper {
+  position: relative;
+  z-index: 10;
+}
+
+.tour-more-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.tour-more-btn:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.tour-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  background: white;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
+  border-radius: 6px;
+  padding: 0.25rem;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+}
+
+.tour-dropdown-item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink);
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  display: block; /* Ensure it behaves like a block element if it's a NuxtLink */
+  width: 100%;
+}
+
+.tour-dropdown-item:hover {
+  background: var(--paper-dim);
+}
+
+.tour-dropdown-item.text-danger {
+  color: #ef4444;
+}
+
+.tour-dropdown-item.text-danger:hover {
+  background: #fef2f2;
+}
