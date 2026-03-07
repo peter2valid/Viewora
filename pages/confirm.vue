@@ -43,10 +43,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 
 const user = useSupabaseUser()
 const router = useRouter()
+const route = useRoute()
 
 const loading = ref(true)
 const errorMsg = ref('')
@@ -65,15 +66,26 @@ const unwatch = watch(
   { immediate: true }
 )
 
-// Fallback: if the user is still null after 4 seconds, the link likely expired
-if (!user.value) {
+onMounted(() => {
+  // If Google OAuth threw an error or was cancelled, it'll appear in the hash
+  if (route.hash && route.hash.includes('error_description=')) {
+    const params = new URLSearchParams(route.hash.substring(1))
+    const errDesc = params.get('error_description')
+    if (errDesc) {
+      loading.value = false
+      errorMsg.value = decodeURIComponent(errDesc.replace(/\+/g, ' '))
+      return
+    }
+  }
+
+  // Fallback: if the user is still null after 4 seconds and no hash error exists, link likely expired
   setTimeout(() => {
-    if (!user.value) {
+    if (!user.value && loading.value) {
       loading.value = false
       errorMsg.value = 'Could not verify your email. The link may have expired — please try logging in.'
     }
   }, 4000)
-}
+})
 
 useSeoMeta({
   title: 'Confirm Email | Viewora',

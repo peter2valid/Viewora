@@ -29,7 +29,7 @@
               <label for="email" class="font-semibold text-sm">Email Address</label>
               <NuxtLink to="/register" class="auth-link text-sm text-primary">(Create an account)</NuxtLink>
             </div>
-            <input id="email" type="email" v-model="email" placeholder="Email address" class="form-input w-full p-3 border rounded-lg outline-none" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
+            <input id="email" type="email" autocomplete="username" v-model="email" placeholder="Email address" class="form-input w-full p-3 border rounded-lg outline-none" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
           </div>
           
           <div class="form-group mb-6">
@@ -37,7 +37,7 @@
               <label for="password" class="font-semibold text-sm">Password</label>
               <NuxtLink to="/reset-password" class="auth-link text-sm text-primary">(Forgot Password?)</NuxtLink>
             </div>
-            <input id="password" type="password" v-model="password" placeholder="Password" class="form-input w-full p-3 border rounded-lg outline-none" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
+            <input id="password" type="password" autocomplete="current-password" v-model="password" placeholder="Password" class="form-input w-full p-3 border rounded-lg outline-none" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
           </div>
 
           <div class="form-group checkbox-group mb-6" style="display: flex; align-items: center; gap: 0.5rem;">

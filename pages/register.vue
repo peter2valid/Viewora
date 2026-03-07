@@ -29,7 +29,7 @@
 
           <div class="form-group mb-4">
             <label for="fullName" class="font-semibold text-sm block mb-2">Full Name</label>
-            <input id="fullName" type="text" v-model="fullName" placeholder="e.g. Peter Njoroge" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
+            <input id="fullName" type="text" autocomplete="name" v-model="fullName" placeholder="e.g. Peter Njoroge" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
           </div>
 
           <div class="form-group mb-4">
@@ -37,17 +37,17 @@
               <label for="email" class="font-semibold text-sm">Email Address</label>
               <NuxtLink to="/login" class="auth-link text-sm text-primary">(Log In instead)</NuxtLink>
             </div>
-            <input id="email" type="email" v-model="email" placeholder="you@example.com" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
+            <input id="email" type="email" autocomplete="username" v-model="email" placeholder="you@example.com" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
           </div>
           
           <div class="form-group mb-4">
             <label for="password" class="font-semibold text-sm block mb-2">Password</label>
-            <input id="password" type="password" v-model="password" placeholder="At least 6 characters" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
+            <input id="password" type="password" autocomplete="new-password" v-model="password" placeholder="At least 6 characters" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
           </div>
 
           <div class="form-group mb-6">
             <label for="confirm-password" class="font-semibold text-sm block mb-2">Confirm Password</label>
-            <input id="confirm-password" type="password" v-model="confirmPassword" placeholder="Repeat your password" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
+            <input id="confirm-password" type="password" autocomplete="new-password" v-model="confirmPassword" placeholder="Repeat your password" required class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;">
           </div>
 
           <div class="form-group checkbox-group mb-4" style="display: flex; align-items: flex-start; gap: 0.5rem;">
@@ -103,7 +103,7 @@ const signUp = async () => {
   isLoading.value = true
 
   try {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
@@ -115,7 +115,11 @@ const signUp = async () => {
     
     if (error) throw error
     
-    successMsg.value = 'Account created! Check your email for the confirmation link.'
+    if (data.session) {
+      await navigateTo('/app/spaces')
+    } else {
+      successMsg.value = 'Account created! Check your email for the confirmation link.'
+    }
   } catch (err: any) {
     errorMsg.value = err.message || 'An error occurred during registration.'
   } finally {
