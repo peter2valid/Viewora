@@ -3,11 +3,11 @@
  * Returns all spaces owned by the authenticated user, newest first.
  */
 import { requireUser } from '~/server/utils/auth'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   const { data, error } = await db
     .from('spaces')

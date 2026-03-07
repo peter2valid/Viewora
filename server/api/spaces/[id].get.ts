@@ -4,12 +4,12 @@
  */
 import { requireUser } from '~/server/utils/auth'
 import { generateGetUrl } from '~/server/utils/r2'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   const { data: space, error } = await db
     .from('spaces')

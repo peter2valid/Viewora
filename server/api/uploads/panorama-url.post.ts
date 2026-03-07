@@ -12,7 +12,7 @@
  */
 import { requireUser } from '~/server/utils/auth'
 import { generatePutUrl, makePanoramaKey } from '~/server/utils/r2'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Only image uploads are accepted' })
   }
 
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   // Confirm the caller owns the space
   const { data: space } = await db

@@ -4,13 +4,13 @@
  * Toggles published state. Auto-generates a slug from the title if none provided.
  */
 import { requireUser } from '~/server/utils/auth'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')
   const body = await readBody(event)
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   const { data: space } = await db
     .from('spaces')

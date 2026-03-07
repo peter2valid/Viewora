@@ -3,12 +3,12 @@
  * Returns all scenes for a space, ordered by order_index.
  */
 import { requireUser } from '~/server/utils/auth'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   // Confirm ownership
   const { data: space } = await db

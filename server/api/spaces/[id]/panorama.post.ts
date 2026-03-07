@@ -4,7 +4,7 @@
  * Attaches an already-uploaded R2 key to a space.
  */
 import { requireUser } from '~/server/utils/auth'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'key is required' })
   }
 
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   const { data: existing } = await db
     .from('spaces')

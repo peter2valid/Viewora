@@ -6,11 +6,11 @@
  */
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
     // Auth check — only signed-in users can request presigned URLs
-    const { data: { user }, error: authErr } = await serverDb().auth.getUser(
+    const { data: { user }, error: authErr } = await (await serverSupabaseClient(event)).auth.getUser(
         getRequestHeader(event, 'authorization')?.replace('Bearer ', '') || ''
     )
 

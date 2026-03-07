@@ -4,13 +4,13 @@
  * Updates editable fields on a space.
  */
 import { requireUser } from '~/server/utils/auth'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')
   const body = await readBody(event)
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   // Verify ownership
   const { data: existing } = await db

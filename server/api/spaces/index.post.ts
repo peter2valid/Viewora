@@ -4,7 +4,7 @@
  * Creates a new space for the authenticated user.
  */
 import { requireUser } from '~/server/utils/auth'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'title is required' })
   }
 
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   const { data, error } = await db
     .from('spaces')

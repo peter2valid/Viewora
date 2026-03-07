@@ -4,12 +4,12 @@
  * Verifies the caller owns the parent space.
  */
 import { requireUser } from '~/server/utils/auth'
-import { serverDb } from '~/server/utils/db'
+import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')
-  const db = serverDb()
+  const db = await serverSupabaseClient(event)
 
   // Confirm ownership via join
   const { data: scene } = await db
