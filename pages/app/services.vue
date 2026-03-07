@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'app', middleware: 'auth' })
+definePageMeta({ middleware: 'auth' })
 useSeoMeta({
   title: 'Capture Services | Viewora',
   description: 'Order Viewora capture professionals'

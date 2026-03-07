@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'app', middleware: 'auth' })
+definePageMeta({ middleware: 'auth' })
 useSeoMeta({
   title: 'What\'s New | Viewora',
   description: 'Latest Viewora updates'
