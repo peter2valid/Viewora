@@ -18,6 +18,7 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({
   title: 'Users | Viewora',
   description: 'Manage users and team members'

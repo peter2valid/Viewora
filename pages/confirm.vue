@@ -46,7 +46,6 @@
 import { ref, watch, onMounted } from 'vue'
 
 const user = useSupabaseUser()
-const router = useRouter()
 const route = useRoute()
 
 const loading = ref(true)

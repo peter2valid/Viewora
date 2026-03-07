@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-// Page meta for Dashboard
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({
   title: 'Dashboard | Viewora',
   description: 'Viewora Dashboard overview'
