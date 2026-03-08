@@ -761,6 +761,7 @@ header.nav {
   display: grid;
   grid-template-columns: 240px 1fr;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--paper-alt);
 }
@@ -974,7 +975,7 @@ header.nav {
   font-weight: 900;
   font-size: 1.1rem;
   letter-spacing: -0.05em;
-  color: var(--paper);
+  color: var(--ink);
 }
 
 /* ── Main content wrapper ── */
@@ -1432,10 +1433,14 @@ header.nav {
     width: 260px;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .app-sidebar--open {
     transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .app-sidebar-backdrop {
@@ -1451,6 +1456,7 @@ header.nav {
 
   .app-topbar {
     display: flex;
+    z-index: 201; /* Above sidebar backdrop */
   }
 
   .app-main {
