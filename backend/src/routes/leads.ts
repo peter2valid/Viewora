@@ -30,9 +30,11 @@ export default async function (fastify: FastifyInstance) {
 
     // Optional: Increment lead count in analytics_daily
     const today = new Date().toISOString().split('T')[0]
-    await fastify.supabase.rpc('increment_daily_leads', { prop_id: propertyId, event_date: today }).catch(() => {
-        // Fallback or ignore for now
-    })
+    try {
+      await fastify.supabase.rpc('increment_daily_leads', { prop_id: propertyId, event_date: today })
+    } catch {
+      // Non-fatal — ignore
+    }
 
     return reply.code(201).send(data)
   })
