@@ -1,0 +1,1835 @@
+Absolutely. Here is the full Viewora system architecture built around your real goals:
+
+premium feel
+
+low early cost
+
+scalable later
+
+360 + 2D property experiences
+
+trackable links
+
+QR sharing
+
+embeds
+
+Paystack billing
+
+Supabase auth
+
+Cloud storage control
+
+strong rules
+
+clean separation of concerns
+
+This is the version I would recommend if you want to build something serious now without boxing yourself in later.
+
+1. Core product definition
+
+Viewora is a property visual experience platform.
+
+It allows users to:
+
+upload and publish 360 panoramas
+
+upload and publish regular 2D property images
+
+create beautiful public property pages
+
+generate trackable share links
+
+generate QR codes
+
+embed property experiences on external websites
+
+collect leads
+
+view analytics
+
+manage plans and billing
+
+So Viewora is not only a 360 viewer.
+
+It is:
+
+Property media hosting + presentation + sharing + tracking + lead generation
+
+2. Final stack
+Frontend
+
+Nuxt 3
+
+hosted on Vercel
+
+Use for:
+
+marketing site
+
+dashboard app
+
+public property pages
+
+public tour pages
+
+embed pages
+
+analytics UI
+
+billing UI
+
+Backend API
+
+Node.js + Fastify on Railway
+
+Use for:
+
+Paystack transaction initialization
+
+Paystack webhook verification
+
+plan enforcement
+
+signed upload URL generation
+
+publish/unpublish logic
+
+analytics ingestion
+
+lead submission logic
+
+secure business rules
+
+future jobs and automation
+
+Authentication + Database
+
+Supabase
+
+Use for:
+
+email/password auth
+
+Google auth
+
+user sessions
+
+profiles
+
+tours/properties
+
+subscriptions
+
+usage counters
+
+analytics summaries
+
+leads
+
+future teams and permissions
+
+row-level security
+
+Storage
+
+Cloudflare R2
+
+Use for:
+
+360 panoramas
+
+2D property images
+
+thumbnails
+
+logos
+
+QR assets if stored
+
+future hotspot media
+
+Viewer engine
+
+Pannellum
+
+Use for:
+
+rendering 360 panorama experiences in browser
+
+hotspot support later
+
+branded viewer integration
+
+Payments
+
+Paystack
+
+Use for:
+
+subscription checkout
+
+renewals
+
+payment confirmation
+
+billing lifecycle
+
+CDN / media delivery
+
+Cloudflare via R2 public/custom domain
+
+optional caching rules
+
+Use for:
+
+global media delivery
+
+image delivery speed
+
+lower latency
+
+3. Domain architecture
+
+This is the clean premium setup.
+
+Main website
+
+viewora.software
+
+Use for:
+
+homepage
+
+pricing
+
+features
+
+sign in entry
+
+sign up entry
+
+public marketing pages
+
+App dashboard
+
+app.viewora.software
+
+Use for:
+
+login area
+
+user dashboard
+
+create property
+
+manage media
+
+analytics
+
+billing
+
+settings
+
+lead management
+
+Backend API
+
+api.viewora.software
+
+Use for:
+
+secure backend endpoints
+
+Paystack webhooks
+
+upload authorization
+
+analytics writes
+
+plan checks
+
+publish rules
+
+Media delivery
+
+media.viewora.software
+
+Use for:
+
+360 image files
+
+2D image files
+
+thumbnails
+
+logos
+
+optional QR image files
+
+Optional later
+
+embed.viewora.software
+
+Only if you want lightweight embed-specific routing later.
+Not required now.
+
+4. High-level system flow
+
+The full system has 8 major flows:
+
+authentication flow
+
+subscription flow
+
+property creation flow
+
+media upload flow
+
+public viewing flow
+
+sharing + QR flow
+
+embed flow
+
+analytics + leads flow
+
+Let’s define each properly.
+
+5. Authentication architecture
+Auth provider
+
+Supabase Auth
+
+Supported methods
+
+email/password
+
+Google OAuth
+
+Flow
+
+User visits viewora.software
+
+User clicks sign in or sign up
+
+User is taken to app.viewora.software
+
+Auth happens via Supabase
+
+Session is created
+
+Profile row is created in database if first login
+
+Frontend stores session securely
+
+User enters dashboard
+
+Why this is best
+
+fast to implement
+
+secure
+
+social auth ready
+
+avoids building custom auth yourself
+
+6. Billing architecture with Paystack
+
+This part must be server-controlled.
+
+Core billing rule
+
+The frontend may start a payment, but the backend is the only trusted source that activates a plan.
+
+Billing flow
+
+User opens billing page in dashboard
+
+User chooses plan
+
+Frontend calls backend:
+POST /billing/initialize-paystack
+
+Backend creates Paystack transaction
+
+Paystack checkout opens
+
+User pays
+
+Paystack redirects back to app
+
+Paystack also sends webhook to backend
+
+Backend verifies webhook and transaction
+
+Backend updates subscription in Supabase
+
+User plan becomes active
+
+Important
+
+Never trust the redirect alone.
+Only webhook verification should activate access.
+
+Subscription lifecycle statuses
+
+Use these:
+
+trial
+
+active
+
+past_due
+
+grace_period
+
+expired
+
+cancelled
+
+pending_payment
+
+Grace period rule
+
+Recommended:
+
+7 days after failed renewal or expiry
+
+public content remains live during grace
+
+new uploads and publishing blocked
+
+after grace ends, public properties auto-unpublish
+
+That feels premium and fair.
+
+7. Product and plan architecture
+
+You wanted premium but cost-aware. Here is the recommended setup.
+
+Starter — 1,500 KES/month
+
+3 active properties/tours
+
+1 GB total storage
+
+public links
+
+QR visible on page
+
+basic analytics
+
+Viewora branding
+
+no embeds
+
+no lead capture
+
+360 + 2D support
+
+Plus — 4,000 KES/month
+
+10 active properties/tours
+
+5 GB total storage
+
+downloadable PNG QR
+
+basic embeds
+
+standard analytics
+
+lead capture
+
+limited branding customization
+
+360 + 2D support
+
+Pro — 8,500 KES/month
+
+30 active properties/tours
+
+20 GB total storage
+
+PNG + SVG QR
+
+branded QR
+
+advanced embeds
+
+advanced analytics
+
+custom branding
+
+lead capture customization
+
+up to 3 team members later
+
+360 + 2D support
+
+Elite — 18,000 KES/month
+
+100 active properties/tours
+
+80 GB total storage
+
+full QR tools
+
+full embeds
+
+advanced analytics
+
+full branding control
+
+priority support
+
+up to 10 team members later
+
+future API/integration access
+
+8. Storage and media architecture
+
+This is where cost control and speed matter.
+
+Storage provider
+
+Cloudflare R2
+
+What is stored there
+
+panorama master files
+
+optimized panorama files
+
+property gallery images
+
+thumbnails
+
+logo images
+
+optional QR exports
+
+future hotspot icons/assets
+
+Storage rule
+
+Do not upload through the backend server itself unless needed for processing.
+
+Best flow:
+
+backend generates signed upload target
+
+frontend uploads directly to R2
+
+This reduces:
+
+Railway bandwidth load
+
+latency
+
+backend memory usage
+
+scaling problems
+
+Recommended bucket structure
+users/{userId}/properties/{propertyId}/panorama/master.jpg
+users/{userId}/properties/{propertyId}/panorama/optimized.jpg
+users/{userId}/properties/{propertyId}/gallery/{imageId}.jpg
+users/{userId}/properties/{propertyId}/thumb/cover.jpg
+users/{userId}/branding/logo.png
+users/{userId}/qr/{propertyId}.png
+Storage policy
+
+Enforce total active storage, not monthly storage.
+That is much cleaner for users.
+
+File size limits
+
+Recommended hard limits:
+
+Starter: 20 MB per upload
+
+Plus: 25 MB
+
+Pro: 40 MB
+
+Elite: 60 MB
+
+But your real target should be optimized delivery sizes much lower than those.
+
+9. Media optimization architecture
+
+This is essential for a premium feel.
+
+If media is slow, the whole product feels cheap.
+
+For 360 panoramas
+
+accept equirectangular images
+
+validate dimensions
+
+validate file type
+
+optionally compress or generate optimized version
+
+serve optimized version for public viewer
+
+For 2D images
+
+generate thumbnails
+
+generate optimized display sizes
+
+possibly keep original + optimized copy
+
+use lazy loading in galleries
+
+Recommended media handling approach
+
+At first:
+
+validate upload size
+
+require users to upload optimized files
+
+store one public optimized file
+
+optionally create thumbnail client-side or backend-side
+
+Later:
+
+automated processing worker/job
+
+multiple sizes
+
+smart quality profiles
+
+10. Content model architecture
+
+Viewora should support both 360 and 2D in one clean model.
+
+Best model
+
+A single property or listing can contain:
+
+basic property details
+
+360 tour data
+
+2D gallery data
+
+share settings
+
+lead settings
+
+branding settings
+
+analytics relationship
+
+So instead of thinking “tour” only, think:
+
+Property experience
+
+That lets you support:
+
+only 2D
+
+only 360
+
+both together
+
+11. Public experience architecture
+
+Each property gets a public page.
+
+Public URL pattern
+
+viewora.software/p/:slug
+
+Example:
+viewora.software/p/modern-villa-kilimani
+
+On that page, support:
+
+hero cover image
+
+title
+
+location text
+
+property info
+
+image gallery
+
+360 tour viewer if available
+
+contact button
+
+lead form if enabled
+
+branding
+
+share options
+
+360 rendering
+
+If the property has a panorama:
+
+page loads metadata
+
+Pannellum loads the panorama from media.viewora.software
+
+2D gallery rendering
+
+If the property has regular images:
+
+gallery slider or grid renders
+
+optimized images served from media.viewora.software
+
+This is the premium move:
+one page that feels like a full property presentation, not a raw media dump.
+
+12. Trackable link architecture
+
+You asked for trackable links for both 360 and 2D properties.
+
+That is correct and high-value.
+
+Every public property link should be trackable
+
+Track:
+
+total views
+
+visit time
+
+referrer
+
+source type
+
+QR scans
+
+embed visits
+
+direct visits
+
+shared campaign tag if present
+
+URL strategy
+
+Basic:
+viewora.software/p/:slug
+
+Advanced with source tracking:
+viewora.software/p/:slug?src=whatsapp
+viewora.software/p/:slug?src=qr
+viewora.software/p/:slug?src=embed
+
+What to log
+
+property_id
+
+session_id
+
+source
+
+referrer
+
+user_agent
+
+timestamp
+
+That powers your analytics dashboard.
+
+13. QR code architecture
+
+QR codes should not just be decorative. They should be useful.
+
+Recommended behavior
+
+QR generated from the public property URL
+
+dashboard shows QR preview
+
+QR download options based on plan
+
+scan opens the public property page
+
+analytics still count source as QR
+
+Plan behavior
+
+Starter: show QR on screen only
+
+Plus: PNG download
+
+Pro: PNG + SVG + branded option
+
+Elite: full QR branding features later
+
+Storage choice
+
+Best early approach:
+
+generate on demand in frontend or backend
+
+only store if needed for downloads or reuse
+
+No need to over-engineer permanent QR storage at first.
+
+14. Embed architecture
+
+Embeds are premium and should be plan-gated.
+
+Embed page route
+
+viewora.software/embed/:slug
+
+This route should be lighter than the full property page.
+
+Embed content may include
+
+360 viewer only
+
+gallery only
+
+compact property preview
+
+branded or unbranded mode based on plan
+
+Plan logic
+
+Starter: no embed
+
+Plus: basic embed
+
+Pro: branded/customizable embed
+
+Elite: full embed control later
+
+Example embed code
+<iframe src="https://viewora.software/embed/modern-villa-kilimani" width="100%" height="500" loading="lazy"></iframe>
+Analytics rule
+
+Embed visits should still be tracked as source=embed.
+
+15. Lead capture architecture
+
+This should be tied directly to the property experience.
+
+Lead flow
+
+Visitor views property page
+
+Lead form appears if enabled and plan allows it
+
+Visitor submits name, phone, email, message
+
+Frontend posts to backend
+
+Backend validates and stores lead
+
+Lead appears in dashboard
+
+Premium enhancement
+
+Later, also support:
+
+WhatsApp CTA
+
+email notifications
+
+lead export
+
+CRM integrations
+
+Plan logic
+
+Starter: no lead capture
+
+Plus: standard form
+
+Pro: customizable fields
+
+Elite: advanced workflows later
+
+16. Analytics architecture
+
+This is where users start feeling addicted to the product.
+
+Analytics layers
+Event layer
+
+Raw events stored when:
+
+property is viewed
+
+tour is opened
+
+gallery is viewed
+
+QR is scanned indirectly through source tag
+
+embed is loaded
+
+lead is submitted
+
+Summary layer
+
+Aggregated daily summaries for:
+
+views today
+
+views this week
+
+source breakdown
+
+top performing properties
+
+leads per property
+
+Analytics tiers
+Starter
+
+total views
+
+last viewed date
+
+Plus
+
+daily views
+
+top properties
+
+source basics
+
+Pro and Elite
+
+daily and weekly trends
+
+source breakdown
+
+QR vs direct vs embed
+
+lead conversion
+
+referrer insights
+
+device type later
+
+Important architecture note
+
+Do not compute everything live from raw events forever.
+Later, build summary tables or daily aggregates.
+
+17. Rules and permissions architecture
+
+This is critical.
+
+The frontend can guide the UI, but the real rules must live in:
+
+backend
+
+database policies
+
+billing state
+
+Rule categories
+Authentication rules
+
+only authenticated users can access dashboard
+
+only logged-in users can upload
+
+only authorized users can edit their properties
+
+Plan rules
+
+upload blocked if storage quota exceeded
+
+publish blocked if active property limit exceeded
+
+embed blocked if plan does not allow it
+
+lead capture blocked if plan does not allow it
+
+custom branding blocked if plan does not allow it
+
+Public access rules
+
+only published properties are public
+
+expired/grace logic determines continued visibility
+
+unpublished properties return 404 or hidden response
+
+Ownership rules
+
+only owner can delete property
+
+only owner/team member can edit property later
+
+only owner can manage billing
+
+18. Database architecture
+
+Here is the clean core schema.
+
+profiles
+
+Stores user identity data.
+
+Fields:
+
+id
+
+email
+
+full_name
+
+company_name
+
+avatar_url
+
+phone
+
+created_at
+
+updated_at
+
+plans
+
+Stores plan definitions.
+
+Fields:
+
+id
+
+name
+
+price_monthly_kes
+
+price_yearly_kes
+
+max_active_properties
+
+max_storage_bytes
+
+qr_download_enabled
+
+qr_svg_enabled
+
+embeds_enabled
+
+advanced_embeds_enabled
+
+lead_capture_enabled
+
+advanced_analytics_enabled
+
+branding_customization_enabled
+
+max_team_members
+
+created_at
+
+updated_at
+
+subscriptions
+
+Stores user subscription status.
+
+Fields:
+
+id
+
+user_id
+
+plan_id
+
+provider
+
+provider_customer_code
+
+provider_subscription_code
+
+provider_reference
+
+status
+
+billing_cycle
+
+current_period_start
+
+current_period_end
+
+grace_period_ends_at
+
+cancelled_at
+
+created_at
+
+updated_at
+
+properties
+
+This is the main content record.
+
+Fields:
+
+id
+
+user_id
+
+title
+
+slug
+
+description
+
+property_type
+
+location_text
+
+cover_image_url
+
+has_360
+
+has_gallery
+
+is_published
+
+published_at
+
+visibility
+
+lead_form_enabled
+
+branding_enabled
+
+custom_logo_url
+
+theme_settings_json
+
+created_at
+
+updated_at
+
+property_media
+
+Stores all media items attached to a property.
+
+Fields:
+
+id
+
+property_id
+
+media_type (panorama, gallery_image, thumbnail, logo)
+
+storage_key
+
+public_url
+
+width
+
+height
+
+file_size_bytes
+
+sort_order
+
+is_primary
+
+created_at
+
+property_360_settings
+
+Stores panorama viewer settings.
+
+Fields:
+
+id
+
+property_id
+
+panorama_media_id
+
+hfov_default
+
+pitch_default
+
+yaw_default
+
+auto_rotate_enabled
+
+hotspots_json
+
+created_at
+
+updated_at
+
+analytics_events
+
+Stores raw usage events.
+
+Fields:
+
+id
+
+property_id
+
+event_type
+
+source
+
+session_id
+
+referrer
+
+user_agent
+
+ip_hash_or_anonymous_key
+
+created_at
+
+analytics_daily
+
+Stores summarized analytics.
+
+Fields:
+
+id
+
+property_id
+
+date
+
+total_views
+
+qr_views
+
+direct_views
+
+embed_views
+
+leads_count
+
+created_at
+
+updated_at
+
+leads
+
+Stores lead submissions.
+
+Fields:
+
+id
+
+property_id
+
+name
+
+phone
+
+email
+
+message
+
+source
+
+created_at
+
+usage_counters
+
+Stores account-level usage.
+
+Fields:
+
+id
+
+user_id
+
+active_properties_count
+
+storage_used_bytes
+
+monthly_views_count
+
+updated_at
+
+share_links
+
+Optional but useful if you want campaign tracking later.
+
+Fields:
+
+id
+
+property_id
+
+label
+
+source_tag
+
+full_url
+
+created_at
+
+billing_events
+
+Useful for logging.
+
+Fields:
+
+id
+
+user_id
+
+provider
+
+event_type
+
+payload_json
+
+processed_at
+
+created_at
+
+19. Backend API architecture
+
+Here are the main backend endpoints.
+
+Auth-aware billing endpoints
+
+POST /billing/initialize-paystack
+
+POST /billing/webhook/paystack
+
+GET /billing/subscription-status
+
+POST /billing/cancel
+
+POST /billing/resume
+
+Upload endpoints
+
+POST /uploads/create-signed-url
+
+POST /uploads/complete
+
+Property management endpoints
+
+POST /properties
+
+PATCH /properties/:id
+
+POST /properties/:id/publish
+
+POST /properties/:id/unpublish
+
+DELETE /properties/:id
+
+Analytics endpoints
+
+POST /analytics/view
+
+POST /analytics/embed-view
+
+POST /analytics/lead-conversion
+
+Lead endpoints
+
+POST /leads
+
+GET /leads/property/:id
+
+QR / share endpoints
+
+GET /properties/:id/share-link
+
+GET /properties/:id/qr
+
+GET /properties/:id/embed-code
+
+Admin/system endpoints later
+
+POST /internal/aggregate-analytics
+
+POST /internal/check-expired-subscriptions
+
+20. Frontend page architecture
+Marketing pages on viewora.software
+
+/
+
+/pricing
+
+/features
+
+/about
+
+/signin
+
+/signup
+
+App pages on app.viewora.software
+
+/dashboard
+
+/properties
+
+/properties/new
+
+/properties/:id
+
+/properties/:id/edit
+
+/analytics
+
+/billing
+
+/settings
+
+/leads
+
+Public pages on viewora.software
+
+/p/:slug
+
+/embed/:slug
+
+21. Dashboard UX architecture
+
+To feel premium, your dashboard should center around clarity and speed.
+
+Main dashboard widgets
+
+active properties count
+
+storage used
+
+views today
+
+total views this week
+
+recent leads
+
+subscription status
+
+quick actions
+
+Quick actions
+
+create new property
+
+upload 360 panorama
+
+upload gallery
+
+copy link
+
+download QR
+
+view analytics
+
+Property card actions
+
+edit
+
+publish/unpublish
+
+preview
+
+copy share link
+
+download QR
+
+embed code
+
+view stats
+
+duplicate
+
+That “duplicate” action is a small but powerful premium-feeling feature.
+
+22. Public page premium features
+
+Here are the sleek features that will make users happy without turning the platform into chaos.
+
+Must-have premium-feeling features
+
+clean mobile-first property page
+
+smooth gallery transitions
+
+360 / gallery toggle
+
+instant copy link button
+
+QR preview
+
+fast-loading cover image
+
+WhatsApp-friendly link previews
+
+branded property presentation
+
+views counter in dashboard
+
+recent activity insights
+
+High-value later features
+
+favorite/save property
+
+request viewing button
+
+WhatsApp lead CTA
+
+property brochure PDF export
+
+compare multiple properties
+
+hotspot labels inside 360 view
+
+map embed
+
+appointment request flow
+
+23. Security architecture
+
+This matters even if you are small.
+
+Security requirements
+
+signed upload URLs only
+
+ownership validation for every write action
+
+webhook signature verification for Paystack
+
+rate limiting on public analytics and lead endpoints
+
+sanitized input for all user-submitted fields
+
+RLS in Supabase for private user data
+
+prevent direct unauthorized media overwrite
+
+plan checks enforced server-side
+
+Media protection
+
+Public delivery is okay for published assets, but upload paths must be protected.
+
+24. Performance architecture
+
+Premium feel = speed.
+
+Performance priorities
+
+optimize images before public delivery
+
+lazy load galleries
+
+defer heavy scripts until needed
+
+only initialize Pannellum when 360 section is visible
+
+cache public property data when possible
+
+serve media through optimized custom domain
+
+precompute analytics summaries instead of querying raw events constantly
+
+For Kenya/mobile conditions
+
+You should also prioritize:
+
+low initial payload
+
+mobile-first page layout
+
+optimized thumbnails
+
+lightweight property pages
+
+graceful load states
+
+That matters a lot more than fancy effects.
+
+25. Error monitoring and reliability architecture
+
+You said you want fewer bugs and fewer bad client experiences.
+
+Then you need observability.
+
+What to log
+
+upload failures
+
+publish failures
+
+payment initialization failures
+
+webhook failures
+
+media loading failures
+
+public page rendering errors
+
+lead submission failures
+
+What to monitor
+
+API uptime
+
+webhook success rate
+
+storage errors
+
+auth issues
+
+analytics ingestion issues
+
+Later, add a service like Sentry if needed.
+
+26. Future scalability architecture
+
+This system is built to evolve.
+
+Easy future additions
+
+team member access
+
+agent profiles
+
+white-label custom domains
+
+CRM integrations
+
+auto WhatsApp notifications
+
+property brochures
+
+multiple panoramas per property
+
+floor navigation
+
+AI-generated descriptions
+
+WhatsApp mini-campaign links
+
+API access for Elite
+
+mobile app later
+
+Because responsibilities are separated now, these additions won’t destroy your structure later.
+
+27. What is intentionally not overbuilt yet
+
+To keep this realistic and profitable, do not overbuild these at the start:
+
+full white-label custom domains
+
+advanced background media pipelines
+
+unlimited team permissions
+
+complex CRM syncs
+
+deep map/location systems
+
+multi-property comparisons
+
+heavy AI features
+
+native mobile app first
+
+Build the profitable core first.
+
+28. Final end-to-end request flow
+
+Here is the full live system sequence.
+
+A. Sign up
+
+User signs up on app
+→ Supabase authenticates
+→ profile created
+→ default plan state assigned
+
+B. Upgrade
+
+User selects plan
+→ frontend calls backend
+→ backend initializes Paystack
+→ user pays
+→ Paystack webhook verifies
+→ subscription updated
+
+C. Create property
+
+User creates property metadata
+→ property row inserted
+→ draft state
+
+D. Upload media
+
+Frontend requests signed upload URL
+→ backend checks user + plan + quota
+→ signed target returned
+→ frontend uploads to R2
+→ frontend confirms upload
+→ media row stored
+→ usage counters updated
+
+E. Publish property
+
+User clicks publish
+→ backend checks:
+
+active subscription or grace rules
+
+active property limits
+
+required cover or media
+
+valid slug
+
+→ if valid, property published
+
+F. Public visitor opens page
+
+Visitor opens share link or QR
+→ property page loads
+→ metadata fetched
+→ gallery and/or Pannellum render
+→ analytics event stored
+
+G. Lead capture
+
+Visitor submits lead
+→ backend validates
+→ lead stored
+→ owner sees it in dashboard
+
+H. Embed visit
+
+External site iframe loads embed page
+→ embed analytics tracked
+→ media renders
+→ source logged as embed
+
+29. Final architecture summary
+
+This is the architecture I recommend you actually use.
+
+Core services
+
+Nuxt 3 on Vercel
+
+Fastify on Railway
+
+Supabase Auth + Postgres
+
+Cloudflare R2
+
+Pannellum
+
+Paystack
+
+Core domains
+
+viewora.software
+
+app.viewora.software
+
+api.viewora.software
+
+media.viewora.software
+
+Core product model
+
+one property page can contain:
+
+2D gallery
+
+360 viewer
+
+branding
+
+share link
+
+QR code
+
+embeds
+
+analytics
+
+leads
+
+Core monetization model
+
+tiered plans
+
+storage quotas
+
+active property limits
+
+embeds gated
+
+leads gated
+
+analytics tiered
+
+fair grace period
+
+Core premium-feel drivers
+
+fast media
+
+beautiful public pages
+
+smooth sharing
+
+useful analytics
+
+WhatsApp-friendly previews
+
+QR tools
+
+both 2D and 360 support
+
+30. What would be missing if you started coding right now
+
+Only 4 concrete decisions still need to be frozen before implementation:
+
+Product decisions
+
+exact final plan limits
+
+whether 360 and 2D are always on one page or optionally separate sections
+
+exact grace period behavior
+
+branding rules per plan
+
+Technical decisions
+
+whether image optimization happens client-side first or backend-side later
+
+whether QR is generated frontend-side or backend-side for downloads
+
+whether analytics events are written directly to backend only or also summarized by cron/job
+
+whether embeds live under main domain or separate embed domain later
+
+Everything else is ready enough to implement.
+

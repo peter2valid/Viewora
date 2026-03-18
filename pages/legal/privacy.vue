@@ -36,7 +36,7 @@
 
         <h3 class="mb-4">6. Your Rights Regarding Your Data</h3>
         <p class="mb-6">
-          You have the right to access, update, or delete the personal information we have on you. If you wish to permanently delete your account and all associated data, you may do so from your account settings or by contacting our support team at support@viewora.com.
+          You have the right to access, update, or delete the personal information we have on you. If you wish to permanently delete your account and all associated data, you may do so from your account settings or by contacting our support team at support@viewora.software.
         </p>
       </div>
     </div>

@@ -168,7 +168,13 @@ const openBooking = (name: string) => {
 }
 
 const submitBooking = () => {
-  // TODO: send to backend / email
+  // TODO: Replace with POST /api/bookings once the endpoint is implemented.
+  // For now, open a mailto: link so the request actually reaches the team.
+  const subject = encodeURIComponent(`[Viewora Booking] ${selectedPackage.value} — ${bookingForm.value.tourName}`)
+  const body = encodeURIComponent(
+    `Package: ${selectedPackage.value}\nProperty: ${bookingForm.value.tourName}\nLocation: ${bookingForm.value.location}\nRooms: ${bookingForm.value.rooms}\nPreferred Date: ${bookingForm.value.date}\nPhone: ${bookingForm.value.phone}\nNotes: ${bookingForm.value.notes}`
+  )
+  window.location.href = `mailto:hello@viewora.software?subject=${subject}&body=${body}`
   bookingSubmitted.value = true
 }
 

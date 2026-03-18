@@ -23,7 +23,7 @@
 
         <h3 class="mb-4">4. Exceptions</h3>
         <p class="mb-6">
-          We may, at our sole discretion, issue a refund or credit in exceptional circumstances, or if required by applicable Kenyan consumer protection laws. If you believe you have been charged in error, please contact us immediately at support@viewora.com.
+          We may, at our sole discretion, issue a refund or credit in exceptional circumstances, or if required by applicable Kenyan consumer protection laws. If you believe you have been charged in error, please contact us immediately at support@viewora.software.
         </p>
 
         <h3 class="mb-4">5. Free Trials</h3>

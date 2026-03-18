@@ -1,0 +1,1241 @@
+Viewora implementation order
+
+There are 8 phases.
+
+Phase 0 — reset and audit
+
+Goal: know what exists, what stays, what dies.
+
+Tasks
+
+list all current services in use
+
+list all current domains/subdomains in use
+
+inspect current Nuxt frontend structure
+
+inspect current backend structure
+
+inspect current Supabase tables, policies, functions, buckets
+
+inspect current Vercel env vars
+
+inspect current Railway env vars
+
+inspect any current Cloudflare/R2 setup
+
+inspect any current Paystack logic
+
+identify dead code, duplicate code, abandoned experiments
+
+identify anything still referencing CloudPano or old viewer logic
+
+identify anything hardcoded that should become config
+
+Output
+
+You should end this phase with 4 lists:
+
+keep
+
+refactor
+
+delete
+
+unknown
+
+Important rule
+
+Do not code new features before this audit is done.
+
+Phase 1 — architecture lock
+
+Goal: freeze the system shape before implementation.
+
+Final architecture to lock
+
+viewora.software → marketing + public property pages
+
+app.viewora.software → dashboard
+
+api.viewora.software → backend
+
+media.viewora.software → media delivery
+
+Final service ownership
+Nuxt / Vercel
+
+marketing pages
+
+dashboard UI
+
+public property page
+
+embed page
+
+billing UI
+
+analytics UI
+
+Supabase
+
+auth
+
+profiles
+
+plans
+
+subscriptions
+
+properties
+
+property media
+
+analytics summaries
+
+leads
+
+usage counters
+
+RLS
+
+Railway / Fastify
+
+signed upload endpoints
+
+Paystack init
+
+Paystack webhook
+
+publish/unpublish logic
+
+plan enforcement
+
+analytics ingestion
+
+lead submission validation
+
+quota checks
+
+Cloudflare R2
+
+panoramas
+
+gallery images
+
+thumbnails
+
+logos
+
+QR assets if needed
+
+Pannellum
+
+360 rendering only
+
+Paystack
+
+payments only
+
+Tasks
+
+freeze final domain map
+
+freeze final service ownership
+
+freeze plan feature matrix
+
+freeze subscription lifecycle
+
+freeze public visibility rules
+
+freeze storage policy
+
+freeze property model: 2D + 360 on same property page
+
+Output
+
+One architecture reference doc you do not keep changing every day.
+
+Phase 2 — cleanup and removal
+
+Goal: remove wrong structure before rebuilding.
+
+This is where you clean out old decisions.
+
+Delete or refactor
+
+old CloudPano integration
+
+unused viewer components
+
+any old storage buckets you no longer want
+
+dead Supabase tables/functions/policies
+
+old upload flows that bypass your final logic
+
+duplicate auth wrappers
+
+frontend-only billing logic pretending to be secure
+
+unused API routes
+
+abandoned experimental pages
+
+broken analytics experiments
+
+any mixed “tour/project/property” naming chaos
+
+Rename for consistency
+
+Use one clean naming system.
+
+Recommended:
+
+property = main listing/experience
+
+property_media = gallery/panorama files
+
+subscription = billing state
+
+plan = package definition
+
+Avoid mixing:
+
+tour
+
+project
+
+listing
+
+space
+
+property
+
+Pick one main model and stick to it.
+My recommendation: property.
+
+Output
+
+A cleaner repo and database with less confusion.
+
+Phase 3 — database foundation
+
+Goal: build the real data model first.
+
+Do this before polished UI.
+
+Tables to implement first
+profiles
+
+id
+
+email
+
+full_name
+
+company_name
+
+avatar_url
+
+phone
+
+created_at
+
+updated_at
+
+plans
+
+id
+
+name
+
+price_monthly_kes
+
+price_yearly_kes
+
+max_active_properties
+
+max_storage_bytes
+
+qr_download_enabled
+
+qr_svg_enabled
+
+embeds_enabled
+
+advanced_embeds_enabled
+
+lead_capture_enabled
+
+advanced_analytics_enabled
+
+branding_customization_enabled
+
+max_team_members
+
+created_at
+
+updated_at
+
+subscriptions
+
+id
+
+user_id
+
+plan_id
+
+provider
+
+provider_reference
+
+status
+
+billing_cycle
+
+current_period_start
+
+current_period_end
+
+grace_period_ends_at
+
+created_at
+
+updated_at
+
+properties
+
+id
+
+user_id
+
+title
+
+slug
+
+description
+
+property_type
+
+location_text
+
+cover_image_url
+
+has_360
+
+has_gallery
+
+is_published
+
+published_at
+
+visibility
+
+lead_form_enabled
+
+branding_enabled
+
+created_at
+
+updated_at
+
+property_media
+
+id
+
+property_id
+
+media_type
+
+storage_key
+
+public_url
+
+width
+
+height
+
+file_size_bytes
+
+sort_order
+
+is_primary
+
+created_at
+
+property_360_settings
+
+id
+
+property_id
+
+panorama_media_id
+
+hfov_default
+
+pitch_default
+
+yaw_default
+
+auto_rotate_enabled
+
+hotspots_json
+
+created_at
+
+updated_at
+
+analytics_events
+
+id
+
+property_id
+
+event_type
+
+source
+
+session_id
+
+referrer
+
+user_agent
+
+created_at
+
+analytics_daily
+
+id
+
+property_id
+
+date
+
+total_views
+
+qr_views
+
+direct_views
+
+embed_views
+
+leads_count
+
+created_at
+
+updated_at
+
+leads
+
+id
+
+property_id
+
+name
+
+phone
+
+email
+
+message
+
+source
+
+created_at
+
+usage_counters
+
+id
+
+user_id
+
+active_properties_count
+
+storage_used_bytes
+
+updated_at
+
+Also implement
+
+RLS policies
+
+indexes
+
+profile creation trigger if needed
+
+subscription status helpers
+
+slug uniqueness rules
+
+Output
+
+A trustworthy backend data foundation.
+
+Phase 4 — backend foundation
+
+Goal: create the real server-side control layer.
+
+This is where your premium feel gets protected.
+
+First endpoints to build
+billing
+
+POST /billing/initialize-paystack
+
+POST /billing/webhook/paystack
+
+GET /billing/subscription-status
+
+uploads
+
+POST /uploads/create-signed-url
+
+POST /uploads/complete
+
+properties
+
+POST /properties
+
+PATCH /properties/:id
+
+POST /properties/:id/publish
+
+POST /properties/:id/unpublish
+
+analytics
+
+POST /analytics/view
+
+leads
+
+POST /leads
+
+Backend logic to implement
+
+auth validation
+
+plan lookup
+
+quota checks
+
+publish checks
+
+ownership checks
+
+Paystack verification
+
+webhook signature validation
+
+media path validation
+
+usage counter update logic
+
+Output
+
+A secure API layer that owns the real rules.
+
+Phase 5 — storage foundation
+
+Goal: make uploads clean, cheap, organized, and safe.
+
+R2 bucket structure
+users/{userId}/properties/{propertyId}/panorama/master.jpg
+users/{userId}/properties/{propertyId}/panorama/optimized.jpg
+users/{userId}/properties/{propertyId}/gallery/{imageId}.jpg
+users/{userId}/properties/{propertyId}/thumb/cover.jpg
+users/{userId}/branding/logo.png
+Tasks
+
+create bucket
+
+connect custom media domain
+
+configure upload permissions
+
+create signed upload flow
+
+enforce MIME type checks
+
+enforce file size rules
+
+enforce path ownership rules
+
+define public media URL strategy
+
+define cache headers
+
+Important
+
+Do not let users upload directly to random paths.
+
+Output
+
+Reliable media storage with future scalability.
+
+Phase 6 — frontend shell
+
+Goal: get structure working before making it beautiful.
+
+Build these pages first
+marketing side
+
+homepage
+
+pricing
+
+sign in/up entry
+
+dashboard side
+
+dashboard home
+
+properties list
+
+create property page
+
+edit property page
+
+billing page
+
+analytics page
+
+settings page
+
+leads page
+
+Build these app systems
+
+auth guard
+
+layout system
+
+sidebar/nav
+
+topbar
+
+empty states
+
+error states
+
+loading states
+
+First usable flows
+
+sign in
+
+create draft property
+
+see draft list
+
+open edit page
+
+Output
+
+A working dashboard skeleton.
+
+Phase 7 — media and publishing flow
+
+Goal: make property creation real.
+
+This is the first major product milestone.
+
+Implement
+2D gallery upload
+
+upload images
+
+set cover image
+
+reorder gallery
+
+save metadata
+
+360 upload
+
+upload panorama
+
+validate equirectangular image
+
+save 360 settings
+
+property editor sections
+
+title/details
+
+location
+
+gallery
+
+360 viewer setup
+
+branding toggle
+
+lead form toggle
+
+publish controls
+
+publish logic
+
+Backend checks:
+
+active subscription?
+
+within property limit?
+
+has required media?
+
+valid slug?
+
+within storage quota?
+
+If valid:
+
+publish property
+
+generate public URL
+
+Output
+
+Users can create and publish real property experiences.
+
+Phase 8 — public experience
+
+Goal: make the product actually feel premium to visitors.
+
+Public property page
+
+Route:
+
+viewora.software/p/:slug
+
+Include
+
+cover image
+
+title
+
+location text
+
+short details
+
+gallery
+
+360 section if available
+
+share controls
+
+QR presentation if needed
+
+lead form if enabled
+
+branding display based on plan
+
+Pannellum integration
+
+Only now.
+
+Build
+
+viewer component
+
+lazy initialization
+
+mobile support
+
+graceful loading
+
+fallback if no panorama
+
+Also build
+
+WhatsApp/social preview metadata
+
+clean 404 for unpublished properties
+
+analytics event on page load
+
+Output
+
+Your first polished public property experience.
+
+Phase 9 — QR, sharing, and embeds
+
+Goal: increase business usefulness.
+
+QR
+
+generate QR from public property link
+
+show in dashboard
+
+download PNG for Plus+
+
+SVG/branded version for Pro+
+
+Share links
+
+copy public link
+
+support ?src=qr, ?src=whatsapp, ?src=embed
+
+save source in analytics
+
+Embeds
+
+route: /embed/:slug
+
+lightweight render
+
+plan gated
+
+iframe code generator
+
+Output
+
+Property sharing becomes frictionless.
+
+Phase 10 — analytics and leads
+
+Goal: make users feel the product is working for them.
+
+Analytics V1
+
+total views
+
+views today
+
+daily trend
+
+source breakdown
+
+top properties
+
+Leads
+
+form capture
+
+dashboard list
+
+property-level lead counts
+
+Build summary logic
+
+either cron or scheduled aggregation later
+
+don’t overbuild first day
+
+Output
+
+Users can see business value, not just a viewer.
+
+Phase 11 — polish and premium feel
+
+Goal: remove rough edges.
+
+Polish checklist
+
+smooth transitions
+
+optimized loading
+
+empty-state design
+
+clean upload progress
+
+beautiful share modal
+
+good thumbnails
+
+mobile responsiveness
+
+human-friendly errors
+
+strong loading states
+
+elegant billing page
+
+polished dashboard cards
+
+consistent typography and spacing
+
+branded success messages
+
+Sleek features to add after core works
+
+duplicate property
+
+draft/published badges
+
+recent views widget
+
+quick copy share link
+
+cover image chooser
+
+toggle between gallery and 360
+
+WhatsApp CTA
+
+branded QR cards
+
+property preview card
+
+lightweight mode for slow internet
+
+What to do this week
+
+Here is the best order of execution.
+
+Day 1 — audit and cleanup map
+
+scan current repo
+
+scan Supabase
+
+scan backend
+
+scan env vars
+
+list keep/refactor/delete
+
+freeze architecture
+
+Day 2 — database redesign
+
+define tables
+
+create migrations
+
+write RLS
+
+seed plans
+
+define subscription statuses
+
+Day 3 — backend skeleton
+
+create Fastify app structure
+
+auth middleware
+
+plan check service
+
+Paystack init endpoint
+
+webhook endpoint
+
+upload-signing endpoint
+
+Day 4 — storage integration
+
+create R2 bucket structure
+
+signed upload flow
+
+upload complete logic
+
+usage counter updates
+
+Day 5 — frontend dashboard shell
+
+auth flow
+
+dashboard layout
+
+properties list
+
+property create/edit pages
+
+billing page shell
+
+Day 6 — publishing and public page
+
+create property flow
+
+upload 2D images
+
+upload panorama
+
+publish logic
+
+public property page
+
+basic analytics event
+
+Day 7 — Pannellum, QR, polish
+
+integrate Pannellum
+
+add QR generation
+
+add share modal
+
+add better states and styling
+
+That is the right first sprint.
+
+Task system guide
+
+Use this priority system every time.
+
+P0 — foundation blockers
+
+Must be done first.
+Examples:
+
+auth
+
+schema
+
+backend rules
+
+upload path security
+
+Paystack webhook
+
+publish validation
+
+P1 — core product
+
+Needed for MVP to function.
+Examples:
+
+property creation
+
+2D upload
+
+360 upload
+
+public pages
+
+analytics basic
+
+QR basic
+
+P2 — premium improvements
+
+Improves product feel.
+Examples:
+
+better dashboard cards
+
+advanced analytics
+
+embeds
+
+branded QR
+
+elegant share flow
+
+duplicate property
+
+P3 — future growth
+
+Later only.
+Examples:
+
+teams
+
+white-label domains
+
+API access
+
+CRM integrations
+
+AI enhancements
+
+Whenever you feel tempted to jump around, ask:
+Is this P0, P1, P2, or P3?
+
+If it is not P0 or P1 right now, it probably waits.
+
+Your working board structure
+
+Create your task board with these lists:
+
+1. Audit
+
+current frontend scan
+
+current backend scan
+
+current Supabase scan
+
+current storage scan
+
+current billing scan
+
+keep/refactor/delete decision
+
+2. Architecture lock
+
+final domain map
+
+final service ownership
+
+final plan matrix
+
+final rules matrix
+
+final naming system
+
+3. Database
+
+schema design
+
+migrations
+
+RLS
+
+indexes
+
+plan seed data
+
+4. Backend
+
+Fastify setup
+
+auth middleware
+
+billing endpoints
+
+upload endpoints
+
+property endpoints
+
+analytics endpoints
+
+leads endpoints
+
+5. Storage
+
+R2 setup
+
+media domain
+
+signed upload
+
+validation
+
+cache rules
+
+6. Frontend app
+
+auth pages
+
+dashboard layout
+
+property list
+
+property editor
+
+billing UI
+
+analytics UI
+
+7. Public experience
+
+property page
+
+gallery
+
+360 viewer
+
+lead form
+
+share controls
+
+metadata
+
+8. Monetization and sharing
+
+Paystack verification
+
+QR download
+
+embed route
+
+plan gating
+
+9. Polish
+
+loading states
+
+error states
+
+mobile UX
+
+animations
+
+typography consistency
+
+premium interactions
+
+What is missing before implementation starts
+
+Before coding, lock these decisions today:
+
+exact plan limits
+
+exact grace period behavior
+
+whether 2D and 360 always live on same page
+
+which plans get embeds
+
+which plans get lead capture
+
+exact upload size limits
+
+exact branding rules per plan
+
+Do not leave those vague.
+
+My blunt recommendation on where to start right now
+
+Start with this exact order:
+
+1. Audit current codebase and Supabase
+
+Because you already said some things were built in the wrong place.
+
+2. Freeze the architecture
+
+Because without that, cleanup becomes random.
+
+3. Rebuild database and backend foundation
+
+Because that controls everything else.
+
+4. Reconnect frontend after the core is clean
+
+Because UI on top of messy logic is fake progress.
+
+First 12 tasks you should do now
+
+Export current project folder map
+
+Export current Supabase schema summary
+
+Export current API routes summary
+
+Mark all CloudPano-related code for deletion/refactor
+
+Freeze final naming system around property
+
+Freeze final domain map
+
+Freeze plan and feature matrix
+
+Create fresh schema design
+
+Create migration order
+
+Create Fastify route/module structure
+
+Create R2 media path structure
+
+Create implementation board with P0/P1/P2/P3 tags
+

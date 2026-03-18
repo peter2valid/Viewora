@@ -66,34 +66,47 @@
         <!-- Contact Form -->
         <div class="card">
           <h3 class="mb-6">Send us a message</h3>
-          <form @submit.prevent="submitForm">
+
+          <!-- Success state -->
+          <div v-if="submitted" class="app-state-box app-state-box--success" style="margin: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <p>Thank you! We've received your message and will get back to you within 24 hours.</p>
+            <button class="btn btn-secondary" style="margin-top: 0.5rem;" @click="submitted = false">Send another</button>
+          </div>
+
+          <form v-else @submit.prevent="submitForm">
             <div class="mb-4">
               <label class="block font-semibold mb-2" for="name">Full Name</label>
-              <input type="text" id="name" class="form-input" placeholder="e.g. Jane Doe" required style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; transition: border-color 0.2s;" />
+              <input v-model="form.name" type="text" id="name" class="form-input" placeholder="e.g. Jane Doe" required style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; transition: border-color 0.2s;" />
             </div>
-            
+
             <div class="mb-4">
               <label class="block font-semibold mb-2" for="email">Email Address</label>
-              <input type="email" id="email" class="form-input" placeholder="you@example.com" required style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; transition: border-color 0.2s;" />
+              <input v-model="form.email" type="email" id="email" class="form-input" placeholder="you@example.com" required style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; transition: border-color 0.2s;" />
             </div>
 
             <div class="mb-4">
               <label class="block font-semibold mb-2" for="subject">Subject</label>
-              <select id="subject" class="form-input" style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; background: white;" required>
-                <option value="" disabled selected>Select a subject</option>
+              <select v-model="form.subject" id="subject" class="form-input" style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; background: white;" required>
+                <option value="" disabled>Select a subject</option>
                 <option value="sales">Sales Inquiry</option>
                 <option value="support">Technical Support</option>
                 <option value="billing">Billing Question</option>
                 <option value="other">Other</option>
               </select>
             </div>
-            
+
             <div class="mb-6">
               <label class="block font-semibold mb-2" for="message">Message</label>
-              <textarea id="message" rows="5" class="form-input" placeholder="How can we help you?" required style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; resize: vertical; font-family: inherit; font-size: inherit;"></textarea>
+              <textarea v-model="form.message" id="message" rows="5" class="form-input" placeholder="How can we help you?" required style="width: 100%; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 0.5rem; outline: none; resize: vertical; font-family: inherit; font-size: inherit;"></textarea>
             </div>
-            
-            <button type="submit" class="btn btn-primary btn-block">Send Message</button>
+
+            <div v-if="formError" class="modal-error" style="margin-bottom: 1rem;">{{ formError }}</div>
+
+            <button type="submit" class="btn btn-primary btn-block" :disabled="submitting">
+              <span v-if="submitting" class="btn-spinner-xs" style="margin-right: 0.5rem;"></span>
+              {{ submitting ? 'Sending…' : 'Send Message' }}
+            </button>
           </form>
         </div>
       </div>
@@ -102,8 +115,31 @@
 </template>
 
 <script setup lang="ts">
-const submitForm = () => {
-  alert('Thank you for contacting us. We will get back to you shortly.');
+import { ref } from 'vue'
+
+const form = ref({ name: '', email: '', subject: '', message: '' })
+const submitting = ref(false)
+const submitted = ref(false)
+const formError = ref<string | null>(null)
+
+const submitForm = async () => {
+  submitting.value = true
+  formError.value = null
+  try {
+    // TODO: Replace with POST /api/contact once the endpoint is implemented.
+    // For now, open a mailto: link as a reliable fallback that actually delivers messages.
+    const subject = encodeURIComponent(`[Viewora Contact] ${form.value.subject}`)
+    const body = encodeURIComponent(
+      `Name: ${form.value.name}\nEmail: ${form.value.email}\n\n${form.value.message}`
+    )
+    window.location.href = `mailto:hello@viewora.software?subject=${subject}&body=${body}`
+    submitted.value = true
+    form.value = { name: '', email: '', subject: '', message: '' }
+  } catch {
+    formError.value = 'Something went wrong. Please email us directly at hello@viewora.software'
+  } finally {
+    submitting.value = false
+  }
 };
 
 useSeoMeta({

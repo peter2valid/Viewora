@@ -1,39 +1,60 @@
 import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
-  // Include our custom CSS across all pages
   css: ['@/assets/css/main.css'],
 
-  modules: ['@nuxt/image', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@nuxt/content', '@nuxtjs/supabase', '@nuxtjs/sitemap'],
+  modules: [
+    '@nuxt/image',
+    '@nuxtjs/google-fonts',
+    '@nuxtjs/seo',
+    '@nuxt/content',
+    '@nuxtjs/supabase',
+    ['@nuxtjs/sitemap', {
+      hostname: 'https://viewora.software',
+      urls: [
+        { loc: '/', priority: 1.0, changefreq: 'weekly' },
+        { loc: '/product', priority: 0.9, changefreq: 'monthly' },
+        { loc: '/pricing', priority: 0.9, changefreq: 'monthly' },
+        { loc: '/about', priority: 0.7, changefreq: 'monthly' },
+        { loc: '/contact', priority: 0.7, changefreq: 'monthly' },
+        { loc: '/blog', priority: 0.8, changefreq: 'weekly' },
+      ],
+    }],
+    '@pinia/nuxt',
+  ],
 
-  sitemap: {
-    hostname: 'https://viewora.software',
-    urls: [
-      { loc: '/', priority: 1.0, changefreq: 'weekly' },
-      { loc: '/product', priority: 0.9, changefreq: 'monthly' },
-      { loc: '/pricing', priority: 0.9, changefreq: 'monthly' },
-      { loc: '/about', priority: 0.7, changefreq: 'monthly' },
-      { loc: '/contact', priority: 0.7, changefreq: 'monthly' },
-      { loc: '/blog', priority: 0.8, changefreq: 'weekly' },
-    ],
+  runtimeConfig: {
+    public: {
+      // Empty string = same-origin Nitro routes (/api/*).
+      // Set NUXT_PUBLIC_API_BASE_URL to an external Fastify URL only when
+      // a dedicated backend is deployed (e.g. https://api.viewora.software).
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
+    },
+    // Server-only (not exposed to client)
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    r2AccountId: process.env.R2_ACCOUNT_ID || '',
+    r2BucketName: process.env.R2_BUCKET_NAME || '',
+    r2AccessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
   },
 
   supabase: {
     url: process.env.SUPABASE_URL,
     key: process.env.SUPABASE_KEY,
+    types: '~/types/database.types.ts',
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
       include: ['/app/**'],
       exclude: [],
       cookieRedirect: false,
-    }
+    },
   },
 
   site: {
     url: 'https://viewora.software',
     name: 'Viewora',
-    description: 'Create interactive 360° virtual tours for your properties. The subscription-based platform for Airbnb hosts, real estate agents, and property developers.',
+    description: 'Create interactive 360° virtual tours for your properties. The subscription-based platform for real estate agents, Airbnb hosts, and property developers.',
     defaultLocale: 'en',
   },
 
@@ -65,21 +86,25 @@ export default defineNuxtConfig({
     '/confirm': { ssr: false },
     '/blog/**': { prerender: true },
     '/legal/**': { prerender: true },
-    // Public tours — client-side (pulls from Supabase, no auth)
-    '/tours/**': { ssr: false },
-    // Legacy tour edit URL — redirect to spaces dashboard (old path deleted)
-    '/app/tours/**': { redirect: { to: '/app/spaces', statusCode: 301 } },
-    // App dashboard — client-side only (auth-protected, user-specific)
+    // Public properties — client-side
+    '/p/**': { ssr: false },
+    // Embed pages — lightweight, no auth
+    '/embed/**': { ssr: false },
+    // Legacy tour/space routes → redirect to new dashboard
+    '/tours/**': { redirect: { to: '/app/properties', statusCode: 301 } },
+    '/app/spaces/**': { redirect: { to: '/app/properties', statusCode: 301 } },
+    '/app/projects/**': { redirect: { to: '/app/properties', statusCode: 301 } },
+    // App dashboard — client-side only (auth-protected, user-specific data)
     '/app/**': { ssr: false, headers: { 'Cache-Control': 'no-store' } },
-    // API routes — short cache + stale-while-revalidate
-    '/api/spaces': { headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' } },
-    '/api/spaces/**': { headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' } },
+    // API — no caching for authenticated data
+    '/api/**': { headers: { 'Cache-Control': 'private, no-store, must-revalidate' } },
   },
 
   nitro: {
+    // Vercel deployment target (set NITRO_PRESET=vercel in Vercel env or use vercel.json)
     prerender: {
-      failOnError: false
-    }
+      failOnError: false,
+    },
   },
 
   experimental: {
@@ -90,33 +115,30 @@ export default defineNuxtConfig({
   vite: {
     build: {
       sourcemap: false,
-      // Split large vendor chunks for better caching
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor-marzipano': ['marzipano'],
             'vendor-supabase': ['@supabase/supabase-js'],
           },
         },
       },
     },
-    optimizeDeps: {
-      include: ['marzipano'],
-    },
   },
 
   app: {
     head: {
-      title: 'Viewora | Immersive 360° Space Showcase Platform',
+      title: 'Viewora | Immersive 360° Virtual Tour Platform',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'Create, host, and share interactive 360° virtual tours in minutes. The ultimate immersive showcase platform for real estate, hospitality, automotive, and retail spaces.' },
+        {
+          name: 'description',
+          content:
+            'Create, host, and share interactive 360° virtual tours in minutes. The professional platform for real estate, hospitality, automotive, and retail spaces.',
+        },
       ],
       link: [
-        // DNS prefetch for external services
         { rel: 'dns-prefetch', href: 'https://fonts.googleapis.com' },
-        { rel: 'dns-prefetch', href: process.env.SUPABASE_URL || '' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
       ],
     },

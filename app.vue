@@ -30,26 +30,25 @@ useHead({
   link: [
     { rel: 'icon', type: 'image/png', href: '/favicon.ico' }
   ],
-  // Analytics deferred via requestIdleCallback so it never blocks page paint
+  // TODO: Replace G-XXXXXXXXXX with your real Google Analytics ID, then uncomment.
+  // script: [
+  //   {
+  //     innerHTML: `(function(){
+  //       if(typeof window==='undefined') return;
+  //       var load=function(){
+  //         var s=document.createElement('script');
+  //         s.src='https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX';
+  //         s.async=true; document.head.appendChild(s);
+  //         window.dataLayer=window.dataLayer||[];
+  //         function gtag(){dataLayer.push(arguments);} window.gtag=gtag;
+  //         gtag('js',new Date()); gtag('config','G-XXXXXXXXXX');
+  //       };
+  //       if('requestIdleCallback' in window) requestIdleCallback(load,{timeout:4000});
+  //       else setTimeout(load,3000);
+  //     })();`
+  //   }
+  // ],
   script: [
-    {
-      innerHTML: `
-        (function(){
-          if(typeof window === 'undefined') return;
-          var load = function() {
-            var s = document.createElement('script');
-            s.src = 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX';
-            s.async = true;
-            document.head.appendChild(s);
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);} window.gtag=gtag;
-            gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');
-          };
-          if ('requestIdleCallback' in window) requestIdleCallback(load, { timeout: 4000 });
-          else setTimeout(load, 3000);
-        })();
-      `
-    },
     {
       type: 'application/ld+json',
       innerHTML: JSON.stringify({
@@ -60,7 +59,7 @@ useHead({
         "applicationCategory": "BusinessApplication",
         "offers": {
           "@type": "Offer",
-          "price": "2000.00",
+          "price": "1500.00",
           "priceCurrency": "KES"
         },
         "description": "SaaS platform for creating interactive 360° virtual tours for real estate, Airbnb, and hospitality.",
@@ -74,11 +73,13 @@ useHead({
       type: 'application/ld+json',
       innerHTML: JSON.stringify({
         "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        "name": "Viewora HQ",
+        "@type": "Organization",
+        "name": "Viewora",
+        "url": "https://viewora.software",
         "address": {
           "@type": "PostalAddress",
-          "addressLocality": "Nairobi",
+          "addressLocality": "Juja",
+          "addressRegion": "Kiambu County",
           "addressCountry": "KE"
         }
       })
@@ -89,7 +90,7 @@ useHead({
 useSchemaOrg([
   defineOrganization({
     name: 'Viewora',
-    logo: '/images/viewora-logo.png', // Placeholder
+    logo: '/images/viewora-logo.png',
     sameAs: [
       'https://twitter.com/viewora',
       'https://www.linkedin.com/company/viewora'

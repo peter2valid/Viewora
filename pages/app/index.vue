@@ -7,7 +7,7 @@
           <h1 class="dash-title">{{ greeting }}, {{ displayName }}</h1>
           <p class="dash-sub">Here's an overview of your Viewora workspace.</p>
         </div>
-        <NuxtLink to="/app/spaces" class="btn btn-dark dash-cta">
+        <NuxtLink to="/app/properties" class="btn btn-dark dash-cta">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.4rem"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New Tour
         </NuxtLink>
@@ -20,8 +20,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
           </div>
           <div class="stat-body">
-            <div class="stat-value" v-if="!pending">{{ totalSpaces }}</div>
-            <div class="stat-value stat-skel" v-else></div>
+            <div v-if="!pending" class="stat-value">{{ summary?.total_properties ?? 0 }}</div>
+            <div v-else class="stat-value stat-skel"></div>
             <div class="stat-label">Total Tours</div>
           </div>
         </div>
@@ -31,8 +31,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
           </div>
           <div class="stat-body">
-            <div class="stat-value stat-value--live" v-if="!pending">{{ publishedSpaces }}</div>
-            <div class="stat-value stat-skel" v-else></div>
+            <div v-if="!pending" class="stat-value stat-value--live">{{ summary?.published_properties ?? 0 }}</div>
+            <div v-else class="stat-value stat-skel"></div>
             <div class="stat-label">Published</div>
           </div>
         </div>
@@ -42,9 +42,13 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </div>
           <div class="stat-body">
-            <div class="stat-value">—</div>
-            <div class="stat-label">Total Views</div>
-            <div class="stat-note">Analytics coming soon</div>
+            <template v-if="!pending">
+              <div v-if="planStore.can('lead_capture_enabled')" class="stat-value">{{ summary?.new_leads_7d ?? 0 }}</div>
+              <div v-else class="stat-value stat-value--locked">—</div>
+            </template>
+            <div v-else class="stat-value stat-skel"></div>
+            <div class="stat-label">New Leads (7d)</div>
+            <NuxtLink v-if="!pending && !planStore.can('lead_capture_enabled')" to="/app/billing" class="stat-upgrade">Upgrade →</NuxtLink>
           </div>
         </div>
 
@@ -53,7 +57,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
           </div>
           <div class="stat-body">
-            <div class="stat-value">Free</div>
+            <div class="stat-value" style="text-transform:capitalize">{{ planStore.plan?.name ?? 'Free' }}</div>
             <div class="stat-label">Your Plan</div>
             <NuxtLink to="/app/billing" class="stat-upgrade">Upgrade →</NuxtLink>
           </div>
@@ -66,8 +70,8 @@
         <!-- Recent Tours -->
         <div class="dash-panel">
           <div class="dash-panel-head">
-            <h2 class="dash-panel-title">Recent Tours</h2>
-            <NuxtLink to="/app/spaces" class="dash-panel-link">View all →</NuxtLink>
+            <h2 class="dash-panel-title">Recent Properties</h2>
+            <NuxtLink to="/app/properties" class="dash-panel-link">View all →</NuxtLink>
           </div>
 
           <div v-if="pending" class="recent-list">
@@ -80,28 +84,28 @@
             </div>
           </div>
 
-          <div v-else-if="recentSpaces.length === 0" class="recent-empty">
+          <div v-else-if="recentProperties.length === 0" class="recent-empty">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--border-sharp);margin-bottom:0.75rem;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <p>No tours yet. <NuxtLink to="/app/spaces" style="color:var(--accent);font-weight:500;">Create your first one →</NuxtLink></p>
+            <p>No properties yet. <NuxtLink to="/app/properties" style="color:var(--accent);font-weight:500;">Create your first one →</NuxtLink></p>
           </div>
 
           <div v-else class="recent-list">
             <NuxtLink
-              v-for="space in recentSpaces"
-              :key="space.id"
-              :to="`/app/spaces/${space.id}/editor`"
+              v-for="property in recentProperties"
+              :key="property.id"
+              :to="`/app/properties/${property.id}`"
               class="recent-item"
             >
               <div class="recent-thumb">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
               </div>
               <div class="recent-meta">
-                <div class="recent-name">{{ space.title }}</div>
+                <div class="recent-name">{{ property.title }}</div>
                 <div class="recent-info">
-                  <span :class="['recent-badge', space.is_published ? 'recent-badge--live' : 'recent-badge--draft']">
-                    {{ space.is_published ? 'Published' : 'Draft' }}
+                  <span :class="['recent-badge', property.is_published ? 'recent-badge--live' : 'recent-badge--draft']">
+                    {{ property.is_published ? 'Published' : 'Draft' }}
                   </span>
-                  <span class="recent-date">{{ formatDate(space.created_at) }}</span>
+                  <span class="recent-date">{{ formatDate(property.created_at) }}</span>
                 </div>
               </div>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recent-arrow"><polyline points="9 18 15 12 9 6"/></svg>
@@ -118,9 +122,9 @@
               <h2 class="dash-panel-title">Quick Actions</h2>
             </div>
             <div class="quick-actions">
-              <NuxtLink to="/app/spaces" class="quick-action">
+              <NuxtLink to="/app/properties" class="quick-action">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Create New Tour
+                Add New Property
               </NuxtLink>
               <NuxtLink to="/app/services" class="quick-action">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
@@ -139,7 +143,7 @@
 
           <!-- Upgrade nudge -->
           <div class="upgrade-banner">
-            <div class="upgrade-badge">Free Plan</div>
+            <div class="upgrade-badge" style="text-transform:capitalize">{{ planStore.plan?.name ?? 'Free' }} Plan</div>
             <h3 class="upgrade-title">Unlock the full platform</h3>
             <p class="upgrade-body">Upgrade to Basic or Pro for unlimited tours, custom domains, lead capture, and priority support.</p>
             <NuxtLink to="/app/billing" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:0.25rem;">
@@ -158,10 +162,43 @@ import { ref, computed, onMounted } from 'vue'
 useSeoMeta({ title: 'Dashboard | Viewora' })
 
 const user = useSupabaseUser()
-const { spaces, pending, fetchSpaces } = useSpaces()
+const planStore = usePlanStore()
+const { apiFetch } = useApiFetch()
+const { properties, fetchProperties } = useProperties()
 
-onMounted(() => fetchSpaces())
+// ── Dashboard summary ───────────────────────────────────────────────────────
+interface Summary {
+  total_properties: number
+  published_properties: number
+  new_leads_7d: number | null
+  lead_capture_enabled: boolean
+  total_views: number
+  plan_name: string
+}
 
+const summary = ref<Summary | null>(null)
+const pending = ref(true)
+
+onMounted(async () => {
+  pending.value = true
+  try {
+    const [sum] = await Promise.all([
+      apiFetch<Summary>('/api/dashboard/summary'),
+      fetchProperties(),
+    ])
+    summary.value = sum
+    newLeadsCount.value = sum.new_leads_7d ?? 0
+  } catch {
+    // non-fatal — summary is optional
+  } finally {
+    pending.value = false
+  }
+})
+
+// Global state for sidebar badge
+const newLeadsCount = useState('newLeadsCount', () => 0)
+
+// ── Derived ─────────────────────────────────────────────────────────────────
 const greeting = computed(() => {
   const h = new Date().getHours()
   if (h < 12) return 'Good morning'
@@ -175,18 +212,14 @@ const displayName = computed(() => {
   return u.user_metadata?.full_name || u.name || u.email?.split('@')[0] || 'there'
 })
 
-const totalSpaces = computed(() => spaces.value.length)
-const publishedSpaces = computed(() => spaces.value.filter((s: any) => s.is_published).length)
-const recentSpaces = computed(() =>
-  [...spaces.value]
-    .sort((a: any, b: any) => b.created_at.localeCompare(a.created_at))
+const recentProperties = computed(() =>
+  [...properties.value]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 5)
 )
 
-const formatDate = (d: string) => {
-  const date = new Date(d)
-  return date.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
 </script>
 
 <style scoped>

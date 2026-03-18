@@ -46,7 +46,7 @@ While standardizing across the real estate industry, virtual tours are still a n
 
 ## How to Get Started
 
-You don't need a $3,000 professional camera rig or coding experience to add a virtual tour to your listing. With SaaS platforms like [Viewora](https://viewora.com), any host can create a stunning walkthrough in minutes. 
+You don't need a $3,000 professional camera rig or coding experience to add a virtual tour to your listing. With SaaS platforms like [Viewora](https://viewora.software), any host can create a stunning walkthrough in minutes. 
 
 1. Take 360° panoramas using an affordable consumer camera (like an Insta360) or a smartphone app.
 2. Upload the images directly to the Viewora dashboard.

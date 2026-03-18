@@ -5,7 +5,7 @@
       <div class="an-header">
         <div>
           <h1 class="an-title">Analytics</h1>
-          <p class="an-sub">Track views and performance across all your published tours.</p>
+          <p class="an-sub">Track views and performance across all your published properties.</p>
         </div>
         <div class="an-range">
           <button
@@ -21,23 +21,23 @@
       <div class="an-metrics">
         <div class="metric-card">
           <div class="metric-label">Total Views</div>
-          <div class="metric-value">0</div>
-          <div class="metric-delta metric-delta--neutral">No data yet</div>
+          <div class="metric-value">{{ totalViews }}</div>
+          <div class="metric-delta metric-delta--neutral">{{ viewsToday }} today</div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Unique Visitors</div>
-          <div class="metric-value">0</div>
-          <div class="metric-delta metric-delta--neutral">No data yet</div>
+          <div class="metric-label">Leads Captured</div>
+          <div class="metric-value">{{ totalLeads }}</div>
+          <div class="metric-delta metric-delta--neutral">All time</div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Avg. View Duration</div>
-          <div class="metric-value">—</div>
-          <div class="metric-delta metric-delta--neutral">No data yet</div>
+          <div class="metric-label">Top Source</div>
+          <div class="metric-value metric-value--sm">{{ topSource }}</div>
+          <div class="metric-delta metric-delta--neutral">{{ topSourceViews }} views</div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Top Tour</div>
-          <div class="metric-value metric-value--sm">{{ topTourName }}</div>
-          <div class="metric-delta metric-delta--neutral">0 views</div>
+          <div class="metric-label">Top Property</div>
+          <div class="metric-value metric-value--sm">{{ topPropertyName }}</div>
+          <div class="metric-delta metric-delta--neutral">{{ topPropertyViews }} views</div>
         </div>
       </div>
 
@@ -51,10 +51,10 @@
         <!-- Bar chart -->
         <div class="bar-chart">
           <div class="bar-y-axis">
-            <span>20</span>
-            <span>15</span>
-            <span>10</span>
-            <span>5</span>
+            <span>{{ maxY }}</span>
+            <span>{{ Math.round(maxY * 0.75) }}</span>
+            <span>{{ Math.round(maxY * 0.5) }}</span>
+            <span>{{ Math.round(maxY * 0.25) }}</span>
             <span>0</span>
           </div>
           <div class="bar-area">
@@ -63,14 +63,14 @@
             </div>
             <div class="bar-cols">
               <div v-for="(day, i) in chartDays" :key="i" class="bar-col">
-                <div class="bar-fill" :style="{ height: day.pct + '%' }"></div>
+                <div class="bar-fill" :style="{ height: (day.views / (maxY || 1) * 100) + '%' }"></div>
                 <div class="bar-x-label">{{ day.label }}</div>
               </div>
             </div>
             <!-- No data overlay -->
-            <div class="bar-empty">
+            <div v-if="rawStats.length === 0" class="bar-empty">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
-              <span>Analytics tracking will begin once you publish a tour.</span>
+              <span>No analytics data for this period.</span>
             </div>
           </div>
         </div>
@@ -79,41 +79,39 @@
       <!-- Table -->
       <div class="an-table-wrap">
         <div class="an-table-head">
-          <span class="an-chart-label">Tour Performance</span>
+          <span class="an-chart-label">Property Performance</span>
         </div>
-        <table class="an-table" v-if="publishedSpaces.length > 0">
+        <table class="an-table" v-if="propertyStats.length > 0">
           <thead>
             <tr>
-              <th>Tour Name</th>
-              <th>Status</th>
-              <th>Views</th>
-              <th>Visitors</th>
-              <th>Avg. Duration</th>
+              <th>Property Name</th>
+              <th>Total Views</th>
+              <th>Direct</th>
+              <th>QR</th>
+              <th>WhatsApp</th>
+              <th>Embed</th>
+              <th>Leads</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="space in publishedSpaces" :key="space.id">
+            <tr v-for="stat in propertyStats" :key="stat.id">
               <td>
-                <NuxtLink :to="`/app/spaces/${space.id}/editor`" class="table-tour-link">
-                  {{ space.title }}
+                <NuxtLink :to="`/app/properties/${stat.id}`" class="table-tour-link">
+                  {{ stat.title }}
                 </NuxtLink>
               </td>
-              <td><span class="status-pill status-pill--live">Published</span></td>
-              <td class="table-num">0</td>
-              <td class="table-num">0</td>
-              <td class="table-num">—</td>
+              <td class="table-num font-bold">{{ stat.total_views }}</td>
+              <td class="table-num">{{ stat.direct_views }}</td>
+              <td class="table-num">{{ stat.qr_views }}</td>
+              <td class="table-num">{{ stat.whatsapp_views }}</td>
+              <td class="table-num">{{ stat.embed_views }}</td>
+              <td class="table-num">{{ stat.leads_count }}</td>
             </tr>
           </tbody>
         </table>
         <div v-else class="table-empty">
-          <p>No published tours yet. <NuxtLink to="/app/spaces" style="color:var(--accent);font-weight:500;">Publish a tour</NuxtLink> to start tracking performance.</p>
+          <p>No published properties yet. <NuxtLink to="/app/properties" style="color:var(--accent);font-weight:500;">Publish a property</NuxtLink> to start tracking performance.</p>
         </div>
-      </div>
-
-      <!-- Info banner -->
-      <div class="an-info-banner">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span>View tracking and visitor analytics are launching in an upcoming update. Your data will appear here automatically once enabled.</span>
       </div>
 
   </div>
@@ -125,6 +123,10 @@ import { ref, computed, onMounted } from 'vue'
 definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Analytics | Viewora' })
 
+const { apiFetch } = useApiFetch()
+const rawStats = ref<any[]>([])
+const pending = ref(true)
+
 const activeRange = ref('7d')
 const ranges = [
   { label: '7D', value: '7d' },
@@ -132,25 +134,107 @@ const ranges = [
   { label: '90D', value: '90d' },
   { label: 'All', value: 'all' },
 ]
+
 const activeRangeLabel = computed(() => {
   const map: Record<string, string> = { '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days', 'all': 'All time' }
   return map[activeRange.value]
 })
 
-const { spaces, fetchSpaces } = useSpaces()
-onMounted(() => fetchSpaces())
+onMounted(async () => {
+  await fetchStats()
+})
 
-const publishedSpaces = computed(() => spaces.value.filter((s: any) => s.is_published))
-const topTourName = computed(() => publishedSpaces.value[0]?.title || '—')
+async function fetchStats() {
+  pending.value = true
+  try {
+    const data = await apiFetch<any[]>('/analytics/summary')
+    rawStats.value = data || []
+  } catch (err) {
+    console.error('Failed to fetch analytics', err)
+  } finally {
+    pending.value = false
+  }
+}
 
-// Chart days — last 7 labels, all zero data
+// Aggregated Metrics
+const totalViews = computed(() => rawStats.value.reduce((acc, curr) => acc + (curr.total_views || 0), 0))
+const totalLeads = computed(() => rawStats.value.reduce((acc, curr) => acc + (curr.leads_count || 0), 0))
+const viewsToday = computed(() => {
+  const today = new Date().toISOString().split('T')[0]
+  return rawStats.value.filter(s => s.date === today).reduce((acc, curr) => acc + (curr.total_views || 0), 0)
+})
+
+const sourceTotals = computed(() => {
+  const sources = { Direct: 0, QR: 0, WhatsApp: 0, Embed: 0 }
+  rawStats.value.forEach(s => {
+    sources.Direct += (s.direct_views || 0)
+    sources.QR += (s.qr_views || 0)
+    sources.WhatsApp += (s.whatsapp_views || 0)
+    sources.Embed += (s.embed_views || 0)
+  })
+  return sources
+})
+
+const topSource = computed(() => {
+  const totals = sourceTotals.value
+  return Object.keys(totals).reduce((a, b) => (totals[a as keyof typeof totals] > totals[b as keyof typeof totals] ? a : b))
+})
+
+const topSourceViews = computed(() => sourceTotals.value[topSource.value as keyof typeof sourceTotals.value] || 0)
+
+const propertyStats = computed(() => {
+  const props: Record<string, any> = {}
+  rawStats.value.forEach(s => {
+    const pid = s.property_id
+    if (!props[pid]) {
+      props[pid] = { 
+        id: pid, 
+        title: s.properties?.title || 'Unknown', 
+        total_views: 0, 
+        direct_views: 0, 
+        qr_views: 0, 
+        whatsapp_views: 0, 
+        embed_views: 0, 
+        leads_count: 0 
+      }
+    }
+    props[pid].total_views += (s.total_views || 0)
+    props[pid].direct_views += (s.direct_views || 0)
+    props[pid].qr_views += (s.qr_views || 0)
+    props[pid].whatsapp_views += (s.whatsapp_views || 0)
+    props[pid].embed_views += (s.embed_views || 0)
+    props[pid].leads_count += (s.leads_count || 0)
+  })
+  return Object.values(props).sort((a, b) => b.total_views - a.total_views)
+})
+
+const topPropertyName = computed(() => propertyStats.value[0]?.title || '—')
+const topPropertyViews = computed(() => propertyStats.value[0]?.total_views || 0)
+
+// Chart logic
 const chartDays = computed(() => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const today = new Date().getDay()
-  return Array.from({ length: 7 }, (_, i) => ({
-    label: days[(today - 6 + i + 7) % 7],
-    pct: 0,
-  }))
+  const now = new Date()
+  const result = []
+  
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(now.getDate() - i)
+    const dateStr = d.toISOString().split('T')[0]
+    const label = i === 0 ? 'Today' : days[d.getDay()]
+    
+    const views = rawStats.value
+      .filter(s => s.date === dateStr)
+      .reduce((acc, curr) => acc + (curr.total_views || 0), 0)
+    
+    result.push({ label, views })
+  }
+  return result
+})
+
+const maxY = computed(() => {
+  const max = Math.max(...chartDays.value.map(d => d.views))
+  return max < 10 ? 10 : Math.ceil(max / 5) * 5
 })
 </script>
 

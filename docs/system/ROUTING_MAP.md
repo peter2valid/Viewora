@@ -164,4 +164,4 @@ routeRules: {
 
 The `@nuxtjs/seo` module auto-generates `sitemap.xml` at build time. Current sitemap includes all prerendered pages. Sitemap is available at `/sitemap.xml` in the build output.
 
-**Canonical domain:** Set to `https://viewora.software` in `nuxt.config.ts` but `app.vue` uses `https://viewora.com`. The sitemap will use `viewora.software` for canonical URLs, conflicting with content referencing `viewora.com`.
+**Canonical domain:** Set to `https://viewora.software` in `nuxt.config.ts` but `app.vue` uses `https://viewora.software`. The sitemap will use `viewora.software` for canonical URLs, conflicting with content referencing `viewora.software`.

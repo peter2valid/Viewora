@@ -21,7 +21,7 @@
           </template>
           <!-- Logged In View -->
           <template v-else>
-            <NuxtLink to="/app/spaces" class="nav-link">Dashboard</NuxtLink>
+            <NuxtLink to="/app/properties" class="nav-link">Dashboard</NuxtLink>
             <button @click="signOut" class="btn btn-outline" style="padding: 0.5rem 1rem;">Log Out</button>
           </template>
         </div>

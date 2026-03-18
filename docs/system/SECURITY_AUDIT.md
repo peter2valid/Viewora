@@ -158,8 +158,8 @@ The "Remember me for 30 days" checkbox has no bound value and no handler. It doe
 **Files:** `nuxt.config.ts`, `app.vue`
 
 - `nuxt.config.ts` site.url: `https://viewora.software`
-- `app.vue` ogUrl: `https://viewora.com`
-- Blog post links to: `https://viewora.com`
+- `app.vue` ogUrl: `https://viewora.software`
+- Blog post links to: `https://viewora.software`
 
 Inconsistent canonical URL causes SEO fragmentation and potential open redirect confusion.
 
@@ -187,7 +187,7 @@ When this image loads, Unsplash's CDN sees user IP addresses. This may violate G
 <a href="mailto:peterbjorogeirungu76@gmail.com">
 ```
 
-A personal Gmail address is exposed as the company support email. This is a privacy risk for the developer and unprofessional. Should be replaced with a `support@viewora.com` or similar business email.
+A personal Gmail address is exposed as the company support email. This is a privacy risk for the developer and unprofessional. Should be replaced with a `support@viewora.software` or similar business email.
 
 ### SEC-015 — Phone Number Exposed in Public Contact Page
 **Severity:** LOW (Privacy)

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/home/peter/Downloads/arcode-clone/nuxt-ar-code-clone/server/api/tours"
+    ]
+  }
+}

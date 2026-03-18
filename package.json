@@ -16,8 +16,10 @@
     "@aws-sdk/s3-request-presigner": "^3.1000.0",
     "@nuxtjs/sitemap": "^7.6.0",
     "@nuxtjs/supabase": "^2.0.4",
+    "@pinia/nuxt": "^0.11.3",
     "marzipano": "^0.10.2",
-    "nuxt": "^3.10.0"
+    "nuxt": "^3.10.0",
+    "pinia": "^3.0.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260301.1",
