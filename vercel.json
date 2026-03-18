@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".output",
+  "installCommand": "npm ci",
+  "framework": "nuxtjs",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)backend'"
+}

@@ -1,7 +1,8 @@
 # Viewora — CI Build Workflow
-# Builds the Nuxt application on every push to main.
-# Deployment is handled by Vercel (connected to this repo via Vercel dashboard).
-# This workflow validates the build passes before Vercel promotes to production.
+# Validates both the Nuxt frontend and Fastify backend on every push/PR to main.
+# Deployment:
+#   Frontend → Vercel (connected via Vercel dashboard, auto-deploys on push to main)
+#   Backend  → Railway (connected via Railway dashboard, root dir: /backend)
 
 name: Build Check
 
@@ -12,7 +13,9 @@ on:
     branches: ["main"]
 
 jobs:
-  build:
+  # ── Frontend (Nuxt 3 → Vercel) ──────────────────────────────────────────────
+  frontend:
+    name: Frontend Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,17 +30,37 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npx nuxi typecheck
-        continue-on-error: true
-
       - name: Build
         run: npm run build
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+  # ── Backend (Fastify → Railway) ─────────────────────────────────────────────
+  backend:
+    name: Backend Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check & build
+        run: npm run build
