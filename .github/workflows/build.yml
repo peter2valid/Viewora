@@ -1,10 +1,8 @@
-# Viewora — CI Build Workflow
-# Validates both the Nuxt frontend and Fastify backend on every push/PR to main.
-# Deployment:
-#   Frontend → Vercel (connected via Vercel dashboard, auto-deploys on push to main)
-#   Backend  → Railway (connected via Railway dashboard, root dir: /backend)
+# Viewora — Frontend CI
+# Validates the Nuxt 3 frontend on every push/PR to main.
+# Deployment: Vercel (auto-deploys on push to main via Vercel dashboard)
 
-name: Build Check
+name: Frontend Build
 
 on:
   push:
@@ -13,9 +11,8 @@ on:
     branches: ["main"]
 
 jobs:
-  # ── Frontend (Nuxt 3 → Vercel) ──────────────────────────────────────────────
-  frontend:
-    name: Frontend Build
+  build:
+    name: Nuxt Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -40,27 +37,3 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-
-  # ── Backend (Fastify → Railway) ─────────────────────────────────────────────
-  backend:
-    name: Backend Build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type check & build
-        run: npm run build
