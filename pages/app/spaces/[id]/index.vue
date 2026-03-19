@@ -248,18 +248,22 @@ function downloadQR(format: 'png' | 'svg' = 'png') {
 }
 
 async function fetchSpace() {
-  const { data: prop } = await supabase.from('properties').select('*').eq('id', spaceId).single()
-  const { data: med } = await supabase.from('property_media').select('*').eq('property_id', spaceId)
-  
-  if (prop) {
-    space.value = prop
-    detailsForm.value = {
-      title: prop.title,
-      description: prop.description || '',
-      slug: prop.slug || ''
-    }
+  if (!planStore.plan) {
+    await planStore.fetchSubscriptionStatus()
   }
-  if (med) media.value = med
+
+  try {
+    const data = await apiFetch<any>(`/spaces/${spaceId}`)
+    space.value = data
+    detailsForm.value = {
+      title: data.title,
+      description: data.description || '',
+      slug: data.slug || ''
+    }
+    media.value = data.property_media || []
+  } catch (e: any) {
+    alert('Failed to load space data')
+  }
 }
 
 async function handleUpdateDetails() {
