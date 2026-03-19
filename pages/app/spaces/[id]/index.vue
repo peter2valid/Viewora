@@ -190,8 +190,9 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'app', middleware: 'auth' })
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { usePlanStore } from '~/stores/plan'
+import { useRoute } from '#imports'
 
 const route = useRoute()
 const spaceId = route.params.id as string
