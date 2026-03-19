@@ -9,7 +9,7 @@
 
     <aside :class="['app-sidebar', { 'app-sidebar--open': isSidebarOpen }]">
       <div class="sidebar-brand">
-        <NuxtLink to="/app" class="sidebar-logo">Viewora</NuxtLink>
+        <NuxtLink to="/app/spaces" class="sidebar-logo">Viewora</NuxtLink>
         <button class="sidebar-close-btn" @click="isSidebarOpen = false" aria-label="Close menu">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
