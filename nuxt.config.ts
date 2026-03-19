@@ -15,7 +15,7 @@ export default defineNuxtConfig({
       // Empty string = same-origin Nitro routes (/api/*).
       // Set NUXT_PUBLIC_API_BASE_URL to an external Fastify URL only when
       // a dedicated backend is deployed (e.g. https://api.viewora.software).
-      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'https://api.viewora.software',
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'https://app.viewora.software',
     },
   },
