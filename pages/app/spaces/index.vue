@@ -202,6 +202,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useSpaces } from '~/composables/useSpaces'
+import { navigateTo } from '#imports'
 import type { Space } from '~/composables/useSpaces'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
