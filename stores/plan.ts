@@ -20,7 +20,7 @@ export interface Plan {
   name: string
   price_monthly_kes: number
   price_yearly_kes: number
-  max_active_properties: number
+  max_active_spaces: number
   max_storage_bytes: number
   qr_download_enabled: boolean
   qr_svg_enabled: boolean
@@ -44,7 +44,7 @@ export interface Subscription {
 }
 
 export interface UsageCounters {
-  active_properties_count: number
+  active_spaces_count: number
   storage_used_bytes: number
 }
 
@@ -52,11 +52,11 @@ export const usePlanStore = defineStore('plan', () => {
   // ── State ──────────────────────────────────────────────────────────────────
   const plan = ref<Plan | null>(null)
   const subscription = ref<Subscription | null>(null)
-  const usage = ref<UsageCounters>({ active_properties_count: 0, storage_used_bytes: 0 })
+  const usage = ref<UsageCounters>({ active_spaces_count: 0, storage_used_bytes: 0 })
   const pending = ref(false)
   const error = ref<string | null>(null)
 
-  // ── Computed ───────────────────────────────────────────────────────────────
+  // ... (computed and can helper) ...
   const isActive = computed(() => {
     const s = subscription.value?.status
     return s === 'active' || s === 'trialing'
@@ -68,10 +68,8 @@ export const usePlanStore = defineStore('plan', () => {
     return new Date(g) > new Date()
   })
 
-  // Expose plan as entitlements alias for backwards compat with leads.vue etc.
   const entitlements = computed(() => plan.value)
 
-  // Boolean feature check — convenience helper for templates
   function can(feature: keyof Plan): boolean {
     return Boolean(plan.value?.[feature])
   }
@@ -89,10 +87,9 @@ export const usePlanStore = defineStore('plan', () => {
       }>('/billing/status')
       plan.value = data.plan
       subscription.value = data.subscription
-      usage.value = data.usage ?? { active_properties_count: 0, storage_used_bytes: 0 }
+      usage.value = data.usage ?? { active_spaces_count: 0, storage_used_bytes: 0 }
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
-      // Fall back to free plan so UI renders — doesn't block the app
       if (!plan.value) plan.value = _freePlan()
     } finally {
       pending.value = false
@@ -102,7 +99,7 @@ export const usePlanStore = defineStore('plan', () => {
   function $reset() {
     plan.value = null
     subscription.value = null
-    usage.value = { active_properties_count: 0, storage_used_bytes: 0 }
+    usage.value = { active_spaces_count: 0, storage_used_bytes: 0 }
     pending.value = false
     error.value = null
   }
@@ -128,7 +125,7 @@ function _freePlan(): Plan {
     name: 'Free',
     price_monthly_kes: 0,
     price_yearly_kes: 0,
-    max_active_properties: 2,
+    max_active_spaces: 2,
     max_storage_bytes: 536870912,
     qr_download_enabled: false,
     qr_svg_enabled: false,

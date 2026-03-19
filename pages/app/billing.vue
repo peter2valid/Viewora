@@ -34,8 +34,8 @@
 
           <div class="usage-summary">
             <div class="usage-item">
-              <span class="usage-label">Active Properties</span>
-              <span class="usage-value">{{ usage?.active_properties_count || 0 }} / {{ plan?.max_active_properties }}</span>
+              <span class="usage-label">Active Spaces</span>
+              <span class="usage-value">{{ usage?.active_spaces_count || 0 }} / {{ plan?.max_active_spaces || 0 }}</span>
             </div>
             <div class="usage-item">
               <span class="usage-label">Storage</span>
@@ -47,7 +47,7 @@
         <!-- Upgrade / Change Plan -->
         <div class="billing-card card">
           <h3 class="billing-card-title">Upgrade or Change Plan</h3>
-          <p class="billing-text text-sm mb-4">Select a plan to unlock more properties and premium features.</p>
+          <p class="billing-text text-sm mb-4">Select a plan to unlock more spaces and premium features.</p>
           
           <div class="plan-toggle">
             <button 
@@ -67,7 +67,7 @@
             </div>
             
             <ul class="plan-features">
-              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {{ selectedPlan.max_active_properties }} Active Properties</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {{ selectedPlan.max_active_spaces }} Active Spaces</li>
               <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {{ formatBytes(selectedPlan.max_storage_bytes) }} Storage</li>
               <li v-if="selectedPlan.lead_capture_enabled"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Lead Capture</li>
               <li v-if="selectedPlan.branding_customization_enabled"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Custom Branding</li>
@@ -114,21 +114,20 @@ onMounted(async () => {
 async function fetchBillingData() {
   pending.value = true
   try {
-    const [statusData, plansData, usageData] = await Promise.all([
-      apiFetch<any>('/billing/subscription-status'),
-      apiFetch<any[]>('/plans'), // This will come from a simple Nuxt API or Fastify
-      supabase.from('usage_counters').select('*').eq('user_id', user.value?.id).single()
+    const [statusData, plansData] = await Promise.all([
+      apiFetch<any>('/billing/status'),
+      apiFetch<any[]>('/plans')
     ])
 
     plan.value = statusData.plan
     subscription.value = statusData.subscription
+    usage.value = statusData.usage
     availablePlans.value = plansData.sort((a, b) => a.price_monthly_kes - b.price_monthly_kes)
-    usage.value = usageData.data
     
     // Default selected plan to next tier or current
     selectedPlanId.value = plan.value?.id
   } catch {
-    // handled by pending state — user sees loading stopped
+    // handled by pending state
   } finally {
     pending.value = false
   }

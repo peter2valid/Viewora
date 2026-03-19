@@ -8,9 +8,9 @@
       <p>{{ fetchError }}</p>
     </div>
 
-    <template v-else-if="property">
+    <template v-else-if="space">
       <!-- 360 Viewer -->
-      <ClientOnly v-if="property.has_360 && panorama">
+      <ClientOnly v-if="space.has_360 && panorama">
         <AppPannellumViewer 
           :panorama-url="panorama.public_url" 
           :auto-rotate="settings?.auto_rotate_enabled"
@@ -22,15 +22,15 @@
       
       <!-- Gallery Fallback if no 360 -->
       <div v-else class="embed-gallery">
-        <img :src="property.cover_image_url || '/images/home/plain land.png'" class="embed-img" />
+        <img :src="space.cover_image_url || '/images/home/plain land.png'" class="embed-img" />
         <div class="embed-overlay">
-          <h1 class="embed-title">{{ property.title }}</h1>
-          <a :href="`/p/${property.slug}`" target="_blank" class="embed-link">View Full Tour</a>
+          <h1 class="embed-title">{{ space.title }}</h1>
+          <a :href="`/p/${space.slug}`" target="_blank" class="embed-link">View Full Tour</a>
         </div>
       </div>
 
       <!-- Watermark -->
-      <a v-if="!property.branding_enabled" href="https://viewora.software" target="_blank" class="embed-watermark">
+      <a v-if="!space.branding_enabled" href="https://viewora.software" target="_blank" class="embed-watermark">
         Viewora
       </a>
     </template>
@@ -47,33 +47,33 @@ const slug = route.params.slug as string
 
 const pending = ref(true)
 const fetchError = ref('')
-const property = ref<any>(null)
+const space = ref<any>(null)
 
-const media = computed(() => property.value?.property_media || [])
+const media = computed(() => space.value?.property_media || [])
 const panorama = computed(() => media.value.find((m: any) => m.media_type === 'panorama'))
-const settings = computed(() => property.value?.property_360_settings?.[0])
+const settings = computed(() => space.value?.property_360_settings?.[0])
 
 onMounted(async () => {
-  await fetchProperty()
+  await fetchSpace()
 })
 
-async function fetchProperty() {
+async function fetchSpace() {
   pending.value = true
   try {
-    const data = await apiFetch<any>(`/properties/by-slug/${encodeURIComponent(slug)}`)
-    property.value = data
+    const data = await apiFetch<any>(`/spaces/by-slug/${encodeURIComponent(slug)}`)
+    space.value = data
     fireViewEvent(data.id)
   } catch (err: any) {
-    fetchError.value = err.data?.statusMessage || 'Property not found'
+    fetchError.value = err.data?.statusMessage || 'Space not found'
   } finally {
     pending.value = false
   }
 }
 
-function fireViewEvent(propertyId: string) {
+function fireViewEvent(spaceId: string) {
   apiFetch('/analytics/view', {
     method: 'POST',
-    body: { propertyId, source: 'embed' }
+    body: { spaceId, source: 'embed' }
   }).catch(() => {})
 }
 </script>

@@ -3,7 +3,7 @@
     <!-- Loading -->
     <div v-if="pending" class="pv-center">
       <div class="pv-loader"></div>
-      <span class="pv-loader-text">Loading property…</span>
+      <span class="pv-loader-text">Loading space…</span>
     </div>
 
     <!-- Error -->
@@ -12,15 +12,15 @@
       <p class="pv-err-msg">{{ fetchError }}</p>
     </div>
 
-    <!-- ── Property View ───────────────────────────────────────────────────── -->
-    <template v-else-if="property">
+    <!-- ── Space View ───────────────────────────────────────────────────── -->
+    <template v-else-if="space">
       
       <!-- Content Canvas -->
       <div class="pv-main">
         
         <!-- Viewer Section (360 if available, else Cover) -->
         <div class="pv-viewer-area">
-          <ClientOnly v-if="property.has_360 && panorama">
+          <ClientOnly v-if="space.has_360 && panorama">
             <AppPannellumViewer 
               :panorama-url="panorama.public_url" 
               :auto-rotate="settings?.auto_rotate_enabled"
@@ -29,14 +29,14 @@
               :yaw="settings?.yaw_default"
             />
           </ClientOnly>
-          <div v-else class="pv-cover" :style="`background-image: url(${property.cover_image_url || '/images/home/plain land.png'})`" />
+          <div v-else class="pv-cover" :style="`background-image: url(${space.cover_image_url || '/images/home/plain land.png'})`" />
           
-          <!-- Property Quick Info Overlay -->
+          <!-- Space Quick Info Overlay -->
           <div class="pv-overlay-info">
-            <h1 class="pv-title">{{ property.title }}</h1>
-            <p v-if="property.location_text" class="pv-loc">
+            <h1 class="pv-title">{{ space.title }}</h1>
+            <p v-if="space.location_text" class="pv-loc">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              {{ property.location_text }}
+              {{ space.location_text }}
             </p>
           </div>
         </div>
@@ -49,8 +49,8 @@
               <!-- Left: Description & Gallery -->
               <div class="pv-details">
                 <section class="pv-section">
-                  <h2 class="pv-section-title">About this property</h2>
-                  <p class="pv-description">{{ property.description || 'No description provided.' }}</p>
+                  <h2 class="pv-section-title">About this space</h2>
+                  <p class="pv-description">{{ space.description || 'No description provided.' }}</p>
                 </section>
 
                 <section v-if="gallery.length" class="pv-section">
@@ -64,7 +64,7 @@
               </div>
 
               <!-- Right: Lead Form -->
-              <div v-if="property.lead_form_enabled" class="pv-sidebar">
+              <div v-if="space.lead_form_enabled" class="pv-sidebar">
                 <div class="pv-card lead-card">
                   <h3 class="pv-card-title">Interested?</h3>
                   <p class="text-sm text-muted mb-4">Send an inquiry to the owner.</p>
@@ -94,7 +94,7 @@
       </div>
 
       <!-- Watermark -->
-      <a v-if="!property.branding_enabled" href="https://viewora.software" target="_blank" class="pv-watermark">
+      <a v-if="!space.branding_enabled" href="https://viewora.software" target="_blank" class="pv-watermark">
         Powered by Viewora
       </a>
 
@@ -117,7 +117,7 @@ const slug = route.params.slug as string
 
 const pending = ref(true)
 const fetchError = ref('')
-const property = ref<any>(null)
+const space = ref<any>(null)
 const lightboxImg = ref<string | null>(null)
 
 // Lead form
@@ -126,23 +126,23 @@ const leadError = ref('')
 const leadSuccess = ref(false)
 const leadForm = ref({ name: '', email: '', phone: '', message: '' })
 
-const media = computed(() => property.value?.property_media || [])
+const media = computed(() => space.value?.property_media || [])
 const gallery = computed(() => media.value.filter((m: any) => m.media_type === 'gallery'))
 const panorama = computed(() => media.value.find((m: any) => m.media_type === 'panorama'))
-const settings = computed(() => property.value?.property_360_settings?.[0])
+const settings = computed(() => space.value?.property_360_settings?.[0])
 
 onMounted(async () => {
-  await fetchProperty()
+  await fetchSpace()
 })
 
-async function fetchProperty() {
+async function fetchSpace() {
   pending.value = true
   try {
-    const data = await apiFetch<any>(`/properties/by-slug/${encodeURIComponent(slug)}`)
-    property.value = data
+    const data = await apiFetch<any>(`/spaces/by-slug/${encodeURIComponent(slug)}`)
+    space.value = data
     fireViewEvent(data.id)
   } catch (err: any) {
-    fetchError.value = err.data?.statusMessage || 'Property not found'
+    fetchError.value = err.data?.statusMessage || 'Space not found'
   } finally {
     pending.value = false
   }
@@ -155,7 +155,7 @@ async function submitLead() {
     await apiFetch('/leads', {
       method: 'POST',
       body: {
-        propertyId: property.value.id,
+        spaceId: space.value.id,
         ...leadForm.value,
         source: route.query.src || 'direct'
       }
@@ -168,16 +168,16 @@ async function submitLead() {
   }
 }
 
-function fireViewEvent(propertyId: string) {
+function fireViewEvent(spaceId: string) {
   apiFetch('/analytics/view', {
     method: 'POST',
-    body: { propertyId, source: route.query.src || 'direct' }
+    body: { spaceId, source: route.query.src || 'direct' }
   }).catch(() => {})
 }
 
 useSeoMeta({
-  title: computed(() => property.value ? `${property.value.title} | Viewora` : 'Property Experience'),
-  description: computed(() => property.value?.description || 'View this property on Viewora.')
+  title: computed(() => space.value ? `${space.value.title} | Viewora` : 'Space Experience'),
+  description: computed(() => space.value?.description || 'View this space on Viewora.')
 })
 </script>
 

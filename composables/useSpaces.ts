@@ -1,17 +1,17 @@
 /**
- * composables/useProperties.ts
+ * composables/useSpaces.ts
  *
- * Properties are the primary business entity in Viewora.
- * A property belongs to a user and has a public page at /p/[slug].
+ * Spaces are the primary business entity in Viewora.
+ * A space belongs to a user and has a public page at /p/[slug].
  */
 
-export interface Property {
+export interface Space {
   id: string
   user_id: string
   title: string
   slug: string | null
   description: string | null
-  property_type: string | null
+  space_type: string | null
   location_text: string | null
   cover_image_url: string | null
   has_360: boolean
@@ -25,21 +25,21 @@ export interface Property {
   updated_at: string
 }
 
-export const useProperties = () => {
+export const useSpaces = () => {
   const { apiFetch } = useApiFetch()
 
-  const properties = ref<Property[]>([])
-  const currentProperty = ref<Property | null>(null)
+  const spaces = ref<Space[]>([])
+  const currentSpace = ref<Space | null>(null)
   const pending = ref(false)
   const error = ref<string | null>(null)
 
   // ── List ──────────────────────────────────────────────────────────────────
-  const fetchProperties = async () => {
+  const fetchSpaces = async () => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Property[]>('/properties')
-      properties.value = data
+      const data = await apiFetch<Space[]>('/spaces')
+      spaces.value = data
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
     } finally {
@@ -48,12 +48,12 @@ export const useProperties = () => {
   }
 
   // ── Single ────────────────────────────────────────────────────────────────
-  const fetchProperty = async (id: string) => {
+  const fetchSpace = async (id: string) => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Property>(`/properties/${id}`)
-      currentProperty.value = data
+      const data = await apiFetch<Space>(`/spaces/${id}`)
+      currentSpace.value = data
       return data
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
@@ -64,12 +64,12 @@ export const useProperties = () => {
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
-  const createProperty = async (payload: { title: string; description?: string }) => {
+  const createSpace = async (payload: { title: string; description?: string }) => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Property>('/properties', { method: 'POST', body: payload })
-      properties.value.unshift(data)
+      const data = await apiFetch<Space>('/spaces', { method: 'POST', body: payload })
+      spaces.value.unshift(data)
       return data
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
@@ -80,14 +80,14 @@ export const useProperties = () => {
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
-  const updateProperty = async (id: string, payload: Partial<Property>) => {
+  const updateSpace = async (id: string, payload: Partial<Space>) => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Property>(`/properties/${id}`, { method: 'PATCH', body: payload })
-      const idx = properties.value.findIndex(p => p.id === id)
-      if (idx !== -1) properties.value[idx] = data
-      if (currentProperty.value?.id === id) currentProperty.value = data
+      const data = await apiFetch<Space>(`/spaces/${id}`, { method: 'PATCH', body: payload })
+      const idx = spaces.value.findIndex(p => p.id === id)
+      if (idx !== -1) spaces.value[idx] = data
+      if (currentSpace.value?.id === id) currentSpace.value = data
       return data
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
@@ -98,10 +98,10 @@ export const useProperties = () => {
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────
-  const deleteProperty = async (id: string) => {
+  const deleteSpace = async (id: string) => {
     try {
-      await apiFetch(`/properties/${id}`, { method: 'DELETE' })
-      properties.value = properties.value.filter(p => p.id !== id)
+      await apiFetch(`/spaces/${id}`, { method: 'DELETE' })
+      spaces.value = spaces.value.filter(p => p.id !== id)
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
       throw e
@@ -109,17 +109,17 @@ export const useProperties = () => {
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────
-  const publishProperty = async (id: string, publish: boolean, slug?: string) => {
+  const publishSpace = async (id: string, publish: boolean, slug?: string) => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Property>(`/properties/${id}/publish`, {
+      const data = await apiFetch<Space>(`/spaces/${id}/publish`, {
         method: 'POST',
         body: { publish, slug },
       })
-      const idx = properties.value.findIndex(p => p.id === id)
-      if (idx !== -1) properties.value[idx] = data
-      if (currentProperty.value?.id === id) currentProperty.value = data
+      const idx = spaces.value.findIndex(p => p.id === id)
+      if (idx !== -1) spaces.value[idx] = data
+      if (currentSpace.value?.id === id) currentSpace.value = data
       return data
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
@@ -130,15 +130,15 @@ export const useProperties = () => {
   }
 
   return {
-    properties,
-    currentProperty,
+    spaces,
+    currentSpace,
     pending,
     error,
-    fetchProperties,
-    fetchProperty,
-    createProperty,
-    updateProperty,
-    deleteProperty,
-    publishProperty,
+    fetchSpaces,
+    fetchSpace,
+    createSpace,
+    updateSpace,
+    deleteSpace,
+    publishSpace,
   }
 }

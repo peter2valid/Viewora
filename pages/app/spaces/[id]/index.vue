@@ -3,21 +3,21 @@
     <!-- Header -->
     <div class="app-page-header">
       <div class="flex items-center gap-4">
-        <NuxtLink to="/app/properties" class="back-btn">
+        <NuxtLink to="/app/spaces" class="back-btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
         </NuxtLink>
         <div>
-          <h1 class="app-page-title">{{ property?.title || 'Edit Property' }}</h1>
+          <h1 class="app-page-title">{{ space?.title || 'Edit Space' }}</h1>
           <p class="app-page-subtitle">Manage media and publishing settings.</p>
         </div>
       </div>
       
       <div class="flex gap-2">
-        <a v-if="property?.is_published" :href="`/p/${property.slug}`" target="_blank" class="btn btn-outline">
+        <a v-if="space?.is_published" :href="`/p/${space.slug}`" target="_blank" class="btn btn-outline">
           View Live
         </a>
         <button class="btn btn-dark" @click="handleTogglePublish" :disabled="publishing">
-          {{ property?.is_published ? 'Unpublish' : 'Publish Property' }}
+          {{ space?.is_published ? 'Unpublish' : 'Publish Space' }}
         </button>
       </div>
     </div>
@@ -47,7 +47,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">URL Slug</label>
-              <input v-model="detailsForm.slug" type="text" class="form-input" placeholder="my-property-name" />
+              <input v-model="detailsForm.slug" type="text" class="form-input" placeholder="my-space-name" />
             </div>
             <div class="form-group full-width">
               <label class="form-label">Description</label>
@@ -67,7 +67,7 @@
               <button 
                 v-else
                 type="button" 
-                :class="['toggle-switch', property?.lead_form_enabled ? 'toggle-switch--on' : '']"
+                :class="['toggle-switch', space?.lead_form_enabled ? 'toggle-switch--on' : '']"
                 @click="handleToggleFeature('lead_form_enabled')"
               ></button>
             </div>
@@ -81,7 +81,7 @@
               <button 
                 v-else
                 type="button" 
-                :class="['toggle-switch', property?.branding_enabled ? 'toggle-switch--on' : '']"
+                :class="['toggle-switch', space?.branding_enabled ? 'toggle-switch--on' : '']"
                 @click="handleToggleFeature('branding_enabled')"
               ></button>
             </div>
@@ -139,7 +139,7 @@
           <!-- QR Code Section -->
           <div class="share-section">
             <h3 class="share-title">QR Code</h3>
-            <p class="share-desc">Scan this to open the property page instantly.</p>
+            <p class="share-desc">Scan this to open the space page instantly.</p>
 
             <div class="qr-preview-container">
               <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl + '?src=qr')}`" class="qr-img" />
@@ -194,12 +194,12 @@ import { ref, onMounted } from 'vue'
 import { usePlanStore } from '~/stores/plan'
 
 const route = useRoute()
-const propertyId = route.params.id as string
+const spaceId = route.params.id as string
 const { apiFetch } = useApiFetch()
 const supabase = useSupabaseClient()
 const planStore = usePlanStore()
 
-const property = ref<any>(null)
+const space = ref<any>(null)
 const media = ref<any[]>([])
 const activeTab = ref('details')
 const saving = ref(false)
@@ -213,19 +213,19 @@ const detailsForm = ref({
 
 const publicUrl = computed(() => {
   const base = window.location.origin
-  return `${base}/p/${property.value?.slug || property.value?.id}`
+  return `${base}/p/${space.value?.slug || space.value?.id}`
 })
 
 const embedCode = computed(() => {
   const base = window.location.origin
-  return `<iframe src="${base}/embed/${property.value?.slug || property.value?.id}" width="100%" height="600px" frameborder="0" allowfullscreen></iframe>`
+  return `<iframe src="${base}/embed/${space.value?.slug || space.value?.id}" width="100%" height="600px" frameborder="0" allowfullscreen></iframe>`
 })
 
 const galleryMedia = computed(() => media.value.filter(m => m.media_type === 'gallery'))
 const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
 
 onMounted(async () => {
-  await fetchProperty()
+  await fetchSpace()
 })
 
 async function copyLink(text: string) {
@@ -247,12 +247,12 @@ function downloadQR(format: 'png' | 'svg' = 'png') {
   window.open(qrUrl, '_blank')
 }
 
-async function fetchProperty() {
-  const { data: prop } = await supabase.from('properties').select('*').eq('id', propertyId).single()
-  const { data: med } = await supabase.from('property_media').select('*').eq('property_id', propertyId)
+async function fetchSpace() {
+  const { data: prop } = await supabase.from('properties').select('*').eq('id', spaceId).single()
+  const { data: med } = await supabase.from('property_media').select('*').eq('property_id', spaceId)
   
   if (prop) {
-    property.value = prop
+    space.value = prop
     detailsForm.value = {
       title: prop.title,
       description: prop.description || '',
@@ -265,11 +265,11 @@ async function fetchProperty() {
 async function handleUpdateDetails() {
   saving.value = true
   try {
-    const updated = await apiFetch<any>(`/properties/${propertyId}`, {
+    const updated = await apiFetch<any>(`/spaces/${spaceId}`, {
       method: 'PATCH',
       body: detailsForm.value
     })
-    property.value = updated
+    space.value = updated
     alert('Details saved!')
   } catch (e) {
     alert('Failed to save details')
@@ -280,12 +280,12 @@ async function handleUpdateDetails() {
 
 async function handleToggleFeature(feature: string) {
   try {
-    const newVal = !property.value[feature]
-    const updated = await apiFetch<any>(`/properties/${propertyId}`, {
+    const newVal = !space.value[feature]
+    const updated = await apiFetch<any>(`/spaces/${spaceId}`, {
       method: 'PATCH',
       body: { [feature]: newVal }
     })
-    property.value = updated
+    space.value = updated
   } catch (e: any) {
     alert(e.data?.statusMessage || 'Failed to update setting')
   }
@@ -294,17 +294,17 @@ async function handleToggleFeature(feature: string) {
 async function handleTogglePublish() {
   publishing.value = true
   try {
-    const isLive = property.value.is_published
-    const updated = await apiFetch<any>(`/properties/${propertyId}/publish`, {
+    const isLive = space.value.is_published
+    const updated = await apiFetch<any>(`/spaces/${spaceId}/publish`, {
       method: 'POST',
       body: { 
         publish: !isLive, 
         slug: detailsForm.value.slug,
-        lead_form_enabled: property.value.lead_form_enabled,
-        branding_enabled: property.value.branding_enabled
+        lead_form_enabled: space.value.lead_form_enabled,
+        branding_enabled: space.value.branding_enabled
       }
     })
-    property.value = updated
+    space.value = updated
   } catch (e: any) {
     alert(e.data?.statusMessage || 'Publishing failed')
   } finally {
@@ -333,7 +333,7 @@ async function uploadFile(file: File, type: string) {
     const { signedUrl, objectKey, publicUrl } = await apiFetch<any>('/uploads/create-signed-url', {
       method: 'POST',
       body: {
-        propertyId,
+        spaceId: spaceId,
         mediaType: type,
         fileName: file.name,
         contentType: file.type,
@@ -352,7 +352,7 @@ async function uploadFile(file: File, type: string) {
     const record = await apiFetch<any>('/uploads/complete', {
       method: 'POST',
       body: {
-        propertyId,
+        spaceId: spaceId,
         mediaType: type,
         objectKey,
         publicUrl,

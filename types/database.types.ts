@@ -18,7 +18,7 @@ export type Json =
 
 // ── Enums ─────────────────────────────────────────────────────────────────
 
-export type PropertyVisibility = 'private' | 'public'
+export type SpaceVisibility = 'private' | 'public'
 export type SubStatus =
   | 'trial'
   | 'trialing'
@@ -187,7 +187,7 @@ export interface Database {
           has_gallery: boolean
           is_published: boolean
           published_at: string | null
-          visibility: PropertyVisibility
+          visibility: SpaceVisibility
           lead_form_enabled: boolean
           branding_enabled: boolean
           custom_logo_url: string | null
@@ -208,7 +208,7 @@ export interface Database {
           has_gallery?: boolean
           is_published?: boolean
           published_at?: string | null
-          visibility?: PropertyVisibility
+          visibility?: SpaceVisibility
           lead_form_enabled?: boolean
           branding_enabled?: boolean
           custom_logo_url?: string | null
@@ -225,7 +225,7 @@ export interface Database {
           has_gallery?: boolean
           is_published?: boolean
           published_at?: string | null
-          visibility?: PropertyVisibility
+          visibility?: SpaceVisibility
           lead_form_enabled?: boolean
           branding_enabled?: boolean
           custom_logo_url?: string | null
@@ -417,7 +417,7 @@ export interface Database {
       increment_daily_leads:         { Args: { prop_id: string; event_date: string };                       Returns: void }
     }
     Enums: {
-      property_visibility: PropertyVisibility
+      space_visibility: SpaceVisibility
       sub_status: SubStatus
     }
   }

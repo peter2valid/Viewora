@@ -5,7 +5,7 @@
       <div class="an-header">
         <div>
           <h1 class="an-title">Analytics</h1>
-          <p class="an-sub">Track views and performance across all your published properties.</p>
+          <p class="an-sub">Track views and performance across all your published spaces.</p>
         </div>
         <div class="an-range">
           <button
@@ -35,9 +35,9 @@
           <div class="metric-delta metric-delta--neutral">{{ topSourceViews }} views</div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Top Property</div>
-          <div class="metric-value metric-value--sm">{{ topPropertyName }}</div>
-          <div class="metric-delta metric-delta--neutral">{{ topPropertyViews }} views</div>
+          <div class="metric-label">Top Space</div>
+          <div class="metric-value metric-value--sm">{{ topSpaceName }}</div>
+          <div class="metric-delta metric-delta--neutral">{{ topSpaceViews }} views</div>
         </div>
       </div>
 
@@ -79,12 +79,12 @@
       <!-- Table -->
       <div class="an-table-wrap">
         <div class="an-table-head">
-          <span class="an-chart-label">Property Performance</span>
+          <span class="an-chart-label">Space Performance</span>
         </div>
-        <table class="an-table" v-if="propertyStats.length > 0">
+        <table class="an-table" v-if="spaceStats.length > 0">
           <thead>
             <tr>
-              <th>Property Name</th>
+              <th>Space Name</th>
               <th>Total Views</th>
               <th>Direct</th>
               <th>QR</th>
@@ -94,9 +94,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="stat in propertyStats" :key="stat.id">
+            <tr v-for="stat in spaceStats" :key="stat.id">
               <td>
-                <NuxtLink :to="`/app/properties/${stat.id}`" class="table-tour-link">
+                <NuxtLink :to="`/app/spaces/${stat.id}`" class="table-tour-link">
                   {{ stat.title }}
                 </NuxtLink>
               </td>
@@ -110,7 +110,7 @@
           </tbody>
         </table>
         <div v-else class="table-empty">
-          <p>No published properties yet. <NuxtLink to="/app/properties" style="color:var(--accent);font-weight:500;">Publish a property</NuxtLink> to start tracking performance.</p>
+          <p>No published spaces yet. <NuxtLink to="/app/spaces" style="color:var(--accent);font-weight:500;">Publish a space</NuxtLink> to start tracking performance.</p>
         </div>
       </div>
 
@@ -182,14 +182,14 @@ const topSource = computed(() => {
 
 const topSourceViews = computed(() => sourceTotals.value[topSource.value as keyof typeof sourceTotals.value] || 0)
 
-const propertyStats = computed(() => {
+const spaceStats = computed(() => {
   const props: Record<string, any> = {}
   rawStats.value.forEach(s => {
-    const pid = s.property_id
+    const pid = s.space_id || s.property_id
     if (!props[pid]) {
       props[pid] = { 
         id: pid, 
-        title: s.properties?.title || 'Unknown', 
+        title: s.spaces?.title || s.properties?.title || 'Unknown', 
         total_views: 0, 
         direct_views: 0, 
         qr_views: 0, 
@@ -208,8 +208,8 @@ const propertyStats = computed(() => {
   return Object.values(props).sort((a, b) => b.total_views - a.total_views)
 })
 
-const topPropertyName = computed(() => propertyStats.value[0]?.title || '—')
-const topPropertyViews = computed(() => propertyStats.value[0]?.total_views || 0)
+const topSpaceName = computed(() => spaceStats.value[0]?.title || '—')
+const topSpaceViews = computed(() => spaceStats.value[0]?.total_views || 0)
 
 // Chart logic
 const chartDays = computed(() => {
