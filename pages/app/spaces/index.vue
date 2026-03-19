@@ -60,7 +60,11 @@
       <!-- Space cards -->
       <template v-else>
       <div v-for="space in filteredSpaces" :key="space.id" class="space-card" @click="navigateTo(`/app/spaces/${space.id}`)">
-      <div class="space-card-thumbnail prop-thumb" :class="space.is_published ? 'prop-thumb--live' : 'prop-thumb--draft'">
+      <div 
+        class="space-card-thumbnail prop-thumb" 
+        :class="!space.cover_image_url ? (space.is_published ? 'prop-thumb--live' : 'prop-thumb--draft') : ''"
+        :style="space.cover_image_url ? { backgroundImage: `url(${space.cover_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
+      >
         <div class="space-status-badge">{{ space.is_published ? 'Published' : 'Draft' }}</div>
       </div>
 
@@ -433,9 +437,9 @@ const handleDelete = async () => {
 
 .space-dropdown-menu {
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   right: 0;
-  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
