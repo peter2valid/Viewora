@@ -86,7 +86,7 @@ export const usePlanStore = defineStore('plan', () => {
         plan: Plan
         subscription: Subscription | null
         usage: UsageCounters
-      }>('/api/billing/status')
+      }>('/billing/status')
       plan.value = data.plan
       subscription.value = data.subscription
       usage.value = data.usage ?? { active_properties_count: 0, storage_used_bytes: 0 }

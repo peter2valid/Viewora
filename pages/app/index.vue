@@ -240,7 +240,7 @@ onMounted(async () => {
   pending.value = true
   try {
     const [sum] = await Promise.all([
-      apiFetch<Summary>('/api/dashboard/summary'),
+      apiFetch<Summary>('/dashboard/summary'),
       fetchProperties(),
     ])
     summary.value = sum

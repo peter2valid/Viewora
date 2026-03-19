@@ -267,7 +267,7 @@ async function loadLeads() {
   pending.value = true
   fetchError.value = ''
   try {
-    leads.value = await apiFetch<Lead[]>('/api/leads')
+    leads.value = await apiFetch<Lead[]>('/leads')
   } catch (e: any) {
     fetchError.value = e.data?.statusMessage ?? e.message ?? 'Failed to load leads.'
   } finally {
@@ -325,7 +325,7 @@ async function updateStatus(lead: Lead, status: LeadStatus) {
   lead.status = status // optimistic
   try {
     const res = await apiFetch<{ id: string; status: LeadStatus; updated_at: string }>(
-      `/api/leads/${lead.id}`, { method: 'PATCH', body: { status } }
+      `/leads/${lead.id}`, { method: 'PATCH', body: { status } }
     )
     lead.updated_at = res.updated_at // sync server timestamp
   } catch (e: any) {
@@ -344,7 +344,7 @@ async function handleDelete() {
   if (!deleteTarget.value) return
   deleting.value = true
   try {
-    await apiFetch(`/api/leads/${deleteTarget.value.id}`, { method: 'DELETE' })
+    await apiFetch(`/leads/${deleteTarget.value.id}`, { method: 'DELETE' })
     leads.value = leads.value.filter(l => l.id !== deleteTarget.value!.id)
     deleteTarget.value = null
   } catch (e: any) {

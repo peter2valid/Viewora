@@ -27,6 +27,12 @@ export const useApiFetch = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers ?? {}),
       },
+      onResponseError({ response }) {
+        // Map Fastify backend { error: { message } } standard natively into Nuxt's expectations
+        if (response._data?.error?.message) {
+          response._data.statusMessage = response._data.error.message;
+        }
+      }
     })
   }
 

@@ -18,12 +18,6 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'https://app.viewora.software',
     },
-    // Server-only (not exposed to client)
-    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-    r2AccountId: process.env.R2_ACCOUNT_ID || '',
-    r2BucketName: process.env.R2_BUCKET_NAME || '',
-    r2AccessKeyId: process.env.R2_ACCESS_KEY_ID || '',
-    r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
   },
 
   supabase: {

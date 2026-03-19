@@ -111,6 +111,7 @@
 definePageMeta({ layout: false })
 import { ref, computed, onMounted } from 'vue'
 
+const { apiFetch } = useApiFetch()
 const route = useRoute()
 const slug = route.params.slug as string
 
@@ -137,7 +138,7 @@ onMounted(async () => {
 async function fetchProperty() {
   pending.value = true
   try {
-    const data = await $fetch<any>(`/api/p/${encodeURIComponent(slug)}`)
+    const data = await apiFetch<any>(`/properties/by-slug/${encodeURIComponent(slug)}`)
     property.value = data
     fireViewEvent(data.id)
   } catch (err: any) {
@@ -151,7 +152,7 @@ async function submitLead() {
   leadError.value = ''
   leadPending.value = true
   try {
-    await $fetch('/api/leads', {
+    await apiFetch('/leads', {
       method: 'POST',
       body: {
         propertyId: property.value.id,
@@ -168,7 +169,7 @@ async function submitLead() {
 }
 
 function fireViewEvent(propertyId: string) {
-  $fetch('/api/analytics/view', {
+  apiFetch('/analytics/view', {
     method: 'POST',
     body: { propertyId, source: route.query.src || 'direct' }
   }).catch(() => {})

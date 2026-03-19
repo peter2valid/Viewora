@@ -69,7 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
     profileError.value = null
     try {
       const { apiFetch } = useApiFetch()
-      const data = await apiFetch<AppProfile>('/api/profile')
+      const data = await apiFetch<AppProfile>('/profile')
       profile.value = data
     } catch (e: any) {
       profileError.value = e.data?.statusMessage ?? e.message
