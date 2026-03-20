@@ -33,26 +33,26 @@
         <article class="space-y-3">
           <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Overview</span>
           <nav class="space-y-1">
-            <SidebarLink to="/app" icon="dashboard" label="Console" :is-active="isExactRoute('/app')" @click="isSidebarOpen = false" />
+            <SidebarLink to="/app" icon="dashboard" label="Dashboard" :is-active="isExactRoute('/app')" @click="isSidebarOpen = false" />
           </nav>
         </article>
 
-        <!-- Section: Creator Studio -->
+        <!-- Section: Content -->
         <article class="space-y-3">
-           <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Experience Engine</span>
+           <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Content</span>
            <nav class="space-y-1">
-             <SidebarLink to="/app/spaces" icon="spaces" label="My Spaces" :is-active="route.path.startsWith('/app/spaces')" @click="isSidebarOpen = false" />
-             <SidebarLink to="/app/leads" icon="leads" label="Lead Hub" :is-active="route.path.startsWith('/app/leads')" @click="isSidebarOpen = false" />
-             <SidebarLink to="/app/analytics" icon="analytics" label="Intelligence" :is-active="route.path.startsWith('/app/analytics')" @click="isSidebarOpen = false" />
+             <SidebarLink to="/app/spaces" icon="spaces" label="Spaces" :is-active="route.path.startsWith('/app/spaces')" @click="isSidebarOpen = false" />
+             <SidebarLink to="/app/leads" icon="leads" label="Leads" :is-active="route.path.startsWith('/app/leads')" @click="isSidebarOpen = false" />
+             <SidebarLink to="/app/analytics" icon="analytics" label="Analytics" :is-active="route.path.startsWith('/app/analytics')" @click="isSidebarOpen = false" />
            </nav>
         </article>
 
-        <!-- Section: Management -->
+        <!-- Section: Account -->
         <article class="space-y-3">
-           <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Governance</span>
+           <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Account</span>
            <nav class="space-y-1">
-             <SidebarLink to="/app/billing" icon="billing" label="Subscription" :is-active="route.path.startsWith('/app/billing')" @click="isSidebarOpen = false" />
-             <SidebarLink to="/app/settings" icon="settings" label="Agency Settings" :is-active="route.path.startsWith('/app/settings')" @click="isSidebarOpen = false" />
+             <SidebarLink to="/app/billing" icon="billing" label="Billing" :is-active="route.path.startsWith('/app/billing')" @click="isSidebarOpen = false" />
+             <SidebarLink to="/app/settings" icon="settings" label="Settings" :is-active="route.path.startsWith('/app/settings')" @click="isSidebarOpen = false" />
            </nav>
         </article>
       </div>
