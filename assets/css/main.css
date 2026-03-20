@@ -67,19 +67,28 @@
   padding: 0;
 }
 
-/* ── Blueprint Grid Background ── */
+/* ── Refining Background ── */
 body {
   font-family: var(--font-sans);
-  background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-attachment: fixed;
+  background-color: #f8fafc; /* Subtle neutral bg */
   color: var(--ink);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Page Transitions ── */
+.page-enter-active,
+.page-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 /* ── Typography ── */

@@ -92,10 +92,14 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, onMounted, computed } from 'vue'
+import { definePageMeta as _, useSeoMeta, useSupabaseUser, useSupabaseClient, navigateTo } from '#imports'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { usePlanStore } from '~/stores/plan'
 
 const { apiFetch } = useApiFetch()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const planStore = usePlanStore()
 
 const pending = ref(true)
 const subscribing = ref(false)
@@ -169,149 +173,5 @@ function formatBytes(bytes: number) {
 </script>
 
 <style scoped>
-.billing-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-  margin-top: 1rem;
-}
-
-@media (max-width: 900px) {
-  .billing-grid { grid-template-columns: 1fr; }
-}
-
-.billing-card {
-  display: flex;
-  flex-direction: column;
-  padding: 1.5rem;
-}
-
-.billing-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-}
-
-.billing-card-title {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
-  margin: 0;
-}
-
-.status-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  padding: 0.2rem 0.6rem;
-  border-radius: 99px;
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.status-badge--active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.plan-name {
-  font-size: 1.75rem;
-  font-weight: 800;
-  margin-bottom: 0.25rem;
-  color: #0f172a;
-}
-
-.plan-renews {
-  font-size: 0.875rem;
-  color: #64748b;
-}
-
-.usage-summary {
-  margin-top: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #f1f5f9;
-}
-
-.usage-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.usage-label {
-  font-size: 0.875rem;
-  color: #64748b;
-}
-
-.usage-value {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.plan-toggle {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.plan-btn {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: #fff;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.plan-btn--active {
-  background: #0f172a;
-  color: #fff;
-  border-color: #0f172a;
-}
-
-.plan-price {
-  margin-bottom: 1rem;
-}
-
-.price-val {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.price-unit {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-left: 0.25rem;
-}
-
-.plan-features {
-  list-style: none;
-  padding: 0;
-  margin: 1.5rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.plan-features li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #475569;
-}
-
-.plan-features li svg {
-  color: #10b981;
-}
+/* Any specific billing styles if needed */
 </style>

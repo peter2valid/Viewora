@@ -60,6 +60,10 @@
           <option value="qualified">Qualified</option>
           <option value="closed">Closed</option>
         </select>
+        <button class="btn btn-outline ml-auto" @click="exportLeads" :disabled="!filteredLeads.length">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
       </div>
 
       <!-- Error -->
@@ -115,7 +119,7 @@
             <tr v-for="lead in filteredLeads" :key="lead.id" class="leads-row">
               <td class="leads-td-name">
                 <span class="leads-name">{{ lead.name || '—' }}</span>
-                <span v-if="lead.message" class="leads-msg-hint" :title="lead.message">
+                <span v-if="lead.message" class="leads-msg-hint cursor-pointer hover:text-zinc-950 transition-colors" :title="lead.message" @click.stop="expandedLead = lead">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 </span>
               </td>
@@ -219,8 +223,12 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, computed, onMounted } from 'vue'
+import { definePageMeta, useSeoMeta, useSupabaseUser, useSupabaseClient } from '#imports'
+import { usePlanStore } from '~/stores/plan'
+import { useApiFetch } from '~/composables/useApiFetch'
+
+definePageMeta({ layout: 'app', middleware: 'auth' })
 
 useSeoMeta({ title: 'Leads | Viewora' })
 
@@ -354,6 +362,36 @@ async function handleDelete() {
   }
 }
 
+function exportLeads() {
+  if (!filteredLeads.value.length) return
+
+  const headers = ['Name', 'Email', 'Phone', 'Project', 'Status', 'Source', 'Message', 'Date']
+  const rows = filteredLeads.value.map(l => [
+    l.name || '',
+    l.email || '',
+    l.phone || '',
+    l.projects?.name || '',
+    formatStatus(l.status),
+    formatSource(l.source),
+    (l.message || '').replace(/"/g, '""'), // Escape quotes for CSV
+    formatDate(l.created_at)
+  ])
+
+  const csvContent = headers.join(",") + "\n"
+    + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\n")
+    
+  // Use Blob for better reliability with large datasets
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.setAttribute("href", url)
+  link.setAttribute("download", `viewora-leads-${new Date().toISOString().split('T')[0]}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -378,336 +416,20 @@ function formatStatus(status: LeadStatus) {
 </script>
 
 <style scoped>
-/* ── Page shell ─────────────────────────────────────────────────────────── */
-.leads-page { padding: 2rem; }
-
-.leads-header {
-  margin-bottom: 1.5rem;
+/* Analytics specific transitions */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 
-.leads-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--ink, #0a0a0a);
-  margin: 0 0 0.2rem;
+/* Hide scrollbars for the table area but allow scrolling */
+.overflow-x-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-
-.leads-sub {
-  font-size: 0.85rem;
-  color: var(--slate, #6b7280);
-  margin: 0;
-}
-
-/* ── Upgrade gate ───────────────────────────────────────────────────────── */
-.leads-gate {
-  max-width: 480px;
-  margin: 4rem auto;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.leads-gate-icon {
-  width: 64px;
-  height: 64px;
-  background: #f3f4f6;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-}
-
-.leads-gate-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--ink, #0a0a0a);
-  margin: 0;
-}
-
-.leads-gate-body {
-  font-size: 0.9rem;
-  color: var(--slate, #6b7280);
-  margin: 0;
-  line-height: 1.6;
-}
-
-.leads-gate-features {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  text-align: left;
-  width: 100%;
-}
-
-.leads-gate-features li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #374151;
-}
-
-.leads-gate-cta { margin-top: 0.5rem; }
-
-/* ── Toolbar ────────────────────────────────────────────────────────────── */
-.leads-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-}
-
-.leads-search-wrapper {
-  position: relative;
-  flex: 1;
-  min-width: 200px;
-  max-width: 360px;
-}
-
-.leads-search-icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  pointer-events: none;
-}
-
-.leads-search-input {
-  width: 100%;
-  padding: 0.55rem 0.875rem 0.55rem 2.25rem;
-  border: 1.5px solid var(--border, #e5e7eb);
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--ink, #0a0a0a);
-  background: #fff;
-  outline: none;
-  box-sizing: border-box;
-  font-family: inherit;
-  transition: border-color 0.15s;
-}
-
-.leads-search-input:focus { border-color: var(--accent, #00dc82); }
-
-.leads-filter-select {
-  padding: 0.55rem 2rem 0.55rem 0.75rem;
-  border: 1.5px solid var(--border, #e5e7eb);
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--ink, #0a0a0a);
-  background: #fff;
-  outline: none;
-  cursor: pointer;
-  font-family: inherit;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.6rem center;
-  transition: border-color 0.15s;
-}
-
-.leads-filter-select:focus { border-color: var(--accent, #00dc82); }
-
-/* ── Table ──────────────────────────────────────────────────────────────── */
-.leads-table-wrap {
-  overflow-x: auto;
-  border: 1.5px solid var(--border, #e5e7eb);
-  border-radius: 0.75rem;
-  background: #fff;
-}
-
-.leads-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.leads-table thead tr {
-  border-bottom: 1.5px solid var(--border, #e5e7eb);
-}
-
-.leads-table th {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--slate, #6b7280);
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.leads-row {
-  border-bottom: 1px solid #f3f4f6;
-  transition: background 0.1s;
-}
-
-.leads-row:last-child { border-bottom: none; }
-.leads-row:hover { background: #fafafa; }
-
-.leads-table td {
-  padding: 0.75rem 1rem;
-  vertical-align: middle;
-  color: var(--ink, #0a0a0a);
-}
-
-/* Name cell */
-.leads-td-name { white-space: nowrap; }
-.leads-name { font-weight: 500; }
-.leads-msg-hint {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0.35rem;
-  color: #9ca3af;
-  cursor: pointer;
-  vertical-align: middle;
-}
-.leads-msg-hint:hover { color: var(--ink, #0a0a0a); }
-
-/* Contact cell */
-.leads-td-contact { min-width: 180px; }
-.leads-email {
-  display: block;
-  color: var(--ink, #0a0a0a);
-  text-decoration: none;
-  font-weight: 500;
-}
-.leads-email:hover { text-decoration: underline; }
-.leads-phone {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--slate, #6b7280);
-  margin-top: 0.1rem;
-}
-
-/* Project badge */
-.leads-project-badge {
-  display: inline-block;
-  background: #f3f4f6;
-  color: #374151;
-  border-radius: 0.35rem;
-  padding: 0.15rem 0.5rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.leads-no-project { color: #d1d5db; }
-
-/* Source tag */
-.leads-source-tag {
-  display: inline-block;
-  border-radius: 2rem;
-  padding: 0.15rem 0.55rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.leads-source-tag--tour_page { background: #dbeafe; color: #1d4ed8; }
-.leads-source-tag--qr_code   { background: #fef3c7; color: #92400e; }
-.leads-source-tag--embed     { background: #f3e8ff; color: #6d28d9; }
-
-/* Date cell */
-.leads-td-date { white-space: nowrap; color: var(--slate, #6b7280); font-size: 0.82rem; }
-.leads-updated-at { display: block; font-size: 0.72rem; color: #9ca3af; margin-top: 0.1rem; }
-
-/* Actions cell */
-.leads-td-actions { width: 40px; text-align: right; }
-.leads-del-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #d1d5db;
-  padding: 0.25rem;
-  line-height: 0;
-  border-radius: 0.25rem;
-  transition: color 0.15s, background 0.15s;
-}
-.leads-del-btn:hover { color: #ef4444; background: #fef2f2; }
-
-/* Skeleton rows */
-.leads-skel-row td { padding: 0.875rem 1rem; }
-
-/* Message modal */
-.leads-message-text {
-  font-size: 0.9rem;
-  color: #374151;
-  line-height: 1.6;
-  margin: 0 0 1rem;
-  white-space: pre-wrap;
-}
-.leads-message-meta {
-  font-size: 0.8rem;
-  color: var(--slate, #6b7280);
-}
-
-/* Modal footer */
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem 1.5rem;
-}
-
-/* Status badge (click-to-cycle) ─────────────────────────────────────────── */
-.leads-td-status { white-space: nowrap; }
-
-.leads-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  border: 1.5px solid transparent;
-  border-radius: 2rem;
-  padding: 0.22rem 0.55rem 0.22rem 0.45rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  font-family: inherit;
-  cursor: pointer;
-  outline: none;
-  transition: filter 0.12s, opacity 0.15s;
-  line-height: 1;
-}
-
-.leads-status-badge:not(:disabled):hover { filter: brightness(0.92); }
-.leads-status-badge--busy { opacity: 0.65; cursor: wait; }
-.leads-status-badge--readonly { cursor: default; }
-.leads-status-badge--readonly .leads-status-cycle-icon { display: none; }
-
-.leads-status-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-
-.leads-status-cycle-icon { opacity: 0.6; flex-shrink: 0; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.leads-status-spin { animation: spin 0.8s linear infinite; flex-shrink: 0; }
-
-.leads-status-badge--new       { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
-.leads-status-badge--contacted { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
-.leads-status-badge--qualified { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
-.leads-status-badge--closed    { background: #f3e8ff; color: #6d28d9; border-color: #e9d5ff; }
-
-/* ── Responsive ─────────────────────────────────────────────────────────── */
-@media (max-width: 700px) {
-  .leads-page { padding: 1rem; }
-  /* Project (col 3) + Source (col 5) hidden on mobile */
-  .leads-table th:nth-child(3),
-  .leads-table td:nth-child(3) { display: none; }
-  .leads-table th:nth-child(5),
-  .leads-table td:nth-child(5) { display: none; }
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
 }
 </style>

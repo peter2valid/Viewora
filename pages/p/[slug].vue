@@ -93,8 +93,12 @@
         </div>
       </div>
 
-      <!-- Watermark -->
-      <a v-if="!space.branding_enabled" href="https://viewora.software" target="_blank" class="pv-watermark">
+      <!-- Branding / Watermark -->
+      <div v-if="space.branding_enabled && space.profiles?.agency_logo_url" class="pv-branding">
+        <img :src="space.profiles.agency_logo_url" :alt="space.profiles.agency_name || 'Agency Logo'" class="pv-branding-logo" />
+        <span v-if="space.profiles.agency_name" class="pv-branding-name">{{ space.profiles.agency_name }}</span>
+      </div>
+      <a v-else-if="!space.branding_enabled" href="https://viewora.software" target="_blank" class="pv-watermark">
         Powered by Viewora
       </a>
 
@@ -127,7 +131,7 @@ const leadSuccess = ref(false)
 const leadForm = ref({ name: '', email: '', phone: '', message: '' })
 
 const media = computed(() => space.value?.property_media || [])
-const gallery = computed(() => media.value.filter((m: any) => m.media_type === 'gallery'))
+const gallery = computed(() => media.value.filter((m: any) => m.media_type === 'gallery_image'))
 const panorama = computed(() => media.value.find((m: any) => m.media_type === 'panorama'))
 const settings = computed(() => space.value?.property_360_settings?.[0])
 
@@ -175,9 +179,24 @@ function fireViewEvent(spaceId: string) {
   }).catch(() => {})
 }
 
+const ogImage = computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png')
+
 useSeoMeta({
   title: computed(() => space.value ? `${space.value.title} | Viewora` : 'Space Experience'),
-  description: computed(() => space.value?.description || 'View this space on Viewora.')
+  ogTitle: computed(() => space.value ? `${space.value.title} | Viewora` : 'Space Experience'),
+  description: computed(() => space.value?.description || 'View this immersive 360° space on Viewora.'),
+  ogDescription: computed(() => space.value?.description || 'View this immersive 360° space on Viewora.'),
+  ogImage: ogImage,
+  twitterCard: 'summary_large_image',
+  twitterTitle: computed(() => space.value ? `${space.value.title} | Viewora` : 'Space Experience'),
+  twitterDescription: computed(() => space.value?.description || 'View this immersive 360° space on Viewora.'),
+  twitterImage: ogImage
+})
+
+useHead({
+  link: [
+    { rel: 'canonical', href: computed(() => `https://app.viewora.software/p/${slug}`) }
+  ]
 })
 </script>
 
@@ -251,6 +270,33 @@ useSeoMeta({
 .pv-input:focus { border-color: #0f172a; }
 
 .pv-watermark { position: fixed; bottom: 1.5rem; right: 1.5rem; background: rgba(255,255,255,0.9); padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.75rem; font-weight: 700; color: #64748b; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 50; }
+
+.pv-branding {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255,255,255,0.95);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+.pv-branding-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.pv-branding-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+}
 
 .pv-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 2rem; cursor: zoom-out; }
 .pv-lightbox img { max-width: 100%; max-height: 100%; border-radius: 0.5rem; }
