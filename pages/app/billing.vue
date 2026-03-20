@@ -1,189 +1,395 @@
 <template>
-  <div class="h-full flex flex-col">
-    <!-- Page Header -->
+  <div class="h-full">
+
+    <!-- Header -->
     <header class="mb-8">
-      <h1 class="text-2xl font-bold tracking-tight text-zinc-950">Billing & Plan</h1>
-      <p class="text-sm text-zinc-500 mt-1">Manage your agency subscription and usage limits.</p>
+      <h1 class="text-2xl font-bold tracking-tight text-zinc-950">Billing & Plans</h1>
+      <p class="text-sm text-zinc-500 mt-1">Manage your subscription and upgrade your agency's capabilities.</p>
     </header>
 
-    <!-- Loading State -->
-    <div v-if="pending" class="flex-1 flex flex-col items-center justify-center gap-3">
-      <div class="w-8 h-8 border-2 border-zinc-100 border-t-zinc-900 rounded-full animate-spin"></div>
-      <p class="text-xs font-medium text-zinc-400">Loading subscription details...</p>
+    <!-- Loading skeleton -->
+    <div v-if="pending" class="space-y-6 animate-pulse">
+      <div class="h-44 bg-zinc-200 rounded-xl"></div>
+      <div class="h-32 bg-zinc-100 rounded-xl"></div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div v-for="i in 4" :key="i" class="h-56 bg-zinc-100 rounded-xl"></div>
+      </div>
     </div>
 
-    <!-- ── Billing Dashboard ────────────────────────────────────────────── -->
-    <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      
-      <!-- Current Status & Usage (Left Col) -->
-      <div class="lg:col-span-4 space-y-6">
-        <!-- Status Card -->
-        <section class="bg-zinc-900 rounded-xl p-6 text-white shadow-sm border border-zinc-800">
-          <div class="flex items-center justify-between mb-6">
-            <span class="text-xs font-medium text-zinc-400">Current Plan</span>
-            <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wider rounded border border-emerald-500/20">
-               {{ subscription ? subscription.status : 'FREE' }}
-            </span>
-          </div>
+    <div v-else class="space-y-6">
 
-          <div class="mb-6">
-            <h2 class="text-2xl font-bold tracking-tight">{{ plan?.name || 'Free Tier' }}</h2>
-            <p v-if="subscription" class="text-xs text-zinc-500 mt-1">
-               Renews on {{ formatDate(subscription.current_period_end) }}
+      <!-- ① CURRENT PLAN ──────────────────────────────────────────────────── -->
+      <section class="bg-zinc-950 rounded-xl p-6 md:p-8 border border-zinc-800 text-white">
+        <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+
+          <!-- Plan identity -->
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Current Plan</span>
+              <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass">{{ statusLabel }}</span>
+            </div>
+            <h2 class="text-3xl font-bold tracking-tight">{{ plan?.name || 'Free' }}</h2>
+            <p class="text-sm text-zinc-500 mt-1">{{ planSubtitles[plan?.name] || 'Basic access' }}</p>
+            <p v-if="subscription?.current_period_end" class="text-xs text-zinc-600 mt-2">
+              Renews {{ formatDate(subscription.current_period_end) }}
             </p>
-            <p v-else class="text-xs text-zinc-500 mt-1">No active subscription</p>
           </div>
 
-          <button v-if="subscription" class="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors inline-flex items-center gap-1">
-            Manage billing <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </button>
-        </section>
-
-        <!-- Usage Card -->
-        <section class="bg-white rounded-xl border border-zinc-200 shadow-sm p-6 space-y-6">
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-zinc-500">Space Allocation</span>
-              <span class="text-sm font-semibold text-zinc-900">{{ usage?.active_spaces_count || 0 }} / {{ plan?.max_active_spaces || 0 }}</span>
+          <!-- Usage stats -->
+          <div class="flex items-start gap-8 md:gap-10 flex-shrink-0">
+            <div class="text-center">
+              <div class="text-2xl font-bold tabular-nums">{{ usage?.active_spaces_count || 0 }}</div>
+              <div class="text-xs text-zinc-500 mt-0.5">of {{ plan?.max_active_spaces || 0 }}<br>spaces</div>
             </div>
-            <div class="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-               <div 
-                 class="h-full bg-zinc-900 rounded-full transition-all duration-1000"
-                 :style="{ width: Math.min(((usage?.active_spaces_count || 0) / (plan?.max_active_spaces || 1) * 100), 100) + '%' }"
-               ></div>
+            <div class="text-center">
+              <div class="text-2xl font-bold tabular-nums">{{ formatBytes(usage?.storage_used_bytes || 0) }}</div>
+              <div class="text-xs text-zinc-500 mt-0.5">of {{ formatBytes(plan?.max_storage_bytes || 0) }}<br>storage</div>
             </div>
           </div>
-
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-zinc-500">Storage Usage</span>
-              <span class="text-sm font-semibold text-zinc-900">{{ formatBytes(usage?.storage_used_bytes || 0) }} / {{ formatBytes(plan?.max_storage_bytes || 0) }}</span>
-            </div>
-            <div class="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-               <div 
-                 class="h-full bg-emerald-500 rounded-full transition-all duration-1000"
-                 :style="{ width: Math.min(((usage?.storage_used_bytes || 0) / (plan?.max_storage_bytes || 1) * 100), 100) + '%' }"
-               ></div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <!-- Plan Selection (Right Col) -->
-      <div class="lg:col-span-8">
-        <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
-           <div class="p-6 border-b border-zinc-100">
-              <h3 class="text-base font-semibold text-zinc-900">Select Your Plan</h3>
-              <p class="text-sm text-zinc-500 mt-1">Upgrade your agency's capabilities.</p>
-           </div>
-
-           <div class="p-6">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button 
-                  v-for="p in availablePlans" 
-                  :key="p.id" 
-                  @click="selectedPlanId = p.id"
-                  class="relative p-6 text-left rounded-lg border transition-all text-sm group"
-                  :class="selectedPlanId === p.id ? 'border-zinc-900 ring-1 ring-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
-                >
-                  <div v-if="selectedPlanId === p.id" class="absolute top-4 right-4 w-5 h-5 bg-zinc-900 text-white rounded-full flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
-                  
-                  <div class="mb-4">
-                    <h4 class="font-semibold text-zinc-900">{{ p.name }}</h4>
-                    <div class="flex items-baseline gap-1 mt-1">
-                      <span class="text-xl font-bold text-zinc-900">KES {{ p.price_monthly_kes }}</span>
-                      <span class="text-xs text-zinc-500">/mo</span>
-                    </div>
-                  </div>
-
-                  <ul class="space-y-2">
-                    <li v-for="feat in [
-                      { label: `${p.max_active_spaces} Spaces`, enabled: true },
-                      { label: `${formatBytes(p.max_storage_bytes)} Storage`, enabled: true },
-                      { label: 'Lead Capture', enabled: p.lead_capture_enabled },
-                      { label: 'Custom Branding', enabled: p.branding_customization_enabled }
-                    ]" :key="feat.label" class="flex items-center gap-2">
-                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" :class="feat.enabled ? 'text-emerald-500' : 'text-zinc-300'"><polyline points="20 6 9 17 4 12"/></svg>
-                       <span :class="feat.enabled ? 'text-zinc-700' : 'text-zinc-400 font-normal'">{{ feat.label }}</span>
-                    </li>
-                  </ul>
-                </button>
-              </div>
-
-              <!-- Total Commitment & CTA -->
-              <div class="mt-8 p-6 bg-zinc-50 rounded-lg border border-zinc-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div>
-                  <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Total Due Today</p>
-                  <p class="text-xl font-bold text-zinc-900 mt-1">KES {{ selectedPlan?.price_monthly_kes || 0 }} <span class="text-sm font-medium text-zinc-500">monthly</span></p>
-                </div>
-                
-                <button 
-                  v-if="selectedPlan?.price_monthly_kes > 0"
-                  class="w-full md:w-auto px-8 py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  @click="handleSubscribe" 
-                  :disabled="subscribing || selectedPlanId === plan?.id"
-                >
-                  <svg v-if="subscribing" class="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  {{ selectedPlanId === plan?.id ? 'Active Membership' : 'Upgrade Plan' }}
-                </button>
-                <div v-else class="text-sm font-medium text-zinc-500 italic">
-                  Free Starter Plan
-                </div>
-              </div>
-           </div>
-        </section>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast -->
-  <Teleport to="body">
-    <Transition name="toast">
-      <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
-        <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/20 text-white'">
-          <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
-        {{ toast.message }}
+
+        <!-- Usage progress bars -->
+        <div class="mt-6 grid grid-cols-2 gap-4">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs text-zinc-500">Spaces</span>
+              <span class="text-xs font-medium tabular-nums" :class="spaceUsagePct >= 80 ? 'text-amber-400' : 'text-zinc-500'">{{ spaceUsagePct }}%</span>
+            </div>
+            <div class="h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-1000" :class="spaceUsagePct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'" :style="{ width: spaceUsagePct + '%' }"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs text-zinc-500">Storage</span>
+              <span class="text-xs font-medium tabular-nums" :class="storageUsagePct >= 80 ? 'text-amber-400' : 'text-zinc-500'">{{ storageUsagePct }}%</span>
+            </div>
+            <div class="h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-1000" :class="storageUsagePct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'" :style="{ width: storageUsagePct + '%' }"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ② UPGRADE TRIGGER ──────────────────────────────────────────────── -->
+      <div v-if="isNearLimit && recommendedPlan" class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" class="flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-amber-900">You're close to your limit</p>
+          <p class="text-xs text-amber-700 mt-0.5">{{ limitMessage }}</p>
+        </div>
+        <button @click="scrollToPlans" class="text-xs font-bold text-amber-800 hover:text-amber-900 whitespace-nowrap underline underline-offset-2">Upgrade now</button>
       </div>
-    </Transition>
-  </Teleport>
+
+      <!-- ③ RECOMMENDED UPGRADE ──────────────────────────────────────────── -->
+      <section v-if="recommendedPlan" class="relative bg-zinc-900 rounded-xl border border-zinc-700 p-6 md:p-8 text-white overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider rounded-full border border-emerald-500/20">Recommended for you</span>
+            </div>
+            <h3 class="text-xl font-bold mb-1">Upgrade to {{ recommendedPlan.name }}</h3>
+            <p class="text-sm text-zinc-400">{{ planSubtitles[recommendedPlan.name] || '' }}</p>
+
+            <!-- Value diff chips -->
+            <div class="mt-4 flex flex-wrap gap-2">
+              <span v-if="spaceDiff > 0" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                {{ spaceDiff }} more spaces
+              </span>
+              <span v-if="storageDiffGB > 0" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                {{ storageDiffGB }}GB more storage
+              </span>
+              <span v-if="recommendedPlan.lead_capture_enabled && !plan?.lead_capture_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Lead capture
+              </span>
+              <span v-if="recommendedPlan.branding_customization_enabled && !plan?.branding_customization_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Agency branding
+              </span>
+              <span v-if="shootsDiff > 0" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                +{{ shootsDiff }} photo shoot{{ shootsDiff > 1 ? 's' : '' }} / mo
+              </span>
+            </div>
+          </div>
+
+          <!-- Price + CTA -->
+          <div class="flex flex-col items-start md:items-end gap-4 flex-shrink-0">
+            <div>
+              <div class="flex items-baseline gap-1">
+                <span class="text-3xl font-bold tabular-nums">
+                  KES {{ billingCycle === 'yearly'
+                    ? formatPricePM(recommendedPlan.price_yearly_kes)
+                    : recommendedPlan.price_monthly_kes.toLocaleString() }}
+                </span>
+                <span class="text-sm text-zinc-400">/mo</span>
+              </div>
+              <div v-if="billingCycle === 'yearly' && yearlySavingsPct > 0" class="text-xs text-emerald-400 mt-0.5 text-right">Saving {{ yearlySavingsPct }}% vs monthly</div>
+            </div>
+            <button
+              @click="subscribeTo(recommendedPlan.id)"
+              :disabled="subscribing === recommendedPlan.id"
+              class="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-zinc-900 text-sm font-bold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50 shadow-sm"
+            >
+              <div v-if="subscribing === recommendedPlan.id" class="w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin"></div>
+              Upgrade to {{ recommendedPlan.name }} →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ④ MONTHLY / YEARLY TOGGLE + ALL PLANS ───────────────────────────── -->
+      <section ref="plansSection">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-base font-semibold text-zinc-900">All plans</h3>
+          <!-- Toggle -->
+          <div class="flex items-center gap-3 p-1 bg-zinc-100 rounded-lg">
+            <button
+              @click="billingCycle = 'monthly'"
+              class="px-3 py-1.5 text-sm font-medium rounded-md transition-all"
+              :class="billingCycle === 'monthly' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'"
+            >Monthly</button>
+            <button
+              @click="billingCycle = 'yearly'"
+              class="px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5"
+              :class="billingCycle === 'yearly' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'"
+            >
+              Yearly
+              <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded">Save ~20%</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Plans grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div
+            v-for="p in availablePlans"
+            :key="p.id"
+            class="relative rounded-xl border p-5 flex flex-col transition-all"
+            :class="[
+              p.id === plan?.id
+                ? 'border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900'
+                : p.id === recommendedPlan?.id
+                  ? 'border-zinc-300 bg-white shadow-md'
+                  : 'border-zinc-200 bg-white'
+            ]"
+          >
+            <!-- Badges -->
+            <div class="absolute -top-3 left-4 flex gap-1.5">
+              <span v-if="p.id === plan?.id" class="px-2 py-0.5 bg-zinc-900 text-white text-[10px] font-bold rounded-full shadow">Current</span>
+              <span v-if="p.id === recommendedPlan?.id && p.id !== plan?.id" class="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow">Recommended</span>
+              <span v-if="planHighlight[p.name]" class="px-2 py-0.5 bg-zinc-100 text-zinc-600 text-[10px] font-bold rounded-full shadow">{{ planHighlight[p.name] }}</span>
+            </div>
+
+            <div class="mb-4 mt-2">
+              <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-0.5">{{ planSubtitles[p.name] || '' }}</span>
+              <h4 class="text-base font-bold text-zinc-900">{{ p.name }}</h4>
+              <div class="mt-2 flex items-baseline gap-1">
+                <template v-if="p.price_monthly_kes === 0">
+                  <span class="text-xl font-bold text-zinc-900">Free</span>
+                </template>
+                <template v-else-if="billingCycle === 'yearly'">
+                  <span class="text-xl font-bold text-zinc-900">KES {{ formatPricePM(p.price_yearly_kes) }}</span>
+                  <span class="text-xs text-zinc-400">/mo</span>
+                </template>
+                <template v-else>
+                  <span class="text-xl font-bold text-zinc-900">KES {{ p.price_monthly_kes.toLocaleString() }}</span>
+                  <span class="text-xs text-zinc-400">/mo</span>
+                </template>
+              </div>
+              <div v-if="billingCycle === 'yearly' && p.price_monthly_kes > 0" class="text-[11px] text-zinc-400 mt-0.5">
+                KES {{ p.price_yearly_kes.toLocaleString() }} billed annually
+              </div>
+            </div>
+
+            <ul class="space-y-2 mb-5 flex-1 text-xs">
+              <li class="flex items-center gap-2 text-zinc-600">
+                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {{ p.max_active_spaces }} active spaces
+              </li>
+              <li class="flex items-center gap-2 text-zinc-600">
+                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {{ formatBytes(p.max_storage_bytes) }} storage
+              </li>
+              <li v-if="p.lead_capture_enabled" class="flex items-center gap-2 text-zinc-600">
+                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Lead capture
+              </li>
+              <li v-else class="flex items-center gap-2 text-zinc-300">
+                <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Lead capture
+              </li>
+              <li v-if="p.branding_customization_enabled" class="flex items-center gap-2 text-zinc-600">
+                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Agency branding
+              </li>
+              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2 text-zinc-600">
+                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {{ SHOOT_ALLOWANCES[p.name] }} photo shoot{{ SHOOT_ALLOWANCES[p.name] > 1 ? 's' : '' }}/mo
+              </li>
+            </ul>
+
+            <!-- CTA -->
+            <button
+              v-if="p.price_monthly_kes > 0 && p.id !== plan?.id"
+              @click="subscribeTo(p.id)"
+              :disabled="subscribing === p.id"
+              class="w-full py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
+              :class="p.id === recommendedPlan?.id
+                ? 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm'
+                : 'bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50'"
+            >
+              <div v-if="subscribing === p.id" class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
+              {{ subscribing === p.id ? 'Redirecting...' : 'Get ' + p.name }}
+            </button>
+            <div v-else-if="p.id === plan?.id" class="w-full py-2 text-center text-xs font-semibold text-zinc-400 border border-zinc-200 rounded-lg">
+              Your current plan
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑤ BILLING CLARITY ───────────────────────────────────────────────── -->
+      <section class="p-5 bg-zinc-50 rounded-xl border border-zinc-100">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+          <div>
+            <p class="font-semibold text-zinc-700 mb-1">Prorated billing</p>
+            <p class="text-zinc-500 leading-relaxed">When you upgrade mid-cycle, you're only charged for the remaining days in your current period.</p>
+          </div>
+          <div>
+            <p class="font-semibold text-zinc-700 mb-1">Cancel anytime</p>
+            <p class="text-zinc-500 leading-relaxed">Your plan stays active until the end of the billing period. No surprise charges or hidden fees.</p>
+          </div>
+          <div>
+            <p class="font-semibold text-zinc-700 mb-1">Downgrade rules</p>
+            <p class="text-zinc-500 leading-relaxed">Downgrades take effect at renewal. All existing spaces remain accessible until you exceed plan limits.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Toast -->
+    <Teleport to="body">
+      <Transition name="toast">
+        <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold whitespace-nowrap', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
+          <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/20 text-white'">
+            <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          {{ toast.message }}
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { definePageMeta, useSeoMeta, useSupabaseUser, useSupabaseClient, navigateTo } from '#imports'
+import { ref, computed, onMounted } from 'vue'
+import { definePageMeta, useSeoMeta } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { usePlanStore } from '~/stores/plan'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Billing | Viewora' })
 
 const { apiFetch } = useApiFetch()
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
-const planStore = usePlanStore()
 
+// ── State ──────────────────────────────────────────────────────────────────
 const pending = ref(true)
-const subscribing = ref(false)
+const subscribing = ref<string | null>(null)
+const billingCycle = ref<'monthly' | 'yearly'>('monthly')
 const plan = ref<any>(null)
 const subscription = ref<any>(null)
 const usage = ref<any>(null)
 const availablePlans = ref<any[]>([])
-const selectedPlanId = ref<string | null>(null)
+const plansSection = ref<HTMLElement | null>(null)
+
+// ── Toast ──────────────────────────────────────────────────────────────────
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
-
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { message, type }
   toastTimer = setTimeout(() => { toast.value = null }, 3200)
 }
 
-const selectedPlan = computed(() => availablePlans.value.find(p => p.id === selectedPlanId.value))
+// ── Plan metadata ──────────────────────────────────────────────────────────
+const planSubtitles: Record<string, string> = {
+  Free:    'Getting started',
+  Starter: 'For solo agents',
+  Plus:    'Most popular',
+  Pro:     'For growing agencies',
+  Elite:   'Enterprise',
+}
+const planHighlight: Record<string, string> = {
+  Plus:  'Popular',
+  Elite: 'Best value',
+}
+const SHOOT_ALLOWANCES: Record<string, number> = {
+  Free: 0, Starter: 0, Plus: 1, Pro: 2, Elite: 4,
+}
 
+// ── Computed ───────────────────────────────────────────────────────────────
+const currentPlanIndex = computed(() =>
+  availablePlans.value.findIndex(p => p.id === plan.value?.id)
+)
+const recommendedPlan = computed(() => {
+  const idx = currentPlanIndex.value
+  if (idx === -1 || idx >= availablePlans.value.length - 1) return null
+  return availablePlans.value[idx + 1]
+})
+
+const spaceUsagePct = computed(() =>
+  Math.min(Math.round(((usage.value?.active_spaces_count || 0) / (plan.value?.max_active_spaces || 1)) * 100), 100)
+)
+const storageUsagePct = computed(() =>
+  Math.min(Math.round(((usage.value?.storage_used_bytes || 0) / (plan.value?.max_storage_bytes || 1)) * 100), 100)
+)
+const isNearLimit = computed(() => spaceUsagePct.value >= 70 || storageUsagePct.value >= 70)
+const limitMessage = computed(() =>
+  spaceUsagePct.value >= storageUsagePct.value
+    ? `You've used ${spaceUsagePct.value}% of your spaces allocation. Upgrade to add more tours.`
+    : `You've used ${storageUsagePct.value}% of your storage. Upgrade for more capacity.`
+)
+
+const statusBadgeClass = computed(() => {
+  const s = subscription.value?.status
+  if (s === 'active' || s === 'trialing') return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
+  if (s === 'past_due') return 'bg-amber-500/15 text-amber-400 border-amber-500/20'
+  return 'bg-zinc-700/50 text-zinc-400 border-zinc-600'
+})
+const statusLabel = computed(() => {
+  const s = subscription.value?.status
+  if (!s) return 'Free'
+  const labels: Record<string, string> = { active: 'Active', trialing: 'Trial', past_due: 'Past Due', canceled: 'Canceled', unpaid: 'Unpaid' }
+  return labels[s] ?? s.charAt(0).toUpperCase() + s.slice(1)
+})
+
+const spaceDiff = computed(() =>
+  (recommendedPlan.value?.max_active_spaces || 0) - (plan.value?.max_active_spaces || 0)
+)
+const storageDiffGB = computed(() =>
+  Math.round(((recommendedPlan.value?.max_storage_bytes || 0) - (plan.value?.max_storage_bytes || 0)) / (1024 ** 3))
+)
+const shootsDiff = computed(() =>
+  (SHOOT_ALLOWANCES[recommendedPlan.value?.name] || 0) - (SHOOT_ALLOWANCES[plan.value?.name] || 0)
+)
+const yearlySavingsPct = computed(() => {
+  const p = recommendedPlan.value
+  if (!p?.price_monthly_kes || !p?.price_yearly_kes) return 0
+  return Math.round((1 - p.price_yearly_kes / (p.price_monthly_kes * 12)) * 100)
+})
+
+function formatPricePM(yearlyTotal: number) {
+  return Math.round(yearlyTotal / 12).toLocaleString()
+}
+
+// ── Data ───────────────────────────────────────────────────────────────────
 onMounted(async () => {
   await fetchBillingData()
 })
@@ -193,42 +399,37 @@ async function fetchBillingData() {
   try {
     const [statusData, plansData] = await Promise.all([
       apiFetch<any>('/billing/status'),
-      apiFetch<any[]>('/billing/plans')
+      apiFetch<any[]>('/billing/plans'),
     ])
-
     plan.value = statusData.plan
     subscription.value = statusData.subscription
     usage.value = statusData.usage
-    availablePlans.value = plansData.sort((a, b) => a.price_monthly_kes - b.price_monthly_kes)
-    
-    // Default selected plan to next tier or current
-    selectedPlanId.value = plan.value?.id
+    availablePlans.value = (plansData as any[]).sort((a, b) => a.price_monthly_kes - b.price_monthly_kes)
   } catch {
-    // handled by pending state
+    // pending handles UI
   } finally {
     pending.value = false
   }
 }
 
-async function handleSubscribe() {
-  if (!selectedPlanId.value) return
-  subscribing.value = true
-  
+async function subscribeTo(planId: string) {
+  subscribing.value = planId
   try {
     const data = await apiFetch<any>('/billing/initialize-paystack', {
       method: 'POST',
-      body: { planId: selectedPlanId.value, billingCycle: 'monthly' }
+      body: { planId, billingCycle: billingCycle.value },
     })
-    
     if (data.authorization_url) {
-      // Redirect to Paystack
       window.location.href = data.authorization_url
     }
   } catch (e: any) {
     showToast(e.data?.statusMessage || 'Failed to initialize payment', 'error')
-  } finally {
-    subscribing.value = false
+    subscribing.value = null
   }
+}
+
+function scrollToPlans() {
+  plansSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function formatDate(d: string) {
@@ -237,11 +438,11 @@ function formatDate(d: string) {
 }
 
 function formatBytes(bytes: number) {
-  if (bytes === 0) return '0 Bytes'
+  if (!bytes || bytes === 0) return '0 B'
   const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 </script>
 

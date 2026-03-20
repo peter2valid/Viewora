@@ -46,6 +46,14 @@
            </nav>
         </div>
 
+        <!-- Section: Services -->
+        <div>
+           <h3 class="px-3 text-xs font-semibold text-zinc-500 mb-2">Services</h3>
+           <nav class="space-y-0.5">
+             <SidebarLink to="/app/capture" icon="capture" label="Capture" :is-active="route.path.startsWith('/app/capture')" @click="isSidebarOpen = false" />
+           </nav>
+        </div>
+
         <!-- Section: Account -->
         <div>
            <h3 class="px-3 text-xs font-semibold text-zinc-500 mb-2">Account</h3>
@@ -78,7 +86,7 @@
     <!-- Main Viewport -->
     <div class="lg:pl-64 flex flex-col min-h-screen">
       <!-- Topbar / Mobile Navigation -->
-      <header class="h-16 flex items-center justify-between px-6 bg-white border-b border-slate-200 sticky top-0 z-[80] lg:hidden">
+      <header class="h-16 flex items-center justify-between px-6 bg-white border-b border-zinc-200 sticky top-0 z-[80] lg:hidden">
         <NuxtLink to="/app" class="flex items-center gap-2">
            <div class="w-6 h-6 rounded-md bg-zinc-900 flex items-center justify-center">
              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
