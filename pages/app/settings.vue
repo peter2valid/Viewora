@@ -133,12 +133,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { definePageMeta, useSeoMeta, useSupabaseUser, useSupabaseClient } from '#imports'
+import { usePlanStore } from '~/stores/plan'
+import { useApiFetch } from '~/composables/useApiFetch'
 
-definePageMeta({
-  layout: 'app',
-  middleware: 'auth',
-})
-
+definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Settings | Viewora' })
 
 const user = useSupabaseUser()
@@ -211,8 +210,6 @@ async function handleDeleteAccount() {
   }
   alert('Account deletion request flagged. Please contact support@viewora.software to finalize verification.')
 }
-</script>
-
 </script>
 
 <style scoped>
