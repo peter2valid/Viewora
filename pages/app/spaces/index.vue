@@ -216,7 +216,7 @@
       <AppConfirmationModal
         :is-open="!!spaceToDelete"
         title="Delete Space?"
-        :message="`Are you sure you want to permanently remove \"${spaceToDelete?.title}\"? This will also delete all associated media and lead data.`"
+        :message="deleteMessage"
         confirm-text="Yes, Delete Space"
         :is-dangerous="true"
         :loading="deleting"
@@ -261,6 +261,11 @@ const creating = ref(false)
 // Delete
 const spaceToDelete = ref<Space | null>(null)
 const deleting = ref(false)
+
+const deleteMessage = computed(() => {
+  if (!spaceToDelete.value) return ''
+  return `Are you sure you want to permanently remove "${spaceToDelete.value.title}"? This will also delete all associated media and lead data.`
+})
 
 // Toast
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
