@@ -1,158 +1,165 @@
 <template>
-  <div class="h-full flex flex-col bg-zinc-50/50">
+  <div class="h-full flex flex-col">
     <!-- Page Header -->
-    <header class="p-8 pb-0">
-      <div class="space-y-1">
-        <h1 class="text-3xl font-black tracking-tight text-zinc-950">Billing & Plan</h1>
-        <p class="text-sm text-slate-500 font-medium">Manage your agency subscription, usage limits, and premium features.</p>
-      </div>
+    <header class="mb-8">
+      <h1 class="text-2xl font-bold tracking-tight text-zinc-950">Billing & Plan</h1>
+      <p class="text-sm text-zinc-500 mt-1">Manage your agency subscription and usage limits.</p>
     </header>
 
     <!-- Loading State -->
-    <div v-if="pending" class="flex-1 flex flex-col items-center justify-center gap-4">
-      <div class="w-12 h-12 border-4 border-zinc-100 border-t-zinc-950 rounded-full animate-spin"></div>
-      <p class="text-[10px] font-black uppercase tracking-widest text-zinc-400">Loading subscription vault...</p>
+    <div v-if="pending" class="flex-1 flex flex-col items-center justify-center gap-3">
+      <div class="w-8 h-8 border-2 border-zinc-100 border-t-zinc-900 rounded-full animate-spin"></div>
+      <p class="text-xs font-medium text-zinc-400">Loading subscription details...</p>
     </div>
 
     <!-- ── Billing Dashboard ────────────────────────────────────────────── -->
-    <section v-else class="p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start overflow-y-auto flex-1">
+    <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       
       <!-- Current Status & Usage (Left Col) -->
-      <div class="lg:col-span-4 space-y-8 h-full">
+      <div class="lg:col-span-4 space-y-6">
         <!-- Status Card -->
-        <div class="bg-zinc-950 p-10 rounded-[2.5rem] text-white shadow-2xl shadow-zinc-950/20 relative overflow-hidden group">
-          <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-          
-          <div class="flex items-center justify-between mb-8">
-            <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Active Membership</span>
-            <div class="px-3 py-1 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-wider rounded-full">
+        <section class="bg-zinc-900 rounded-xl p-6 text-white shadow-sm border border-zinc-800">
+          <div class="flex items-center justify-between mb-6">
+            <span class="text-xs font-medium text-zinc-400">Current Plan</span>
+            <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wider rounded border border-emerald-500/20">
                {{ subscription ? subscription.status : 'FREE' }}
-            </div>
+            </span>
           </div>
 
-          <div class="space-y-1 mb-8">
-            <h2 class="text-4xl font-black tracking-tighter">{{ plan?.name || 'Free Tier' }}</h2>
-            <p v-if="subscription" class="text-xs font-medium text-zinc-500">
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold tracking-tight">{{ plan?.name || 'Free Tier' }}</h2>
+            <p v-if="subscription" class="text-xs text-zinc-500 mt-1">
                Renews on {{ formatDate(subscription.current_period_end) }}
             </p>
-            <p v-else class="text-xs font-medium text-zinc-500 italic">No active billing cycle</p>
+            <p v-else class="text-xs text-zinc-500 mt-1">No active subscription</p>
           </div>
 
-          <button v-if="subscription" class="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-400 transition-colors">
-            Manage via Paystack →
+          <button v-if="subscription" class="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors inline-flex items-center gap-1">
+            Manage billing <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </button>
-        </div>
+        </section>
 
         <!-- Usage Card -->
-        <div class="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-10">
-          <div class="space-y-6">
+        <section class="bg-white rounded-xl border border-zinc-200 shadow-sm p-6 space-y-6">
+          <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-black uppercase tracking-widest text-zinc-400">Space Allocation</span>
-              <span class="text-sm font-black text-zinc-950 italic">{{ usage?.active_spaces_count || 0 }} / {{ plan?.max_active_spaces || 0 }}</span>
+              <span class="text-sm font-medium text-zinc-500">Space Allocation</span>
+              <span class="text-sm font-semibold text-zinc-900">{{ usage?.active_spaces_count || 0 }} / {{ plan?.max_active_spaces || 0 }}</span>
             </div>
-            <div class="h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-[1px]">
+            <div class="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                <div 
-                 class="h-full bg-zinc-950 rounded-full transition-all duration-1000 ease-out"
-                 :style="{ width: ((usage?.active_spaces_count || 0) / (plan?.max_active_spaces || 1) * 100) + '%' }"
+                 class="h-full bg-zinc-900 rounded-full transition-all duration-1000"
+                 :style="{ width: Math.min(((usage?.active_spaces_count || 0) / (plan?.max_active_spaces || 1) * 100), 100) + '%' }"
                ></div>
             </div>
           </div>
 
-          <div class="space-y-6">
+          <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-black uppercase tracking-widest text-zinc-400">Cloud Storage</span>
-              <span class="text-sm font-black text-zinc-950 italic">{{ formatBytes(usage?.storage_used_bytes || 0) }} / {{ formatBytes(plan?.max_storage_bytes || 0) }}</span>
+              <span class="text-sm font-medium text-zinc-500">Storage Usage</span>
+              <span class="text-sm font-semibold text-zinc-900">{{ formatBytes(usage?.storage_used_bytes || 0) }} / {{ formatBytes(plan?.max_storage_bytes || 0) }}</span>
             </div>
-            <div class="h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-[1px]">
+            <div class="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                <div 
-                 class="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out"
-                 :style="{ width: ((usage?.storage_used_bytes || 0) / (plan?.max_storage_bytes || 1) * 100) + '%' }"
+                 class="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                 :style="{ width: Math.min(((usage?.storage_used_bytes || 0) / (plan?.max_storage_bytes || 1) * 100), 100) + '%' }"
                ></div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
       <!-- Plan Selection (Right Col) -->
-      <div class="lg:col-span-8 space-y-8">
-        <div class="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden">
-           <header class="p-10 border-b border-slate-100">
-              <h3 class="text-xl font-black text-zinc-950 tracking-tight">Expand Your Agency</h3>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Select a plan that fits your growth</p>
-           </header>
+      <div class="lg:col-span-8">
+        <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+           <div class="p-6 border-b border-zinc-100">
+              <h3 class="text-base font-semibold text-zinc-900">Select Your Plan</h3>
+              <p class="text-sm text-zinc-500 mt-1">Upgrade your agency's capabilities.</p>
+           </div>
 
-           <div class="p-4 md:p-10">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div class="p-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button 
                   v-for="p in availablePlans" 
                   :key="p.id" 
                   @click="selectedPlanId = p.id"
-                  class="relative p-8 text-left rounded-[2rem] border-2 transition-all group active:scale-[0.98]"
-                  :class="selectedPlanId === p.id ? 'border-zinc-950 bg-zinc-50' : 'border-slate-100 hover:border-slate-200 bg-white'"
+                  class="relative p-6 text-left rounded-lg border transition-all text-sm group"
+                  :class="selectedPlanId === p.id ? 'border-zinc-900 ring-1 ring-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
                 >
-                  <div v-if="selectedPlanId === p.id" class="absolute top-4 right-4 w-6 h-6 bg-zinc-950 text-white rounded-full flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div v-if="selectedPlanId === p.id" class="absolute top-4 right-4 w-5 h-5 bg-zinc-900 text-white rounded-full flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
                   
-                  <div class="space-y-1 mb-6">
-                    <h4 class="text-lg font-black text-zinc-950 uppercase tracking-tight">{{ p.name }}</h4>
-                    <div class="flex items-baseline gap-1">
-                      <span class="text-2xl font-black text-zinc-950 italic">KES {{ p.price_monthly_kes }}</span>
-                      <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">/mo</span>
+                  <div class="mb-4">
+                    <h4 class="font-semibold text-zinc-900">{{ p.name }}</h4>
+                    <div class="flex items-baseline gap-1 mt-1">
+                      <span class="text-xl font-bold text-zinc-900">KES {{ p.price_monthly_kes }}</span>
+                      <span class="text-xs text-zinc-500">/mo</span>
                     </div>
                   </div>
 
-                  <ul class="space-y-3 mb-8">
+                  <ul class="space-y-2">
                     <li v-for="feat in [
-                      `${p.max_active_spaces} Spaces`,
-                      `${formatBytes(p.max_storage_bytes)} Storage`,
-                      p.lead_capture_enabled ? 'Lead Hub Enabled' : 'No Lead Capture',
-                      p.branding_customization_enabled ? 'Brand Pro Enabled' : 'Standard Branding'
-                    ]" :key="feat" class="flex items-center gap-2">
-                       <div class="w-4 h-4 rounded-full flex items-center justify-center" :class="feat.includes('No') || feat.includes('Standard') ? 'text-slate-300' : 'text-emerald-500'">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline v-if="!feat.includes('No') && !feat.includes('Standard')" points="20 6 9 17 4 12"/>
-                            <line v-else x1="18" y1="6" x2="6" y2="18"/>
-                          </svg>
-                       </div>
-                       <span class="text-xs font-bold" :class="feat.includes('No') || feat.includes('Standard') ? 'text-slate-400 line-through decoration-slate-200' : 'text-zinc-700'">{{ feat }}</span>
+                      { label: `${p.max_active_spaces} Spaces`, enabled: true },
+                      { label: `${formatBytes(p.max_storage_bytes)} Storage`, enabled: true },
+                      { label: 'Lead Capture', enabled: p.lead_capture_enabled },
+                      { label: 'Custom Branding', enabled: p.branding_customization_enabled }
+                    ]" :key="feat.label" class="flex items-center gap-2">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" :class="feat.enabled ? 'text-emerald-500' : 'text-zinc-300'"><polyline points="20 6 9 17 4 12"/></svg>
+                       <span :class="feat.enabled ? 'text-zinc-700' : 'text-zinc-400 font-normal'">{{ feat.label }}</span>
                     </li>
                   </ul>
                 </button>
               </div>
 
-              <div class="mt-10 p-8 bg-zinc-50 rounded-[2rem] border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div class="space-y-1">
-                  <p class="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Total Commitment</p>
-                  <p class="text-xl font-black text-zinc-950 italic">KES {{ selectedPlan?.price_monthly_kes || 0 }} <span class="text-xs font-bold text-slate-400 not-italic">monthly</span></p>
+              <!-- Total Commitment & CTA -->
+              <div class="mt-8 p-6 bg-zinc-50 rounded-lg border border-zinc-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div>
+                  <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Total Due Today</p>
+                  <p class="text-xl font-bold text-zinc-900 mt-1">KES {{ selectedPlan?.price_monthly_kes || 0 }} <span class="text-sm font-medium text-zinc-500">monthly</span></p>
                 </div>
                 
                 <button 
                   v-if="selectedPlan?.price_monthly_kes > 0"
-                  class="px-12 py-4 bg-zinc-950 text-white text-sm font-black rounded-2xl shadow-xl shadow-zinc-950/20 hover:bg-zinc-800 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                  class="w-full md:w-auto px-8 py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   @click="handleSubscribe" 
                   :disabled="subscribing || selectedPlanId === plan?.id"
                 >
                   <svg v-if="subscribing" class="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  {{ selectedPlanId === plan?.id ? 'Active Membership' : 'Upgrade to ' + selectedPlan?.name }}
+                  {{ selectedPlanId === plan?.id ? 'Active Membership' : 'Upgrade Plan' }}
                 </button>
-                <div v-else class="text-xs font-black uppercase tracking-widest text-zinc-400 italic">
+                <div v-else class="text-sm font-medium text-zinc-500 italic">
                   Free Starter Plan
                 </div>
               </div>
            </div>
-        </div>
+        </section>
       </div>
-    </section>
+    </div>
   </div>
+
+  <!-- Toast -->
+  <Teleport to="body">
+    <Transition name="toast">
+      <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
+        <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/20 text-white'">
+          <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        {{ toast.message }}
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, onMounted, computed } from 'vue'
-import { definePageMeta as _, useSeoMeta, useSupabaseUser, useSupabaseClient, navigateTo } from '#imports'
+import { definePageMeta, useSeoMeta, useSupabaseUser, useSupabaseClient, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { usePlanStore } from '~/stores/plan'
+
+definePageMeta({ layout: 'app', middleware: 'auth' })
+useSeoMeta({ title: 'Billing | Viewora' })
 
 const { apiFetch } = useApiFetch()
 const supabase = useSupabaseClient()
@@ -166,6 +173,14 @@ const subscription = ref<any>(null)
 const usage = ref<any>(null)
 const availablePlans = ref<any[]>([])
 const selectedPlanId = ref<string | null>(null)
+const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { message, type }
+  toastTimer = setTimeout(() => { toast.value = null }, 3200)
+}
 
 const selectedPlan = computed(() => availablePlans.value.find(p => p.id === selectedPlanId.value))
 
@@ -178,7 +193,7 @@ async function fetchBillingData() {
   try {
     const [statusData, plansData] = await Promise.all([
       apiFetch<any>('/billing/status'),
-      apiFetch<any[]>('/plans')
+      apiFetch<any[]>('/billing/plans')
     ])
 
     plan.value = statusData.plan
@@ -210,7 +225,7 @@ async function handleSubscribe() {
       window.location.href = data.authorization_url
     }
   } catch (e: any) {
-    alert(e.data?.statusMessage || 'Failed to initialize payment')
+    showToast(e.data?.statusMessage || 'Failed to initialize payment', 'error')
   } finally {
     subscribing.value = false
   }
@@ -231,5 +246,6 @@ function formatBytes(bytes: number) {
 </script>
 
 <style scoped>
-/* Any specific billing styles if needed */
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
 </style>

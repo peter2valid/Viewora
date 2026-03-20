@@ -1,15 +1,27 @@
 <template>
-  <div class="auth-page section-bg">
-    <div class="container auth-container">
-      <div class="card auth-card" style="margin: 4rem auto; max-width: 450px;">
-        <h1 class="auth-title mb-6 text-center" style="font-size: 1.75rem;">Log In to Viewora</h1>
-        <form @submit.prevent="signIn">
-          <div v-if="errorMsg" class="mb-4" style="background: #fee2e2; color: #ef4444; padding: 0.75rem; border-radius: 0.5rem; text-align: center; font-size: 0.875rem;">
+  <div class="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-6 antialiased text-zinc-900">
+    <div class="w-full max-w-[400px] space-y-8">
+      <!-- Logo -->
+      <div class="flex flex-col items-center gap-4">
+        <div class="w-10 h-10 rounded-lg bg-zinc-900 flex items-center justify-center shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-900">Log In to Viewora</h1>
+      </div>
+
+      <div class="bg-white rounded-xl border border-zinc-200 shadow-sm p-8">
+        <form @submit.prevent="signIn" class="space-y-6">
+          <div v-if="errorMsg" class="p-3 bg-red-50 border border-red-100 rounded-md text-sm font-medium text-red-600 text-center">
             {{ errorMsg }}
           </div>
 
-          <button type="button" @click="signInWithGoogle" class="btn btn-secondary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
-            <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+          <!-- Social Login -->
+          <button 
+            type="button" 
+            @click="signInWithGoogle" 
+            class="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-zinc-200 rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-sm"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -18,44 +30,68 @@
             Continue with Google
           </button>
 
-          <div class="auth-divider" style="display: flex; align-items: center; margin: 1.5rem 0; color: var(--text-muted); font-size: 0.875rem;">
-            <span style="flex: 1; height: 1px; background: var(--border-color);"></span>
-            <span style="padding: 0 1rem;">OR</span>
-            <span style="flex: 1; height: 1px; background: var(--border-color);"></span>
+          <div class="flex items-center gap-4 py-2">
+            <div class="flex-1 h-px bg-zinc-100"></div>
+            <span class="text-xs font-medium text-zinc-400 uppercase tracking-widest">or</span>
+            <div class="flex-1 h-px bg-zinc-100"></div>
           </div>
 
-          <div class="form-group mb-4">
-            <div class="label-row" style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-              <label for="email" class="font-semibold text-sm">Email Address</label>
-              <NuxtLink to="/register" class="auth-link text-sm text-primary">(Create an account)</NuxtLink>
+          <!-- Email/Pass -->
+          <div class="space-y-4">
+            <div class="flex flex-col gap-1.5">
+              <label for="email" class="text-sm font-medium text-zinc-700">Email Address</label>
+              <input 
+                id="email" 
+                type="email" 
+                v-model="email" 
+                placeholder="email@example.com" 
+                class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none shadow-sm transition-shadow" 
+                required 
+              />
             </div>
-            <input id="email" type="email" autocomplete="username" v-model="email" placeholder="Email address" class="form-input w-full p-3 border rounded-lg outline-none" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
-          </div>
-          
-          <div class="form-group mb-6">
-            <div class="label-row" style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-              <label for="password" class="font-semibold text-sm">Password</label>
-              <NuxtLink to="/reset-password" class="auth-link text-sm text-primary">(Forgot Password?)</NuxtLink>
+            
+            <div class="flex flex-col gap-1.5">
+              <div class="flex justify-between items-center">
+                <label for="password" class="text-sm font-medium text-zinc-700">Password</label>
+                <NuxtLink to="/reset-password" class="text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">Forgot?</NuxtLink>
+              </div>
+              <input 
+                id="password" 
+                type="password" 
+                v-model="password" 
+                placeholder="••••••••" 
+                class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none shadow-sm transition-shadow" 
+                required 
+              />
             </div>
-            <input id="password" type="password" autocomplete="current-password" v-model="password" placeholder="Password" class="form-input w-full p-3 border rounded-lg outline-none" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
           </div>
 
-          <div class="form-group checkbox-group mb-6" style="display: flex; align-items: center; gap: 0.5rem;">
-            <input type="checkbox" id="remember" style="width: 1rem; height: 1rem;">
-            <label for="remember" class="text-sm cursor-pointer">Remember me for 30 days</label>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="remember" class="w-4 h-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500" />
+            <label for="remember" class="text-sm text-zinc-500 cursor-pointer">Keep me logged in</label>
           </div>
 
-          <button type="submit" class="btn btn-primary btn-block mb-6" :disabled="isLoading">
+          <button 
+            type="submit" 
+            class="w-full py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50" 
+            :disabled="isLoading"
+          >
             {{ isLoading ? 'Logging in...' : 'Log In' }}
           </button>
         </form>
       </div>
+
+      <p class="text-center text-sm text-zinc-500">
+        Don't have an account? 
+        <NuxtLink to="/register" class="font-medium text-zinc-900 hover:underline">Create an account</NuxtLink>
+      </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { definePageMeta, useSupabaseClient, navigateTo, useSeoMeta } from '#imports'
 
 definePageMeta({
   middleware: 'guest'
@@ -79,7 +115,7 @@ const signIn = async () => {
 
     if (error) throw error
 
-    await navigateTo('/app/spaces')
+    await navigateTo('/app')
   } catch (err: any) {
     errorMsg.value = err.message || 'An error occurred during log in.'
   } finally {
@@ -100,7 +136,7 @@ const signInWithGoogle = async () => {
 }
 
 useSeoMeta({
-  title: 'Log In',
+  title: 'Log In | Viewora',
   description: 'Log in to your Viewora account to manage your virtual tours.'
 })
 </script>

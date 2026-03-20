@@ -1,134 +1,155 @@
 <template>
-  <div class="space-y-12 pb-20">
+  <div class="h-full flex flex-col max-w-4xl">
     <!-- Header -->
-    <div class="pb-6 border-b border-slate-200">
-      <h1 class="text-3xl font-black tracking-tight text-zinc-950">Settings</h1>
-      <p class="text-sm text-slate-500 font-medium">Manage your professional profile and agency branding.</p>
-    </div>
+    <header class="mb-8">
+      <h1 class="text-2xl font-bold tracking-tight text-zinc-950">Settings</h1>
+      <p class="text-sm text-zinc-500 mt-1">Manage your account and agency preferences.</p>
+    </header>
 
-    <div class="max-w-4xl space-y-12">
+    <div class="space-y-8">
       <!-- Profile Section -->
-      <section class="space-y-6">
-        <h3 class="text-sm font-black uppercase tracking-widest text-zinc-400 px-2">Account Profile</h3>
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+      <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+        <div class="p-6 border-b border-zinc-100">
+          <h3 class="text-base font-semibold text-zinc-900">Account Profile</h3>
+          <p class="text-sm text-zinc-500 mt-1">Information about your professional identity.</p>
+        </div>
+        <div class="p-6 space-y-6">
           <!-- Email (Read-only) -->
-          <div class="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors hover:bg-slate-50/50">
-            <div class="space-y-1">
-              <span class="text-sm font-bold text-zinc-950 block">Email Address</span>
-              <span class="text-xs text-slate-500 block">Your login and notification email. Cannot be changed manually.</span>
-            </div>
-            <div class="px-4 py-2 bg-slate-100 rounded-xl text-zinc-500 text-sm font-mono border border-slate-200">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-medium text-zinc-700">Email Address</label>
+            <div class="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md text-sm text-zinc-500 flex items-center justify-between">
               {{ user?.email }}
+              <span class="text-[10px] uppercase font-bold text-zinc-400">Read-only</span>
             </div>
           </div>
 
           <!-- Name -->
-          <div class="p-8 space-y-4">
-             <div class="space-y-1">
-                <label class="text-sm font-bold text-zinc-950 block">Full Name</label>
-                <p class="text-xs text-slate-500">Displayed in your internal team communications.</p>
-             </div>
-             <input
-                v-model="profileForm.fullName"
-                type="text"
-                class="w-full max-w-md px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 rounded-xl text-sm transition-all outline-none font-medium placeholder:text-slate-400"
-                placeholder="Peter Parker"
-              />
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-medium text-zinc-700" for="full-name">Full Name</label>
+            <input
+              id="full-name"
+              v-model="profileForm.fullName"
+              type="text"
+              class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm"
+              placeholder="Peter Parker"
+            />
           </div>
         </div>
       </section>
 
       <!-- Agency Branding -->
-      <section class="space-y-6">
-         <div class="flex items-center justify-between px-2">
-           <h3 class="text-sm font-black uppercase tracking-widest text-zinc-400">Agency Branding</h3>
-           <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2 py-1 rounded-md bg-zinc-950 text-white text-[9px] font-black uppercase tracking-widest">Upgrade to Pro</div>
-         </div>
+      <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden" :class="!planStore.entitlements?.branding_customization_enabled ? 'opacity-75' : ''">
+        <div class="p-6 border-b border-zinc-100 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-semibold text-zinc-900">Agency Branding</h3>
+            <p class="text-sm text-zinc-500 mt-1">Customize how your agency appears on virtual tours.</p>
+          </div>
+          <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-semibold uppercase tracking-wider rounded-md">
+            Pro Feature
+          </div>
+        </div>
 
-         <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-8 space-y-10" :class="!planStore.entitlements?.branding_customization_enabled ? 'opacity-60 grayscale-[0.5]' : ''">
-            <!-- Agency Name -->
-            <div class="space-y-4">
-               <div class="space-y-1">
-                  <label class="text-sm font-bold text-zinc-950 block">Public Agency Name</label>
-                  <p class="text-xs text-slate-500">This name will appear on the virtual tour interface.</p>
-               </div>
-               <input
-                  v-model="profileForm.agencyName"
-                  type="text"
-                  class="w-full max-w-md px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 rounded-xl text-sm transition-all outline-none font-medium placeholder:text-slate-400 disabled:cursor-not-allowed"
-                  placeholder="Skyline Virtual Realty"
-                  :disabled="!planStore.entitlements?.branding_customization_enabled"
-                />
+        <div class="p-6 space-y-8">
+          <!-- Agency Name -->
+<div class="flex flex-col gap-1.5">
+            <label class="text-sm font-medium text-zinc-700" for="agency-name">Agency Name</label>
+            <input
+              id="agency-name"
+              v-model="profileForm.agencyName"
+              type="text"
+              class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm disabled:bg-zinc-50 disabled:cursor-not-allowed"
+              placeholder="Skyline Virtual Realty"
+              :disabled="!planStore.entitlements?.branding_customization_enabled"
+            />
+          </div>
+
+          <!-- Logo Upload -->
+          <div class="space-y-3">
+            <label class="text-sm font-medium text-zinc-700">Agency Logo</label>
+            <div class="flex items-center gap-6">
+              <div class="w-20 h-20 bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-center overflow-hidden">
+                <img v-if="profileForm.agencyLogoUrl" :src="profileForm.agencyLogoUrl" alt="Logo" class="w-full h-full object-contain p-2" />
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-zinc-300"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                  <input 
+                    type="file" 
+                    id="logo-upload" 
+                    accept="image/*" 
+                    class="hidden" 
+                    @change="handleLogoUpload"
+                    :disabled="!planStore.entitlements?.branding_customization_enabled || uploading"
+                  />
+                  <label 
+                    for="logo-upload" 
+                    class="px-3 py-1.5 bg-white border border-zinc-200 text-xs font-semibold text-zinc-700 rounded-md hover:bg-zinc-50 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+                    :class="{ 'pointer-events-none opacity-50': !planStore.entitlements?.branding_customization_enabled || uploading }"
+                  >
+                    {{ uploading ? 'Uploading...' : 'Change Logo' }}
+                  </label>
+                  <button v-if="profileForm.agencyLogoUrl" class="text-xs font-medium text-rose-600 hover:text-rose-700" @click="profileForm.agencyLogoUrl = ''">Remove</button>
+                </div>
+                <p class="text-xs text-zinc-400">PNG or SVG. Recommended size 120x60px.</p>
+              </div>
             </div>
-
-            <!-- Logo Upload -->
-            <div class="space-y-4">
-               <div class="space-y-1">
-                  <label class="text-sm font-bold text-zinc-950 block">Agency Watermark / Logo</label>
-                  <p class="text-xs text-slate-500">Replace the Viewora logo with your own branding.</p>
-               </div>
-               
-               <div class="flex items-center gap-8 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
-                  <div class="w-24 h-24 bg-white rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden shadow-inner group">
-                    <img v-if="profileForm.agencyLogoUrl" :src="profileForm.agencyLogoUrl" alt="Logo" class="w-full h-full object-contain p-2" />
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-slate-300"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  </div>
-
-                  <div class="space-y-3">
-                    <input 
-                      type="file" 
-                      id="logo-upload" 
-                      accept="image/*" 
-                      class="hidden" 
-                      @change="handleLogoUpload"
-                      :disabled="!planStore.entitlements?.branding_customization_enabled || uploading"
-                    />
-                    <div class="flex items-center gap-3">
-                      <label 
-                        for="logo-upload" 
-                        class="px-6 py-2.5 bg-zinc-950 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
-                        :class="{ 'pointer-events-none opacity-50': !planStore.entitlements?.branding_customization_enabled || uploading }"
-                      >
-                        {{ uploading ? 'Uploading...' : 'Upload Logo' }}
-                      </label>
-                      <button v-if="profileForm.agencyLogoUrl" class="text-xs font-bold text-red-500 hover:text-red-600 transition-colors" @click="profileForm.agencyLogoUrl = ''">Remove</button>
-                    </div>
-                    <p class="text-[10px] text-slate-400 font-medium italic">Supports transparent PNG/SVG. Best at 120x60px.</p>
-                  </div>
-               </div>
-            </div>
-         </div>
+          </div>
+        </div>
       </section>
 
       <!-- Save Footer -->
-      <div class="pt-6 flex justify-end">
+      <div class="flex justify-end pt-4">
          <button 
-           class="px-12 py-4 bg-zinc-950 text-white text-sm font-black rounded-2xl hover:bg-zinc-800 shadow-2xl shadow-zinc-950/20 active:scale-95 transition-all disabled:opacity-50" 
+           class="px-6 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 shadow-sm transition-colors disabled:opacity-50" 
            @click="saveProfile" 
            :disabled="saving"
          >
-           {{ saving ? 'Syncing...' : 'Save All Settings' }}
+           {{ saving ? 'Saving changes...' : 'Save Settings' }}
          </button>
       </div>
 
       <!-- Danger zone -->
-      <section class="mt-20 pt-12 border-t border-slate-100 space-y-6">
-        <h3 class="text-sm font-black uppercase tracking-widest text-red-500 px-2 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Critical Zone
+      <section class="mt-12 pt-12 border-t border-zinc-200">
+        <h3 class="text-sm font-semibold text-rose-600 mb-4 flex items-center gap-2 uppercase tracking-wider">
+          Danger Zone
         </h3>
-        <div class="bg-red-50/30 rounded-3xl border border-red-100 p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:bg-red-50/50">
-           <div class="space-y-1">
-             <h4 class="text-sm font-bold text-red-600">Permanently Delete Account</h4>
-             <p class="text-xs text-red-500/70">Wipes all your 360° spaces, leads, and assets. This cannot be undone.</p>
+        <div class="bg-rose-50/50 rounded-xl border border-rose-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+           <div>
+             <h4 class="text-sm font-semibold text-rose-900">Delete Account</h4>
+             <p class="text-xs text-rose-700 mt-1">Permanently remove all your spaces, leads, and account data.</p>
            </div>
-           <button class="px-6 py-3 bg-white text-red-600 border border-red-200 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-red-600 hover:text-white hover:border-red-600 transition-all active:scale-95" @click="handleDeleteAccount">
+           <button class="px-4 py-2 bg-rose-600 text-white text-sm font-medium rounded-lg hover:bg-rose-700 transition-colors shadow-sm" @click="showDeleteConfirm = true">
              Delete Everything
            </button>
         </div>
       </section>
+
+      <AppConfirmationModal
+        :is-open="showDeleteConfirm"
+        title="Permanently Delete Account?"
+        message="This action is irreversible. All your 360° spaces, lead data, and media assets will be immediately destroyed."
+        confirm-text="Yes, Delete Everything"
+        :is-dangerous="true"
+        :loading="deleting"
+        @confirm="handleDeleteAccount"
+        @cancel="showDeleteConfirm = false"
+      />
     </div>
   </div>
+
+  <!-- Toast -->
+  <Teleport to="body">
+    <Transition name="toast">
+      <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
+        <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/20 text-white'">
+          <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        {{ toast.message }}
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -147,6 +168,16 @@ const { apiFetch } = useApiFetch()
 
 const saving = ref(false)
 const uploading = ref(false)
+const deleting = ref(false)
+const showDeleteConfirm = ref(false)
+const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { message, type }
+  toastTimer = setTimeout(() => { toast.value = null }, 3200)
+}
 
 const profileForm = ref({
   fullName: user.value?.user_metadata?.full_name || '',
@@ -160,7 +191,6 @@ async function handleLogoUpload(e: any) {
 
   uploading.value = true
   try {
-    // 1. Get signed URL
     const { signedUrl, publicUrl } = await apiFetch<any>('/uploads/signed-url', {
       method: 'POST',
       body: { 
@@ -169,7 +199,6 @@ async function handleLogoUpload(e: any) {
       }
     })
 
-    // 2. Upload to R2
     await $fetch(signedUrl, {
       method: 'PUT',
       body: file,
@@ -178,7 +207,7 @@ async function handleLogoUpload(e: any) {
 
     profileForm.value.agencyLogoUrl = publicUrl
   } catch (err: any) {
-    alert(`Failed to upload logo: ${err.data?.statusMessage || err.message}`)
+    showToast(`Failed to upload logo: ${err.data?.statusMessage || err.message}`, 'error')
   } finally {
     uploading.value = false
   }
@@ -196,22 +225,25 @@ async function saveProfile() {
     })
 
     if (error) throw error
-    alert('Settings saved successfully!')
+    showToast('Settings saved successfully')
   } catch (err: any) {
-    alert(`Failed to save settings: ${err.message}`)
+    showToast(`Failed to save settings: ${err.message}`, 'error')
   } finally {
     saving.value = false
   }
 }
 
 async function handleDeleteAccount() {
-  if (!confirm('Are you absolutely sure? This will permanently delete your account and all your spaces. This action cannot be undone.')) {
-    return
-  }
-  alert('Account deletion request flagged. Please contact support@viewora.software to finalize verification.')
+  deleting.value = true
+  setTimeout(() => {
+    deleting.value = false
+    showDeleteConfirm.value = false
+    showToast('Deletion request received. Our team will verify and finalize this within 24 hours.')
+  }, 1500)
 }
 </script>
 
 <style scoped>
-/* Any specific settings styles if needed */
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
 </style>

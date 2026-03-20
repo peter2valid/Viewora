@@ -1,54 +1,68 @@
 <template>
-  <div class="auth-page section-bg">
-    <div class="container" style="max-width: 500px; margin: 6rem auto;">
-      <div class="card" style="padding: 2.5rem;">
-        <h1 class="auth-title mb-6 text-center" style="font-size: 1.75rem;">Reset Password</h1>
+  <div class="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-6 antialiased text-zinc-900">
+    <div class="w-full max-w-[400px] space-y-8">
+      <!-- Logo -->
+      <div class="flex flex-col items-center gap-4">
+        <div class="w-10 h-10 rounded-lg bg-zinc-900 flex items-center justify-center shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-900">Reset your Password</h1>
+      </div>
 
-        <div v-if="sent" style="text-align: center;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"
-            fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-            style="margin-bottom: 1rem;">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-          </svg>
-          <p style="font-size: 1rem; font-weight: 600; color: #16a34a; margin-bottom: 0.5rem;">Email sent!</p>
-          <p class="text-muted">Check your inbox for a password reset link.</p>
-          <NuxtLink to="/login" class="btn btn-secondary" style="margin-top: 1.5rem; display: inline-block;">
+      <div class="bg-white rounded-xl border border-zinc-200 shadow-sm p-8">
+        <!-- Success State -->
+        <div v-if="sent" class="flex flex-col items-center text-center gap-4">
+          <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div>
+            <p class="text-base font-semibold text-zinc-900">Check your inbox</p>
+            <p class="text-sm text-zinc-500 mt-1">We sent a reset link to <span class="font-medium text-zinc-700">{{ email }}</span></p>
+          </div>
+          <NuxtLink to="/login" class="w-full text-center py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm mt-2">
             Back to Login
           </NuxtLink>
         </div>
 
-        <form v-else @submit.prevent="sendReset">
-          <div v-if="errorMsg" style="background: #fee2e2; color: #ef4444; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem; text-align: center;">
+        <!-- Form State -->
+        <form v-else @submit.prevent="sendReset" class="space-y-6">
+          <div>
+            <p class="text-sm text-zinc-500 leading-relaxed">
+              Enter your account email and we'll send you a link to reset your password.
+            </p>
+          </div>
+
+          <div v-if="errorMsg" class="p-3 bg-red-50 border border-red-100 rounded-md text-sm font-medium text-red-600 text-center">
             {{ errorMsg }}
           </div>
 
-          <p class="text-muted" style="margin-bottom: 1.5rem; font-size: 0.9rem;">
-            Enter your account email and we'll send you a link to reset your password.
-          </p>
-
-          <div class="form-group mb-6">
-            <label for="reset-email" class="font-semibold text-sm block mb-2">Email Address</label>
+          <div class="flex flex-col gap-1.5">
+            <label for="reset-email" class="text-sm font-medium text-zinc-700">Email Address</label>
             <input
               id="reset-email"
               type="email"
               v-model="email"
               placeholder="you@example.com"
               required
-              class="form-input"
-              style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; outline: none;"
+              class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none shadow-sm transition-shadow"
             />
           </div>
 
-          <button type="submit" class="btn btn-primary btn-block mb-4" :disabled="loading">
+          <button
+            type="submit"
+            class="w-full py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+            :disabled="loading"
+          >
+            <svg v-if="loading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             {{ loading ? 'Sending…' : 'Send Reset Link' }}
           </button>
-
-          <div style="text-align: center;">
-            <NuxtLink to="/login" class="auth-link text-sm text-primary">← Back to Login</NuxtLink>
-          </div>
         </form>
       </div>
+
+      <p class="text-center text-sm text-zinc-500">
+        Remembered it?
+        <NuxtLink to="/login" class="font-medium text-zinc-900 hover:underline">Back to Login</NuxtLink>
+      </p>
     </div>
   </div>
 </template>

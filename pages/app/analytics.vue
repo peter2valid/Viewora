@@ -1,22 +1,22 @@
 <template>
-  <div class="h-full flex flex-col bg-zinc-50/50">
+  <div class="h-full flex flex-col">
     <!-- Page Header -->
-    <header class="p-8 pb-0 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="space-y-1">
-        <h1 class="text-3xl font-black tracking-tight text-zinc-950">Analytics</h1>
-        <p class="text-sm text-slate-500 font-medium font-inter">
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950">Analytics</h1>
+        <p class="text-sm text-zinc-500">
           Real-time performance metrics for your published virtual tours.
         </p>
       </div>
 
       <!-- Range Selector -->
-      <div class="p-1.5 bg-white border border-slate-200 rounded-2xl flex items-center gap-1 shadow-sm">
+      <div class="p-1 bg-white border border-zinc-200 rounded-lg flex items-center shadow-sm">
         <button
           v-for="r in ranges"
           :key="r.value"
           @click="activeRange = r.value"
-          class="px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
-          :class="activeRange === r.value ? 'bg-zinc-950 text-white shadow-lg shadow-zinc-950/20' : 'text-slate-400 hover:text-zinc-600'"
+          class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+          :class="activeRange === r.value ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-900'"
         >
           {{ r.label }}
         </button>
@@ -24,7 +24,7 @@
     </header>
 
     <!-- ── Dashboard Grid ──────────────────────────────────────────────── -->
-    <section class="p-8 space-y-8 overflow-y-auto flex-1 text-inter">
+    <div class="space-y-6">
       
       <!-- Metrics Row -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -33,142 +33,122 @@
           { label: 'Leads Captured', value: totalLeads, sub: 'All time', icon: 'users' },
           { label: 'Top Source', value: topSource, sub: `${topSourceViews} views`, icon: 'link' },
           { label: 'Top Space', value: topSpaceName, sub: `${topSpaceViews} views`, icon: 'home' }
-        ]" :key="metric.label" class="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm transition-all hover:shadow-xl group">
-          <div class="flex items-center justify-between mb-6">
-            <span class="text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-emerald-500 transition-colors">{{ metric.label }}</span>
-            <div class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
-               <svg v-if="metric.icon === 'eye'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-               <svg v-else-if="metric.icon === 'users'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-               <svg v-else-if="metric.icon === 'link'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-               <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        ]" :key="metric.label" class="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm transition-shadow hover:shadow-md group">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-sm font-medium text-zinc-500">{{ metric.label }}</span>
+            <div class="text-zinc-400 group-hover:text-zinc-900 transition-colors">
+               <svg v-if="metric.icon === 'eye'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+               <svg v-else-if="metric.icon === 'users'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+               <svg v-else-if="metric.icon === 'link'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+               <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
           </div>
-          <div class="text-3xl font-black tracking-tight text-zinc-950 mb-1 truncate leading-none italic">{{ metric.value }}</div>
-          <div class="text-xs font-bold text-slate-400 uppercase tracking-tighter">{{ metric.sub }}</div>
+          <div class="text-2xl font-semibold text-zinc-900 tracking-tight leading-none mb-1">{{ metric.value }}</div>
+          <div class="text-xs text-zinc-400 font-medium">{{ metric.sub }}</div>
         </div>
       </div>
 
       <!-- Main Chart Card -->
-      <div class="bg-white rounded-[3rem] border border-slate-200 shadow-sm p-10 flex flex-col gap-10">
+      <div class="bg-white rounded-xl border border-zinc-200 shadow-sm p-6 flex flex-col gap-8">
         <div class="flex items-center justify-between">
-          <div class="space-y-1">
-            <h3 class="text-xl font-black text-zinc-950 tracking-tight">Visitor Intelligence</h3>
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{{ activeRangeLabel }}</p>
+          <div>
+            <h3 class="text-base font-semibold text-zinc-900 tracking-tight">Visitor Intelligence</h3>
+            <p class="text-xs text-zinc-500">{{ activeRangeLabel }}</p>
           </div>
-          <div class="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-500/20">
-             <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-             Live Telemetry
+          <div class="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-semibold uppercase tracking-wider border border-emerald-200">
+             <div class="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></div>
+             Live
           </div>
         </div>
 
         <!-- Custom Bar Chart Visualization -->
-        <div class="h-[300px] flex items-end gap-2 px-4 relative group/chart">
+        <div class="h-[240px] flex items-end gap-2 px-2 relative group/chart">
           <!-- Empty State Overlay -->
-          <div v-if="rawStats.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-20 rounded-2xl">
-             <div class="w-16 h-16 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
+          <div v-if="chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm z-20 rounded-lg">
+             <div class="w-10 h-10 bg-zinc-50 text-zinc-300 rounded-lg flex items-center justify-center mb-3 border border-zinc-100">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
              </div>
-             <p class="text-[10px] font-black uppercase tracking-widest text-zinc-400">No telemetry recorded for this cycle</p>
+             <p class="text-xs font-semibold text-zinc-900">No data recorded</p>
+             <p class="text-xs text-zinc-500 mt-1">Share your spaces to start gathering intelligence.</p>
           </div>
 
-          <!-- Y Axis -->
-          <div class="absolute -left-4 inset-y-0 w-8 flex flex-col justify-between text-[9px] font-black text-slate-300 pointer-events-none">
+          <!-- Y Axis (Minimal) -->
+          <div class="absolute -left-2 inset-y-0 w-6 flex flex-col justify-between text-[10px] font-medium text-zinc-300 pointer-events-none pr-2 text-right">
             <span>{{ maxY }}</span>
-            <span>{{ Math.round(maxY * 0.5) }}</span>
             <span>0</span>
           </div>
 
-          <!-- Grid Lines -->
-          <div class="absolute inset-0 flex flex-col justify-between pointer-events-none pr-4">
-             <div class="w-full border-t border-slate-50"></div>
-             <div class="w-full border-t border-slate-50"></div>
-             <div class="w-full border-t border-slate-100"></div>
-          </div>
-
           <!-- Vertical Bars -->
-          <div v-for="(day, i) in chartDays" :key="i" class="flex-1 flex flex-col items-center justify-end h-full gap-3 group/bar z-10">
+          <div v-for="(day, i) in chartDays" :key="i" class="flex-1 flex flex-col items-center justify-end h-full gap-2 group/bar z-10">
             <div class="relative w-full group/tip">
               <!-- Tooltip on hover -->
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 px-3 py-2 bg-zinc-950 text-white rounded-xl text-[10px] font-black opacity-0 group-hover/bar:opacity-100 transition-all scale-90 group-hover/bar:scale-100 pointer-events-none shadow-xl z-30">
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-900 text-white rounded text-[10px] font-medium opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none shadow-lg z-30 whitespace-nowrap">
                  {{ day.views }} views
-                 <div class="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-zinc-950"></div>
               </div>
               
               <!-- The Bar -->
               <div 
-                class="w-full min-h-[4px] rounded-full transition-all duration-700 ease-out group-hover/bar:bg-zinc-950 bg-slate-100"
-                :class="day.views > 0 ? 'bg-emerald-500/40 group-hover/bar:bg-emerald-500' : ''"
+                class="w-full min-h-[2px] rounded-t-sm transition-all duration-500 ease-out group-hover/bar:bg-zinc-900"
+                :class="day.views > 0 ? 'bg-zinc-800' : 'bg-zinc-50'"
                 :style="{ height: (day.views / (maxY || 1) * 100) + '%' }"
               ></div>
             </div>
-            <span class="text-[9px] font-black text-slate-400 group-hover/bar:text-zinc-950 transition-colors hidden md:block uppercase tracking-tighter">{{ day.label }}</span>
+            <span class="text-[10px] font-medium text-zinc-400 transition-colors group-hover/bar:text-zinc-900 hidden md:block">{{ day.label }}</span>
           </div>
         </div>
       </div>
 
       <!-- performance Table Card -->
-      <div class="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <header class="p-10 pb-6 border-b border-slate-100">
-             <h3 class="text-xl font-black text-zinc-950 tracking-tight">Performance Leaderboard</h3>
-             <p class="text-xs font-bold text-slate-400">Comparing view velocity across active spaces.</p>
+      <div class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+          <header class="p-6 border-b border-zinc-100 flex items-center justify-between">
+             <div>
+                <h3 class="text-base font-semibold text-zinc-900 tracking-tight">Performance Leaderboard</h3>
+                <p class="text-xs text-zinc-500">Ranking by total engagement.</p>
+             </div>
           </header>
 
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse" v-if="spaceStats.length > 0">
-              <thead>
-                <tr class="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 bg-slate-50/50">
-                  <th class="px-10 py-5">Space Identity</th>
-                  <th class="px-10 py-5 text-right">Total Views</th>
-                  <th class="px-10 py-5 text-center">Direct</th>
-                  <th class="px-10 py-5 text-center">QR</th>
-                  <th class="px-10 py-5 text-center">WA</th>
-                  <th class="px-10 py-5 text-center">Embed</th>
-                  <th class="px-10 py-5 text-right">Leads</th>
+          <div v-if="spaceStats.length === 0" class="p-12 flex flex-col items-center justify-center text-center">
+             <div class="w-10 h-10 bg-zinc-50 text-zinc-200 rounded-lg flex items-center justify-center mb-3 border border-zinc-100">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+             </div>
+             <p class="text-xs font-medium text-zinc-500">No data available for the selected range.</p>
+          </div>
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-left border-collapse table-fixed min-w-[800px]">
+              <thead class="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-zinc-100">
+                <tr class="text-xs font-medium text-zinc-500">
+                  <th class="w-[40%] px-6 py-3">Space</th>
+                  <th class="w-[15%] px-6 py-3 text-right">Total</th>
+                  <th class="w-[10%] px-6 py-3 text-center">Dir</th>
+                  <th class="w-[10%] px-6 py-3 text-center">QR</th>
+                  <th class="w-[10%] px-6 py-3 text-center">WA</th>
+                  <th class="w-[15%] px-6 py-3 text-right">Leads</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-50">
-                <tr v-for="stat in spaceStats" :key="stat.id" class="group hover:bg-slate-50/50 transition-colors">
-                  <td class="px-10 py-6">
-                    <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-black text-zinc-950 hover:text-emerald-600 transition-colors leading-none flex items-center gap-3">
-                      <div class="w-6 h-6 rounded-lg bg-zinc-100 flex items-center justify-center text-[8px] text-zinc-400 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                        {{ stat.title[0] }}
-                      </div>
+              <tbody class="divide-y divide-zinc-50">
+                <tr v-for="stat in spaceStats" :key="stat.id" class="group hover:bg-zinc-50/50 transition-colors">
+                  <td class="px-6 py-4">
+                    <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-medium text-zinc-900 hover:text-emerald-600 transition-colors truncate block">
                       {{ stat.title }}
                     </NuxtLink>
                   </td>
-                  <td class="px-10 py-6 text-right font-black text-zinc-950 text-base italic">{{ stat.total_views }}</td>
-                  <td class="px-10 py-6 text-center text-xs font-bold text-slate-400 italic">{{ stat.direct_views }}</td>
-                  <td class="px-10 py-6 text-center text-xs font-bold text-slate-400 italic">{{ stat.qr_views }}</td>
-                  <td class="px-10 py-6 text-center text-xs font-bold text-slate-400 italic">{{ stat.whatsapp_views }}</td>
-                  <td class="px-10 py-6 text-center text-xs font-bold text-slate-400 italic">{{ stat.embed_views }}</td>
-                  <td class="px-10 py-6 text-right">
-                    <span v-if="stat.leads_count > 0" class="px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full text-[10px] font-black border border-emerald-500/20 italic">
-                      {{ stat.leads_count }} Leads
-                    </span>
-                    <span v-else class="text-[10px] font-bold text-slate-300 italic">—</span>
-                  </td>
+                  <td class="px-6 py-4 text-right text-sm font-semibold text-zinc-900">{{ stat.total_views }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.direct_views }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.qr_views }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.whatsapp_views }}</td>
+                  <td class="px-6 py-4 text-right text-sm font-medium text-emerald-600">{{ stat.leads_count }}</td>
                 </tr>
               </tbody>
             </table>
-            
-            <div v-else class="p-20 text-center">
-               <div class="w-20 h-20 bg-slate-50 text-slate-200 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-               </div>
-               <h3 class="text-lg font-black text-zinc-950 mb-2">No Performance History</h3>
-               <p class="text-sm text-slate-500 font-medium mb-8">Deploy your first space to start measuring engagement velocity.</p>
-               <NuxtLink to="/app/spaces" class="px-10 py-4 bg-zinc-950 text-white text-xs font-black rounded-2xl hover:bg-zinc-800 shadow-xl shadow-zinc-950/20 transition-all active:scale-95">Go to Spaces</NuxtLink>
-            </div>
           </div>
       </div>
-
-    </section>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { definePageMeta, useSeoMeta, useSupabaseUser, useSupabaseClient, navigateTo } from '#imports'
+import { definePageMeta, useSeoMeta, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
@@ -228,7 +208,9 @@ const sourceTotals = computed(() => {
 
 const topSource = computed(() => {
   const totals = sourceTotals.value
-  return Object.keys(totals).reduce((a, b) => (totals[a as keyof typeof totals] > totals[b as keyof typeof totals] ? a : b))
+  const entries = Object.entries(totals)
+  if (entries.length === 0) return '—'
+  return entries.reduce((a, b) => (a[1] > b[1] ? a : b))[0]
 })
 
 const topSourceViews = computed(() => sourceTotals.value[topSource.value as keyof typeof sourceTotals.value] || 0)
@@ -307,11 +289,6 @@ const maxY = computed(() => {
 </script>
 
 <style scoped>
-/* Analytics specific transitions */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

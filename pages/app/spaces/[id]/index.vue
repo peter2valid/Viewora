@@ -1,16 +1,16 @@
 <template>
-  <div class="space-y-8 pb-12">
+  <div class="h-full flex flex-col">
     <!-- Header with Breadcrumbs & Actions -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-200">
+    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="space-y-1">
-        <nav class="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-           <NuxtLink to="/app/spaces" class="hover:text-zinc-950 transition-colors">Spaces</NuxtLink>
-           <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg>
-           <span class="text-zinc-500">{{ space?.title || 'Loading...' }}</span>
+        <nav class="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1">
+           <NuxtLink to="/app/spaces" class="hover:text-zinc-900 transition-colors">Spaces</NuxtLink>
+           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+           <span class="text-zinc-400 truncate max-w-[150px]">{{ space?.title || '...' }}</span>
         </nav>
         <div class="flex items-center gap-3">
-          <h1 class="text-2xl font-black tracking-tight text-zinc-950">{{ space?.title || 'Edit Space' }}</h1>
-          <div v-if="space?.is_published" class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-wider border border-emerald-500/20">Live</div>
+          <h1 class="text-2xl font-bold tracking-tight text-zinc-950 truncate max-w-[300px] md:max-w-md">{{ space?.title || 'Edit Space' }}</h1>
+          <div v-if="space?.is_published" class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold uppercase tracking-wider border border-emerald-200">Live</div>
         </div>
       </div>
       
@@ -19,303 +19,252 @@
            v-if="space?.is_published && space.slug" 
            :href="`/p/${space.slug}`" 
            target="_blank" 
-           class="inline-flex items-center gap-2 px-4 py-2 bg-white text-zinc-950 text-sm font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+           class="inline-flex items-center gap-2 px-3 py-1.5 bg-white text-zinc-700 text-sm font-medium rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors shadow-sm"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          View Public
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          View Live
         </a>
         <button 
-          class="inline-flex items-center gap-2 px-5 py-2 bg-zinc-950 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 transition-all shadow-lg active:scale-95 disabled:opacity-50" 
+          class="inline-flex items-center gap-2 px-4 py-1.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50" 
           @click="handleTogglePublish" 
           :disabled="publishing"
         >
-          <div v-if="publishing" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <div v-if="publishing" class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           {{ space?.is_published ? 'Unpublish' : 'Publish Space' }}
         </button>
       </div>
-    </div>
+    </header>
 
-    <!-- Modern Underline Tabs -->
-    <div class="flex items-center gap-8 overflow-x-auto pb-1 scrollbar-hide border-b border-slate-200">
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-6 overflow-x-auto border-b border-zinc-200 mb-8 scrollbar-hide">
       <button 
-        v-for="tab in [{ id: 'details', label: 'Details', icon: 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' }, 
-                      { id: 'gallery', label: 'Gallery', icon: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z' }, 
-                      { id: '360', label: '360° Studio', icon: 'M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20' }, 
-                      { id: 'share', label: 'Share', icon: 'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13' }]" 
+        v-for="tab in [
+          { id: 'details', label: 'Details' }, 
+          { id: 'gallery', label: 'Gallery' }, 
+          { id: '360', label: '360° Studio' }, 
+          { id: 'share', label: 'Share' }
+        ]" 
         :key="tab.id" 
-        class="flex items-center gap-2.5 py-4 border-b-2 text-sm font-bold transition-all relative whitespace-nowrap group"
-        :class="activeTab === tab.id ? 'border-zinc-950 text-zinc-950' : 'border-transparent text-slate-500 hover:text-zinc-600'"
+        class="flex items-center py-3 border-b-2 text-sm font-medium transition-all relative whitespace-nowrap group"
+        :class="activeTab === tab.id ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-700'"
         @click="activeTab = tab.id"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-60 group-hover:opacity-100">
-           <path v-if="tab.id === 'details'" d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-           <circle v-if="tab.id === 'gallery'" cx="12" cy="13" r="4"/><path v-if="tab.id === 'gallery'" d="M1 18v3h22v-3c0-3-4-5-4-5s-3 2-7 2-7-2-7-2-4 2-4 5z"/>
-           <circle v-if="tab.id === '360'" cx="12" cy="12" r="10"/><path v-if="tab.id === '360'" d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path v-if="tab.id === '360'" d="M2 12h20"/>
-           <path v-if="tab.id === 'share'" d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline v-if="tab.id === 'share'" points="16 6 12 2 8 6"/><line v-if="tab.id === 'share'" x1="12" y1="2" x2="12" y2="15"/>
-        </svg>
         {{ tab.label }}
       </button>
     </div>
 
-    <!-- Main Content Wrapper -->
-    <div class="pt-4">
+    <!-- Tab Content -->
+    <div class="flex-1">
 
-      <!-- Details Tab -->
-            <!-- Details Tab -->
-      <div v-if="activeTab === 'details'" class="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <form @submit.prevent="handleUpdateDetails" class="space-y-12">
-          <!-- Information -->
-          <div class="space-y-6">
-            <h3 class="text-sm font-black uppercase tracking-widest text-zinc-500">Basic Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-              <div class="space-y-1.5 md:col-span-2">
-                <label class="text-[12px] font-bold text-zinc-500 uppercase tracking-wider">Property Title</label>
-                <input v-model="detailsForm.title" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 rounded-xl text-sm transition-all outline-none font-medium" required placeholder="Luxury Penthouse..." />
+
+      <!-- DETAILS TAB -->
+      <div v-if="activeTab === 'details'" class="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <form @submit.prevent="handleUpdateDetails" class="space-y-8">
+          <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+            <div class="p-6 border-b border-zinc-100">
+              <h3 class="text-base font-semibold text-zinc-900">Basic Information</h3>
+            </div>
+            <div class="p-6 space-y-6">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium text-zinc-700">Space Title</label>
+                <input v-model="detailsForm.title" type="text" class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm" required placeholder="e.g. Modern Minimalist Loft" />
               </div>
-              <div class="space-y-1.5 md:col-span-2">
-                <label class="text-[12px] font-bold text-zinc-500 uppercase tracking-wider">Custom Slug <span class="text-[10px] lowercase font-normal italic">(viewora.com/p/your-slug)</span></label>
-                <div class="flex items-center">
-                   <div class="flex-1">
-                     <input v-model="detailsForm.slug" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 rounded-xl text-sm transition-all outline-none font-medium" placeholder="my-awesome-tour" />
-                   </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium text-zinc-700">Custom Slug</label>
+                <div class="flex items-center gap-2">
+                   <span class="text-sm text-zinc-400 font-mono">viewora.com/p/</span>
+                   <input v-model="detailsForm.slug" type="text" class="flex-1 px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm" placeholder="unique-space-id" />
                 </div>
               </div>
-              <div class="space-y-1.5 md:col-span-2">
-                <label class="text-[12px] font-bold text-zinc-500 uppercase tracking-wider">Description</label>
-                <textarea v-model="detailsForm.description" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 rounded-xl text-sm transition-all outline-none resize-none font-medium" rows="4" placeholder="Tell us about this space..."></textarea>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium text-zinc-700">Description</label>
+                <textarea v-model="detailsForm.description" class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm resize-none" rows="4" placeholder="Brief overview of the property..."></textarea>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Feature Toggles -->
-          <div class="space-y-6">
-            <h3 class="text-sm font-black uppercase tracking-widest text-zinc-500">Advanced Features</h3>
-            <div class="divide-y divide-slate-100 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div class="flex items-center justify-between p-6 group hover:bg-slate-50 transition-colors">
-                <div class="space-y-1">
-                  <span class="text-sm font-bold text-zinc-950 block">Lead Capture Form</span>
-                  <span class="text-xs text-slate-500 block">Collect client names and emails directly from your tour.</span>
+          <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+            <div class="p-6 border-b border-zinc-100 flex items-center justify-between">
+              <h3 class="text-base font-semibold text-zinc-900">Feature Toggles</h3>
+            </div>
+            <div class="divide-y divide-zinc-100">
+              <div class="flex items-center justify-between p-6">
+                <div>
+                  <span class="text-sm font-semibold text-zinc-900 block">Lead Capture Form</span>
+                  <span class="text-xs text-zinc-500 mt-0.5 block">Enable visitor enquiry collection.</span>
                 </div>
-                <div class="flex items-center gap-4">
-                  <div v-if="!planStore.entitlements?.lead_capture_enabled" class="px-2 py-1 rounded-md bg-zinc-950 text-white text-[9px] font-black uppercase tracking-widest">Upgrade to Plus</div>
+                <div class="flex items-center gap-3">
+                  <div v-if="!planStore.entitlements?.lead_capture_enabled" class="px-2 py-0.5 bg-zinc-100 text-zinc-500 text-[10px] font-bold uppercase rounded">Pro</div>
                   <button 
                     v-else
                     type="button" 
-                    class="w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none"
-                    :class="space?.lead_form_enabled ? 'bg-zinc-950' : 'bg-slate-200'"
+                    class="w-10 h-5 rounded-full relative transition-colors duration-200 focus:outline-none"
+                    :class="space?.lead_form_enabled ? 'bg-zinc-900' : 'bg-zinc-200'"
                     @click="handleToggleFeature('lead_form_enabled')"
                   >
-                    <div class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" :class="space?.lead_form_enabled ? 'translate-x-6' : ''"></div>
+                    <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform duration-200" :class="space?.lead_form_enabled ? 'translate-x-5' : ''"></div>
                   </button>
                 </div>
               </div>
 
-              <div class="flex items-center justify-between p-6 group hover:bg-slate-50 transition-colors">
-                <div class="space-y-1">
-                  <span class="text-sm font-bold text-zinc-950 block">White-label Branding</span>
-                  <span class="text-xs text-slate-500 block">Remove all Viewora logo and use your custom watermark.</span>
+              <div class="flex items-center justify-between p-6">
+                <div>
+                  <span class="text-sm font-semibold text-zinc-900 block">Agency Branding</span>
+                  <span class="text-xs text-zinc-500 mt-0.5 block">Display your agency watermark.</span>
                 </div>
-                <div class="flex items-center gap-4">
-                  <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2 py-1 rounded-md bg-zinc-950 text-white text-[9px] font-black uppercase tracking-widest">Upgrade to Pro</div>
+                <div class="flex items-center gap-3">
+                  <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2 py-0.5 bg-zinc-100 text-zinc-500 text-[10px] font-bold uppercase rounded">Pro</div>
                   <button 
                     v-else
                     type="button" 
-                    class="w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none"
-                    :class="space?.branding_enabled ? 'bg-zinc-950' : 'bg-slate-200'"
+                    class="w-10 h-5 rounded-full relative transition-colors duration-200 focus:outline-none"
+                    :class="space?.branding_enabled ? 'bg-zinc-900' : 'bg-zinc-200'"
                     @click="handleToggleFeature('branding_enabled')"
                   >
-                    <div class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" :class="space?.branding_enabled ? 'translate-x-6' : ''"></div>
+                    <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform duration-200" :class="space?.branding_enabled ? 'translate-x-5' : ''"></div>
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="flex justify-end pt-4">
-            <button type="submit" class="px-8 py-3 bg-zinc-950 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 shadow-xl active:scale-95 transition-all disabled:opacity-50" :disabled="saving">
-              {{ saving ? 'Updating Details...' : 'Save Settings' }}
+          <div class="flex justify-end sticky bottom-0 bg-zinc-50/80 backdrop-blur-sm py-4 border-t border-zinc-200 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <button type="submit" class="px-6 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50" :disabled="saving">
+              {{ saving ? 'Saving...' : 'Save Details' }}
             </button>
           </div>
         </form>
       </div>
 
-      <!-- Gallery Tab -->
-            <!-- Gallery Tab -->
-      <div v-if="activeTab === 'gallery'" class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div class="flex items-center justify-between">
-           <h3 class="text-sm font-black uppercase tracking-widest text-zinc-500">Gallery Highlights</h3>
-           <label class="inline-flex items-center gap-2 px-4 py-2 bg-zinc-950 text-white text-xs font-bold rounded-lg hover:bg-zinc-800 transition-all cursor-pointer shadow-sm">
+      <!-- GALLERY TAB -->
+      <div v-if="activeTab === 'gallery'" class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <header class="flex items-center justify-between">
+           <div>
+             <h3 class="text-base font-semibold text-zinc-900">Property Photos</h3>
+             <p class="text-sm text-zinc-500 mt-0.5">High-quality 2D images for the carousel.</p>
+           </div>
+           <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-sm font-medium text-zinc-700 rounded-lg hover:bg-zinc-50 shadow-sm transition-colors">
              <input type="file" multiple accept="image/*" class="hidden" @change="handleGalleryUpload" />
-             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-             Add Photos
+             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+             Upload Photos
            </label>
-        </div>
+        </header>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          <div v-for="img in galleryMedia" :key="img.id" class="group relative aspect-square bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-               <button 
-                 class="p-2 bg-white text-red-600 rounded-lg shadow-xl hover:scale-110 active:scale-95 transition-all" 
-                 @click="handleDeleteMedia(img.id)"
-                 title="Delete"
-               >
-                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
-               </button>
-            </div>
-          </div>
-          
-          <!-- Large Dropzone if empty -->
-          <div v-if="galleryMedia.length === 0" class="col-span-full py-20 border-2 border-dashed border-slate-200 bg-white rounded-2xl flex flex-col items-center justify-center gap-4 text-slate-400 group hover:border-zinc-300 transition-all">
-             <div class="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-white group-hover:shadow-md transition-all">
-               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-             </div>
-             <p class="text-sm font-bold text-slate-500">Drop photos here or click Add Photos</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 360 Tab -->
-      <div v-if="activeTab === '360'" class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div class="flex items-center justify-between">
-           <h3 class="text-sm font-black uppercase tracking-widest text-zinc-500">Interactive Studio</h3>
-           <label v-if="panorama" class="inline-flex items-center gap-2 px-4 py-2 bg-zinc-950 text-white text-xs font-bold rounded-lg hover:bg-zinc-800 transition-all cursor-pointer shadow-sm">
-             <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-             Replace Panorama
-           </label>
-        </div>
-
-        <div v-if="panorama" class="relative group aspect-[2/1] bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden shadow-2xl">
-          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <img :src="panorama.public_url" class="absolute inset-0 w-full h-full object-cover opacity-80" />
-          
-          <!-- Info overlay -->
-          <div class="absolute bottom-6 left-6 z-20 space-y-2 opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
-             <div class="inline-block px-2 py-1 rounded-md bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest">Selected Experience</div>
-             <h4 class="text-lg font-bold text-white">Full 360° VR Tour Activated</h4>
-          </div>
-
-          <!-- Quick Preview Button -->
-          <div class="absolute inset-0 flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">
-             <a :href="`/p/${space.slug}`" target="_blank" class="w-16 h-16 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-             </a>
-          </div>
-        </div>
-
-        <div v-else class="flex flex-col items-center justify-center py-32 bg-zinc-950 rounded-2xl border-2 border-dashed border-zinc-800 text-zinc-500 space-y-6 group hover:border-zinc-700 transition-all">
-          <div class="w-20 h-20 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400 group-hover:text-white group-hover:shadow-[0_0_30px_rgba(255,255,255,0.1)] transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-          </div>
-          <div class="text-center space-y-2">
-            <p class="text-lg font-black text-white tracking-tight">Upload Your 360° Panorama</p>
-            <p class="text-sm text-zinc-500 max-w-xs mx-auto">Requires a 2:1 equirectangular image for the immersive experience.</p>
-          </div>
-          <label class="px-8 py-3 bg-white text-zinc-950 text-sm font-black rounded-xl hover:bg-zinc-100 transition-all cursor-pointer shadow-xl active:scale-95">
-             <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-             Select Image
-          </label>
-        </div>
-      </div>
-
-      <!-- Share Tab -->
-      <div v-if="activeTab === 'share'" class="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          <!-- QR & Social -->
-          <div class="lg:col-span-4 space-y-8">
-            <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl flex flex-col items-center text-center space-y-6">
-               <div class="space-y-1">
-                 <h3 class="text-lg font-black text-zinc-950">Scan & Explore</h3>
-                 <p class="text-xs text-slate-500">Open this space instantly on any device.</p>
-               </div>
-               
-               <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
-                 <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl + '?src=qr')}`" class="w-40 h-40 mix-blend-multiply" />
-               </div>
-
-               <div class="grid grid-cols-2 gap-2 w-full">
-                 <button 
-                   v-if="planStore.entitlements?.qr_download_enabled"
-                   class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-zinc-950 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
-                   @click="downloadQR('png')"
-                 >
-                   PNG
+        <div v-if="galleryMedia.length" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+           <div v-for="img in galleryMedia" :key="img.id" class="group relative aspect-video bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200 shadow-sm">
+              <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <div class="absolute inset-0 bg-zinc-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                 <button class="p-2 bg-white rounded-md text-rose-600 shadow-lg hover:scale-110 transition-transform" @click="handleDeleteMedia(img.id)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                  </button>
-                 <button 
-                   v-if="planStore.entitlements?.qr_svg_enabled"
-                   class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-zinc-950 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
-                   @click="downloadQR('svg')"
-                 >
-                   SVG
-                 </button>
-               </div>
-               <p v-if="!planStore.entitlements?.qr_download_enabled" class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter italic">Downloads require Plus Plan</p>
-            </div>
-
-            <div class="space-y-4">
-              <h4 class="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-2">Social Spread</h4>
-              <div class="flex flex-col gap-2">
-                 <a :href="`https://wa.me/?text=${encodeURIComponent('Check out this 360° tour: ' + publicUrl)}`" target="_blank" class="flex items-center justify-between p-4 bg-emerald-500 text-white rounded-2xl hover:bg-emerald-600 transition-all font-bold text-sm shadow-lg shadow-emerald-500/20">
-                    <span>Share on WhatsApp</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.438 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                 </a>
               </div>
-            </div>
-          </div>
+           </div>
+        </div>
+        <div v-else class="p-12 border-2 border-dashed border-zinc-200 rounded-xl flex flex-col items-center justify-center text-center">
+           <div class="w-10 h-10 bg-zinc-50 text-zinc-300 rounded-lg flex items-center justify-center mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+           </div>
+           <p class="text-sm font-medium text-zinc-900">No photos yet</p>
+           <p class="text-xs text-zinc-500 mt-1">Upload property images to build your gallery.</p>
+        </div>
+      </div>
 
-          <!-- Links & Tracking -->
-          <div class="lg:col-span-8 space-y-12">
-            <div class="space-y-6">
-              <h3 class="text-sm font-black uppercase tracking-widest text-zinc-500 px-2">Trackable Assets</h3>
-              <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
-                <!-- Direct -->
-                <div class="p-6 space-y-3 group hover:bg-slate-50 transition-all">
-                  <div class="flex items-center justify-between">
-                    <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Public Link</label>
-                    <span class="text-[10px] font-bold text-emerald-500 uppercase">Primary</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <input readonly :value="publicUrl" class="flex-1 bg-slate-100/50 border-none px-4 py-3 rounded-xl text-sm font-mono text-zinc-600 outline-none" />
-                    <button class="px-6 py-3 bg-zinc-950 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-all active:scale-95" @click="copyLink(publicUrl)">Copy</button>
-                  </div>
-                </div>
+      <!-- 360 STUDIO TAB -->
+      <div v-if="activeTab === '360'" class="max-w-3xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden p-6">
+           <div class="flex items-center justify-between mb-6">
+              <div>
+                <h3 class="text-base font-semibold text-zinc-900">Panorama Upload</h3>
+                <p class="text-sm text-zinc-500 mt-0.5">High-resolution equirectangular image (2:1 ratio).</p>
+              </div>
+              <label v-if="!panorama" class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm">
+                <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
+                Select Image
+              </label>
+           </div>
 
-                <!-- Embed -->
-                <div class="p-6 space-y-3 group hover:bg-slate-50 transition-all">
-                   <div class="flex items-center justify-between">
-                    <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Embed iFrame</label>
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">Website / Blog</span>
-                  </div>
-                  <div class="flex flex-col gap-3">
-                    <textarea readonly :value="embedCode" class="w-full bg-slate-100/50 border-none px-4 py-3 rounded-xl text-[10px] font-mono text-zinc-500 outline-none resize-none" rows="3"></textarea>
-                    <button class="w-full py-3 bg-white border border-slate-200 text-zinc-950 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all active:scale-95" @click="copyLink(embedCode)">Copy Embed Code</button>
-                  </div>
+           <div v-if="panorama" class="relative rounded-lg overflow-hidden border border-zinc-200 aspect-[2/1] bg-zinc-900">
+              <img :src="panorama.public_url" class="w-full h-full object-cover opacity-80" />
+              <div class="absolute inset-0 flex items-center justify-center">
+                 <button class="px-4 py-2 bg-white text-zinc-900 text-sm font-medium rounded-lg shadow-xl hover:bg-zinc-50 transition-colors" @click="handleDeleteMedia(panorama.id)">Remove Panorama</button>
+              </div>
+           </div>
+           <div v-else class="p-12 bg-zinc-50 rounded-lg border border-zinc-100 flex flex-col items-center justify-center text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-zinc-300 mb-3"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              <p class="text-sm font-medium text-zinc-900">No panorama detected</p>
+              <p class="text-xs text-zinc-500 mt-1">Upload a 360° image to enable the immersive experience.</p>
+           </div>
+        </section>
+      </div>
+
+      <!-- SHARE TAB -->
+      <div v-if="activeTab === 'share'" class="max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <section class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+           <div class="p-6 border-b border-zinc-100">
+              <h3 class="text-base font-semibold text-zinc-900">Public Access</h3>
+           </div>
+           <div class="p-6 space-y-6">
+              <div class="space-y-2">
+                <label class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Direct Link</label>
+                <div class="flex gap-2">
+                   <input readonly :value="publicUrl" class="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md text-sm font-mono text-zinc-600 outline-none" />
+                   <button class="px-4 py-2 bg-white border border-zinc-200 text-zinc-900 text-sm font-medium rounded-md hover:bg-zinc-50 shadow-sm" @click="copyLink(publicUrl)">Copy</button>
                 </div>
               </div>
-            </div>
 
-            <!-- Tracking Tip -->
-            <div class="p-6 bg-zinc-950 rounded-3xl text-white flex items-start gap-4 shadow-2xl shadow-zinc-950/20">
-               <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 text-zinc-400">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-               </div>
-               <div class="space-y-1">
-                 <p class="text-sm font-bold">Pro Tip: Use Campaign Labels</p>
-                 <p class="text-xs text-zinc-400">Adding <code class="bg-white/10 px-1 py-0.5 rounded text-white">?src=campaign_name</code> to your link will automatically track conversions in your Analytics tab.</p>
-               </div>
-            </div>
-          </div>
-        </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-zinc-100">
+                 <div class="space-y-3">
+                    <label class="text-xs font-medium text-zinc-500 uppercase tracking-wider">QR Code</label>
+                    <div class="p-4 bg-zinc-50 rounded-lg flex flex-col items-center gap-4">
+                       <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}`" class="w-32 h-32 rounded shadow-sm border border-zinc-200" />
+                       <button class="text-xs font-semibold text-zinc-900 hover:underline" @click="downloadQR('png')">Download PNG</button>
+                    </div>
+                 </div>
+                 <div class="space-y-3">
+                    <label class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Embed Code</label>
+                    <textarea readonly :value="embedCode" class="w-full h-32 bg-zinc-50 border border-zinc-200 p-3 rounded-lg text-[10px] font-mono text-zinc-600 outline-none resize-none"></textarea>
+                    <button class="w-full py-2 bg-white border border-zinc-200 text-zinc-900 text-xs font-bold rounded-md hover:bg-zinc-50 shadow-sm" @click="copyLink(embedCode)">Copy Embed iFrame</button>
+                 </div>
+              </div>
+           </div>
+        </section>
       </div>
+
     </div>
   </div>
+
+  <Teleport to="body">
+    <AppConfirmationModal
+      :is-open="!!mediaToDelete"
+      title="Remove File?"
+      message="This will permanently delete the file. You can upload a new one afterwards."
+      confirm-text="Remove"
+      :is-dangerous="true"
+      :loading="deletingMedia"
+      @confirm="confirmDeleteMedia"
+      @cancel="mediaToDelete = null"
+    />
+
+    <Transition name="toast">
+      <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold whitespace-nowrap', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
+        <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/20 text-white'">
+          <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        {{ toast.message }}
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, computed, onMounted } from 'vue'
+import { definePageMeta, useSeoMeta, useSupabaseClient, useRoute, navigateTo } from '#imports'
 import { usePlanStore } from '~/stores/plan'
-import { useRoute } from '#imports'
+import { useApiFetch } from '~/composables/useApiFetch'
+
+definePageMeta({ layout: 'app', middleware: 'auth' })
+useSeoMeta({ title: 'Edit Space | Viewora' })
 
 const route = useRoute()
 const spaceId = route.params.id as string
@@ -328,6 +277,16 @@ const media = ref<any[]>([])
 const activeTab = ref('details')
 const saving = ref(false)
 const publishing = ref(false)
+const mediaToDelete = ref<string | null>(null)
+const deletingMedia = ref(false)
+
+const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { message, type }
+  toastTimer = setTimeout(() => { toast.value = null }, 3200)
+}
 
 const detailsForm = ref({
   title: '',
@@ -355,15 +314,15 @@ onMounted(async () => {
 async function copyLink(text: string) {
   try {
     await navigator.clipboard.writeText(text)
-    alert('Copied to clipboard!')
+    showToast('Copied to clipboard')
   } catch (err) {
-    alert('Failed to copy')
+    showToast('Failed to copy', 'error')
   }
 }
 
 async function downloadQR(format: 'png' | 'svg' = 'png') {
   if (format === 'svg' && !planStore.entitlements?.qr_svg_enabled) {
-    alert('SVG download is available on the Plus plan and above.')
+    showToast('SVG download is available on the Plus plan and above.', 'error')
     return
   }
   const size = format === 'svg' ? '1000x1000' : '500x500'
@@ -400,7 +359,7 @@ async function fetchSpace() {
     }
     media.value = data.property_media || []
   } catch (e: any) {
-    alert('Failed to load space data')
+    showToast('Failed to load space data', 'error')
   }
 }
 
@@ -412,9 +371,9 @@ async function handleUpdateDetails() {
       body: detailsForm.value
     })
     space.value = updated
-    alert('Details saved!')
+    showToast('Details saved')
   } catch (e) {
-    alert('Failed to save details')
+    showToast('Failed to save details', 'error')
   } finally {
     saving.value = false
   }
@@ -429,7 +388,7 @@ async function handleToggleFeature(feature: string) {
     })
     space.value = updated
   } catch (e: any) {
-    alert(e.data?.statusMessage || 'Failed to update setting')
+    showToast(e.data?.statusMessage || 'Failed to update setting', 'error')
   }
 }
 
@@ -439,16 +398,17 @@ async function handleTogglePublish() {
     const isLive = space.value.is_published
     const updated = await apiFetch<any>(`/spaces/${spaceId}/publish`, {
       method: 'POST',
-      body: { 
-        publish: !isLive, 
+      body: {
+        publish: !isLive,
         slug: detailsForm.value.slug,
         lead_form_enabled: space.value.lead_form_enabled,
         branding_enabled: space.value.branding_enabled
       }
     })
     space.value = updated
+    showToast(isLive ? 'Space unpublished' : 'Space is now live')
   } catch (e: any) {
-    alert(e.data?.statusMessage || 'Publishing failed')
+    showToast(e.data?.statusMessage || 'Publishing failed', 'error')
   } finally {
     publishing.value = false
   }
@@ -471,7 +431,6 @@ async function handlePanoramaUpload(e: any) {
 
 async function uploadFile(file: File, type: string) {
   try {
-    // 1. Get signed URL
     const { signedUrl, objectKey, publicUrl } = await apiFetch<any>('/uploads/create-signed-url', {
       method: 'POST',
       body: {
@@ -483,14 +442,12 @@ async function uploadFile(file: File, type: string) {
       }
     })
 
-    // 2. Upload to R2
     await $fetch(signedUrl, {
       method: 'PUT',
       body: file,
       headers: { 'Content-Type': file.type }
     })
 
-    // 3. Complete
     const record = await apiFetch<any>('/uploads/complete', {
       method: 'POST',
       body: {
@@ -504,28 +461,33 @@ async function uploadFile(file: File, type: string) {
     
     media.value.push(record)
   } catch (err: any) {
-    alert(`Failed to upload ${file.name}: ${err.data?.statusMessage || err.message}`)
+    showToast(`Failed to upload ${file.name}: ${err.data?.statusMessage || err.message}`, 'error')
   }
 }
 
-async function handleDeleteMedia(id: string) {
-  if (!confirm('Delete this media?')) return
+function handleDeleteMedia(id: string) {
+  mediaToDelete.value = id
+}
+
+async function confirmDeleteMedia() {
+  if (!mediaToDelete.value) return
+  deletingMedia.value = true
   try {
-    await apiFetch(`/uploads/${id}`, { method: 'DELETE' })
-    media.value = media.value.filter(m => m.id !== id)
+    await apiFetch(`/uploads/${mediaToDelete.value}`, { method: 'DELETE' })
+    media.value = media.value.filter(m => m.id !== mediaToDelete.value)
+    mediaToDelete.value = null
+    showToast('Media deleted')
   } catch (err: any) {
-    alert(`Failed to delete media: ${err.data?.statusMessage || err.message}`)
+    showToast(`Failed to delete media: ${err.data?.statusMessage || err.message}`, 'error')
+  } finally {
+    deletingMedia.value = false
   }
 }
 </script>
 
 <style scoped>
-/* Scrollbar hide for tabs */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
 </style>

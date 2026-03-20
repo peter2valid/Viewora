@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50 font-sans antialiased text-zinc-950 selection:bg-zinc-950 selection:text-white">
+  <div class="min-h-screen bg-zinc-50 font-sans antialiased text-zinc-900 selection:bg-zinc-900 selection:text-white">
     <!-- Mobile Backdrop -->
     <div
       v-if="isSidebarOpen"
@@ -10,102 +10,88 @@
     <!-- Sidebar -->
     <aside 
       :class="[
-        'fixed inset-y-0 left-0 w-72 bg-zinc-950 border-r border-zinc-900 z-[100] transition-all duration-500 ease-in-out lg:translate-x-0 overflow-hidden flex flex-col',
+        'fixed inset-y-0 left-0 w-64 bg-zinc-950 border-r border-zinc-900 z-[100] transition-transform duration-300 ease-in-out lg:translate-x-0 overflow-hidden flex flex-col',
         isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none'
       ]"
     >
       <!-- Sidebar Header / Brand -->
-      <div class="h-20 flex items-center justify-between px-8 border-b border-zinc-900/50">
-        <NuxtLink to="/app/spaces" class="flex items-center gap-3 active:scale-95 transition-transform" @click="isSidebarOpen = false">
-          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-white to-slate-200 flex items-center justify-center shadow-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+      <div class="h-16 flex items-center justify-between px-6 border-b border-zinc-900">
+        <NuxtLink to="/app" class="flex items-center gap-3 transition-opacity hover:opacity-80" @click="isSidebarOpen = false">
+          <div class="w-6 h-6 rounded-md bg-white flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </div>
-          <span class="text-xl font-black tracking-tighter text-white uppercase italic">Viewora</span>
+          <span class="text-base font-bold tracking-tight text-white">Viewora</span>
         </NuxtLink>
-        <button class="lg:hidden w-10 h-10 rounded-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-900 transition-all" @click="isSidebarOpen = false">
-           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <button class="lg:hidden p-2 -mr-2 text-zinc-400 hover:text-white transition-colors" @click="isSidebarOpen = false">
+           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
 
       <!-- Navigation Content -->
-      <div class="flex-1 overflow-y-auto px-4 py-8 space-y-12">
+      <div class="flex-1 overflow-y-auto px-3 py-6 space-y-8">
         <!-- Section: Overview -->
-        <article class="space-y-3">
-          <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Overview</span>
-          <nav class="space-y-1">
+        <div>
+          <nav class="space-y-0.5">
             <SidebarLink to="/app" icon="dashboard" label="Dashboard" :is-active="isExactRoute('/app')" @click="isSidebarOpen = false" />
           </nav>
-        </article>
+        </div>
 
         <!-- Section: Content -->
-        <article class="space-y-3">
-           <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Content</span>
-           <nav class="space-y-1">
+        <div>
+           <h3 class="px-3 text-xs font-semibold text-zinc-500 mb-2">Content</h3>
+           <nav class="space-y-0.5">
              <SidebarLink to="/app/spaces" icon="spaces" label="Spaces" :is-active="route.path.startsWith('/app/spaces')" @click="isSidebarOpen = false" />
              <SidebarLink to="/app/leads" icon="leads" label="Leads" :is-active="route.path.startsWith('/app/leads')" @click="isSidebarOpen = false" />
              <SidebarLink to="/app/analytics" icon="analytics" label="Analytics" :is-active="route.path.startsWith('/app/analytics')" @click="isSidebarOpen = false" />
            </nav>
-        </article>
+        </div>
 
         <!-- Section: Account -->
-        <article class="space-y-3">
-           <span class="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Account</span>
-           <nav class="space-y-1">
+        <div>
+           <h3 class="px-3 text-xs font-semibold text-zinc-500 mb-2">Account</h3>
+           <nav class="space-y-0.5">
              <SidebarLink to="/app/billing" icon="billing" label="Billing" :is-active="route.path.startsWith('/app/billing')" @click="isSidebarOpen = false" />
              <SidebarLink to="/app/settings" icon="settings" label="Settings" :is-active="route.path.startsWith('/app/settings')" @click="isSidebarOpen = false" />
            </nav>
-        </article>
+        </div>
       </div>
 
       <!-- User Profile Area -->
-      <div class="p-6 bg-zinc-950/50 border-t border-zinc-900 space-y-6">
-        <div v-if="planStore.plan" class="space-y-3">
-           <div class="flex items-center justify-between">
-              <span class="text-[9px] font-black uppercase tracking-widest text-zinc-500">{{ planStore.plan.name }} Intelligence</span>
-              <span v-if="planStore.isGracePeriod" class="text-[9px] font-black text-rose-500 uppercase flex items-center gap-1">
-                <span class="w-1 h-1 rounded-full bg-rose-500 animate-ping"></span>
-                Grace Period
-              </span>
-           </div>
-           <div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden shadow-inner border border-zinc-800">
-              <div class="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out" :style="{ width: '35%' }"></div>
-           </div>
-        </div>
-
-        <div class="flex items-center gap-4">
-           <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 border border-zinc-700 flex items-center justify-center text-sm font-black text-white shadow-xl shadow-zinc-950/50">
+      <div class="p-4 border-t border-zinc-900 bg-zinc-950/50">
+        <div class="flex items-center gap-3 mb-4 px-2">
+           <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-semibold text-white">
              {{ authStore.avatarInitials }}
            </div>
            <div class="flex-1 min-w-0">
-             <p class="text-[13px] font-black text-white truncate">{{ user?.email?.split('@')[0] }}</p>
-             <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest truncate line-clamp-1 italic">{{ user?.email }}</p>
+             <p class="text-sm font-medium text-zinc-200 truncate">{{ user?.email?.split('@')[0] }}</p>
+             <p class="text-xs text-zinc-500 truncate">{{ planStore.plan?.name || 'Free' }} Plan</p>
            </div>
         </div>
 
-        <button @click="logout" class="flex items-center justify-center gap-2 w-full py-4 bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 group">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="group-hover:translate-x-0.5 transition-transform"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          Sign Out Experience
+        <button @click="logout" class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 rounded-lg transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          Sign Out
         </button>
       </div>
     </aside>
 
     <!-- Main Viewport -->
-    <div class="lg:pl-72 flex flex-col min-h-screen">
+    <div class="lg:pl-64 flex flex-col min-h-screen">
       <!-- Topbar / Mobile Navigation -->
-      <header class="h-20 flex items-center justify-between px-8 bg-white/60 backdrop-blur-3xl border-b border-slate-200 sticky top-0 z-[80] lg:hidden">
-        <NuxtLink to="/app/spaces" class="flex items-center gap-3">
-           <div class="w-8 h-8 rounded-xl bg-zinc-950 flex items-center justify-center shadow-lg">
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+      <header class="h-16 flex items-center justify-between px-6 bg-white border-b border-slate-200 sticky top-0 z-[80] lg:hidden">
+        <NuxtLink to="/app" class="flex items-center gap-2">
+           <div class="w-6 h-6 rounded-md bg-zinc-900 flex items-center justify-center">
+             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
            </div>
-           <span class="text-xl font-black tracking-tighter text-zinc-950 uppercase italic">Viewora</span>
+           <span class="text-base font-bold tracking-tight text-zinc-900">Viewora</span>
         </NuxtLink>
-        <button class="w-12 h-12 bg-zinc-950 text-white rounded-2xl flex items-center justify-center shadow-2xl active:scale-90 transition-all" @click="isSidebarOpen = true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        <button class="p-2 -mr-2 text-zinc-500 hover:text-zinc-900 transition-colors" @click="isSidebarOpen = true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
       </header>
 
       <!-- App View -->
-      <main class="flex-1 p-6 lg:p-12 xl:p-16 2xl:p-20 max-w-screen-2xl mx-auto w-full">
+      <main class="flex-1 p-6 md:p-8 lg:p-10 max-w-6xl mx-auto w-full">
         <slot />
       </main>
     </div>
@@ -147,7 +133,7 @@ const logout = async () => {
 </script>
 
 <style scoped>
-/* Custom scrollbar for sidebar */
+/* Minimal scrollbar */
 aside::-webkit-scrollbar {
   width: 4px;
 }
@@ -155,7 +141,7 @@ aside::-webkit-scrollbar-track {
   background: transparent;
 }
 aside::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  background: #3f3f46;
+  border-radius: 4px;
 }
 </style>
