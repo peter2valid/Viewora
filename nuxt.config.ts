@@ -8,6 +8,7 @@ export default defineNuxtConfig({
     '@nuxtjs/google-fonts',
     '@nuxtjs/supabase',
     '@pinia/nuxt',
+    '@nuxtjs/tailwindcss',
   ],
 
   runtimeConfig: {

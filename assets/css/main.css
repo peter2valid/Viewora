@@ -3,6 +3,10 @@
    Aesthetic: Linear / Vercel / Framer
    ============================================================ */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ── Design Tokens ── */
 :root {
   /* Monochromatic Palette */

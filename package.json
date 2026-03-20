@@ -15,5 +15,8 @@
     "marzipano": "^0.10.2",
     "nuxt": "^3.10.0",
     "pinia": "^3.0.4"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0"
   }
 }
