@@ -56,6 +56,21 @@
     <!-- Tab Content -->
     <div class="flex-1">
 
+      <Transition name="fade-smooth">
+        <div
+          v-if="hasProcessingMedia"
+          class="mb-6 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border"
+          :class="isProcessingStuck ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sky-50 border-sky-200 text-sky-800'"
+        >
+          <div class="flex items-center gap-2 text-sm font-medium">
+            <div class="w-3.5 h-3.5 border-2 rounded-full animate-spin" :class="isProcessingStuck ? 'border-amber-300 border-t-amber-700' : 'border-sky-300 border-t-sky-700'"></div>
+            <span v-if="isProcessingStuck">Processing is taking longer than expected. You can keep working while we finish in the background.</span>
+            <span v-else>Media processing is in progress in the background.</span>
+          </div>
+          <span class="text-xs font-semibold">{{ processingElapsedSeconds }}s</span>
+        </div>
+      </Transition>
+
 
       <!-- DETAILS TAB -->
       <div v-if="activeTab === 'details'" class="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -143,21 +158,64 @@
              <h3 class="text-xl font-black tracking-tight text-zinc-950">Property Gallery</h3>
              <p class="text-sm text-zinc-500 font-medium">Manage the cinematic 2D photography for your public tour carousel.</p>
            </div>
-           <label class="cursor-pointer inline-flex items-center justify-center gap-3 px-8 py-4 bg-zinc-950 text-white text-sm font-black rounded-2xl hover:bg-zinc-800 shadow-xl shadow-zinc-950/20 transition-all active:scale-95 group">
-             <input type="file" multiple accept="image/*" class="hidden" @change="handleGalleryUpload" />
-             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-             Upload High-Res Photos
-           </label>
+           <div class="flex items-center gap-3">
+             <Transition name="fade-smooth">
+               <div
+                 v-if="showFirstUploadHint"
+                 class="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold animate-pulse"
+               >
+                 Start here: upload your first photo
+               </div>
+             </Transition>
+             <label class="cursor-pointer inline-flex items-center justify-center gap-3 px-8 py-4 bg-zinc-950 text-white text-sm font-black rounded-2xl hover:bg-zinc-800 shadow-xl shadow-zinc-950/20 transition-all active:scale-95 group">
+               <input type="file" multiple accept="image/*" class="hidden" @change="handleGalleryUpload" />
+               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+               Upload High-Res Photos
+             </label>
+           </div>
         </header>
+
+        <div v-if="galleryLocalUploads.length" class="space-y-3">
+          <div class="p-3 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-between">
+            <p class="text-xs font-semibold text-zinc-700">Uploading {{ galleryLocalUploads.length }} file{{ galleryLocalUploads.length > 1 ? 's' : '' }}</p>
+            <p class="text-xs text-zinc-500">{{ uploadSummaryText }}</p>
+          </div>
+          <TransitionGroup name="toast" tag="div" class="space-y-3">
+          <div
+            v-for="item in galleryLocalUploads"
+            :key="item.id"
+            class="p-4 bg-white border border-zinc-200 rounded-xl"
+          >
+            <div class="flex items-center justify-between gap-4 mb-2">
+              <p class="text-sm font-semibold text-zinc-900 truncate">{{ item.fileName }}</p>
+              <span class="text-xs font-medium text-zinc-500">{{ localStateLabel(item.state) }}</span>
+            </div>
+            <div class="h-2 bg-zinc-100 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full"
+                :class="item.state === 'uploading' ? 'bg-zinc-900 w-1/2 animate-pulse' : item.state === 'registering' || item.state === 'signing' ? 'bg-zinc-700 w-3/4 animate-pulse' : item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-zinc-400 w-full'"
+              ></div>
+            </div>
+            <p v-if="item.error" class="text-xs text-rose-600 mt-2">{{ item.error }}</p>
+          </div>
+          </TransitionGroup>
+        </div>
 
         <div v-if="galleryMedia.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
            <div 
              v-for="(img, idx) in galleryMedia" 
              :key="img.id" 
              class="group relative aspect-[4/3] bg-zinc-100 rounded-[2rem] overflow-hidden border border-zinc-200 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 animate-in fade-in"
+             :class="completionRingClass(img.id)"
              :style="{ animationDelay: `${idx * 50}ms` }"
            >
               <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" />
+              <div class="absolute top-4 left-4 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass(img.processing_status)">
+                {{ statusLabel(img.processing_status) }}
+              </div>
+              <div v-if="completionFxMap[img.id]" class="absolute top-4 right-4 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg success-pulse transition-opacity duration-500" :class="completionFxMap[img.id] === 'exit' ? 'opacity-0' : 'opacity-100'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
               
               <!-- Premium Overlay -->
               <div class="absolute inset-0 bg-zinc-950/20 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-[2px] flex items-center justify-center gap-4">
@@ -174,6 +232,15 @@
                    title="Delete Image"
                  >
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                 </button>
+                 <button
+                   v-if="img.processing_status === 'failed'"
+                   class="px-4 h-12 bg-amber-500 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-300 text-xs font-bold"
+                   :disabled="Boolean(retryingMediaMap[img.id])"
+                   @click="handleRetryMedia(img.id)"
+                   title="Retry Processing"
+                 >
+                   {{ retryingMediaMap[img.id] ? 'Retrying...' : 'Retry' }}
                  </button>
               </div>
 
@@ -211,9 +278,36 @@
 
            <div v-if="panorama" class="relative rounded-lg overflow-hidden border border-zinc-200 aspect-[2/1] bg-zinc-900">
               <img :src="panorama.public_url" class="w-full h-full object-cover opacity-80" />
+              <div class="absolute top-3 left-3 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass(panorama.processing_status)">
+                {{ statusLabel(panorama.processing_status) }}
+              </div>
+              <div v-if="completionFxMap[panorama.id]" class="absolute top-3 right-3 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg success-pulse transition-opacity duration-500" :class="completionFxMap[panorama.id] === 'exit' ? 'opacity-0' : 'opacity-100'">
+               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
               <div class="absolute inset-0 flex items-center justify-center">
                  <button class="px-4 py-2 bg-white text-zinc-900 text-sm font-medium rounded-lg shadow-xl hover:bg-zinc-50 transition-colors" @click="handleDeleteMedia(panorama.id)">Remove Panorama</button>
               </div>
+           </div>
+           <div v-if="panorama?.processing_status === 'failed'" class="mt-3 flex items-center gap-3">
+             <p class="text-xs text-rose-600">Panorama processing failed.</p>
+             <button
+               class="px-3 py-1.5 rounded-md bg-amber-500 text-white text-xs font-semibold"
+               :disabled="Boolean(retryingMediaMap[panorama.id])"
+               @click="handleRetryMedia(panorama.id)"
+             >
+               {{ retryingMediaMap[panorama.id] ? 'Retrying...' : 'Retry processing' }}
+             </button>
+           </div>
+           <div v-if="panoramaLocalUploads.length" class="mt-3 space-y-2">
+             <div v-for="item in panoramaLocalUploads" :key="item.id" class="p-3 bg-zinc-50 rounded-md border border-zinc-200">
+               <div class="flex items-center justify-between mb-2">
+                 <p class="text-xs font-semibold text-zinc-800 truncate">{{ item.fileName }}</p>
+                 <span class="text-[11px] text-zinc-500">{{ localStateLabel(item.state) }}</span>
+               </div>
+               <div class="h-2 bg-zinc-200 rounded-full overflow-hidden">
+                 <div class="h-full rounded-full" :class="item.state === 'uploading' ? 'bg-zinc-900 w-1/2 animate-pulse' : item.state === 'registering' || item.state === 'signing' ? 'bg-zinc-700 w-3/4 animate-pulse' : item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-zinc-400 w-full'"></div>
+               </div>
+             </div>
            </div>
            <div v-else class="p-12 bg-zinc-50 rounded-lg border border-zinc-100 flex flex-col items-center justify-center text-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-zinc-300 mb-3"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
@@ -297,10 +391,26 @@
         </div>
       </Transition>
     </Teleport>
+
+    <Teleport to="body">
+      <Transition name="fade-smooth">
+        <div
+          v-if="toast"
+          class="fixed bottom-6 right-6 z-[400] px-4 py-3 rounded-xl border shadow-xl max-w-sm"
+          :class="toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'"
+        >
+          <div class="flex items-start gap-2">
+            <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mt-0.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p class="text-sm font-medium">{{ toast.message }}</p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { definePageMeta, useSeoMeta, useSupabaseClient, useRoute, navigateTo } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -322,6 +432,22 @@ const publishing = ref(false)
 const mediaToDelete = ref<string | null>(null)
 const deletingMedia = ref(false)
 const previewImage = ref<any>(null)
+const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const retryingMediaMap = ref<Record<string, boolean>>({})
+const completionFxMap = ref<Record<string, 'enter' | 'exit'>>({})
+const processingStartedAt = ref<number | null>(null)
+const nowTick = ref(Date.now())
+
+type LocalUploadState = 'local_select' | 'signing' | 'uploading' | 'registering' | 'failed'
+type LocalUploadItem = {
+  id: string
+  mediaType: string
+  fileName: string
+  state: LocalUploadState
+  error?: string
+}
+const localUploads = ref<LocalUploadItem[]>([])
 
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -349,10 +475,151 @@ const embedCode = computed(() => {
 
 const galleryMedia = computed(() => media.value.filter(m => m.media_type === 'gallery_image'))
 const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
+const galleryLocalUploads = computed(() => localUploads.value.filter((u) => u.mediaType === 'gallery'))
+const panoramaLocalUploads = computed(() => localUploads.value.filter((u) => u.mediaType === 'panorama'))
+const hasProcessingMedia = computed(() => media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing'))
+const showFirstUploadHint = computed(() => media.value.length === 0 && localUploads.value.length === 0 && activeTab.value === 'gallery')
+const processingElapsedSeconds = computed(() => processingStartedAt.value ? Math.floor((nowTick.value - processingStartedAt.value) / 1000) : 0)
+const isProcessingStuck = computed(() => hasProcessingMedia.value && processingElapsedSeconds.value > 45)
+const uploadSummaryText = computed(() => {
+  const uploading = localUploads.value.filter((u) => u.state === 'uploading').length
+  const signing = localUploads.value.filter((u) => u.state === 'signing').length
+  const registering = localUploads.value.filter((u) => u.state === 'registering').length
+  const failed = localUploads.value.filter((u) => u.state === 'failed').length
+  if (failed > 0) return `${failed} failed, ${uploading + signing + registering} active`
+  if (registering > 0) return `Finalizing ${registering}`
+  if (uploading > 0) return `Uploading ${uploading}`
+  if (signing > 0) return `Preparing ${signing}`
+  return 'In progress'
+})
+
+watch(hasProcessingMedia, (isProcessing) => {
+  if (isProcessing) {
+    startPolling()
+    if (!processingStartedAt.value) {
+      processingStartedAt.value = Date.now()
+    }
+  } else {
+    stopPolling()
+    processingStartedAt.value = null
+  }
+}, { immediate: true })
 
 onMounted(async () => {
-  await fetchSpace()
+  await fetchSpace(true)
+  heartbeatTimer.value = setInterval(() => {
+    nowTick.value = Date.now()
+  }, 1000)
 })
+
+onBeforeUnmount(() => {
+  stopPolling()
+  if (heartbeatTimer.value) {
+    clearInterval(heartbeatTimer.value)
+    heartbeatTimer.value = null
+  }
+})
+
+function localStateLabel(state: LocalUploadState) {
+  if (state === 'local_select') return 'Selected'
+  if (state === 'signing') return 'Signing...'
+  if (state === 'uploading') return 'Uploading...'
+  if (state === 'registering') return 'Registering...'
+  return 'Failed'
+}
+
+function statusLabel(status?: string) {
+  if (status === 'pending') return 'Queued'
+  if (status === 'processing') return 'Processing'
+  if (status === 'failed') return 'Failed'
+  return 'Ready'
+}
+
+function statusBadgeClass(status?: string) {
+  if (status === 'pending') return 'bg-amber-100 text-amber-700 border border-amber-200'
+  if (status === 'processing') return 'bg-sky-100 text-sky-700 border border-sky-200'
+  if (status === 'failed') return 'bg-rose-100 text-rose-700 border border-rose-200'
+  return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+}
+
+function startPolling() {
+  if (pollingTimer.value) return
+  pollingTimer.value = setInterval(async () => {
+    await fetchSpace(true)
+  }, 3000)
+}
+
+function stopPolling() {
+  if (pollingTimer.value) {
+    clearInterval(pollingTimer.value)
+    pollingTimer.value = null
+  }
+}
+
+function createLocalUpload(file: File, mediaType: string): string {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  localUploads.value.push({
+    id,
+    mediaType,
+    fileName: file.name,
+    state: 'local_select',
+  })
+  return id
+}
+
+function updateLocalUpload(id: string, patch: Partial<LocalUploadItem>) {
+  const idx = localUploads.value.findIndex((u) => u.id === id)
+  if (idx === -1) return
+  localUploads.value[idx] = { ...localUploads.value[idx], ...patch }
+}
+
+function removeLocalUpload(id: string) {
+  localUploads.value = localUploads.value.filter((u) => u.id !== id)
+}
+
+function extractUploadErrorMessage(err: any, fileName: string) {
+  const message = String(err?.data?.message || err?.data?.statusMessage || err?.message || '').toLowerCase()
+  const status = Number(err?.statusCode || err?.status || err?.response?.status || 0)
+
+  if (status === 413 || message.includes('file too large')) {
+    return `Upload failed for ${fileName}. File is too large for your plan.`
+  }
+  if (status === 429 || message.includes('rate')) {
+    return `Too many upload requests. Please wait a few seconds and try again.`
+  }
+  if (message.includes('storage limit')) {
+    return 'Upload failed. Storage limit reached. Please free up space or upgrade your plan.'
+  }
+  if (message.includes('network') || message.includes('fetch') || message.includes('failed to fetch')) {
+    return `Network issue while uploading ${fileName}. Check your connection and retry.`
+  }
+  if (message.includes('unauthorized')) {
+    return 'Upload failed due to permission mismatch. Refresh and try again.'
+  }
+  return `Upload failed for ${fileName}. Try again.`
+}
+
+function markRecentlyCompleted(mediaId: string) {
+  // Small delay makes completion feel intentional instead of mechanical.
+  setTimeout(() => {
+    completionFxMap.value = { ...completionFxMap.value, [mediaId]: 'enter' }
+    setTimeout(() => {
+      completionFxMap.value = { ...completionFxMap.value, [mediaId]: 'exit' }
+      setTimeout(() => {
+        const next = { ...completionFxMap.value }
+        delete next[mediaId]
+        completionFxMap.value = next
+      }, 500)
+    }, 1700)
+  }, 150)
+}
+
+function completionRingClass(mediaId: string) {
+  if (!completionFxMap.value[mediaId]) return ''
+  return completionFxMap.value[mediaId] === 'exit'
+    ? 'ring-2 ring-emerald-200 ring-offset-2 transition-all duration-500 opacity-80'
+    : 'ring-2 ring-emerald-300 ring-offset-2 transition-all duration-300 success-pulse'
+}
 
 async function copyLink(text: string) {
   try {
@@ -387,12 +654,13 @@ async function downloadQR(format: 'png' | 'svg' = 'png') {
   }
 }
 
-async function fetchSpace() {
+async function fetchSpace(silent = false) {
   if (!planStore.plan) {
     await planStore.fetchSubscriptionStatus()
   }
 
   try {
+    const previousStatusById = new Map(media.value.map((m: any) => [m.id, m.processing_status]))
     const data = await apiFetch<any>(`/spaces/${spaceId}`)
     space.value = data
     detailsForm.value = {
@@ -401,8 +669,17 @@ async function fetchSpace() {
       slug: data.slug || ''
     }
     media.value = data.property_media || []
+
+    for (const item of media.value) {
+      const prev = previousStatusById.get(item.id)
+      if ((prev === 'pending' || prev === 'processing') && item.processing_status === 'complete') {
+        markRecentlyCompleted(item.id)
+      }
+    }
   } catch (e: any) {
-    showToast('Failed to load space data', 'error')
+    if (!silent) {
+      showToast('Failed to load space data', 'error')
+    }
   }
 }
 
@@ -473,7 +750,10 @@ async function handlePanoramaUpload(e: any) {
 }
 
 async function uploadFile(file: File, type: string) {
+  const localId = createLocalUpload(file, type)
   try {
+    updateLocalUpload(localId, { state: 'signing' })
+
     const { signedUrl, objectKey, publicUrl } = await apiFetch<any>('/uploads/create-signed-url', {
       method: 'POST',
       body: {
@@ -485,11 +765,15 @@ async function uploadFile(file: File, type: string) {
       }
     })
 
+    updateLocalUpload(localId, { state: 'uploading' })
+
     await $fetch(signedUrl, {
       method: 'PUT',
       body: file,
       headers: { 'Content-Type': file.type }
     })
+
+    updateLocalUpload(localId, { state: 'registering' })
 
     const record = await apiFetch<any>('/uploads/complete', {
       method: 'POST',
@@ -503,8 +787,34 @@ async function uploadFile(file: File, type: string) {
     })
     
     media.value.push(record)
+    removeLocalUpload(localId)
+    if (record.processing_status === 'pending' || record.processing_status === 'processing') {
+      startPolling()
+    } else if (record.processing_status === 'complete') {
+      markRecentlyCompleted(record.id)
+      showToast(`Upload complete: ${file.name}`)
+    }
   } catch (err: any) {
-    showToast(`Failed to upload ${file.name}: ${err.data?.statusMessage || err.message}`, 'error')
+    const humanError = extractUploadErrorMessage(err, file.name)
+    updateLocalUpload(localId, {
+      state: 'failed',
+      error: humanError,
+    })
+    showToast(humanError, 'error')
+  }
+}
+
+async function handleRetryMedia(mediaId: string) {
+  retryingMediaMap.value = { ...retryingMediaMap.value, [mediaId]: true }
+  try {
+    await apiFetch(`/uploads/${mediaId}/retry-processing`, { method: 'POST' })
+    media.value = media.value.map((m) => m.id === mediaId ? { ...m, processing_status: 'pending' } : m)
+    startPolling()
+    showToast('Retry queued')
+  } catch (err: any) {
+    showToast(`Retry failed. ${extractUploadErrorMessage(err, 'media')}`, 'error')
+  } finally {
+    retryingMediaMap.value = { ...retryingMediaMap.value, [mediaId]: false }
   }
 }
 
@@ -533,4 +843,12 @@ async function confirmDeleteMedia() {
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
+.fade-smooth-enter-active, .fade-smooth-leave-active { transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+.fade-smooth-enter-from, .fade-smooth-leave-to { opacity: 0; transform: translateY(6px) scale(0.995); }
+.success-pulse { animation: successPulse 600ms ease-out; }
+@keyframes successPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
 </style>
