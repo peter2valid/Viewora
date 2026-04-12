@@ -285,7 +285,7 @@
                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
               <div class="absolute inset-0 flex items-center justify-center">
-                 <button class="px-4 py-2 bg-white text-zinc-900 text-sm font-medium rounded-lg shadow-xl hover:bg-zinc-50 transition-colors" @click="handleDeleteMedia(panorama.id)">Remove Panorama</button>
+                 <button class="px-4 py-2 bg-white text-zinc-900 text-sm font-medium rounded-lg shadow-xl hover:bg-zinc-50 transition-colors" @click="confirmDeleteMedia(panorama.id)">Remove Panorama</button>
               </div>
            </div>
            <div v-if="panorama?.processing_status === 'failed'" class="mt-3 flex items-center gap-3">
@@ -429,7 +429,6 @@ const media = ref<any[]>([])
 const activeTab = ref('details')
 const saving = ref(false)
 const publishing = ref(false)
-const mediaToDelete = ref<string | null>(null)
 const deletingMedia = ref(false)
 const previewImage = ref<any>(null)
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
@@ -839,17 +838,14 @@ async function handleRetryMedia(mediaId: string) {
   }
 }
 
-function handleDeleteMedia(id: string) {
-  mediaToDelete.value = id
-}
-
-async function confirmDeleteMedia() {
-  if (!mediaToDelete.value) return
+async function confirmDeleteMedia(mediaId: string) {
   deletingMedia.value = true
   try {
-    await apiFetch(`/uploads/${mediaToDelete.value}`, { method: 'DELETE' })
-    media.value = media.value.filter(m => m.id !== mediaToDelete.value)
-    mediaToDelete.value = null
+    await apiFetch(`/uploads/${mediaId}`, { method: 'DELETE' })
+    media.value = media.value.filter(m => m.id !== mediaId)
+    if (previewImage.value?.id === mediaId) {
+      previewImage.value = null
+    }
     showToast('Media deleted')
   } catch (err: any) {
     showToast(`Failed to delete media: ${err.data?.statusMessage || err.message}`, 'error')
