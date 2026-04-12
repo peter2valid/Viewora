@@ -47,47 +47,17 @@
       </nav>
 
       <main class="pt-24 pb-32">
-        <!-- Hero / 360 Viewer Section -->
-        <section id="experience" class="px-6 max-w-7xl mx-auto mb-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <div class="relative aspect-[21/9] bg-zinc-100 rounded-[3.5rem] overflow-hidden shadow-2xl group border border-zinc-200">
-             <template v-if="space.has_360 && panorama">
-               <ClientOnly>
-                 <AppPannellumViewer 
-                   :panorama-url="panorama.public_url" 
-                   :auto-rotate="settings?.auto_rotate_enabled"
-                   :hfov="settings?.hfov_default"
-                   :pitch="settings?.pitch_default"
-                   :yaw="settings?.yaw_default"
-                 />
-               </ClientOnly>
-             </template>
-             <img v-else :src="space.cover_image_url || '/images/home/plain land.png'" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-             
-             <!-- Content Overlay -->
-             <div class="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/20 to-transparent flex flex-col justify-end p-8 md:p-16 pointer-events-none">
-                <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 overflow-hidden">
-                   <div class="space-y-4 max-w-2xl">
-                      <div class="flex items-center gap-3">
-                         <span class="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-white border border-white/20 italic">Live Experience</span>
-                         <span v-if="space.location_text" class="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="text-emerald-400"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                            {{ space.location_text }}
-                         </span>
-                      </div>
-                      <h1 class="text-5xl md:text-8xl font-black text-white tracking-tighter leading-[0.9] drop-shadow-2xl">{{ space.title }}</h1>
-                   </div>
-                   
-                   <div v-if="space.has_360" class="flex flex-col items-start md:items-end gap-2 text-white/40">
-                      <span class="text-[10px] font-black uppercase tracking-[0.2em]">Immersive Studio</span>
-                      <div class="flex items-center gap-1">
-                         <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                         <span class="text-xs font-bold text-white tracking-tight italic">360° Vision Active</span>
-                      </div>
-                   </div>
-                </div>
-             </div>
-          </div>
-        </section>
+          <!-- Hero / 360 Viewer Section -->
+          <section id="experience" class="px-6 max-w-7xl mx-auto mb-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+           <PublicTourHero
+            :space="space"
+            :panorama="panorama"
+            :settings="settings"
+            :share-url="shareUrl"
+            :embed-url="embedUrl"
+            :gallery-count="gallery.length"
+           />
+          </section>
 
         <!-- Main Content Grid -->
         <section class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-16 md:gap-24">
@@ -248,6 +218,8 @@ const pending = ref(true)
 const fetchError = ref('')
 const space = ref<any>(null)
 const lightboxImg = ref<string | null>(null)
+const shareUrl = ref('')
+const embedUrl = ref('')
 
 // Lead form
 const leadPending = ref(false)
@@ -259,9 +231,11 @@ const media = computed(() => space.value?.property_media || [])
 const gallery = computed(() => media.value.filter((m: any) => m.media_type === 'gallery_image'))
 const panorama = computed(() => media.value.find((m: any) => m.media_type === 'panorama'))
 const settings = computed(() => space.value?.property_360_settings?.[0])
+const publicSlug = computed(() => space.value?.slug || space.value?.id || slug)
 
 onMounted(async () => {
   await fetchSpace()
+  syncShareLinks()
 })
 
 async function fetchSpace() {
@@ -269,12 +243,22 @@ async function fetchSpace() {
   try {
     const data = await apiFetch<any>(`/spaces/by-slug/${encodeURIComponent(slug)}`)
     space.value = data
+    syncShareLinks(data)
     fireViewEvent(data.id)
   } catch (err: any) {
     fetchError.value = err.data?.statusMessage || 'Space unavailable or removed.'
   } finally {
     pending.value = false
   }
+}
+
+function syncShareLinks(value = space.value) {
+  if (typeof window === 'undefined' || !value) return
+
+  const identifier = value.slug || value.id || publicSlug.value
+  const origin = window.location.origin
+  shareUrl.value = `${origin}/p/${identifier}`
+  embedUrl.value = `${origin}/embed/${identifier}`
 }
 
 async function submitLead() {
