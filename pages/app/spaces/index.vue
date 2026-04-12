@@ -286,7 +286,7 @@ const toggleDropdown = (id: string, e: Event) => {
 }
 
 const filteredSpaces = computed(() => {
-  let list = spaces.value.slice()
+  let list = Array.isArray(spaces.value) ? spaces.value.slice() : []
   if (search.value.trim()) {
     const q = search.value.toLowerCase()
     list = list.filter(p => p.title.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q))
@@ -323,7 +323,11 @@ const handleCreate = async () => {
   creating.value = true
   modalError.value = null
   try {
-    const space = await createSpace({ title: createForm.value.name, description: createForm.value.description || undefined })
+    const space = await createSpace({
+      title: createForm.value.name,
+      description: createForm.value.description || undefined,
+      space_type: 'other'
+    })
     closeCreateModal()
     showToast(`"${space.title}" created`)
   } catch (e: any) {

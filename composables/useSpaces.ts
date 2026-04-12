@@ -33,15 +33,38 @@ export const useSpaces = () => {
   const pending = ref(false)
   const error = ref<string | null>(null)
 
+  const normalizeSpace = (value: any): Space | null => {
+    if (!value || typeof value !== 'object') return null
+    return value as Space
+  }
+
+  const unwrapData = (value: any): any => {
+    if (!value || typeof value !== 'object') return value
+    if ('data' in value && value.data !== undefined) return value.data
+    if ('result' in value && value.result !== undefined) return value.result
+    return value
+  }
+
+  const normalizeSpaceList = (value: any): Space[] => {
+    const unwrapped = unwrapData(value)
+    if (Array.isArray(unwrapped)) return unwrapped.filter(Boolean) as Space[]
+    if (unwrapped && typeof unwrapped === 'object') {
+      if (Array.isArray((unwrapped as any).spaces)) return (unwrapped as any).spaces.filter(Boolean) as Space[]
+      if (Array.isArray((unwrapped as any).items)) return (unwrapped as any).items.filter(Boolean) as Space[]
+    }
+    return []
+  }
+
   // ── List ──────────────────────────────────────────────────────────────────
   const fetchSpaces = async () => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Space[]>('/spaces')
-      spaces.value = data
+      const data = await apiFetch<any>('/spaces')
+      spaces.value = normalizeSpaceList(data)
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
+      spaces.value = []
     } finally {
       pending.value = false
     }
@@ -52,9 +75,10 @@ export const useSpaces = () => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Space>(`/spaces/${id}`)
-      currentSpace.value = data
-      return data
+      const data = await apiFetch<any>(`/spaces/${id}`)
+      const normalized = normalizeSpace(unwrapData(data))
+      currentSpace.value = normalized
+      return normalized
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
       return null
@@ -64,13 +88,18 @@ export const useSpaces = () => {
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
-  const createSpace = async (payload: { title: string; description?: string }) => {
+  const createSpace = async (payload: { title: string; space_type: Space['space_type']; description?: string }) => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Space>('/spaces', { method: 'POST', body: payload })
-      spaces.value.unshift(data)
-      return data
+      const data = await apiFetch<any>('/spaces', { method: 'POST', body: payload })
+      const normalized = normalizeSpace(unwrapData(data))
+      if (!Array.isArray(spaces.value)) spaces.value = []
+      if (normalized) {
+        spaces.value.unshift(normalized)
+        return normalized
+      }
+      throw new Error('Invalid create space response format')
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
       throw e
@@ -84,11 +113,13 @@ export const useSpaces = () => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Space>(`/spaces/${id}`, { method: 'PATCH', body: payload })
+      const data = await apiFetch<any>(`/spaces/${id}`, { method: 'PATCH', body: payload })
+      const normalized = normalizeSpace(unwrapData(data))
+      if (!normalized) throw new Error('Invalid update space response format')
       const idx = spaces.value.findIndex(p => p.id === id)
-      if (idx !== -1) spaces.value[idx] = data
-      if (currentSpace.value?.id === id) currentSpace.value = data
-      return data
+      if (idx !== -1) spaces.value[idx] = normalized
+      if (currentSpace.value?.id === id) currentSpace.value = normalized
+      return normalized
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
       throw e
@@ -113,14 +144,16 @@ export const useSpaces = () => {
     pending.value = true
     error.value = null
     try {
-      const data = await apiFetch<Space>(`/spaces/${id}/publish`, {
+      const data = await apiFetch<any>(`/spaces/${id}/publish`, {
         method: 'POST',
         body: { publish, slug },
       })
+      const normalized = normalizeSpace(unwrapData(data))
+      if (!normalized) throw new Error('Invalid publish space response format')
       const idx = spaces.value.findIndex(p => p.id === id)
-      if (idx !== -1) spaces.value[idx] = data
-      if (currentSpace.value?.id === id) currentSpace.value = data
-      return data
+      if (idx !== -1) spaces.value[idx] = normalized
+      if (currentSpace.value?.id === id) currentSpace.value = normalized
+      return normalized
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
       throw e

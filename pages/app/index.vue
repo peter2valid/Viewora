@@ -103,24 +103,53 @@ const usage = ref<any>(null)
 const totalViews = ref(0)
 const recentLeadsCount = ref(0)
 
+function unwrapData<T = any>(value: any): T {
+  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
+    return value.data as T
+  }
+  return value as T
+}
+
+function toArray<T = any>(value: any): T[] {
+  const unwrapped = unwrapData<any>(value)
+  if (Array.isArray(unwrapped)) return unwrapped
+  if (unwrapped && typeof unwrapped === 'object') {
+    if (Array.isArray(unwrapped.items)) return unwrapped.items
+    if (Array.isArray(unwrapped.rows)) return unwrapped.rows
+    if (Array.isArray(unwrapped.results)) return unwrapped.results
+  }
+  return []
+}
+
 onMounted(async () => {
   try {
-    const [billingData, analyticsData, leadsData] = await Promise.all([
-      apiFetch<any>('/billing/status'),
+    // Load billing first so the dashboard shell can render quickly.
+    const billingData = unwrapData<any>(await apiFetch<any>('/billing/status'))
+
+    plan.value = billingData?.plan ?? null
+    usage.value = billingData?.usage ?? null
+
+    // Unblock UI while secondary widgets continue fetching in background.
+    pending.value = false
+
+    const [analyticsRes, leadsRes] = await Promise.allSettled([
       apiFetch<any[]>('/analytics/summary'),
       apiFetch<any[]>('/leads')
     ])
 
-    plan.value = billingData.plan
-    usage.value = billingData.usage
+    const analyticsData = analyticsRes.status === 'fulfilled' ? toArray<any>(analyticsRes.value) : []
+    const leadsData = leadsRes.status === 'fulfilled' ? toArray<any>(leadsRes.value) : []
     
     // Aggregates
-    totalViews.value = (analyticsData || []).reduce((acc, curr) => acc + (curr.total_views || 0), 0)
+    totalViews.value = analyticsData.reduce((acc, curr) => acc + Number(curr?.total_views || 0), 0)
     
     // Recent leads (last 7 days)
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    recentLeadsCount.value = (leadsData || []).filter(l => new Date(l.created_at) > sevenDaysAgo).length
+    recentLeadsCount.value = leadsData.filter(l => {
+      const createdAt = l?.created_at
+      return createdAt && new Date(createdAt) > sevenDaysAgo
+    }).length
 
   } catch (e) {
     console.error('Failed to bootstrap dashboard', e)
