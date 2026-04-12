@@ -185,19 +185,37 @@ const profileForm = ref({
   agencyLogoUrl: user.value?.user_metadata?.agency_logo_url || ''
 })
 
+function unwrapApiData<T = any>(value: any): T {
+  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
+    return value.data as T
+  }
+  if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) {
+    return value.result as T
+  }
+  return value as T
+}
+
 async function handleLogoUpload(e: any) {
   const file = e.target.files[0] as File
   if (!file) return
 
   uploading.value = true
   try {
-    const { signedUrl, publicUrl } = await apiFetch<any>('/uploads/signed-url', {
+    const signedPayload = unwrapApiData<any>(await apiFetch<any>('/uploads/create-signed-url', {
       method: 'POST',
       body: { 
-        fileName: `branding/${user.value?.id}/${Date.now()}-${file.name}`,
-        contentType: file.type 
+        mediaType: 'logo',
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size
       }
-    })
+    }))
+
+    const signedUrl = signedPayload?.signedUrl
+    const publicUrl = signedPayload?.publicUrl
+    if (!signedUrl || !publicUrl) {
+      throw new Error('Invalid upload signing response from server')
+    }
 
     await $fetch(signedUrl, {
       method: 'PUT',

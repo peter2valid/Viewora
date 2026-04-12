@@ -493,6 +493,16 @@ const uploadSummaryText = computed(() => {
   return 'In progress'
 })
 
+function unwrapApiData<T = any>(value: any): T {
+  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
+    return value.data as T
+  }
+  if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) {
+    return value.result as T
+  }
+  return value as T
+}
+
 watch(hasProcessingMedia, (isProcessing) => {
   if (isProcessing) {
     startPolling()
@@ -754,7 +764,7 @@ async function uploadFile(file: File, type: string) {
   try {
     updateLocalUpload(localId, { state: 'signing' })
 
-    const { signedUrl, objectKey, publicUrl } = await apiFetch<any>('/uploads/create-signed-url', {
+    const signedPayload = unwrapApiData<any>(await apiFetch<any>('/uploads/create-signed-url', {
       method: 'POST',
       body: {
         spaceId: spaceId,
@@ -763,7 +773,18 @@ async function uploadFile(file: File, type: string) {
         contentType: file.type,
         fileSize: file.size
       }
-    })
+    }))
+
+    const signedUrl = signedPayload?.signedUrl
+    const objectKey = signedPayload?.objectKey
+    const publicUrl = signedPayload?.publicUrl
+
+    if (!signedUrl || typeof signedUrl !== 'string' || !signedUrl.startsWith('http')) {
+      throw new Error('Upload signing failed: invalid signed URL returned by server')
+    }
+    if (!objectKey || !publicUrl) {
+      throw new Error('Upload signing failed: missing upload metadata from server')
+    }
 
     updateLocalUpload(localId, { state: 'uploading' })
 
@@ -775,7 +796,7 @@ async function uploadFile(file: File, type: string) {
 
     updateLocalUpload(localId, { state: 'registering' })
 
-    const record = await apiFetch<any>('/uploads/complete', {
+    const record = unwrapApiData<any>(await apiFetch<any>('/uploads/complete', {
       method: 'POST',
       body: {
         spaceId: spaceId,
@@ -784,7 +805,7 @@ async function uploadFile(file: File, type: string) {
         publicUrl,
         fileSize: file.size
       }
-    })
+    }))
     
     media.value.push(record)
     removeLocalUpload(localId)

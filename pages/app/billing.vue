@@ -309,6 +309,26 @@ const usage = ref<any>(null)
 const availablePlans = ref<any[]>([])
 const plansSection = ref<HTMLElement | null>(null)
 
+function unwrapApiData<T = any>(value: any): T {
+  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
+    return value.data as T
+  }
+  if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) {
+    return value.result as T
+  }
+  return value as T
+}
+
+function toArray<T = any>(value: any): T[] {
+  const unwrapped = unwrapApiData<any>(value)
+  if (Array.isArray(unwrapped)) return unwrapped
+  if (unwrapped && typeof unwrapped === 'object') {
+    if (Array.isArray(unwrapped.items)) return unwrapped.items
+    if (Array.isArray(unwrapped.rows)) return unwrapped.rows
+  }
+  return []
+}
+
 // ── Toast ──────────────────────────────────────────────────────────────────
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -397,14 +417,16 @@ onMounted(async () => {
 async function fetchBillingData() {
   pending.value = true
   try {
-    const [statusData, plansData] = await Promise.all([
+    const [statusRaw, plansRaw] = await Promise.all([
       apiFetch<any>('/billing/status'),
       apiFetch<any[]>('/billing/plans'),
     ])
+    const statusData = unwrapApiData<any>(statusRaw)
+    const plansData = toArray<any>(plansRaw)
     plan.value = statusData.plan
     subscription.value = statusData.subscription
     usage.value = statusData.usage
-    availablePlans.value = (plansData as any[]).sort((a, b) => a.price_monthly_kes - b.price_monthly_kes)
+    availablePlans.value = plansData.sort((a, b) => a.price_monthly_kes - b.price_monthly_kes)
   } catch {
     // pending handles UI
   } finally {
@@ -415,15 +437,19 @@ async function fetchBillingData() {
 async function subscribeTo(planId: string) {
   subscribing.value = planId
   try {
-    const data = await apiFetch<any>('/billing/initialize-paystack', {
+    const raw = await apiFetch<any>('/billing/initialize-paystack', {
       method: 'POST',
       body: { planId, billingCycle: billingCycle.value },
     })
+    const data = unwrapApiData<any>(raw)
     if (data.authorization_url) {
       window.location.href = data.authorization_url
+      return
     }
+    showToast('Missing payment authorization URL from billing service.', 'error')
   } catch (e: any) {
     showToast(e.data?.statusMessage || 'Failed to initialize payment', 'error')
+  } finally {
     subscribing.value = null
   }
 }

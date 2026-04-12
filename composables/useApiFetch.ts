@@ -9,7 +9,7 @@ export const useApiFetch = () => {
   const session = useSupabaseSession()
   const config = useRuntimeConfig()
 
-  // Empty string = same-origin Nitro routes. Set NUXT_PUBLIC_API_BASE_URL for external backend.
+  // Empty string = same-origin Nitro proxy routes under /api. Set NUXT_PUBLIC_API_BASE_URL for external backend.
   const baseURL = (config.public.apiBaseUrl as string) || ''
 
   function apiFetch<T = unknown>(
@@ -19,7 +19,9 @@ export const useApiFetch = () => {
     const token = session.value?.access_token
 
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`
-    const fullUrl = baseURL ? `${baseURL.replace(/\/$/, '')}${normalizedUrl}` : normalizedUrl
+    const fullUrl = baseURL
+      ? `${baseURL.replace(/\/$/, '')}${normalizedUrl}`
+      : `/api${normalizedUrl}`
 
     return $fetch<T>(fullUrl, {
       ...options,
@@ -27,10 +29,24 @@ export const useApiFetch = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers ?? {}),
       },
+      onResponse({ response }) {
+        // Standard backend shape: { success: true, data, meta }
+        if (response?._data && typeof response._data === 'object') {
+          const payload = response._data as any
+          if (payload.success === true && payload.data !== undefined) {
+            response._data = payload.data
+          }
+        }
+      },
       onResponseError({ response }) {
         // Map Fastify backend { error: { message } } standard natively into Nuxt's expectations
         if (response._data?.error?.message) {
-          response._data.statusMessage = response._data.error.message;
+          response._data.statusMessage = response._data.error.message
+        }
+
+        // Map standardized backend envelope { success:false, code, message }
+        if (response._data?.message && !response._data?.statusMessage) {
+          response._data.statusMessage = response._data.message
         }
       }
     })

@@ -12,6 +12,8 @@ export default defineNuxtConfig({
   ],
 
   runtimeConfig: {
+    // Server-only API base URL used by Nitro proxy route /api/**
+    apiBaseUrl: process.env.NUXT_API_BASE_URL || process.env.NUXT_PUBLIC_API_BASE_URL || '',
     public: {
       // Empty string = same-origin Nitro routes (/api/*).
       // Set NUXT_PUBLIC_API_BASE_URL to an external Fastify URL only when

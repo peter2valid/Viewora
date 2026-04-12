@@ -74,17 +74,28 @@ export const usePlanStore = defineStore('plan', () => {
     return Boolean(plan.value?.[feature])
   }
 
+  function unwrapApiData<T = any>(value: any): T {
+    if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
+      return value.data as T
+    }
+    if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) {
+      return value.result as T
+    }
+    return value as T
+  }
+
   // ── Actions ───────────────────────────────────────────────────────────────
   async function fetchSubscriptionStatus() {
     pending.value = true
     error.value = null
     try {
       const { apiFetch } = useApiFetch()
-      const data = await apiFetch<{
+      const raw = await apiFetch<any>('/billing/status')
+      const data = unwrapApiData<{
         plan: Plan
         subscription: Subscription | null
         usage: UsageCounters
-      }>('/billing/status')
+      }>(raw)
       plan.value = data.plan
       subscription.value = data.subscription
       usage.value = data.usage ?? { active_spaces_count: 0, storage_used_bytes: 0 }
