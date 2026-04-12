@@ -139,6 +139,19 @@ Media never passes through the API server:
 
 ---
 
+## Product Blueprint (Read Before Building Any Viewer/Editor Feature)
+
+The 360° viewer (`/p/[slug]`, `/embed/[slug]`) and the editor (`/app/editor/[space_id]`) are being upgraded. The full design and engineering spec lives in the **root workspace** (parent folder of this repo):
+
+| Document | What it covers |
+|---|---|
+| `../360-viewer-implementation.md` | Viewer/editor/review UX, design system, data model, WOW loop, guided tours, floor plan, all planned features |
+| `../360-viewer-execution-spec.md` | Exact API contracts, error codes, state machines, validation, security, testing, release gates |
+
+> These documents are local-only (not in this git repo). They live in the parent workspace folder.
+
+---
+
 ## Rules for AI Editing This Repo
 
 1. **Use `useApiFetch` for all API calls** — never raw `$fetch` or `useFetch`.

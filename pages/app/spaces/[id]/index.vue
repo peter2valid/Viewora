@@ -137,35 +137,61 @@
       </div>
 
       <!-- GALLERY TAB -->
-      <div v-if="activeTab === 'gallery'" class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <header class="flex items-center justify-between">
-           <div>
-             <h3 class="text-base font-semibold text-zinc-900">Property Photos</h3>
-             <p class="text-sm text-zinc-500 mt-0.5">High-quality 2D images for the carousel.</p>
+      <div v-if="activeTab === 'gallery'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm">
+           <div class="space-y-1">
+             <h3 class="text-xl font-black tracking-tight text-zinc-950">Property Gallery</h3>
+             <p class="text-sm text-zinc-500 font-medium">Manage the cinematic 2D photography for your public tour carousel.</p>
            </div>
-           <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-sm font-medium text-zinc-700 rounded-lg hover:bg-zinc-50 shadow-sm transition-colors">
+           <label class="cursor-pointer inline-flex items-center justify-center gap-3 px-8 py-4 bg-zinc-950 text-white text-sm font-black rounded-2xl hover:bg-zinc-800 shadow-xl shadow-zinc-950/20 transition-all active:scale-95 group">
              <input type="file" multiple accept="image/*" class="hidden" @change="handleGalleryUpload" />
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-             Upload Photos
+             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+             Upload High-Res Photos
            </label>
         </header>
 
-        <div v-if="galleryMedia.length" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-           <div v-for="img in galleryMedia" :key="img.id" class="group relative aspect-video bg-zinc-100 rounded-lg overflow-hidden border border-zinc-200 shadow-sm">
-              <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-              <div class="absolute inset-0 bg-zinc-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                 <button class="p-2 bg-white rounded-md text-rose-600 shadow-lg hover:scale-110 transition-transform" @click="handleDeleteMedia(img.id)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        <div v-if="galleryMedia.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+           <div 
+             v-for="(img, idx) in galleryMedia" 
+             :key="img.id" 
+             class="group relative aspect-[4/3] bg-zinc-100 rounded-[2rem] overflow-hidden border border-zinc-200 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 animate-in fade-in"
+             :style="{ animationDelay: `${idx * 50}ms` }"
+           >
+              <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" />
+              
+              <!-- Premium Overlay -->
+              <div class="absolute inset-0 bg-zinc-950/20 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-[2px] flex items-center justify-center gap-4">
+                 <button 
+                   class="w-12 h-12 bg-white text-zinc-950 rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-300"
+                   @click="previewImage = img"
+                   title="Preview Image"
+                 >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                  </button>
+                 <button 
+                   class="w-12 h-12 bg-rose-500 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-300" 
+                   @click="handleDeleteMedia(img.id)"
+                   title="Delete Image"
+                 >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                 </button>
+              </div>
+
+              <!-- Identification Tag -->
+              <div class="absolute bottom-6 left-6 px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[10px] font-black uppercase tracking-widest text-zinc-900 border border-white/20 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 shadow-sm">
+                 IMG-{{ img.id.slice(0, 4) }}
               </div>
            </div>
         </div>
-        <div v-else class="p-12 border-2 border-dashed border-zinc-200 rounded-xl flex flex-col items-center justify-center text-center">
-           <div class="w-10 h-10 bg-zinc-50 text-zinc-300 rounded-lg flex items-center justify-center mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        
+        <div v-else class="p-20 bg-white border-2 border-dashed border-zinc-200 rounded-[3rem] flex flex-col items-center justify-center text-center group hover:border-zinc-400 transition-colors">
+           <div class="w-24 h-24 bg-zinc-50 text-zinc-200 rounded-[2rem] flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
            </div>
-           <p class="text-sm font-medium text-zinc-900">No photos yet</p>
-           <p class="text-xs text-zinc-500 mt-1">Upload property images to build your gallery.</p>
+           <h4 class="text-xl font-black text-zinc-950 mb-2">Awaiting Visuals</h4>
+           <p class="text-sm text-zinc-500 max-w-xs mx-auto font-medium">
+             Upload high-quality interior and exterior photos to populate the property carousel.
+           </p>
         </div>
       </div>
 
@@ -233,28 +259,44 @@
     </div>
   </div>
 
-  <Teleport to="body">
-    <AppConfirmationModal
-      :is-open="!!mediaToDelete"
-      title="Remove File?"
-      message="This will permanently delete the file. You can upload a new one afterwards."
-      confirm-text="Remove"
-      :is-dangerous="true"
-      :loading="deletingMedia"
-      @confirm="confirmDeleteMedia"
-      @cancel="mediaToDelete = null"
-    />
+    <!-- Image Preview Lightbox -->
+    <Teleport to="body">
+      <Transition name="modal-in">
+        <div v-if="previewImage" class="fixed inset-0 z-[300] flex items-center justify-center p-4 md:p-12">
+           <div class="absolute inset-0 bg-zinc-950/90 backdrop-blur-xl" @click="previewImage = null"></div>
+           
+           <button 
+             class="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-2xl flex items-center justify-center transition-all duration-300 z-10 backdrop-blur-md"
+             @click="previewImage = null"
+           >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+           </button>
 
-    <Transition name="toast">
-      <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold whitespace-nowrap', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
-        <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/20 text-white'">
-          <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+           <div class="relative w-full h-full flex items-center justify-center animate-modal-in pointer-events-none">
+              <img 
+                :src="previewImage.public_url" 
+                class="max-w-full max-h-full object-contain rounded-3xl shadow-2xl pointer-events-auto shadow-white/5" 
+                @click.stop
+              />
+              
+              <!-- Image Metadata Bar -->
+              <div class="absolute bottom-0 left-1/2 -translate-x-1/2 p-6 w-full max-w-xl flex items-center justify-center pointer-events-auto">
+                 <div class="bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-3xl flex items-center gap-8 shadow-2xl">
+                    <div class="flex flex-col">
+                       <span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Dimensions</span>
+                       <span class="text-sm font-bold text-white">{{ previewImage.width || '?' }} x {{ previewImage.height || '?' }}</span>
+                    </div>
+                    <div class="w-px h-8 bg-white/10"></div>
+                    <div class="flex flex-col">
+                       <span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">File Size</span>
+                       <span class="text-sm font-bold text-white">{{ (previewImage.file_size_bytes / 1024 / 1024).toFixed(2) }} MB</span>
+                    </div>
+                 </div>
+              </div>
+           </div>
         </div>
-        {{ toast.message }}
-      </div>
-    </Transition>
-  </Teleport>
+      </Transition>
+    </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -279,6 +321,7 @@ const saving = ref(false)
 const publishing = ref(false)
 const mediaToDelete = ref<string | null>(null)
 const deletingMedia = ref(false)
+const previewImage = ref<any>(null)
 
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null

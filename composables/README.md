@@ -3,7 +3,7 @@
 This folder contains reusable logic shared across the dashboard.
 
 ## 🧪 Key Composables
-- **`useApiFetch.ts`**: The most important utility. It wraps Nuxt's `useFetch` to add:
+- **`useApiFetch.ts`**: The most important utility. It wraps Nuxt's `$fetch` to add:
     - Automatic Authorization headers (JWT from Supabase).
     - Base URL configuration.
     - Standard error handling.

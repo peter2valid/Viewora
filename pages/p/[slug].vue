@@ -1,112 +1,235 @@
 <template>
-  <div class="pv">
-    <!-- Loading -->
-    <div v-if="pending" class="pv-center">
-      <div class="pv-loader"></div>
-      <span class="pv-loader-text">Loading space…</span>
+  <div class="min-h-screen bg-white font-sans text-zinc-900 selection:bg-zinc-900 selection:text-white">
+    <!-- Loading State -->
+    <div v-if="pending" class="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center gap-6">
+      <div class="w-12 h-12 border-4 border-zinc-100 border-t-zinc-900 rounded-full animate-spin"></div>
+      <span class="text-sm font-black tracking-widest text-zinc-400 uppercase">Immersing...</span>
     </div>
 
-    <!-- Error -->
-    <div v-else-if="fetchError" class="pv-center">
-      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <p class="pv-err-msg">{{ fetchError }}</p>
+    <!-- Error State -->
+    <div v-else-if="fetchError" class="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 text-center">
+      <div class="w-20 h-20 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <h1 class="text-2xl font-black mb-2">Space Unavailable</h1>
+      <p class="text-zinc-500 font-medium max-w-xs">{{ fetchError }}</p>
+      <NuxtLink to="/" class="mt-8 px-8 py-3 bg-zinc-950 text-white rounded-2xl font-black text-sm transition-all hover:scale-105 active:scale-95">Return Home</NuxtLink>
     </div>
 
-    <!-- ── Space View ───────────────────────────────────────────────────── -->
+    <!-- Main Space View -->
     <template v-else-if="space">
-      
-      <!-- Content Canvas -->
-      <div class="pv-main">
-        
-        <!-- Viewer Section (360 if available, else Cover) -->
-        <div class="pv-viewer-area">
-          <ClientOnly v-if="space.has_360 && panorama">
-            <AppPannellumViewer 
-              :panorama-url="panorama.public_url" 
-              :auto-rotate="settings?.auto_rotate_enabled"
-              :hfov="settings?.hfov_default"
-              :pitch="settings?.pitch_default"
-              :yaw="settings?.yaw_default"
-            />
-          </ClientOnly>
-          <div v-else class="pv-cover" :style="`background-image: url(${space.cover_image_url || '/images/home/plain land.png'})`" />
+      <!-- Premium Navigation -->
+      <nav class="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-xl border-b border-zinc-100 px-6 py-4 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+          <div class="flex items-center gap-3">
+             <div class="w-10 h-10 bg-zinc-950 rounded-2xl flex items-center justify-center shadow-lg shadow-zinc-950/20">
+                <div class="w-3 h-3 bg-white rounded-full"></div>
+             </div>
+             <div>
+                <span class="text-lg font-black tracking-tighter block leading-none">VIEWORA</span>
+                <span v-if="space.profiles?.agency_name" class="text-[10px] font-black uppercase tracking-widest text-zinc-400 leading-none mt-1 block">{{ space.profiles.agency_name }}</span>
+             </div>
+          </div>
           
-          <!-- Space Quick Info Overlay -->
-          <div class="pv-overlay-info">
-            <h1 class="pv-title">{{ space.title }}</h1>
-            <p v-if="space.location_text" class="pv-loc">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              {{ space.location_text }}
-            </p>
+          <div class="hidden md:flex items-center gap-8 text-[11px] font-black uppercase tracking-widest text-zinc-400">
+             <a href="#experience" class="hover:text-zinc-950 transition-colors">Experience</a>
+             <a href="#details" class="hover:text-zinc-950 transition-colors">Details</a>
+             <a href="#gallery" class="hover:text-zinc-950 transition-colors">Gallery</a>
           </div>
+
+          <button 
+            @click="scrollToForm"
+            class="px-6 py-2.5 bg-zinc-950 text-white text-xs font-black rounded-2xl hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-950/20 active:scale-95"
+          >
+            Inquire Now
+          </button>
         </div>
+      </nav>
 
-        <!-- Details & Gallery Section -->
-        <div class="pv-content">
-          <div class="pv-container">
-            
-            <div class="pv-grid">
-              <!-- Left: Description & Gallery -->
-              <div class="pv-details">
-                <section class="pv-section">
-                  <h2 class="pv-section-title">About this space</h2>
-                  <p class="pv-description">{{ space.description || 'No description provided.' }}</p>
-                </section>
-
-                <section v-if="gallery.length" class="pv-section">
-                  <h2 class="pv-section-title">Photo Gallery</h2>
-                  <div class="pv-gallery">
-                    <div v-for="img in gallery" :key="img.id" class="pv-gallery-item" @click="lightboxImg = img.public_url">
-                      <img :src="img.public_url" loading="lazy" />
-                    </div>
-                  </div>
-                </section>
-              </div>
-
-              <!-- Right: Lead Form -->
-              <div v-if="space.lead_form_enabled" class="pv-sidebar">
-                <div class="pv-card lead-card">
-                  <h3 class="pv-card-title">Interested?</h3>
-                  <p class="text-sm text-muted mb-4">Send an inquiry to the owner.</p>
-                  
-                  <div v-if="leadSuccess" class="pv-lead-success">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00dc82" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    <p>Message sent successfully!</p>
-                  </div>
-
-                  <form v-else @submit.prevent="submitLead" class="pv-form">
-                    <input v-model="leadForm.name" type="text" placeholder="Your Name" required class="pv-input" />
-                    <input v-model="leadForm.email" type="email" placeholder="Email Address" required class="pv-input" />
-                    <input v-model="leadForm.phone" type="tel" placeholder="Phone Number" class="pv-input" />
-                    <textarea v-model="leadForm.message" placeholder="Message" rows="3" class="pv-input"></textarea>
-                    
-                    <button type="submit" class="btn btn-dark w-full" :disabled="leadPending">
-                      {{ leadPending ? 'Sending...' : 'Send Inquiry' }}
-                    </button>
-                    <p v-if="leadError" class="pv-err-text mt-2">{{ leadError }}</p>
-                  </form>
+      <main class="pt-24 pb-32">
+        <!-- Hero / 360 Viewer Section -->
+        <section id="experience" class="px-6 max-w-7xl mx-auto mb-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div class="relative aspect-[21/9] bg-zinc-100 rounded-[3.5rem] overflow-hidden shadow-2xl group border border-zinc-200">
+             <template v-if="space.has_360 && panorama">
+               <ClientOnly>
+                 <AppPannellumViewer 
+                   :panorama-url="panorama.public_url" 
+                   :auto-rotate="settings?.auto_rotate_enabled"
+                   :hfov="settings?.hfov_default"
+                   :pitch="settings?.pitch_default"
+                   :yaw="settings?.yaw_default"
+                 />
+               </ClientOnly>
+             </template>
+             <img v-else :src="space.cover_image_url || '/images/home/plain land.png'" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+             
+             <!-- Content Overlay -->
+             <div class="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/20 to-transparent flex flex-col justify-end p-8 md:p-16 pointer-events-none">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 overflow-hidden">
+                   <div class="space-y-4 max-w-2xl">
+                      <div class="flex items-center gap-3">
+                         <span class="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-white border border-white/20 italic">Live Experience</span>
+                         <span v-if="space.location_text" class="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="text-emerald-400"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            {{ space.location_text }}
+                         </span>
+                      </div>
+                      <h1 class="text-5xl md:text-8xl font-black text-white tracking-tighter leading-[0.9] drop-shadow-2xl">{{ space.title }}</h1>
+                   </div>
+                   
+                   <div v-if="space.has_360" class="flex flex-col items-start md:items-end gap-2 text-white/40">
+                      <span class="text-[10px] font-black uppercase tracking-[0.2em]">Immersive Studio</span>
+                      <div class="flex items-center gap-1">
+                         <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                         <span class="text-xs font-bold text-white tracking-tight italic">360° Vision Active</span>
+                      </div>
+                   </div>
                 </div>
-              </div>
-            </div>
-
+             </div>
           </div>
-        </div>
+        </section>
+
+        <!-- Main Content Grid -->
+        <section class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-16 md:gap-24">
+           <!-- Details & Gallery -->
+           <div class="lg:col-span-2 space-y-24">
+              <!-- About Section -->
+              <div id="details" class="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+                <div class="flex items-center gap-4 mb-8">
+                   <h2 class="text-4xl font-black tracking-tighter">The Narrative</h2>
+                   <div class="h-px flex-1 bg-zinc-100"></div>
+                </div>
+                <p class="text-2xl text-zinc-500 leading-relaxed font-medium whitespace-pre-line tracking-tight">
+                  {{ space.description || 'No detailed narrative provided for this architectural masterpiece.' }}
+                </p>
+              </div>
+
+              <!-- Gallery Grid -->
+              <div id="gallery" v-if="gallery.length" class="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
+                 <div class="flex items-center justify-between mb-12">
+                    <h2 class="text-4xl font-black tracking-tighter">Curation</h2>
+                    <div class="flex items-center gap-3">
+                       <span class="text-[11px] font-black text-zinc-400 uppercase tracking-widest">{{ gallery.length }} Selected Photos</span>
+                       <div class="w-2 h-2 bg-zinc-100 rounded-full"></div>
+                    </div>
+                 </div>
+                 
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div 
+                      v-for="(img, idx) in gallery" 
+                      :key="img.id" 
+                      class="group relative aspect-[4/3] bg-zinc-100 rounded-[3rem] overflow-hidden cursor-zoom-in hover:shadow-2xl hover:-translate-y-4 transition-all duration-700 animate-in fade-in"
+                      :style="{ animationDelay: `${idx * 100}ms` }"
+                      @click="lightboxImg = img.public_url"
+                    >
+                       <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" loading="lazy" />
+                       
+                       <!-- Premium Overlay -->
+                       <div class="absolute inset-0 bg-zinc-950/20 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-[2px] flex flex-col justify-end p-8">
+                          <div class="flex items-center justify-between">
+                             <div class="w-14 h-14 bg-white/20 backdrop-blur-3xl border border-white/20 rounded-2xl flex items-center justify-center text-white transform scale-90 group-hover:scale-100 transition-transform duration-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+                             </div>
+                             <span class="text-[10px] font-black uppercase tracking-widest text-white/60">Inspect Shot</span>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+
+           <!-- Inquiry Sidebar -->
+           <aside v-if="space.lead_form_enabled" id="inquiry-form" class="lg:sticky lg:top-32 h-fit animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500">
+              <div class="bg-zinc-950 p-12 rounded-[4rem] text-white shadow-2xl relative overflow-hidden group">
+                 <!-- Background Polish -->
+                 <div class="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px] group-hover:bg-emerald-500/20 transition-colors duration-1000"></div>
+                 
+                 <div class="relative z-10">
+                   <h3 class="text-3xl font-black tracking-tight mb-2">Request Access</h3>
+                   <p class="text-zinc-500 text-sm mb-10 font-medium">Leave your credentials for a private consultation.</p>
+                   
+                   <div v-if="leadSuccess" class="py-12 flex flex-col items-center text-center animate-in zoom-in-95 duration-500">
+                      <div class="w-20 h-20 bg-emerald-500 rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl shadow-emerald-500/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                      <h4 class="text-xl font-bold mb-2">Message Delivered</h4>
+                      <p class="text-zinc-400 text-sm">The property owners will reach out to you shortly.</p>
+                      <button @click="leadSuccess = false" class="mt-8 text-xs font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-400 underline transition-colors">Send Another</button>
+                   </div>
+
+                   <form v-else @submit.prevent="submitLead" class="space-y-4">
+                      <div class="space-y-2">
+                         <label class="text-[10px] font-black uppercase tracking-widest text-zinc-600 ml-4">Identification</label>
+                         <input v-model="leadForm.name" type="text" placeholder="Your Full Name" required class="w-full bg-white/5 border border-white/5 focus:border-white/20 focus:ring-4 focus:ring-white/5 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-700 outline-none transition-all" />
+                      </div>
+                      <div class="space-y-2">
+                         <label class="text-[10px] font-black uppercase tracking-widest text-zinc-600 ml-4">Communication</label>
+                         <input v-model="leadForm.email" type="email" placeholder="Email Address" required class="w-full bg-white/5 border border-white/5 focus:border-white/20 focus:ring-4 focus:ring-white/5 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-700 outline-none transition-all" />
+                         <input v-model="leadForm.phone" type="tel" placeholder="Phone (Optional)" class="w-full bg-white/5 border border-white/5 focus:border-white/20 focus:ring-4 focus:ring-white/5 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-700 outline-none transition-all" />
+                      </div>
+                      <div class="space-y-2">
+                         <label class="text-[10px] font-black uppercase tracking-widest text-zinc-600 ml-4">Intent</label>
+                         <textarea v-model="leadForm.message" placeholder="Special requirements or questions..." rows="4" class="w-full bg-white/5 border border-white/5 focus:border-white/20 focus:ring-4 focus:ring-white/5 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-700 outline-none transition-all resize-none"></textarea>
+                      </div>
+                      
+                      <button 
+                        type="submit" 
+                        class="w-full py-5 mt-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-base font-black rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
+                        :disabled="leadPending"
+                      >
+                        {{ leadPending ? 'Relaying...' : 'Dispatch Inquiry' }}
+                      </button>
+                      <p v-if="leadError" class="text-xs font-bold text-rose-500 text-center mt-4 italic">{{ leadError }}</p>
+                   </form>
+                 </div>
+              </div>
+           </aside>
+        </section>
+      </main>
+
+      <!-- Premium Branding -->
+      <div v-if="space.branding_enabled && space.profiles?.agency_logo_url" class="fixed bottom-8 left-8 z-40 animate-in fade-in slide-in-from-left-8 duration-1000 delay-700">
+         <div class="bg-white/80 backdrop-blur-2xl px-6 py-4 rounded-[1.5rem] border border-zinc-100 shadow-2xl flex items-center gap-4 group hover:bg-white transition-colors">
+            <img :src="space.profiles.agency_logo_url" class="h-8 w-auto grayscale group-hover:grayscale-0 transition-all duration-500" />
+            <div class="h-6 w-px bg-zinc-100"></div>
+            <span class="text-[11px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-zinc-950 transition-colors">{{ space.profiles.agency_name }}</span>
+         </div>
+      </div>
+      <div v-else class="fixed bottom-8 left-8 z-40 pointer-events-none opacity-20">
+         <span class="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-950 italic">Powered by Viewora Studio</span>
       </div>
 
-      <!-- Branding / Watermark -->
-      <div v-if="space.branding_enabled && space.profiles?.agency_logo_url" class="pv-branding">
-        <img :src="space.profiles.agency_logo_url" :alt="space.profiles.agency_name || 'Agency Logo'" class="pv-branding-logo" />
-        <span v-if="space.profiles.agency_name" class="pv-branding-name">{{ space.profiles.agency_name }}</span>
-      </div>
-      <a v-else-if="!space.branding_enabled" href="https://viewora.software" target="_blank" class="pv-watermark">
-        Powered by Viewora
-      </a>
+      <!-- Lightbox System -->
+      <Teleport to="body">
+        <Transition name="modal-in">
+          <div v-if="lightboxImg" class="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
+             <div class="absolute inset-0 bg-zinc-950/95 backdrop-blur-3xl" @click="lightboxImg = null"></div>
+             
+             <button 
+               class="absolute top-8 right-8 w-14 h-14 bg-white/10 hover:bg-white/20 text-white rounded-2xl flex items-center justify-center transition-all duration-300 z-10 backdrop-blur-md border border-white/10 shadow-2xl"
+               @click="lightboxImg = null"
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+             </button>
 
-      <!-- Lightbox (Simple) -->
-      <div v-if="lightboxImg" class="pv-lightbox" @click="lightboxImg = null">
-        <img :src="lightboxImg" />
-      </div>
-
+             <div class="relative w-full h-full flex items-center justify-center animate-modal-in pointer-events-none">
+                <img 
+                  :src="lightboxImg" 
+                  class="max-w-full max-h-full object-contain rounded-[2.5rem] shadow-2xl pointer-events-auto border border-white/5 shadow-white/5" 
+                  @click.stop
+                />
+                
+                <!-- Experience Badge -->
+                <div class="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none opacity-40 select-none">
+                  <div class="w-6 h-6 bg-white rounded-lg flex items-center justify-center">
+                    <div class="w-1.5 h-1.5 bg-black rounded-full"></div>
+                  </div>
+                  <span class="text-[10px] font-black text-white tracking-[0.3em] uppercase italic">Cinematic Preview</span>
+                </div>
+             </div>
+          </div>
+        </Transition>
+      </Teleport>
     </template>
   </div>
 </template>
@@ -114,6 +237,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 import { ref, computed, onMounted } from 'vue'
+import { useSeoMeta, useHead, useRoute } from '#imports'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 const { apiFetch } = useApiFetch()
 const route = useRoute()
@@ -146,7 +271,7 @@ async function fetchSpace() {
     space.value = data
     fireViewEvent(data.id)
   } catch (err: any) {
-    fetchError.value = err.data?.statusMessage || 'Space not found'
+    fetchError.value = err.data?.statusMessage || 'Space unavailable or removed.'
   } finally {
     pending.value = false
   }
@@ -165,8 +290,9 @@ async function submitLead() {
       }
     })
     leadSuccess.value = true
+    leadForm.value = { name: '', email: '', phone: '', message: '' }
   } catch (err: any) {
-    leadError.value = err.data?.statusMessage || 'Failed to send enquiry'
+    leadError.value = err.data?.statusMessage || 'Failed to dispatch inquiry.'
   } finally {
     leadPending.value = false
   }
@@ -179,129 +305,41 @@ function fireViewEvent(spaceId: string) {
   }).catch(() => {})
 }
 
+function scrollToForm() {
+  const el = document.getElementById('inquiry-form')
+  if (el) el.scrollIntoView({ behavior: 'smooth' })
+}
+
 const ogImage = computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png')
 
 useSeoMeta({
-  title: computed(() => space.value ? `${space.value.title} | Viewora` : 'Space Experience'),
-  ogTitle: computed(() => space.value ? `${space.value.title} | Viewora` : 'Space Experience'),
-  description: computed(() => space.value?.description || 'View this immersive 360° space on Viewora.'),
-  ogDescription: computed(() => space.value?.description || 'View this immersive 360° space on Viewora.'),
+  title: computed(() => space.value ? `${space.value.title} | Viewora Studio` : 'Property Experience'),
+  ogTitle: computed(() => space.value ? `${space.value.title} | Viewora Studio` : 'Property Experience'),
+  description: computed(() => space.value?.description || 'Experience this immersive architectural vision on Viewora.'),
+  ogDescription: computed(() => space.value?.description || 'Experience this immersive architectural vision on Viewora.'),
   ogImage: ogImage,
   twitterCard: 'summary_large_image',
-  twitterTitle: computed(() => space.value ? `${space.value.title} | Viewora` : 'Space Experience'),
-  twitterDescription: computed(() => space.value?.description || 'View this immersive 360° space on Viewora.'),
+  twitterTitle: computed(() => space.value ? `${space.value.title} | Viewora Studio` : 'Property Experience'),
+  twitterDescription: computed(() => space.value?.description || 'Experience this immersive architectural vision on Viewora.'),
   twitterImage: ogImage
 })
 
 useHead({
   link: [
-    { rel: 'canonical', href: computed(() => `https://app.viewora.software/p/${slug}`) }
+    { rel: 'canonical', href: computed(() => `https://viewora.software/p/${slug}`) }
   ]
 })
 </script>
 
-<style scoped>
-.pv {
-  min-height: 100vh;
-  background: #fff;
-  color: #0f172a;
-  font-family: var(--font-sans);
+<style>
+.modal-in-enter-active, .modal-in-leave-active { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.modal-in-enter-from, .modal-in-leave-to { opacity: 0; transform: scale(0.95); filter: blur(10px); }
+
+@keyframes modal-in {
+  0% { opacity: 0; transform: scale(0.8) translateY(20px); filter: blur(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
 }
-
-.pv-main {
-  display: flex;
-  flex-direction: column;
+.animate-modal-in {
+  animation: modal-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-
-.pv-viewer-area {
-  height: 70vh;
-  position: relative;
-  background: #000;
-  overflow: hidden;
-}
-
-.pv-cover {
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-}
-
-.pv-overlay-info {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 4rem 2rem 2rem;
-  background: linear-gradient(transparent, rgba(0,0,0,0.8));
-  color: #fff;
-  pointer-events: none;
-}
-
-.pv-title { font-size: 2.5rem; font-weight: 800; margin: 0; line-height: 1.1; }
-.pv-loc { font-size: 1rem; opacity: 0.9; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
-
-.pv-content { padding: 4rem 0; }
-.pv-container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
-
-.pv-grid { display: grid; grid-template-columns: 1fr 350px; gap: 4rem; }
-
-@media (max-width: 900px) {
-  .pv-grid { grid-template-columns: 1fr; gap: 2rem; }
-  .pv-viewer-area { height: 50vh; }
-  .pv-title { font-size: 1.75rem; }
-}
-
-.pv-section { margin-bottom: 3rem; }
-.pv-section-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 0.5rem; }
-.pv-description { font-size: 1.125rem; line-height: 1.7; color: #475569; white-space: pre-line; }
-
-.pv-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
-.pv-gallery-item { aspect-ratio: 3/2; border-radius: 0.75rem; overflow: hidden; cursor: zoom-in; background: #f1f5f9; }
-.pv-gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
-.pv-gallery-item:hover img { transform: scale(1.05); }
-
-.pv-sidebar { position: sticky; top: 2rem; align-self: start; }
-.lead-card { padding: 2rem; border: 1px solid #e2e8f0; }
-.pv-card-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
-
-.pv-form { display: flex; flex-direction: column; gap: 0.75rem; }
-.pv-input { padding: 0.75rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.9rem; transition: border-color 0.2s; outline: none; width: 100%; }
-.pv-input:focus { border-color: #0f172a; }
-
-.pv-watermark { position: fixed; bottom: 1.5rem; right: 1.5rem; background: rgba(255,255,255,0.9); padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.75rem; font-weight: 700; color: #64748b; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 50; }
-
-.pv-branding {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: rgba(255,255,255,0.95);
-  padding: 0.5rem 1rem;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
-  z-index: 50;
-  backdrop-filter: blur(8px);
-}
-
-.pv-branding-logo {
-  height: 32px;
-  width: auto;
-  object-fit: contain;
-}
-
-.pv-branding-name {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.pv-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 2rem; cursor: zoom-out; }
-.pv-lightbox img { max-width: 100%; max-height: 100%; border-radius: 0.5rem; }
-
-.pv-loader { width: 40px; height: 40px; border: 3px solid #f1f5f9; border-top-color: #0f172a; border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.pv-center { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 1rem; color: #64748b; }
 </style>
