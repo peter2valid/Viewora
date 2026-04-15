@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen app-grid-bg font-sans antialiased text-zinc-900 selection:bg-zinc-900 selection:text-white">
+  <div class="min-h-screen app-grid-bg font-sans antialiased text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white">
     <!-- Mobile Backdrop -->
     <div
       v-if="isSidebarOpen"
@@ -76,6 +76,15 @@
            </div>
         </div>
 
+        <!-- Theme toggle -->
+        <button @click="toggleTheme" class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 rounded-lg transition-colors mb-1">
+          <!-- Sun icon (shown in dark mode) -->
+          <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <!-- Moon icon (shown in light mode) -->
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          {{ isDark ? 'Light Mode' : 'Dark Mode' }}
+        </button>
+
         <button @click="logout" class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 rounded-lg transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
           Sign Out
@@ -86,20 +95,26 @@
     <!-- Main Viewport -->
     <div class="lg:pl-64 flex flex-col min-h-screen">
       <!-- Topbar / Mobile Navigation -->
-      <header class="h-16 flex items-center justify-between px-6 bg-white border-b border-zinc-200 sticky top-0 z-[80] lg:hidden">
+      <header class="h-16 flex items-center justify-between px-6 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-[80] lg:hidden">
         <NuxtLink to="/app" class="flex items-center gap-2">
            <div class="w-6 h-6 rounded-md bg-zinc-900 flex items-center justify-center">
              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
            </div>
            <span class="text-base font-bold tracking-tight text-zinc-900">Viewora</span>
         </NuxtLink>
-        <button class="p-2 -mr-2 text-zinc-500 hover:text-zinc-900 transition-colors" @click="isSidebarOpen = true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        </button>
+        <div class="flex items-center gap-1">
+          <button @click="toggleTheme" class="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
+            <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+          <button class="p-2 -mr-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors" @click="isSidebarOpen = true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+        </div>
       </header>
 
       <!-- App View -->
-      <main class="flex-1 p-6 md:p-8 lg:p-10 max-w-6xl mx-auto w-full">
+      <main class="flex-1 p-6 md:p-8 lg:p-10 max-w-6xl mx-auto w-full dark:text-zinc-100">
         <slot />
       </main>
     </div>
@@ -121,10 +136,13 @@ const route = useRoute()
 const authStore = useAuthStore()
 const planStore = usePlanStore()
 
+const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
+
 const isExactRoute = (path: string) => route.path === path
 
 // Initialize stores on mount
 onMounted(async () => {
+  initTheme()
   if (user.value && !planStore.plan && !planStore.pending) {
     authStore.setUser(user.value)
     await planStore.fetchSubscriptionStatus()
@@ -141,13 +159,23 @@ const logout = async () => {
 </script>
 
 <style scoped>
-/* Futuristic box-grid background */
+/* Futuristic box-grid background — light */
 .app-grid-bg {
   background-color: #f8f9fb;
   background-image:
     radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 220, 130, 0.09) 0%, transparent 60%),
     linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+}
+
+/* Futuristic box-grid background — dark */
+:global(.dark) .app-grid-bg {
+  background-color: #0a0a0a;
+  background-image:
+    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 220, 130, 0.07) 0%, transparent 60%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 100% 100%, 32px 32px, 32px 32px;
 }
 
