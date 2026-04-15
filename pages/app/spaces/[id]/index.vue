@@ -306,7 +306,6 @@
         
         <div v-else class="p-20 bg-white border-2 border-dashed border-zinc-200 rounded-[3rem] flex flex-col items-center justify-center text-center group hover:border-zinc-400 transition-colors">
             <div class="relative w-full max-w-lg aspect-[16/8] rounded-3xl overflow-hidden mb-8 border border-zinc-200 bg-gradient-to-br from-zinc-100 via-white to-zinc-100">
-              <img src="/images/home/plain land.png" class="w-full h-full object-cover opacity-25 blur-[1px]" />
               <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/25 via-transparent to-transparent"></div>
               <div class="absolute top-4 left-4 px-2 py-1 rounded-md bg-white/90 text-[10px] font-bold text-zinc-700 border border-zinc-200">Sample Tour Flow</div>
               <div class="absolute bottom-4 left-4 flex gap-2">
