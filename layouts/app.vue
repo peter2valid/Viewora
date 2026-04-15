@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-zinc-50 font-sans antialiased text-zinc-900 selection:bg-zinc-900 selection:text-white">
+  <div class="min-h-screen app-grid-bg font-sans antialiased text-zinc-900 selection:bg-zinc-900 selection:text-white">
     <!-- Mobile Backdrop -->
     <div
       v-if="isSidebarOpen"
@@ -141,6 +141,16 @@ const logout = async () => {
 </script>
 
 <style scoped>
+/* Futuristic box-grid background */
+.app-grid-bg {
+  background-color: #f8f9fb;
+  background-image:
+    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 220, 130, 0.09) 0%, transparent 60%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+}
+
 /* Minimal scrollbar */
 aside::-webkit-scrollbar {
   width: 4px;
