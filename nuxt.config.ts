@@ -81,6 +81,7 @@ export default defineNuxtConfig({
         output: {
           manualChunks: {
             'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-view360': ['@egjs/view360'],
           },
         },
       },

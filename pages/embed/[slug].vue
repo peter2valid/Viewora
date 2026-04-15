@@ -8,36 +8,16 @@
       <p>{{ fetchError }}</p>
     </div>
 
-    <template v-else-if="space">
+    <template v-else-if="tour && space">
       <!-- 360 Viewer -->
-      <div v-if="space.has_360 && panorama" class="relative h-full w-full">
-        <ClientOnly>
-          <AppPannellumViewer 
-            :panorama-url="panorama.public_url" 
-            :auto-rotate="settings?.auto_rotate_enabled"
-            :hfov="settings?.hfov_default"
-            :pitch="settings?.pitch_default"
-            :yaw="settings?.yaw_default"
-            @loaded="viewerReady = true"
-            @error="handleViewerError"
-          />
-        </ClientOnly>
-
-        <div v-if="!viewerReady && !viewerError" class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
-          <div class="rounded-full border border-white/15 bg-black/45 px-4 py-2 text-xs font-semibold text-white/80">
-            Loading immersive view...
-          </div>
-        </div>
-
-        <div v-else-if="viewerError" class="absolute inset-0 flex items-center justify-center bg-black/35 p-6 text-center">
-          <div class="max-w-sm rounded-2xl border border-white/10 bg-black/65 p-5 text-white backdrop-blur-md">
-            <p class="text-sm font-semibold">Interactive viewer unavailable</p>
-            <p class="mt-2 text-xs text-white/70">The static preview is shown instead.</p>
-          </div>
-        </div>
+      <div v-if="tour.scenes?.length" class="relative h-full w-full">
+        <ViewerTourViewer
+          :tour="tour"
+          :share-url="shareUrl"
+        />
       </div>
-      
-      <!-- Gallery Fallback if no 360 -->
+
+      <!-- Gallery Fallback if no 360 scenes -->
       <div v-else class="embed-gallery">
         <img :src="space.cover_image_url || '/images/home/plain land.png'" class="embed-img" />
         <div class="embed-overlay">
@@ -64,42 +44,30 @@ const slug = route.params.slug as string
 
 const pending = ref(true)
 const fetchError = ref('')
-const space = ref<any>(null)
-const viewerReady = ref(false)
-const viewerError = ref('')
+const tour = ref<any>(null)
 
-const media = computed(() => space.value?.property_media || [])
-const panorama = computed(() => media.value.find((m: any) => m.media_type === 'panorama'))
-const settings = computed(() => space.value?.property_360_settings?.[0])
+// Derive space from tour data — single source of truth is the /p/:slug endpoint.
+const space = computed(() => tour.value?.space ?? null)
+const shareUrl = computed(() => `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.value?.slug || space.value?.id || slug}`)
 
 onMounted(async () => {
-  await fetchSpace()
-})
-
-async function fetchSpace() {
   pending.value = true
   try {
-    const data = await apiFetch<any>(`/spaces/by-slug/${encodeURIComponent(slug)}`)
-    space.value = data
-    fireViewEvent(data.id)
+    const result = await apiFetch<any>(`/p/${encodeURIComponent(slug)}`)
+    tour.value = result?.tour || result || null
+    // Fire view event using the space id from the tour data
+    if (space.value?.id) {
+      apiFetch('/analytics/events', {
+        method: 'POST',
+        body: { spaceId: space.value.id, event_type: 'property_view', source: 'embed' }
+      }).catch(() => {})
+    }
   } catch (err: any) {
-    fetchError.value = err.data?.statusMessage || 'Space not found'
+    fetchError.value = err.data?.statusMessage || 'Tour not found'
   } finally {
     pending.value = false
   }
-}
-
-function fireViewEvent(spaceId: string) {
-  apiFetch('/analytics/view', {
-    method: 'POST',
-    body: { spaceId, source: 'embed' }
-  }).catch(() => {})
-}
-
-function handleViewerError(error: unknown) {
-  viewerReady.value = false
-  viewerError.value = error instanceof Error ? error.message : 'The 360 viewer failed to load.'
-}
+})
 </script>
 
 <style scoped>
