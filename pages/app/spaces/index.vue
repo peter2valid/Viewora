@@ -23,9 +23,9 @@
         <div class="flex items-center gap-3">
           <button 
             @click="navigateTo('/app/create')"
-            class="btn btn-primary gap-2 !px-6"
+            class="btn btn-primary gap-2 !px-8 shadow-2xl"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Create Tour
           </button>
         </div>
@@ -33,17 +33,28 @@
     </header>
 
     <!-- Toolbar -->
-    <div class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-2.5 !rounded-2xl border border-border shadow-sm mb-12">
-      <div class="relative w-full sm:w-80 group">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="absolute left-4 top-1/2 -translate-y-1/2 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input v-model="search" type="text" class="w-full pl-11 pr-5 py-2.5 bg-transparent border-none focus:ring-0 text-sm font-bold outline-none placeholder:text-dim/60 text-main" placeholder="Search your property domain..." />
+    <div @click="$refs.searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-1 !rounded-2xl border border-border shadow-sm mb-12 cursor-pointer group/search hover:border-main/20 transition-colors">
+      <div class="relative w-full sm:w-80 group h-12 flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="absolute left-4 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input 
+          ref="searchInput"
+          v-model="search" 
+          type="text" 
+          class="w-full pl-11 pr-5 py-2.5 bg-transparent border-none focus:ring-0 text-sm font-bold outline-none placeholder:text-dim/60 text-main" 
+          placeholder="Search your property domain..." 
+        />
       </div>
-      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-3">
-        <select v-model="sortBy" class="w-full sm:w-auto pl-4 pr-10 py-2 bg-transparent border-transparent text-xs font-black uppercase tracking-widest outline-none appearance-none cursor-pointer text-main hover:text-main transition-colors">
-          <option value="newest">Sort: Chronological</option>
-          <option value="oldest">Sort: Legacy</option>
-          <option value="name">Sort: Alphabetical</option>
-        </select>
+      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-border h-12 sm:pl-3">
+        <div class="relative w-full sm:w-auto">
+          <select v-model="sortBy" class="w-full sm:w-auto pl-4 pr-10 py-2 bg-transparent border-transparent text-[11px] font-black uppercase tracking-[0.1em] outline-none appearance-none cursor-pointer text-main hover:opacity-70 transition-all">
+            <option value="newest" class="bg-surface text-main">Chronological</option>
+            <option value="oldest" class="bg-surface text-main">Legacy Records</option>
+            <option value="name" class="bg-surface text-main">Alphabetical</option>
+          </select>
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dim/60">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -61,27 +72,32 @@
     <!-- Space cards -->
     <template v-else>
       <!-- Empty State: no spaces at all -->
-      <div v-if="!filteredSpaces.length && !search" class="col-span-full py-12 md:py-24 animate-in fade-in zoom-in-95 duration-700">
+      <div v-if="!filteredSpaces.length && !search" class="col-span-full py-12 md:py-24">
         <div class="relative group mx-auto max-w-2xl px-4 w-full">
           <!-- iOS-style futuristic glass card -->
-          <div class="absolute -inset-0.5 bg-main/5 blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000"></div>
+          <div class="absolute -inset-1 bg-gradient-to-tr from-main/20 via-transparent to-main/20 blur-3xl opacity-20 group-hover:opacity-40 transition duration-1000"></div>
           
-          <div class="relative card-glass p-8 sm:p-12 md:p-16 !rounded-[3rem] border-main/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
-            <div class="mb-8 flex items-center justify-center">
-              <div class="w-16 h-16 rounded-full bg-main/10 flex items-center justify-center text-main">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          <div class="relative card-glass p-12 sm:p-20 !rounded-[4rem] border-main/5 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+            <!-- Animated background accent -->
+            <div class="absolute top-0 right-0 w-64 h-64 bg-main/5 blur-[100px] -translate-y-1/2 translate-x-1/2 rounded-full"></div>
+            
+            <div class="mb-10 relative">
+              <div class="w-24 h-24 rounded-[2rem] bg-surface-alt border border-border flex items-center justify-center text-main shadow-inner relative z-10 overflow-hidden group/icon">
+                <div class="absolute inset-0 bg-main/5 opacity-0 group-hover/icon:opacity-100 transition-opacity"></div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="relative z-20 group-hover/icon:scale-110 transition-transform duration-500"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
               </div>
+              <!-- Orbitals -->
+              <div class="absolute -inset-4 border border-main/10 rounded-full animate-[spin_10s_linear_infinite]"></div>
+              <div class="absolute -inset-8 border border-main/5 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
             </div>
 
-            <h2 class="text-3xl font-black text-main mb-3 tracking-tight">Expand Your Reality</h2>
-            <p class="text-dim mb-12 font-bold text-base max-w-md">Your portfolio is currently a clean slate. Start capturing spaces to build your brand.</p>
+            <h2 class="text-4xl font-black text-main mb-4 tracking-tighter">Expand Your Reality</h2>
+            <p class="text-dim mb-12 font-bold text-lg max-w-sm leading-relaxed">Your portfolio is currently a clean slate. Start capturing spaces to build your brand.</p>
             
-            <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
-              <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 !rounded-2xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Create First Tour
-              </button>
-            </div>
+            <button @click="navigateTo('/app/create')" class="btn btn-primary !px-12 !py-6 !rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] active:scale-95 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Create First Tour
+            </button>
           </div>
         </div>
       </div>

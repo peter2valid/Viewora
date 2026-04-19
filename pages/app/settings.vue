@@ -84,7 +84,7 @@
                   />
                   <label 
                     for="logo-upload" 
-                    class="px-4 py-2 bg-surface border border-border text-xs font-bold text-main rounded-xl hover:bg-surface-alt transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+                    class="btn btn-secondary !py-2 !px-4 !text-xs shadow-sm cursor-pointer"
                     :class="{ 'pointer-events-none opacity-50': !planStore.entitlements?.branding_customization_enabled || uploading }"
                   >
                     {{ uploading ? 'Uploading...' : 'Change Logo' }}
@@ -100,27 +100,27 @@
 
       <!-- Save Footer -->
       <div class="flex justify-end pt-4">
-         <button 
-           class="btn btn-primary !px-8 !py-3 !rounded-xl text-sm font-black uppercase tracking-widest shadow-2xl active:scale-[0.98] disabled:opacity-50" 
-           @click="saveProfile" 
-           :disabled="saving"
-         >
-           {{ saving ? 'Synchronizing Profile...' : 'Authorize Changes' }}
-         </button>
+          <button 
+            class="btn btn-primary !px-10 shadow-2xl" 
+            @click="saveProfile" 
+            :disabled="saving"
+          >
+            {{ saving ? 'Synchronizing Profile...' : 'Authorize Changes' }}
+          </button>
       </div>
 
       <!-- Danger zone -->
-      <section class="mt-12 pt-12 border-t border-zinc-200 ">
-        <h3 class="text-sm font-semibold text-rose-600 mb-4 flex items-center gap-2 uppercase tracking-wider">
-          Danger Zone
+      <section class="mt-12 pt-12 border-t border-border">
+        <h3 class="text-[11px] font-black text-rose-500/80 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">
+          Infrastructure Destruction
         </h3>
-        <div class="bg-rose-50/50 rounded-xl border border-rose-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-           <div>
-             <h4 class="text-sm font-semibold text-rose-900">Delete Account</h4>
-             <p class="text-xs text-rose-700 mt-1">Permanently remove all your tours, leads, and account data.</p>
+        <div class="bg-rose-500/5 rounded-2xl border border-rose-500/10 p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all hover:bg-rose-500/10 group/danger">
+           <div class="space-y-1">
+             <h4 class="text-base font-black text-rose-500 tracking-tight">Decommission Account</h4>
+             <p class="text-sm text-dim font-bold max-w-sm">Permanently wipe all tours, leads, and assets from our clusters. This action is terminal.</p>
            </div>
-           <button class="px-4 py-2 bg-rose-600 text-white text-sm font-medium rounded-lg hover:bg-rose-700 transition-colors shadow-sm" @click="showDeleteConfirm = true">
-             Delete Everything
+           <button class="btn !bg-rose-500 !text-white !border-rose-400 !shadow-[0_10px_30px_-10px_rgba(244,63,94,0.4)] hover:!scale-105 active:!scale-95 !px-8 !py-4" @click="showDeleteConfirm = true">
+             Confirm Deletion
            </button>
         </div>
       </section>

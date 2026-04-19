@@ -19,7 +19,7 @@
     <section v-else class="flex flex-col gap-8">
       
       <!-- EMPTY STATE / ONBOARDING (If 0 spaces) -->
-      <div v-if="!hasSpaces" class="relative group mx-auto max-w-2xl w-full">
+      <div v-if="!hasSpaces" class="relative group mx-auto max-w-2xl w-full mt-16 md:mt-24">
         <!-- iOS-style futuristic glass card -->
         <div class="absolute -inset-0.5 bg-main/5 blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000"></div>
         
@@ -55,13 +55,13 @@
           </div>
 
           <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
-            <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-4 !rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Start Creating
             </button>
-            <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-4 !rounded-2xl hover:bg-surface active:scale-95 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              Discover
+            <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              My Portfolio
             </button>
           </div>
         </div>
@@ -77,7 +77,7 @@
             <p class="text-bg/60 text-sm max-w-sm">Capture, create, and share immersive experiences that turn prospects into clients.</p>
           </div>
           <div class="flex gap-4 z-10 w-full sm:w-auto mt-2 sm:mt-0">
-            <button @click="navigateTo('/app/create')" class="btn bg-bg text-main w-full sm:w-auto px-8 !py-4 text-[15px] !rounded-xl">
+            <button @click="navigateTo('/app/create')" class="btn btn-secondary !bg-bg !text-main !border-none w-full sm:w-auto px-8 !py-4 text-[15px] shadow-2xl">
                + Create Tour
             </button>
           </div>

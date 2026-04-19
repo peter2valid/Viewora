@@ -17,11 +17,11 @@
       <div class="flex items-center gap-3">
         <button 
           v-if="canCapture"
-          class="btn btn-secondary !px-5 !py-2.5 !rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg"
+          class="btn btn-secondary shadow-lg"
           @click="exportLeads"
           :disabled="!filteredLeads.length"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export Dataset
         </button>
       </div>
@@ -51,7 +51,7 @@
           </div>
         </div>
 
-        <NuxtLink to="/app/billing" class="btn btn-primary w-full !py-4 !rounded-2xl text-xs relative z-10">
+        <NuxtLink to="/app/billing" class="btn btn-primary w-full !py-5 shadow-2xl">
           Upgrade to Viewora Plus
         </NuxtLink>
       </div>

@@ -19,13 +19,13 @@
            v-if="space?.is_published && space.slug" 
            :href="`/p/${space.slug}`" 
            target="_blank" 
-           class="btn btn-secondary !rounded-xl"
+           class="btn btn-secondary shadow-sm"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           View Live
         </a>
         <button 
-          class="btn btn-primary !rounded-xl"
+          class="btn btn-primary shadow-2xl"
           @click="handleTogglePublish" 
           :disabled="publishing"
         >
@@ -61,8 +61,8 @@
           <p class="text-sm font-semibold text-emerald-800">Your tour is now live</p>
           <p class="text-xs text-emerald-700 mt-0.5">Share it now to start getting client interest.</p>
         </div>
-        <button class="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-800 transition-colors" @click="activeTab = 'share'; postPublishPrompt = false">
-          Share Live Tour
+        <button class="btn btn-primary !bg-emerald-700 !border-emerald-700 shadow-xl" @click="activeTab = 'share'; postPublishPrompt = false">
+           Share Live Tour
         </button>
       </div>
 

@@ -2,40 +2,43 @@
   <div class="h-full flex flex-col items-center justify-center animate-in fade-in duration-300">
     
     <!-- STEP 1: Type Selection -->
-    <div v-if="step === 1" class="w-full max-w-[900px] mt-12 px-4 sm:px-6 flex flex-col items-center">
-      <div class="text-center mb-10 w-full">
-        <h1 class="text-3xl font-bold text-main mb-2 tracking-tight">What are you creating?</h1>
-        <p class="text-base text-dim">Choose the type of tour to get the best setup</p>
+    <div v-if="step === 1" class="w-full max-w-[900px] mt-6 md:mt-12 px-4 flex flex-col items-center">
+      <div class="text-center mb-8 md:mb-12 w-full">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-main mb-3 md:mb-4 tracking-tighter">What are you creating?</h1>
+        <p class="text-sm md:text-base text-dim max-w-lg mx-auto">Choose the type of tour to get the best setup</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 w-full max-w-[800px] mx-auto">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 w-full max-w-[800px] mx-auto min-h-[320px]">
         <div 
           v-for="option in typeOptions" 
           :key="option.id"
-          class="flex items-center h-[160px] p-6 rounded-2xl transition-all duration-300 cursor-pointer card-glass"
+          class="flex items-center p-5 md:p-8 rounded-[2rem] transition-all duration-500 cursor-pointer border border-white/5 bg-[#0a0a0b]/60 backdrop-blur-2xl hover:bg-[#111113] group relative overflow-hidden"
           :class="[
             selectedType === option.id 
-              ? 'border-main ring-1 ring-main shadow-lg' 
-              : 'border-border'
+              ? 'ring-1 ring-zinc-400 bg-[#121214] shadow-[0_0_40px_rgba(255,255,255,0.03)] scale-[1.02]' 
+              : 'hover:border-white/10'
           ]"
           @click="selectedType = option.id"
         >
+          <!-- Selected Glow -->
+          <div v-if="selectedType === option.id" class="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none"></div>
+
           <div 
-            class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300"
-            :class="selectedType === option.id ? 'bg-main text-bg' : 'bg-surface-alt text-dim group-hover:bg-surface border border-border'"
+            class="w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 z-10"
+            :class="selectedType === option.id ? 'bg-white text-black' : 'bg-white/5 text-zinc-400 group-hover:bg-white/10 group-hover:text-white'"
           >
             <!-- Property -->
-            <svg v-if="option.id === 'property'" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+            <svg v-if="option.id === 'property'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
             <!-- Car -->
-            <svg v-else-if="option.id === 'car'" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+            <svg v-else-if="option.id === 'car'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
             <!-- Business -->
-            <svg v-else-if="option.id === 'business'" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+            <svg v-else-if="option.id === 'business'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
             <!-- Multiple -->
-            <svg v-else-if="option.id === 'multiple'" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="14" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="14" width="8" height="8" rx="2" ry="2"/><rect x="14" y="14" width="8" height="8" rx="2" ry="2"/></svg>
+            <svg v-else-if="option.id === 'multiple'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="14" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="14" width="8" height="8" rx="2" ry="2"/><rect x="14" y="14" width="8" height="8" rx="2" ry="2"/></svg>
           </div>
-          <div class="ml-5 flex-1">
-            <h3 class="text-[17px] font-bold text-main leading-tight">{{ option.title }}</h3>
-            <p class="text-[14px] text-dim mt-1.5 leading-snug">{{ option.description }}</p>
+          <div class="ml-5 md:ml-6 flex-1 z-10">
+            <h3 class="text-base md:text-xl font-bold text-white leading-tight">{{ option.title }}</h3>
+            <p class="text-[13px] md:text-sm text-zinc-500 mt-1.5 leading-snug group-hover:text-zinc-400 transition-colors">{{ option.description }}</p>
           </div>
         </div>
       </div>

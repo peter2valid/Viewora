@@ -64,16 +64,24 @@
         <!-- Custom Bar Chart Visualization -->
         <div class="h-[240px] flex items-end gap-2 px-2 relative group/chart">
           <!-- Empty State Overlay -->
-          <div v-if="chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-surface/50 backdrop-blur-md z-20 rounded-lg">
-             <div class="w-12 h-12 bg-surface-alt text-dim/30 rounded-xl flex items-center justify-center mb-3 border border-border shadow-inner">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
+          <div v-if="!pending && chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-xl z-20 rounded-2xl border border-border/50">
+             <div class="relative mb-6">
+                <div class="w-16 h-16 bg-surface-alt text-main rounded-2xl flex items-center justify-center border border-border shadow-inner relative z-10">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="opacity-20"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
+                </div>
+                <div class="absolute -inset-4 bg-main/5 blur-2xl rounded-full"></div>
              </div>
-             <p class="text-sm font-bold text-main tracking-tight">No data available</p>
-             <p class="text-xs text-dim mt-1">Share your tours to start gathering data.</p>
+             <p class="text-base font-black text-main tracking-tight">Signal Loss Detected</p>
+             <p class="text-[11px] text-dim font-bold mt-1 uppercase tracking-widest opacity-60">Waiting for inbound telemetry...</p>
+          </div>
+
+          <!-- Loading State Overlay -->
+          <div v-if="pending" class="absolute inset-0 flex flex-col items-center justify-center bg-surface/50 backdrop-blur-sm z-20 rounded-2xl">
+             <div class="w-8 h-8 border-4 border-main/10 border-t-main rounded-full animate-spin"></div>
           </div>
 
           <!-- Y Axis (Minimal) -->
-          <div class="absolute -left-2 inset-y-0 w-6 flex flex-col justify-between text-[10px] font-bold text-dim/30 pointer-events-none pr-2 text-right">
+          <div class="absolute -left-2 inset-y-0 w-8 flex flex-col justify-between text-[10px] font-black text-dim dark:text-dim/30 pointer-events-none pr-3 text-right">
             <span>{{ maxY }}</span>
             <span>0</span>
           </div>

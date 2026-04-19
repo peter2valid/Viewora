@@ -3,10 +3,10 @@
     :to="to"
     class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 group"
     :class="isActive
-      ? 'bg-white/10 text-white'
-      : 'text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/60'"
+      ? 'bg-main text-bg shadow-lg'
+      : 'text-dim hover:text-main hover:bg-main/5 dark:text-zinc-400 dark:hover:text-zinc-50 dark:hover:bg-zinc-800/60'"
   >
-    <div v-html="iconSvg" class="flex items-center justify-center transition-colors" :class="isActive ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'"></div>
+    <div v-html="iconSvg" class="flex items-center justify-center transition-colors" :class="isActive ? 'text-bg' : 'text-dim group-hover:text-main'"></div>
     <span class="tracking-tight">{{ label }}</span>
   </NuxtLink>
 </template>

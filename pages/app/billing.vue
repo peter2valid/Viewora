@@ -83,60 +83,7 @@
         <button @click="scrollToPlans" class="btn btn-secondary !px-5 !py-2.5 !rounded-xl !text-amber-500 !border-amber-500/20 hover:!bg-amber-500 hover:!text-bg text-xs">Upgrade Fleet</button>
       </div>
 
-      <!-- ③ RECOMMENDED UPGRADE ──────────────────────────────────────────── -->
-      <section v-if="recommendedPlan" class="relative card-glass p-8 md:p-12 overflow-hidden shadow-2xl group border-main/20">
-        <div class="absolute top-0 right-0 w-96 h-96 bg-main/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none transition-transform group-hover:scale-110 duration-1000"></div>
-        <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-main/10 via-main to-main/10"></div>
 
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
-          <div class="flex-1">
-            <div class="flex items-center gap-3 mb-6">
-              <span class="px-4 py-1.5 bg-main text-bg text-[9px] font-black uppercase tracking-widest rounded-lg shadow-xl">Exclusive Accelerator</span>
-            </div>
-            <h3 class="text-4xl font-black mb-2 tracking-tighter text-main">Scale to {{ recommendedPlan.name }}</h3>
-            <p class="text-sm text-dim font-bold max-w-lg leading-relaxed">{{ planSubtitles[recommendedPlan.name] || 'Professional agency tools and increased quotas.' }}</p>
-
-            <!-- Value diff chips -->
-            <div class="flex flex-wrap gap-2 mt-8">
-              <span v-if="recommendedPlan.lead_capture_enabled && !plan?.lead_capture_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-alt text-main/60 text-xs font-black rounded-full border border-border">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                Lead capture
-              </span>
-              <span v-if="recommendedPlan.branding_customization_enabled && !plan?.branding_customization_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-alt text-main/60 text-xs font-black rounded-full border border-border">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                Agency branding
-              </span>
-              <span v-if="shootsDiff > 0" class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-alt text-main/60 text-xs font-black rounded-full border border-border">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                +{{ shootsDiff }} photo shoot{{ shootsDiff > 1 ? 's' : '' }} / mo
-              </span>
-            </div>
-          </div>
-
-          <!-- Price + CTA -->
-          <div class="flex flex-col items-start md:items-end gap-4 flex-shrink-0">
-            <div>
-              <div class="flex items-baseline gap-1">
-                <span class="text-3xl font-bold tabular-nums">
-                  KES {{ billingCycle === 'yearly'
-                    ? formatPricePM(recommendedPlan.price_yearly_kes)
-                    : recommendedPlan.price_monthly_kes.toLocaleString() }}
-                </span>
-                <span class="text-sm text-zinc-400">/mo</span>
-              </div>
-              <div v-if="billingCycle === 'yearly' && yearlySavingsPct > 0" class="text-xs text-emerald-400 mt-0.5 text-right">Saving {{ yearlySavingsPct }}% vs monthly</div>
-            </div>
-            <button
-              @click="subscribeTo(recommendedPlan.id)"
-              :disabled="subscribing === recommendedPlan.id"
-              class="btn bg-bg text-main border border-border shadow-sm"
-            >
-              <div v-if="subscribing === recommendedPlan.id" class="w-4 h-4 border-2 border-muted border-t-main rounded-full animate-spin"></div>
-              Upgrade to {{ recommendedPlan.name }} →
-            </button>
-          </div>
-        </div>
-      </section>
 
       <!-- ④ MONTHLY / YEARLY TOGGLE + ALL PLANS ───────────────────────────── -->
       <section ref="plansSection">
@@ -146,13 +93,13 @@
           <div class="flex items-center gap-3 p-1 bg-surface-alt rounded-xl border border-border">
             <button
               @click="billingCycle = 'monthly'"
-              class="px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200"
-              :class="billingCycle === 'monthly' ? 'bg-main text-bg shadow-sm' : 'text-dim hover:text-main'"
+              class="px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all duration-300"
+              :class="billingCycle === 'monthly' ? 'bg-main text-bg shadow-xl scale-[1.02]' : 'text-dim hover:text-main hover:bg-white/5'"
             >Monthly</button>
             <button
               @click="billingCycle = 'yearly'"
-              class="px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 flex items-center gap-2"
-              :class="billingCycle === 'yearly' ? 'bg-main text-bg shadow-sm' : 'text-dim hover:text-main'"
+              class="px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all duration-300 flex items-center gap-2"
+              :class="billingCycle === 'yearly' ? 'bg-main text-bg shadow-xl scale-[1.02]' : 'text-dim hover:text-main hover:bg-white/5'"
             >
               Yearly
               <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-extrabold rounded-md border border-emerald-500/30">Save 20%</span>
@@ -161,7 +108,7 @@
         </div>
 
         <!-- Plans grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div
             v-for="p in availablePlans"
             :key="p.id"
@@ -200,30 +147,26 @@
               </div>
             </div>
 
-            <ul class="space-y-3 mb-8 flex-1 text-[13px]">
-              <li class="flex items-center gap-2.5 text-dim">
-                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                <span class="font-bold text-main">{{ p.max_active_spaces }}</span> active tours
+            <ul class="space-y-2 mb-6 flex-1 text-[12px]">
+              <li class="flex items-center gap-2 text-dim">
+                <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="font-bold text-main">{{ p.max_active_spaces }}</span> tours
               </li>
-              <li class="flex items-center gap-2.5 text-dim">
-                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              <li class="flex items-center gap-2 text-dim">
+                <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
                 <span class="font-bold text-main">{{ formatBytes(p.max_storage_bytes) }}</span> storage
               </li>
-              <li v-if="p.lead_capture_enabled" class="flex items-center gap-2.5 text-dim">
-                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                Lead capture
+              <li v-if="p.lead_capture_enabled" class="flex items-center gap-2 text-dim">
+                <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+                Leads
               </li>
-              <li v-else class="flex items-center gap-2.5 text-dim/30">
-                <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                Lead capture
+              <li v-if="p.branding_customization_enabled" class="flex items-center gap-2 text-dim">
+                <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+                Branding
               </li>
-              <li v-if="p.branding_customization_enabled" class="flex items-center gap-2.5 text-dim">
-                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                Agency branding
-              </li>
-              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2.5 text-dim">
-                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                <span class="font-bold text-main">{{ SHOOT_ALLOWANCES[p.name] }}</span> photo shoots/mo
+              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2 text-dim">
+                <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="font-bold text-main">{{ SHOOT_ALLOWANCES[p.name] }}</span> shoots
               </li>
             </ul>
 
@@ -232,7 +175,7 @@
               v-if="p.price_monthly_kes > 0 && p.id !== plan?.id"
               @click="subscribeTo(p.id)"
               :disabled="subscribing === p.id"
-              class="btn w-full !rounded-xl"
+              class="btn btn-primary w-full !py-4"
             >
               <div v-if="subscribing === p.id" class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin mr-2 inline-block align-middle"></div>
               <span>{{ subscribing === p.id ? 'Redirecting...' : 'Get ' + p.name }}</span>
