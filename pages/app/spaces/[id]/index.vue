@@ -587,6 +587,8 @@
                </div>
                <p v-if="item.state !== 'failed'" class="text-[11px] text-zinc-500  mt-2">Processing in background. Your preview is already live.</p>
              </div>
+              </div>
+            </div>
            </div>
         </section>
       </div>

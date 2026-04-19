@@ -107,13 +107,16 @@
             <!-- Step 1 -->
             <div class="flex flex-col items-center group/step">
               <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <div class="absolute inset-0 bg-gradient-to-br from-main/10 via-transparent to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                   <div class="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center text-main border border-border group-hover/step:scale-110 group-hover/step:rotate-3 transition-transform duration-500 shadow-xl">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                   </div>
-                </div>
-                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg">1</div>
+                <NuxtImg 
+                  src="~/assets/images/Upload_Panoramas.png" 
+                  alt="Upload 360 Panoramas"
+                  class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
+                  loading="lazy"
+                  format="webp"
+                  quality="90"
+                />
+                <div class="absolute inset-0 bg-zinc-950/20 group-hover/step:bg-zinc-950/10 transition-colors"></div>
+                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg z-10">1</div>
               </div>
               <h3 class="text-lg font-bold text-main mb-2">Upload</h3>
               <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Drag your 360 photos and start building in minutes.</p>
@@ -122,13 +125,16 @@
             <!-- Step 2 -->
             <div class="flex flex-col items-center group/step">
               <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <div class="absolute inset-0 bg-gradient-to-br from-main/10 via-transparent to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                   <div class="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center text-main border border-border group-hover/step:scale-110 group-hover/step:-rotate-3 transition-transform duration-500 shadow-xl">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                   </div>
-                </div>
-                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg">2</div>
+                <NuxtImg 
+                  src="~/assets/images/Visual_Editor.png" 
+                  alt="Visual 360 Editor"
+                  class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
+                  loading="lazy"
+                  format="webp"
+                  quality="90"
+                />
+                <div class="absolute inset-0 bg-zinc-950/20 group-hover/step:bg-zinc-950/10 transition-colors"></div>
+                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg z-10">2</div>
               </div>
               <h3 class="text-lg font-bold text-main mb-2">Edit</h3>
               <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Connect scenes with hotspots and customize your experience.</p>
@@ -137,13 +143,16 @@
             <!-- Step 3 -->
             <div class="flex flex-col items-center group/step">
               <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <div class="absolute inset-0 bg-gradient-to-br from-main/10 via-transparent to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                   <div class="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center text-main border border-border group-hover/step:scale-110 transition-transform duration-500 shadow-xl">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                   </div>
-                </div>
-                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg">3</div>
+                <NuxtImg 
+                  src="~/assets/images/Publish_Virtual_Tour.png" 
+                  alt="Publish and Share anywhere"
+                  class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
+                  loading="lazy"
+                  format="webp"
+                  quality="85"
+                />
+                <div class="absolute inset-0 bg-zinc-950/20 group-hover/step:bg-zinc-950/10 transition-colors"></div>
+                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg z-10">3</div>
               </div>
               <h3 class="text-lg font-bold text-main mb-2">Publish</h3>
               <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Publish and share your tour in seconds with your audience.</p>
@@ -162,7 +171,6 @@
             </button>
           </div>
         </div>
-      </div>
 
       <!-- Empty State: search results -->
       <div v-else-if="!filteredSpaces.length && search" class="flex-1 flex flex-col items-center justify-center text-center p-12">
