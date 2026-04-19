@@ -6,34 +6,48 @@
         <h1 class="text-2xl font-bold tracking-tight text-main">Tours</h1>
         <p class="text-sm text-dim mt-1">Manage and organize your virtual tours.</p>
       </div>
+
       <!-- Filters & Actions -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div class="flex items-center gap-2 p-1 bg-surface-alt border border-border rounded-xl">
+      <div class="flex flex-col md:flex-row md:items-center gap-4">
+        <!-- View Toggle: Panoee-style Sliding Segmented Control -->
+        <div v-if="spaces.length > 0 || search" class="relative flex items-center p-1 bg-surface-alt border border-border rounded-xl w-24 h-10 overflow-hidden">
+          <!-- Sliding Backdrop -->
+          <div 
+            class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-main rounded-lg shadow-sm transition-all duration-300 ease-out"
+            :style="{ transform: viewMode === 'grid' ? 'translateX(0)' : 'translateX(100%)' }"
+          ></div>
+          
           <button 
-            v-for="f in ['all', 'published', 'draft']" 
-            :key="f"
-            @click="filterStatus = f"
-            class="px-5 py-1.5 text-[11px] font-extrabold uppercase tracking-widest rounded-lg transition-all duration-200"
-            :class="filterStatus === f ? 'bg-main text-bg shadow-lg' : 'text-dim hover:text-main'"
+            @click="viewMode = 'grid'"
+            class="relative z-10 flex-1 flex items-center justify-center transition-colors duration-300"
+            :class="viewMode === 'grid' ? 'text-bg' : 'text-dim hover:text-main'"
+            title="Grid View"
           >
-            {{ f }}
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </button>
+          
+          <button 
+            @click="viewMode = 'list'"
+            class="relative z-10 flex-1 flex items-center justify-center transition-colors duration-300"
+            :class="viewMode === 'list' ? 'text-bg' : 'text-dim hover:text-main'"
+            title="List View"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           </button>
         </div>
-        
-        <div class="flex items-center gap-3">
-          <button 
-            @click="navigateTo('/app/create')"
-            class="btn btn-primary gap-2 !px-8 shadow-2xl"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Create Tour
-          </button>
-        </div>
+
+        <button 
+          @click="navigateTo('/app/create')"
+          class="btn btn-primary gap-2 !px-8 shadow-2xl"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create Tour
+        </button>
       </div>
     </header>
 
-    <!-- Toolbar -->
-    <div @click="$refs.searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-1 !rounded-2xl border border-border shadow-sm mb-12 cursor-pointer group/search hover:border-main/20 transition-colors">
+    <!-- Toolbar (Only if we have spaces) -->
+    <div v-if="spaces.length > 0 || search" @click="$refs.searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-1 !rounded-2xl border border-border shadow-sm mb-12 cursor-pointer group/search hover:border-main/20 transition-colors">
       <div class="relative w-full sm:w-80 group h-12 flex items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="absolute left-4 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input 
@@ -58,7 +72,7 @@
       </div>
     </div>
 
-    <!-- Grid -->
+    <!-- Loading State -->
     <div v-if="pending" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       <div v-for="n in 4" :key="n" class="h-64 card-glass overflow-hidden animate-pulse">
          <div class="h-2/3 bg-surface-alt"></div>
@@ -69,125 +83,209 @@
       </div>
     </div>
 
-    <!-- Space cards -->
+    <!-- Main Content Area -->
     <template v-else>
-      <!-- Empty State: no spaces at all -->
-      <div v-if="!filteredSpaces.length && !search" class="col-span-full py-12 md:py-24">
-        <div class="relative group mx-auto max-w-2xl px-4 w-full">
-          <!-- iOS-style futuristic glass card -->
-          <div class="absolute -inset-1 bg-gradient-to-tr from-main/20 via-transparent to-main/20 blur-3xl opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-          
-          <div class="relative card-glass p-12 sm:p-20 !rounded-[4rem] border-main/5 shadow-2xl flex flex-col items-center text-center overflow-hidden">
-            <!-- Animated background accent -->
-            <div class="absolute top-0 right-0 w-64 h-64 bg-main/5 blur-[100px] -translate-y-1/2 translate-x-1/2 rounded-full"></div>
-            
-            <div class="mb-10 relative">
-              <div class="w-24 h-24 rounded-[2rem] bg-surface-alt border border-border flex items-center justify-center text-main shadow-inner relative z-10 overflow-hidden group/icon">
-                <div class="absolute inset-0 bg-main/5 opacity-0 group-hover/icon:opacity-100 transition-opacity"></div>
-                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="relative z-20 group-hover/icon:scale-110 transition-transform duration-500"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+      <!-- Empty State: Panoee-style Dashboard -->
+      <div v-if="!filteredSpaces.length && !search" class="flex-1 py-12 lg:py-20 animate-in fade-in zoom-in-95 duration-700">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col items-center">
+          <!-- Main Welcome -->
+          <div class="text-center mb-16 relative">
+            <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-main/5 blur-[120px] rounded-full -z-10"></div>
+            <h2 class="text-4xl md:text-5xl font-black text-main mb-6 tracking-tight">Welcome to Viewora</h2>
+            <p class="text-lg text-dim font-bold max-w-2xl mx-auto mb-10 leading-relaxed">
+              Upload 360 photos and build your immersive project in minutes.
+            </p>
+            <button @click="navigateTo('/app/create')" class="btn btn-primary !px-12 !py-6 !rounded-[2rem] text-lg shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] active:scale-95 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Your First Tour
+          </button>
+        </div>
+          </div>
+
+          <!-- 3-Step Process Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full mb-16 relative">
+            <!-- Step 1 -->
+            <div class="flex flex-col items-center group/step">
+              <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
+                <div class="absolute inset-0 bg-gradient-to-br from-main/10 via-transparent to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                   <div class="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center text-main border border-border group-hover/step:scale-110 group-hover/step:rotate-3 transition-transform duration-500 shadow-xl">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                   </div>
+                </div>
+                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg">1</div>
               </div>
-              <!-- Orbitals -->
-              <div class="absolute -inset-4 border border-main/10 rounded-full animate-[spin_10s_linear_infinite]"></div>
-              <div class="absolute -inset-8 border border-main/5 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
+              <h3 class="text-lg font-bold text-main mb-2">Upload</h3>
+              <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Drag your 360 photos and start building in minutes.</p>
             </div>
 
-            <h2 class="text-4xl font-black text-main mb-4 tracking-tighter">Expand Your Reality</h2>
-            <p class="text-dim mb-12 font-bold text-lg max-w-sm leading-relaxed">Your portfolio is currently a clean slate. Start capturing spaces to build your brand.</p>
-            
-            <button @click="navigateTo('/app/create')" class="btn btn-primary !px-12 !py-6 !rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] active:scale-95 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Create First Tour
+            <!-- Step 2 -->
+            <div class="flex flex-col items-center group/step">
+              <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
+                <div class="absolute inset-0 bg-gradient-to-br from-main/10 via-transparent to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                   <div class="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center text-main border border-border group-hover/step:scale-110 group-hover/step:-rotate-3 transition-transform duration-500 shadow-xl">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                   </div>
+                </div>
+                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg">2</div>
+              </div>
+              <h3 class="text-lg font-bold text-main mb-2">Edit</h3>
+              <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Connect scenes with hotspots and customize your experience.</p>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="flex flex-col items-center group/step">
+              <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
+                <div class="absolute inset-0 bg-gradient-to-br from-main/10 via-transparent to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                   <div class="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center text-main border border-border group-hover/step:scale-110 transition-transform duration-500 shadow-xl">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                   </div>
+                </div>
+                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg">3</div>
+              </div>
+              <h3 class="text-lg font-bold text-main mb-2">Publish</h3>
+              <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Publish and share your tour in seconds with your audience.</p>
+            </div>
+          </div>
+
+          <!-- Secondary Actions -->
+          <div class="flex flex-col sm:flex-row items-center gap-6">
+            <button @click="generateDemoTour" :disabled="creatingDemo" class="flex items-center gap-3 px-8 py-4 bg-surface-alt border border-border rounded-2xl text-dim font-bold hover:text-main hover:bg-surface transition-all disabled:opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              {{ creatingDemo ? 'Creating...' : 'Watch demo tour' }}
+            </button>
+            <button class="flex items-center gap-3 px-8 py-4 bg-surface-alt border border-border rounded-2xl text-dim font-bold hover:text-main hover:bg-surface transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              Read Tutorial
             </button>
           </div>
         </div>
       </div>
-      <!-- Empty State: no search results -->
-      <div v-else-if="!filteredSpaces.length && search" class="col-span-full py-16 flex flex-col items-center justify-center text-center">
-        <p class="text-sm font-medium text-zinc-500  mb-2">No spaces match <span class="text-zinc-900 ">"{{ search }}"</span></p>
-        <button class="text-sm font-medium text-zinc-500  hover:text-zinc-900 " @click="search = ''">Clear search</button>
+
+      <!-- Empty State: search results -->
+      <div v-else-if="!filteredSpaces.length && search" class="flex-1 flex flex-col items-center justify-center text-center p-12">
+        <div class="w-16 h-16 rounded-2xl bg-surface-alt border border-border flex items-center justify-center text-dim mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <p class="text-base font-bold text-main mb-2">No results for "{{ search }}"</p>
+        <button class="text-sm font-bold text-dim hover:text-main underline decoration-2 underline-offset-4" @click="search = ''">Reset filters</button>
       </div>
 
-      <div
-        v-for="space in filteredSpaces"
-        :key="space.id" 
-        class="group relative flex flex-col h-[280px] bg-card rounded-2xl border border-border overflow-hidden hover:border-text-dim hover:shadow-lg transition-all duration-300 cursor-pointer"
-        @click="navigateTo(`/app/spaces/${space.id}`)"
-      >
-        <!-- Thumbnail -->
-        <div class="h-2/3 w-full bg-surface-alt relative overflow-hidden border-b border-border">
-          <div 
-            v-if="space.cover_image_url"
-            class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
-            :style="{ backgroundImage: `url(${space.cover_image_url})` }"
-          ></div>
-          <div 
-            v-else
-            :class="['w-full h-full flex items-center justify-center bg-surface-alt transition-all duration-500 group-hover:bg-surface']"
-          >
-             <svg v-if="!space.is_published" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-dim/20"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <!-- Populated State: Grid View -->
+      <div v-else-if="viewMode === 'grid'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div
+          v-for="space in filteredSpaces"
+          :key="space.id" 
+          class="group relative flex flex-col h-[300px] bg-card rounded-2xl border border-border overflow-hidden hover:border-main/50 hover:shadow-2xl transition-all duration-500 cursor-pointer"
+          @click="navigateTo(`/app/spaces/${space.id}`)"
+        >
+          <!-- Thumbnail -->
+          <div class="h-[180px] w-full bg-surface-alt relative overflow-hidden">
+            <div 
+              v-if="space.cover_image_url"
+              class="w-full h-full bg-cover bg-center group-hover:scale-110 transition-transform duration-1000"
+              :style="{ backgroundImage: `url(${space.cover_image_url})` }"
+            ></div>
+            <div v-else class="w-full h-full flex items-center justify-center bg-surface-alt group-hover:bg-surface transition-colors duration-500 text-dim/20">
+               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            </div>
+            
+            <!-- Badges -->
+            <div class="absolute top-4 left-4 flex gap-2">
+              <span :class="['px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-2xl border backdrop-blur-md transition-all', space.is_published ? 'bg-emerald-500 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
+                {{ space.is_published ? 'Published' : 'Draft' }}
+              </span>
+            </div>
+
+            <!-- Overlay Actions -->
+            <div class="absolute inset-0 bg-bg/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4 backdrop-blur-[2px]">
+               <button class="w-11 h-11 flex items-center justify-center bg-surface border border-border rounded-xl text-main shadow-2xl hover:bg-main hover:text-bg transition-all duration-300 active:scale-90" @click.stop="navigateTo(`/app/spaces/${space.id}`)" title="Edit">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+               </button>
+               <a v-if="space.is_published && space.slug" :href="`/p/${space.slug}`" target="_blank" class="w-11 h-11 flex items-center justify-center bg-surface border border-border rounded-xl text-main shadow-2xl hover:bg-main hover:text-bg transition-all duration-300 active:scale-90" @click.stop title="View Live">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+               </a>
+            </div>
           </div>
 
-          <div class="absolute top-4 left-4 flex gap-2">
-            <span 
-              :class="['px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-widest shadow-lg border backdrop-blur-md transition-all', 
-                       space.is_published 
-                         ? 'bg-emerald-500 text-bg border-emerald-400' 
-                         : 'bg-surface-alt text-dim border-border']"
-            >
-              {{ space.is_published ? 'Published' : 'Draft' }}
-            </span>
-          </div>
-
-          <!-- Quick Actions (Hover) -->
-          <div class="absolute inset-0 bg-main/5 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4 backdrop-blur-[2px]">
-             <button 
-               class="w-11 h-11 flex items-center justify-center bg-surface border border-border rounded-xl text-dim shadow-xl hover:bg-main hover:text-bg hover:border-main transition-all duration-300 active:scale-90"
-               @click.stop="navigateTo(`/app/spaces/${space.id}`)"
-               title="Edit"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-             </button>
-             <a 
-               v-if="space.is_published && space.slug"
-               :href="`/p/${space.slug}`"
-               target="_blank"
-               class="w-11 h-11 flex items-center justify-center bg-surface border border-border rounded-xl text-dim shadow-xl hover:bg-main hover:text-bg hover:border-main transition-all duration-300 active:scale-90"
-               @click.stop
-               title="View Live"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-             </a>
-          </div>
-        </div>
-
-        <!-- Body -->
-        <div class="flex-1 p-4 flex flex-col justify-between">
-          <h3 class="text-sm font-semibold text-main truncate" :title="space.title">{{ space.title }}</h3>
-          <div class="flex items-center justify-between mt-auto">
-            <span class="text-xs font-medium text-dim flex items-center gap-1.5">
-              {{ formatDate(space.created_at) }}
-            </span>
-
-            <!-- More menu -->
-            <div class="relative">
-              <button 
-                class="p-1 hover:bg-surface-alt rounded text-dim hover:text-main transition-colors"
-                @click.stop.prevent="toggleDropdown(space.id, $event)"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
-              </button>
-              <div 
-                v-if="activeDropdown === space.id" 
-                class="absolute bottom-full right-0 mb-2 w-36 bg-card text-main rounded-lg shadow-lg border border-border p-1 z-20 flex flex-col"
-              >
-                <button class="w-full text-left px-3 py-1.5 text-sm font-medium hover:bg-surface-alt rounded-md" @click.stop.prevent="handleTogglePublish(space)">
-                  {{ space.is_published ? 'Unpublish' : 'Publish' }}
-                </button>
-                <button class="w-full text-left px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-500/10 rounded-md" @click.stop.prevent="confirmDelete(space)">
-                  Delete
+          <!-- Info -->
+          <div class="flex-1 p-5 flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-black text-main truncate mb-1" :title="space.title">{{ space.title }}</h3>
+              <p class="text-[10px] font-bold text-dim/60 uppercase tracking-widest">{{ formatDate(space.created_at) }}</p>
+            </div>
+            
+            <div class="flex items-center justify-between mt-4">
+              <div class="flex items-center gap-3">
+                <button class="p-1.5 hover:bg-surface-alt rounded-lg text-dim hover:text-main transition-colors" @click.stop="handleTogglePublish(space)" title="Toggle Status">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
+              <button class="p-1.5 hover:bg-rose-500/10 rounded-lg text-dim hover:text-rose-500 transition-colors" @click.stop="confirmDelete(space)" title="Delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Populated State: List View (Grey Futuristic iOS Aesthetic) -->
+      <div v-else class="flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto w-full">
+        <!-- List Header -->
+        <div class="px-8 py-5 flex items-center text-[10px] font-black uppercase tracking-[0.3em] text-dim/30">
+          <div class="flex-1">Domain & Project</div>
+          <div class="w-40 hidden md:block">Technology</div>
+          <div class="w-32 hidden md:block">Status</div>
+          <div class="w-48 hidden lg:block text-right pr-20">Last Sync</div>
+          <div class="w-32 text-right invisible">Actions</div>
+        </div>
+        
+        <div
+          v-for="space in filteredSpaces"
+          :key="space.id"
+          class="group px-6 py-4 flex items-center gap-6 bg-surface-alt/10 hover:bg-surface-alt/40 border border-border/20 hover:border-main/20 rounded-[1.25rem] transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:-translate-y-0.5"
+          @click="navigateTo(`/app/spaces/${space.id}`)"
+        >
+          <!-- Premium Compact Thumb -->
+          <div class="w-14 h-14 rounded-2xl bg-surface-alt border border-border/40 overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-700">
+             <div v-if="space.cover_image_url" class="w-full h-full bg-cover bg-center" :style="{ backgroundImage: `url(${space.cover_image_url})` }"></div>
+             <div v-else class="w-full h-full flex items-center justify-center text-dim/10">
+               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+             </div>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <h3 class="text-sm font-black text-main truncate group-hover:text-main transition-colors flex items-center gap-2">
+              {{ space.title }}
+              <svg v-if="space.is_published" class="text-emerald-500 w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+            </h3>
+            <p class="text-[10px] font-bold text-dim/40 mt-1 tracking-tight uppercase">viewora.com/p/{{ space.slug || space.id.slice(0,8) }}</p>
+          </div>
+
+          <div class="w-40 hidden md:block">
+            <span class="text-[9px] font-black text-main/60 uppercase px-3 py-1 bg-main/[0.03] rounded-full border border-main/10 tracking-widest shadow-sm">360 WebXR</span>
+          </div>
+
+          <div class="w-32 hidden md:block">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-alt/50 rounded-xl border border-border/20 group-hover:bg-main/5 transition-colors">
+              <div :class="['w-1.5 h-1.5 rounded-full', space.is_published ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-dim/20']"></div>
+              <span class="text-[9px] font-black uppercase tracking-widest text-main/60">{{ space.is_published ? 'Live' : 'Draft' }}</span>
+            </div>
+          </div>
+
+          <div class="w-48 hidden lg:block text-right pr-20">
+            <span class="text-[11px] font-bold text-dim/60 tracking-tight">{{ formatDate(space.created_at) }}</span>
+          </div>
+
+          <div class="w-32 flex justify-end gap-1.5">
+            <button class="w-10 h-10 flex items-center justify-center bg-surface-alt/50 hover:bg-main hover:text-bg border border-border/20 rounded-xl transition-all duration-300 shadow-sm" @click.stop="navigateTo(`/app/spaces/${space.id}`)" title="Edit">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center bg-surface-alt/50 hover:bg-rose-500 hover:text-white border border-border/20 rounded-xl transition-all duration-300 shadow-sm" @click.stop="confirmDelete(space)" title="Delete">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -234,6 +332,7 @@ const { spaces, pending, error, fetchSpaces, createSpace, deleteSpace, publishSp
 
 const search = ref('')
 const sortBy = ref<'newest' | 'oldest' | 'name'>('newest')
+const viewMode = ref<'grid' | 'list'>('grid')
 const activeDropdown = ref<string | null>(null)
 
 

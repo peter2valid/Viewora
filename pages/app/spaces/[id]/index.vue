@@ -35,22 +35,24 @@
       </div>
     </header>
 
-    <!-- Navigation Tabs -->
-    <div class="flex items-center gap-10 overflow-x-auto border-b border-border mb-8 scrollbar-hide">
+    <!-- Navigation Tabs (Panoee-style Essential Menu) -->
+    <div class="flex items-center gap-2 overflow-x-auto bg-surface-alt p-1.5 rounded-2xl border border-border mb-10 scrollbar-hide w-max mx-auto md:mx-0 shadow-sm">
       <button 
         v-for="tab in editorTabs" 
         :key="tab.id" 
-        class="flex items-center py-4 border-b-2 text-sm font-bold transition-all relative whitespace-nowrap group"
+        class="flex items-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all relative whitespace-nowrap group"
         :class="[
-          activeTab === tab.id ? 'border-main text-main' : 'border-transparent text-dim',
-          tab.disabled ? 'opacity-30 cursor-not-allowed' : 'hover:text-main'
+          activeTab === tab.id ? 'bg-main text-bg shadow-[0_10px_20px_-5px_rgba(0,0,0,0.5)]' : 'text-dim hover:text-main',
+          tab.disabled ? 'opacity-30 cursor-not-allowed' : ''
         ]"
         :disabled="tab.disabled"
         @click="selectTab(tab.id, tab.disabled)"
       >
-        {{ tab.label }}
-        <div v-if="activeTab === tab.id" class="absolute -bottom-px left-0 right-0 h-0.5 bg-main rounded-t-full"></div>
-        <span v-if="tab.disabled" class="ml-2 text-[9px] font-black uppercase tracking-widest bg-surface-alt text-dim/50 px-2 py-0.5 rounded-lg border border-border">Locked</span>
+        <div class="flex items-center gap-3">
+          <!-- Subtle icon logic could go here -->
+          <span>{{ tab.label }}</span>
+        </div>
+        <span v-if="tab.disabled" class="ml-2 text-[8px] font-black bg-surface text-dim/40 px-1.5 py-0.5 rounded-md border border-border/50">Locked</span>
       </button>
     </div>
 
@@ -143,25 +145,31 @@
       <!-- DETAILS TAB -->
       <div v-if="activeTab === 'details'" class="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
         <form @submit.prevent="handleUpdateDetails" class="space-y-6">
-          <section class="card-glass overflow-hidden shadow-2xl">
-            <div class="p-6 border-b border-border bg-surface-alt/30">
-              <h3 class="text-base font-bold text-main tracking-tight">Basic Information</h3>
-            </div>
-            <div class="p-6 space-y-6">
-              <div class="flex flex-col gap-2">
-                <label class="text-[11px] font-black uppercase tracking-widest text-dim ml-1">Tour Title</label>
-                <input v-model="detailsForm.title" type="text" class="input-glass w-full px-5 py-3 text-sm font-bold" required placeholder="e.g. Modern Minimalist Loft" />
+          <section class="card-glass overflow-hidden shadow-2xl border-main/5">
+            <div class="p-8 border-b border-border bg-surface-alt/30 flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-black text-main tracking-tight">Global Settings</h3>
+                <p class="text-[10px] font-bold text-dim uppercase tracking-widest mt-1">Tour Identity & Core Config</p>
               </div>
-              <div class="flex flex-col gap-2">
-                <label class="text-[11px] font-black uppercase tracking-widest text-dim ml-1">Custom Slug</label>
-                <div class="flex items-center gap-3">
-                   <span class="text-xs text-dim/50 font-mono bg-surface-alt px-3 py-1 rounded-lg border border-border">viewora.com/p/</span>
-                   <input v-model="detailsForm.slug" type="text" class="input-glass flex-1 px-4 py-2.5 text-sm font-bold" placeholder="unique-space-id" />
+              <div class="w-10 h-10 rounded-xl bg-main/5 border border-main/10 flex items-center justify-center text-main">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </div>
+            </div>
+            <div class="p-8 space-y-8">
+              <div class="flex flex-col gap-2.5">
+                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60 ml-1">Project Name</label>
+                <input v-model="detailsForm.title" type="text" class="input-glass w-full px-6 py-4 text-sm font-black border-border/40 focus:border-main/20" required placeholder="e.g. Modern Minimalist Loft" />
+              </div>
+              <div class="flex flex-col gap-2.5">
+                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60 ml-1">Custom Link URL</label>
+                <div class="flex items-center gap-0 overflow-hidden rounded-2xl border border-border/40 bg-surface-alt/50">
+                   <span class="px-5 py-4 text-[11px] font-bold text-dim border-r border-border/40 bg-surface-alt flex-shrink-0">viewora.com/p/</span>
+                   <input v-model="detailsForm.slug" type="text" class="bg-transparent flex-1 px-5 py-4 text-sm font-black outline-none placeholder:text-dim/30" placeholder="unique-space-id" />
                 </div>
               </div>
-              <div class="flex flex-col gap-2">
-                <label class="text-[11px] font-black uppercase tracking-widest text-dim ml-1">Description</label>
-                <textarea v-model="detailsForm.description" class="input-glass w-full px-4 py-3 text-sm font-bold resize-none min-h-[120px]" placeholder="Brief overview of the property..."></textarea>
+              <div class="flex flex-col gap-2.5">
+                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60 ml-1">Tour Description</label>
+                <textarea v-model="detailsForm.description" class="input-glass w-full px-6 py-4 text-sm font-bold resize-none min-h-[140px] border-border/40 focus:border-main/20" placeholder="Brief overview of the property..."></textarea>
               </div>
             </div>
           </section>
@@ -335,63 +343,77 @@
         </div>
       </div>
 
-      <!-- 360 STUDIO TAB -->
-      <div v-if="activeTab === '360'" class="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <section class="card-glass overflow-hidden p-6 md:p-8 shadow-2xl relative">
-           <div class="absolute top-0 right-0 w-96 h-96 bg-main/5 blur-[120px] pointer-events-none"></div>
-           <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 relative z-10">
-              <div class="space-y-1">
-                <h3 class="text-xl font-black text-main tracking-tight">360 Tour Builder</h3>
-                <p class="text-sm text-dim font-bold">Upload or replace panoramas to build your virtual walkthrough.</p>
+      <!-- EDITOR TAB (The 'Essential' Heart) -->
+      <div v-if="activeTab === '360'" class="max-w-6xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        
+        <!-- Scene Management (Moved to top, Panoee-style) -->
+        <div class="card-glass p-1.5 !rounded-3xl border-main/5 shadow-2xl bg-surface-alt/5 overflow-hidden relative group">
+          <div class="absolute inset-0 bg-gradient-to-r from-main/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 relative z-10">
+            <div class="p-6 lg:p-8 flex-shrink-0 lg:border-r border-border/40">
+              <div class="flex items-center gap-4 mb-2">
+                <h3 class="text-lg font-black text-main tracking-tight">Essential Scenes</h3>
+                <span class="px-2 py-0.5 rounded-md bg-main text-bg text-[10px] font-black">{{ sceneChips.length }}</span>
               </div>
-              <label class="btn btn-primary !px-8 !py-5 cursor-pointer !rounded-2xl group overflow-hidden relative">
-                <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-                <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
-                <svg v-if="!hasPanorama" class="w-5 h-5 relative z-10" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span class="relative z-10 font-black uppercase tracking-widest text-xs">Upload Panorama</span>
-              </label>
-           </div>
+              <p class="text-[10px] font-bold text-dim uppercase tracking-[0.2em]">Walkthrough Portal Management</p>
+            </div>
+            
+            <div class="flex-1 p-6 lg:p-4 overflow-x-auto scrollbar-hide">
+              <div v-if="sceneChips.length" class="flex items-center gap-4">
+                <button
+                  v-for="scene in sceneChips"
+                  :key="scene.id"
+                  type="button"
+                  class="group/scene px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all duration-500 whitespace-nowrap min-w-[140px] text-left relative overflow-hidden"
+                  :class="selectedSceneId === scene.id 
+                          ? 'bg-main text-bg border-main shadow-2xl scale-105 -translate-y-1' 
+                          : 'bg-surface/50 border-border/40 text-dim hover:text-main hover:border-main/20'"
+                  @click="selectScene(scene.id)"
+                >
+                  <div class="relative z-10">
+                    <p class="opacity-50 mb-1 group-hover/scene:opacity-100 transition-opacity text-[8px]">Scene</p>
+                    <p class="truncate">{{ scene.label }}</p>
+                  </div>
+                  <div v-if="selectedSceneId === scene.id" class="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent"></div>
+                </button>
+                
+                <button
+                  class="flex-shrink-0 w-12 h-[72px] rounded-2xl border-2 border-dashed border-border/40 flex items-center justify-center text-dim hover:text-main hover:border-main/20 hover:bg-main/5 transition-all"
+                  :disabled="!hasPanorama || addScenePending"
+                  @click="handleAddScene"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+              </div>
+              <p v-else class="text-sm font-bold text-dim/60 px-4 italic">No scenes created yet. Upload a panorama to start.</p>
+            </div>
+          </div>
+        </div>
 
-           <div v-if="panoramaSaveState" class="mb-6 px-4 py-3 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest shadow-lg animate-in slide-in-from-top-2" :class="panoramaSaveState === 'saving' ? 'bg-main/5 border-main/20 text-main animate-pulse' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'">
-             {{ panoramaSaveState === 'saving' ? 'Optimizing 360 workflow...' : 'Panorama Synchronized' }}
-           </div>
+        <section class="card-glass overflow-hidden p-0 md:p-1 !rounded-[2.5rem] shadow-2xl relative border-main/5">
+           <div class="absolute top-0 right-0 w-96 h-96 bg-main/5 blur-[120px] pointer-events-none"></div>
+           
+           <div class="flex flex-col lg:flex-row min-h-[600px]">
+             <!-- Main Viewer Area -->
+             <div class="flex-1 relative p-4 lg:p-8">
+               <div class="flex items-center justify-between mb-6 relative z-10">
+                 <div class="flex items-center gap-4">
+                   <div :class="['px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg border backdrop-blur-md', panorama?.processing_status === 'ready' ? 'bg-emerald-500/90 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
+                     {{ panoramaStatusLabel }}
+                   </div>
+                   <h4 class="text-sm font-black text-main uppercase tracking-widest">{{ activeScene?.name || 'Untitled Scene' }}</h4>
+                 </div>
 
-           <div class="rounded-2xl bg-surface-alt/50 border border-border p-6 mb-8 shadow-inner relative z-10">
-             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6">
-               <div class="space-y-1">
-                 <p class="text-sm font-black text-main uppercase tracking-widest">Interactive Hotspots</p>
-                 <p class="text-xs text-dim font-bold">Turn on edit mode and click inside the 360 viewer to place points.</p>
+                 <div class="flex items-center gap-3">
+                   <label class="btn btn-secondary !px-4 !py-2.5 !rounded-xl cursor-pointer group overflow-hidden relative shadow-sm border-main/10">
+                     <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
+                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                     <span class="text-[10px] font-black uppercase tracking-widest relative z-10">Swap Pano</span>
+                   </label>
+                 </div>
                </div>
-               <button
-                 class="btn !px-6 !py-3 !rounded-xl text-[11px] font-black uppercase tracking-widest"
-                 :class="inlineEditMode ? 'btn-primary' : 'btn-secondary'"
-                 :disabled="!hasPanorama"
-                 @click="inlineEditMode = !inlineEditMode"
-               >
-                 {{ inlineEditMode ? 'Editor Active' : 'Enable Hotspots' }}
-               </button>
-             </div>
 
-             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-               <div class="space-y-2">
-                 <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Type</label>
-                 <select v-model="hotspotDraftType" class="input-glass w-full px-4 py-2.5 text-xs font-bold" :disabled="!hasPanorama">
-                   <option value="info">Information</option>
-                   <option value="scene_link">Scene Portal</option>
-                   <option value="url">Web Link</option>
-                 </select>
-               </div>
-               <div class="space-y-2 md:col-span-2" v-if="hotspotDraftType === 'scene_link'">
-                 <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Target Portal</label>
-                 <select v-model="hotspotTargetSceneId" class="input-glass w-full px-4 py-2.5 text-xs font-bold" :disabled="!hasPanorama || sceneChips.length < 2">
-                   <option value="">Auto-Sequential</option>
-                   <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
-                 </select>
-               </div>
-             </div>
-           </div>
-
-              <div class="relative rounded-lg overflow-hidden border border-zinc-200  aspect-[2/1] bg-zinc-900">
+               <div class="relative rounded-[2rem] overflow-hidden border border-border/40 aspect-[2/1] bg-surface-alt group/viewer">
 
                 <!-- Real 360 viewer — hotspot positions are perspective-correct -->
                 <ClientOnly v-if="hasPanorama && activePanoramaSrc">
@@ -811,10 +833,10 @@ const panoramaStatusLabel = computed(() => {
   return statusLabel(panorama.value.processing_status)
 })
 const editorTabs = computed(() => [
-  { id: 'details', label: 'Details', disabled: false },
+  { id: 'details', label: 'Settings', disabled: false },
   { id: 'gallery', label: 'Photos', disabled: false },
-  { id: '360', label: '360 Tour Builder', disabled: false },
-  { id: 'share', label: 'Share', disabled: !canShare.value }
+  { id: '360', label: 'Editor', disabled: false },
+  { id: 'share', label: 'Publish', disabled: !canShare.value }
 ])
 const setupSteps = computed(() => [
   { id: 'create', label: 'Create Space', done: Boolean(space.value?.id) },
