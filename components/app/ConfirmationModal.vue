@@ -3,12 +3,12 @@
     <Transition name="confirm-modal">
       <div v-if="isOpen" class="fixed inset-0 z-[200] flex items-center justify-center p-6">
         <div class="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" @click="handleCancel"></div>
-        <div class="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-xl shadow-xl overflow-hidden animate-modal-in border border-zinc-200 dark:border-zinc-700">
+        <div class="relative w-full max-w-sm bg-white  rounded-xl shadow-xl overflow-hidden animate-modal-in border border-zinc-200 ">
           <!-- Header -->
           <div class="px-6 pt-6 pb-5 text-center">
             <!-- Icon -->
             <div :class="['w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4',
-                          isDangerous ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400']">
+                          isDangerous ? 'bg-rose-50  text-rose-500' : 'bg-zinc-100  text-zinc-600 ']">
               <slot name="icon">
                 <svg v-if="isDangerous" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -16,8 +16,8 @@
             </div>
 
             <!-- Title & Description -->
-            <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1.5">{{ title }}</h3>
-            <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{{ message }}</p>
+            <h3 class="text-base font-semibold text-zinc-900  mb-1.5">{{ title }}</h3>
+            <p class="text-sm text-zinc-500  leading-relaxed">{{ message }}</p>
           </div>
 
           <!-- Actions -->
@@ -32,7 +32,7 @@
               <span>{{ loading ? 'Processing...' : confirmText }}</span>
             </button>
             <button
-              class="w-full py-2.5 bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-medium rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-transparent dark:border-zinc-700 transition-all disabled:opacity-50"
+              class="w-full py-2.5 bg-zinc-50  text-zinc-600  text-sm font-medium rounded-lg hover:bg-zinc-100  border border-transparent  transition-all disabled:opacity-50"
               @click="handleCancel"
               :disabled="loading"
             >

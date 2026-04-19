@@ -9,58 +9,67 @@
 
 /* ── Design Tokens ── */
 :root {
-  /* Monochromatic Palette */
-  --ink: #0a0a0a;
-  /* Inky Black */
-  --ink-soft: #1a1a1a;
-  /* Dark surface */
-  --slate: #6b7280;
-  /* Slate Gray */
-  --slate-light: #9ca3af;
-  /* Muted text */
-  --paper: #ffffff;
-  /* Paper White */
-  --paper-dim: #fafafa;
-  /* Very subtle off-white */
-  --paper-alt: #f5f5f5;
-  /* Section background */
-
-  /* Single Accent — Electric Green (active states only) */
-  --accent: #00dc82;
-  --accent-dim: rgba(0, 220, 130, 0.12);
-  --accent-glow: rgba(0, 220, 130, 0.25);
-
+  /* Surfaces */
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --surface-alt: #f4f4f5;
+  --card: #ffffff;
+  
+  /* Text */
+  --text-main: #0a0a0a;
+  --text-muted: #52525b;
+  --text-dim: #71717a;
+  
+  /* Brand */
+  --accent: #18181b;
+  --accent-foreground: #ffffff;
+  
   /* Borders */
-  --border: #e2e2e2;
-  --border-sharp: #c8c8c8;
-  --border-dark: #2a2a2a;
+  --border: #e4e4e7;
+  --border-muted: #f4f4f5;
 
-  /* Shadows — large radius, very low opacity ("floating") */
-  --shadow-float: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 12px 40px -8px rgba(0, 0, 0, 0.08);
-  --shadow-lift: 0 8px 16px -4px rgba(0, 0, 0, 0.06), 0 24px 60px -12px rgba(0, 0, 0, 0.12);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-
-  /* Legacy compat aliases */
-  --primary: var(--accent);
-  --primary-hover: #00c972;
-  --secondary: var(--accent);
-  --bg-base: var(--paper);
-  --bg-surface: var(--paper-alt);
-  --bg-surface-alt: #efefef;
-  --text-primary: var(--ink);
-  --text-secondary: var(--slate);
-  --text-muted: var(--slate-light);
-  --text-inverse: var(--paper);
-  --border-color: var(--border);
-  --shadow-md: var(--shadow-float);
-  --shadow-lg: var(--shadow-lift);
-  --shadow-xl: var(--shadow-lift);
 }
+
+.dark {
+  /* Ultra Dark OLED Aesthetic */
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-alt: #111111;
+  --card: #0a0a0a;
+  
+  /* High Contrast Text */
+  --text-main: #ffffff;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
+  
+  /* Brand */
+  --accent: #ffffff;
+  --accent-foreground: #000000;
+  
+  /* Borders - Minimal but visible */
+  --border: #222222;
+  --border-muted: #111111;
+
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* ── Typography Aliases ── */
+.text-main { color: var(--text-main); }
+.text-muted { color: var(--text-muted); }
+.text-dim { color: var(--text-dim); }
+.bg-bg { background-color: var(--bg); }
+.bg-surface { background-color: var(--surface); }
+.bg-surface-alt { background-color: var(--surface-alt); }
+.border-main { border-color: var(--border); }
 
 /* ── Reset ── */
 *,
@@ -74,8 +83,8 @@
 /* ── Refining Background ── */
 body {
   font-family: var(--font-sans);
-  background-color: #f8fafc; /* Subtle neutral bg */
-  color: var(--ink);
+  background-color: var(--bg);
+  color: var(--text-main);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -315,12 +324,12 @@ header.nav {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
   font-weight: 600;
   font-family: var(--font-sans);
-  font-size: 0.9rem;
-  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  font-size: 0.875rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   border: 1px solid transparent;
   outline: none;
@@ -329,72 +338,52 @@ header.nav {
 }
 
 .btn:active {
-  transform: scale(0.96) !important;
+  transform: scale(0.98);
 }
 
-/* Primary — accent fill */
+/* Primary — High contrast with border in dark mode */
 .btn-primary {
-  background-color: var(--accent);
-  color: var(--ink);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 0 var(--accent-glow);
-  font-weight: 700;
+  background-color: var(--text-main);
+  color: var(--bg);
+  border: 1px solid var(--text-main);
+}
+
+.dark .btn-primary {
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .btn-primary:hover {
-  background-color: var(--primary-hover);
-  color: var(--ink);
-  opacity: 1;
-  box-shadow: 0 0 0 6px var(--accent-glow);
-  transform: translateY(-2px);
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
-/* Secondary */
+/* Secondary — Defined outline */
 .btn-secondary {
-  background-color: var(--paper);
-  color: var(--ink);
+  background-color: transparent;
+  color: var(--text-main);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover {
-  border-color: var(--border-sharp);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
-  opacity: 1;
+  background-color: var(--surface);
+  border-color: var(--text-dim);
 }
 
-/* Outline */
-.btn-outline {
+/* Ghost */
+.btn-ghost {
   background-color: transparent;
-  color: var(--ink);
-  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
-.btn-outline:hover {
-  border-color: var(--border-sharp);
-  background: var(--paper-dim);
-  opacity: 1;
-}
-
-/* Dark / filled black */
-.btn-dark {
-  background-color: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
-}
-
-.btn-dark:hover {
-  background-color: var(--ink-soft);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-  opacity: 1;
+.btn-ghost:hover {
+  background-color: var(--surface);
+  color: var(--text-main);
 }
 
 .btn-lg {
-  padding: 0.875rem 2rem;
+  padding: 0.75rem 1.75rem;
   font-size: 1rem;
-  border-radius: 0.625rem;
+  border-radius: 0.875rem;
 }
 
 .btn-block {

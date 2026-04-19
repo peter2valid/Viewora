@@ -3,64 +3,81 @@
     <!-- Page Header -->
     <header class="mb-8 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">Dashboard</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Manage your tours and track performance.</p>
+        <h1 class="text-2xl font-bold tracking-tight text-main">Dashboard</h1>
+        <p class="text-sm text-dim mt-1">Manage your tours and track performance.</p>
       </div>
     </header>
 
     <!-- ── Loading Skeleton ──────────────────────────────────────────────── -->
     <section v-if="pending" class="flex flex-col gap-6">
-      <div class="h-48 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
+      <div class="h-48 bg-zinc-100  rounded-2xl animate-pulse"></div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div v-for="n in 4" :key="n" class="bg-zinc-100 dark:bg-zinc-800 h-24 rounded-xl animate-pulse"></div>
+        <div v-for="n in 4" :key="n" class="bg-zinc-100  h-24 rounded-xl animate-pulse"></div>
       </div>
     </section>
 
     <section v-else class="flex flex-col gap-8">
       
       <!-- EMPTY STATE / ONBOARDING (If 0 spaces) -->
-      <div v-if="!hasSpaces" class="bg-white dark:bg-zinc-900 p-8 md:p-12 rounded-[2rem] shadow-sm border border-zinc-200 dark:border-zinc-700 flex flex-col items-center text-center">
-        <h2 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-3">👋 Welcome to Viewora</h2>
-        <p class="text-zinc-500 dark:text-zinc-400 mb-8 font-medium text-[17px]">Create your first virtual tour in under 2 minutes.</p>
+      <div v-if="!hasSpaces" class="relative group mx-auto max-w-2xl">
+        <!-- iOS-style futuristic glass card -->
+        <div class="absolute -inset-0.5 bg-gradient-to-r from-zinc-300/30 to-zinc-500/30 dark:from-zinc-100/10 dark:to-zinc-400/10 rounded-[2rem] blur-xl opacity-20 group-hover:opacity-30 transition duration-700"></div>
         
-        <div class="flex flex-col sm:flex-row items-center gap-6 mb-10 w-full max-w-2xl justify-center">
-          <div class="flex flex-col items-center gap-3 w-40">
-            <div class="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-black text-zinc-900 dark:text-zinc-100">1</div>
-            <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 text-center">Create your<br/>first tour</p>
-          </div>
-          <div class="hidden sm:block w-8 h-px bg-zinc-200"></div>
-          <div class="flex flex-col items-center gap-3 w-40">
-            <div class="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-black text-zinc-900 dark:text-zinc-100">2</div>
-            <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 text-center">Upload your<br/>360° image</p>
-          </div>
-          <div class="hidden sm:block w-8 h-px bg-zinc-200"></div>
-          <div class="flex flex-col items-center gap-3 w-40">
-            <div class="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-black text-zinc-900 dark:text-zinc-100">3</div>
-            <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 text-center">Share with<br/>clients</p>
-          </div>
-        </div>
+        <div class="relative bg-zinc-100/10 dark:bg-white/5 backdrop-blur-3xl p-6 sm:p-10 md:p-12 rounded-[2rem] border border-white/20 dark:border-white/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+          <!-- Subtle Inner Glow -->
+          <div class="absolute -top-12 -right-12 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div class="flex flex-col sm:flex-row gap-4 w-full max-w-lg mt-4">
-          <button @click="navigateTo('/app/create')" class="flex-1 py-4 bg-zinc-900 text-white text-[15px] font-bold rounded-xl hover:bg-zinc-800 transition-all hover:-translate-y-0.5 shadow-sm active:scale-[0.98]">
-            + Create New Tour
-          </button>
-          <button @click="navigateTo('/app/spaces')" class="flex-1 flex items-center justify-center gap-2 py-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[15px] font-bold rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-all hover:-translate-y-0.5 hover:shadow-sm hover:border-zinc-300 dark:hover:border-zinc-600 dark:border-zinc-600 active:scale-[0.98]">
-            👁 See Example Tour
-          </button>
+          <div class="mb-4 md:mb-6 flex items-center justify-center">
+            <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-main/10 flex items-center justify-center text-main">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            </div>
+          </div>
+
+          <h2 class="text-2xl md:text-3xl font-extrabold text-main mb-3 tracking-tight">Welcome to Viewora</h2>
+          <p class="text-dim mb-8 md:mb-10 font-medium text-sm md:text-base max-w-md">Capturing reality has never been this simple. Create your first immersive experience in minutes.</p>
+          
+          <div class="flex items-center justify-center gap-3 sm:gap-6 mb-10 md:mb-12 w-full relative">
+            <!-- Step Indicators (Horizontal on all screens) -->
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">1</div>
+              <p class="hidden sm:block text-[13px] font-bold text-main">Define</p>
+            </div>
+            <div class="w-4 md:w-8 h-px bg-white/10"></div>
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">2</div>
+              <p class="hidden sm:block text-[13px] font-bold text-main">Upload</p>
+            </div>
+            <div class="w-4 md:w-8 h-px bg-white/10"></div>
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">3</div>
+              <p class="hidden sm:block text-[13px] font-bold text-main">Share</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
+            <button @click="navigateTo('/app/create')" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-bold flex items-center justify-center gap-2 border border-white/20 bg-white/5 hover:bg-white hover:text-black group shadow-sm active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="transition-transform group-hover:scale-110"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Start Creating
+            </button>
+            <button @click="navigateTo('/app/spaces')" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-semibold flex items-center justify-center gap-2 border border-transparent hover:border-white/10 bg-white/5 hover:bg-white/10 text-main active:scale-95">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Examples
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- ACTIVE DASHBOARD (If spaces exist) -->
       <template v-else>
         <!-- Action Header -->
-        <div class="bg-zinc-900 dark:bg-zinc-800 border border-zinc-800 dark:border-zinc-700 p-8 sm:p-12 rounded-[2rem] text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-8 relative overflow-hidden">
-          <div class="absolute inset-0 bg-gradient-to-br from-zinc-800/60 via-transparent to-transparent pointer-events-none"></div>
+        <div class="bg-main border border-border p-8 sm:p-12 rounded-[2rem] text-bg shadow-xl flex flex-col sm:flex-row items-center justify-between gap-8 relative overflow-hidden group">
+          <div class="absolute inset-0 bg-gradient-to-br from-bg/10 via-transparent to-transparent pointer-events-none group-hover:from-bg/20 transition-all duration-700"></div>
           <div class="space-y-2 z-10 text-center sm:text-left">
             <h2 class="text-2xl font-bold tracking-tight">Ready to create?</h2>
-            <p class="text-zinc-400 text-sm max-w-sm">Capture, create, and share immersive experiences that turn prospects into clients.</p>
+            <p class="text-bg/60 text-sm max-w-sm">Capture, create, and share immersive experiences that turn prospects into clients.</p>
           </div>
           <div class="flex gap-4 z-10 w-full sm:w-auto mt-2 sm:mt-0">
-            <button @click="navigateTo('/app/create')" class="w-full sm:w-auto px-8 py-4 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-[15px] font-bold rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:bg-zinc-800 transition-all hover:-translate-y-0.5 shadow-sm active:scale-[0.98]">
+            <button @click="navigateTo('/app/create')" class="btn bg-bg text-main w-full sm:w-auto px-8 !py-4 text-[15px] !rounded-xl">
                + Create Tour
             </button>
           </div>
@@ -70,21 +87,21 @@
           <!-- Main Area (Recent Tours) -->
           <div class="md:col-span-2 space-y-4">
              <div class="flex items-center justify-between">
-                <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Recent Tours</h3>
-                <NuxtLink to="/app/spaces" class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 transition-colors">View All →</NuxtLink>
+                <h3 class="text-lg font-bold text-main tracking-tight">Recent Tours</h3>
+                <NuxtLink to="/app/spaces" class="text-sm font-semibold text-dim hover:text-main transition-colors">View All →</NuxtLink>
              </div>
              
              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div v-for="space in recentSpaces" :key="space.id" class="group bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl overflow-hidden hover:border-zinc-300 dark:hover:border-zinc-600 dark:border-zinc-600 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" @click="navigateTo(`/app/spaces/${space.id}`)">
-                 <div class="aspect-[16/9] w-full bg-zinc-100 dark:bg-zinc-800 relative overflow-hidden">
+               <div v-for="space in recentSpaces" :key="space.id" class="group bg-card border border-border rounded-2xl overflow-hidden hover:border-text-dim hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer" @click="navigateTo(`/app/spaces/${space.id}`)">
+                 <div class="aspect-[16/9] w-full bg-surface-alt relative overflow-hidden">
                    <div v-if="space.cover_image_url" class="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-700" :style="{ backgroundImage: `url(${space.cover_image_url})` }"></div>
-                   <div class="absolute top-3 left-3 px-2 py-1 bg-white dark:bg-zinc-900/90 backdrop-blur-md rounded-md text-[10px] font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 border border-white/20 shadow-sm">
+                   <div class="absolute top-3 left-3 px-2 py-1 bg-bg/80 backdrop-blur-md rounded-md text-[10px] font-bold uppercase tracking-wider text-main border border-border mt-0.5">
                      {{ space.is_published ? 'Live' : 'Draft' }}
                    </div>
                  </div>
                  <div class="p-4">
-                   <h4 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate mb-1">{{ space.title }}</h4>
-                   <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Created {{ new Date(space.created_at).toLocaleDateString() }}</p>
+                   <h4 class="text-sm font-bold text-main truncate mb-1">{{ space.title }}</h4>
+                   <p class="text-xs font-medium text-dim">Created {{ new Date(space.created_at).toLocaleDateString() }}</p>
                  </div>
                </div>
              </div>
@@ -92,39 +109,39 @@
 
           <!-- Side Widget (Insights) -->
           <div class="space-y-4">
-             <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Insights</h3>
-             <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-5 shadow-sm space-y-6">
+             <h3 class="text-lg font-bold text-main tracking-tight">Insights</h3>
+             <div class="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-6">
                 <!-- Stat Card -->
                 <div>
-                   <p class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Total Views</p>
-                   <p class="text-3xl font-black text-zinc-900 dark:text-zinc-100">{{ totalViews }}</p>
+                   <p class="text-xs font-bold text-dim uppercase tracking-wider mb-1">Total Views</p>
+                   <p class="text-3xl font-black text-main">{{ totalViews }}</p>
                 </div>
                 <!-- Stat Card -->
                 <div>
-                   <p class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">New Leads</p>
+                   <p class="text-xs font-bold text-dim uppercase tracking-wider mb-1">New Leads</p>
                    <div class="flex items-end gap-2">
-                     <p class="text-3xl font-black text-zinc-900 dark:text-zinc-100">{{ recentLeadsCount }}</p>
-                     <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1.5">Last 7 days</p>
+                     <p class="text-3xl font-black text-main">{{ recentLeadsCount }}</p>
+                     <p class="text-xs font-semibold text-muted mb-1.5">Last 7 days</p>
                    </div>
                 </div>
                 <!-- Stat Card -->
                 <div>
-                   <p class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Active Tours</p>
-                   <p class="text-3xl font-black text-zinc-900 dark:text-zinc-100">{{ usage?.active_spaces_count || 0 }}</p>
+                   <p class="text-xs font-bold text-dim uppercase tracking-wider mb-1">Active Tours</p>
+                   <p class="text-3xl font-black text-main">{{ usage?.active_spaces_count || 0 }}</p>
                 </div>
 
-                <div class="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                  <NuxtLink to="/app/analytics" class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:text-zinc-100 transition-colors inline-flex items-center gap-1">Full Analytics <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></NuxtLink>
+                <div class="pt-4 border-t border-border">
+                  <NuxtLink to="/app/analytics" class="text-sm font-semibold text-muted hover:text-main transition-colors inline-flex items-center gap-1">Full Analytics <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></NuxtLink>
                 </div>
              </div>
 
              <!-- Localized Help Widget -->
-             <div class="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-5 mt-4">
-                <div class="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center mb-3">
+             <div class="bg-surface-alt border border-border rounded-2xl p-5 mt-4">
+                <div class="w-8 h-8 rounded-lg bg-bg text-main flex items-center justify-center mb-3">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </div>
-                <h4 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-1">Quick Tip</h4>
-                <p class="text-xs font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">Share your live tours directly via WhatsApp to increase engagement by 3x.</p>
+                <h4 class="text-sm font-bold text-main mb-1">Quick Tip</h4>
+                <p class="text-xs font-medium text-dim leading-relaxed">Share your live tours directly via WhatsApp to increase engagement by 3x.</p>
              </div>
           </div>
         </div>

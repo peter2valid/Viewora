@@ -3,34 +3,34 @@
 
     <!-- Header -->
     <header class="mb-8">
-      <h1 class="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">Billing & Plans</h1>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Manage your subscription and upgrade your agency's capabilities.</p>
+      <h1 class="text-2xl font-bold tracking-tight text-main">Billing & Plans</h1>
+      <p class="text-sm text-dim mt-1">Manage your subscription and upgrade your agency's capabilities.</p>
     </header>
 
     <!-- Loading skeleton -->
     <div v-if="pending" class="space-y-6 animate-pulse">
       <div class="h-44 bg-zinc-200 rounded-2xl"></div>
-      <div class="h-32 bg-zinc-100 dark:bg-zinc-800 rounded-2xl"></div>
+      <div class="h-32 bg-zinc-100  rounded-2xl"></div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div v-for="i in 4" :key="i" class="h-56 bg-zinc-100 dark:bg-zinc-800 rounded-2xl"></div>
+        <div v-for="i in 4" :key="i" class="h-56 bg-zinc-100  rounded-2xl"></div>
       </div>
     </div>
 
     <div v-else class="space-y-6">
 
       <!-- ① CURRENT PLAN ──────────────────────────────────────────────────── -->
-      <section class="bg-zinc-950 dark:bg-zinc-900 dark:border-zinc-700 rounded-2xl p-6 md:p-8 border border-white/10 text-white shadow-xl transition-all">
-        <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+      <section class="bg-surface-alt rounded-2xl p-6 md:p-8 border border-border shadow-xl transition-all">
+        <div class="flex flex-col md:flex-row md:items-start justify-between gap-6 overflow-hidden">
 
           <!-- Plan identity -->
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-3">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Current Plan</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-dim">Current Plan</span>
               <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass">{{ statusLabel }}</span>
             </div>
-            <h2 class="text-3xl font-bold tracking-tight">{{ plan?.name || 'Free' }}</h2>
-            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{{ planSubtitles[plan?.name] || 'Basic access' }}</p>
-            <p v-if="subscription?.current_period_end" class="text-xs text-zinc-600 dark:text-zinc-400 mt-2">
+            <h2 class="text-3xl font-bold tracking-tight text-main">{{ plan?.name || 'Free' }}</h2>
+            <p class="text-sm text-muted mt-1">{{ planSubtitles[plan?.name] || 'Basic access' }}</p>
+            <p v-if="subscription?.current_period_end" class="text-xs text-dim mt-2">
               Renews {{ formatDate(subscription.current_period_end) }}
             </p>
           </div>
@@ -38,12 +38,12 @@
           <!-- Usage stats -->
           <div class="flex items-start gap-8 md:gap-10 flex-shrink-0">
             <div class="text-center">
-              <div class="text-2xl font-bold tabular-nums">{{ usage?.active_spaces_count || 0 }}</div>
-              <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">of {{ plan?.max_active_spaces || 0 }}<br>tours</div>
+              <div class="text-2xl font-bold tabular-nums text-main">{{ usage?.active_spaces_count || 0 }}</div>
+              <div class="text-xs text-muted mt-0.5">of {{ plan?.max_active_spaces || 0 }}<br>tours</div>
             </div>
             <div class="text-center">
-              <div class="text-2xl font-bold tabular-nums">{{ formatBytes(usage?.storage_used_bytes || 0) }}</div>
-              <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">of {{ formatBytes(plan?.max_storage_bytes || 0) }}<br>storage</div>
+              <div class="text-2xl font-bold tabular-nums text-main">{{ formatBytes(usage?.storage_used_bytes || 0) }}</div>
+              <div class="text-xs text-muted mt-0.5">of {{ formatBytes(plan?.max_storage_bytes || 0) }}<br>storage</div>
             </div>
           </div>
         </div>
@@ -52,19 +52,19 @@
         <div class="mt-6 grid grid-cols-2 gap-4">
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs text-zinc-500 dark:text-zinc-400">Tours</span>
-              <span class="text-xs font-medium tabular-nums" :class="spaceUsagePct >= 80 ? 'text-amber-400' : 'text-zinc-500 dark:text-zinc-400'">{{ spaceUsagePct }}%</span>
+              <span class="text-xs text-muted">Tours</span>
+              <span class="text-xs font-medium tabular-nums" :class="spaceUsagePct >= 80 ? 'text-amber-500' : 'text-muted'">{{ spaceUsagePct }}%</span>
             </div>
-            <div class="h-1 bg-white dark:bg-zinc-900/10 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000" :class="spaceUsagePct >= 80 ? 'bg-amber-400' : 'bg-zinc-400'" :style="{ width: spaceUsagePct + '%' }"></div>
+            <div class="h-1 bg-border rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-1000" :class="spaceUsagePct >= 80 ? 'bg-amber-500' : 'bg-main'" :style="{ width: spaceUsagePct + '%' }"></div>
             </div>
           </div>
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs text-zinc-500 dark:text-zinc-400">Storage</span>
-              <span class="text-xs font-medium tabular-nums" :class="storageUsagePct >= 80 ? 'text-amber-400' : 'text-zinc-500 dark:text-zinc-400'">{{ storageUsagePct }}%</span>
+              <span class="text-xs text-zinc-500 ">Storage</span>
+              <span class="text-xs font-medium tabular-nums" :class="storageUsagePct >= 80 ? 'text-amber-400' : 'text-zinc-500 '">{{ storageUsagePct }}%</span>
             </div>
-            <div class="h-1 bg-white dark:bg-zinc-900/10 rounded-full overflow-hidden">
+            <div class="h-1 bg-white  rounded-full overflow-hidden">
               <div class="h-full rounded-full transition-all duration-1000" :class="storageUsagePct >= 80 ? 'bg-amber-400' : 'bg-zinc-400'" :style="{ width: storageUsagePct + '%' }"></div>
             </div>
           </div>
@@ -82,16 +82,16 @@
       </div>
 
       <!-- ③ RECOMMENDED UPGRADE ──────────────────────────────────────────── -->
-      <section v-if="recommendedPlan" class="relative bg-zinc-900 rounded-2xl border border-zinc-700 p-6 md:p-8 text-white overflow-hidden shadow-lg shadow-zinc-900/5">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-white dark:bg-zinc-900/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+      <section v-if="recommendedPlan" class="relative bg-main rounded-2xl border border-border p-6 md:p-8 overflow-hidden shadow-lg group">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none transition-transform group-hover:scale-110"></div>
 
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-3">
-              <span class="px-2.5 py-1 bg-white dark:bg-zinc-900/10 text-zinc-300 text-[10px] font-bold uppercase tracking-wider rounded-md border border-zinc-700">Recommended for you</span>
+              <span class="px-2.5 py-1 bg-bg text-main text-[10px] font-bold uppercase tracking-wider rounded-md border border-border">Recommended for you</span>
             </div>
-            <h3 class="text-2xl font-bold mb-1 tracking-tight">Upgrade to {{ recommendedPlan.name }}</h3>
-            <p class="text-sm text-zinc-400">{{ planSubtitles[recommendedPlan.name] || '' }}</p>
+            <h3 class="text-2xl font-bold mb-1 tracking-tight text-bg">Upgrade to {{ recommendedPlan.name }}</h3>
+            <p class="text-sm text-bg/70">{{ planSubtitles[recommendedPlan.name] || '' }}</p>
 
             <!-- Value diff chips -->
             <div class="mt-5 flex flex-wrap gap-2">
@@ -134,9 +134,9 @@
             <button
               @click="subscribeTo(recommendedPlan.id)"
               :disabled="subscribing === recommendedPlan.id"
-              class="inline-flex items-center gap-2 px-6 py-2.5 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm font-bold rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:bg-zinc-800 transition-colors disabled:opacity-50 shadow-sm"
+              class="btn bg-bg text-main border border-border shadow-sm"
             >
-              <div v-if="subscribing === recommendedPlan.id" class="w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin"></div>
+              <div v-if="subscribing === recommendedPlan.id" class="w-4 h-4 border-2 border-muted border-t-main rounded-full animate-spin"></div>
               Upgrade to {{ recommendedPlan.name }} →
             </button>
           </div>
@@ -146,18 +146,18 @@
       <!-- ④ MONTHLY / YEARLY TOGGLE + ALL PLANS ───────────────────────────── -->
       <section ref="plansSection">
         <div class="flex items-center justify-between mb-5">
-          <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">All plans</h3>
+          <h3 class="text-base font-semibold text-main">All plans</h3>
           <!-- Toggle -->
-          <div class="flex items-center gap-3 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+          <div class="flex items-center gap-3 p-1 bg-surface-alt rounded-lg">
             <button
               @click="billingCycle = 'monthly'"
               class="px-3 py-1.5 text-sm font-medium rounded-md transition-all"
-              :class="billingCycle === 'monthly' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'"
+              :class="billingCycle === 'monthly' ? 'bg-bg text-main shadow-sm' : 'text-muted hover:text-main'"
             >Monthly</button>
             <button
               @click="billingCycle = 'yearly'"
               class="px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5"
-              :class="billingCycle === 'yearly' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'"
+              :class="billingCycle === 'yearly' ? 'bg-bg text-main shadow-sm' : 'text-muted hover:text-main'"
             >
               Yearly
               <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded">Save ~20%</span>
@@ -173,50 +173,50 @@
             class="relative rounded-2xl border p-5 flex flex-col transition-all"
             :class="[
               p.id === plan?.id
-                ? 'border-zinc-900 bg-zinc-50 dark:bg-zinc-800 ring-1 ring-zinc-900 dark:ring-zinc-100'
+                ? 'border-main bg-surface-alt ring-1 ring-main'
                 : p.id === recommendedPlan?.id
-                  ? 'border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 shadow-md'
-                  : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900'
+                  ? 'border-border bg-bg shadow-md'
+                  : 'border-border bg-bg'
             ]"
           >
             <!-- Badges -->
             <div class="absolute -top-3 left-4 flex gap-1.5">
               <span v-if="p.id === plan?.id" class="px-2 py-0.5 bg-zinc-900 text-white text-[10px] font-bold rounded-full shadow">Current</span>
               <span v-if="p.id === recommendedPlan?.id && p.id !== plan?.id" class="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow">Recommended</span>
-              <span v-if="planHighlight[p.name]" class="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold rounded-full shadow">{{ planHighlight[p.name] }}</span>
+              <span v-if="planHighlight[p.name]" class="px-2 py-0.5 bg-zinc-100  text-zinc-600  text-[10px] font-bold rounded-full shadow">{{ planHighlight[p.name] }}</span>
             </div>
 
             <div class="mb-4 mt-2">
-              <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-0.5">{{ planSubtitles[p.name] || '' }}</span>
-              <h4 class="text-base font-bold text-zinc-900 dark:text-zinc-100">{{ p.name }}</h4>
+              <span class="text-[10px] font-bold text-dim uppercase tracking-wider block mb-0.5">{{ planSubtitles[p.name] || '' }}</span>
+              <h4 class="text-base font-bold text-main">{{ p.name }}</h4>
               <div class="mt-2 flex items-baseline gap-1">
                 <template v-if="p.price_monthly_kes === 0">
-                  <span class="text-xl font-bold text-zinc-900 dark:text-zinc-100">Free</span>
+                  <span class="text-xl font-bold text-main">Free</span>
                 </template>
                 <template v-else-if="billingCycle === 'yearly'">
-                  <span class="text-xl font-bold text-zinc-900 dark:text-zinc-100">KES {{ formatPricePM(p.price_yearly_kes) }}</span>
-                  <span class="text-xs text-zinc-400">/mo</span>
+                  <span class="text-xl font-bold text-main">KES {{ formatPricePM(p.price_yearly_kes) }}</span>
+                  <span class="text-xs text-dim">/mo</span>
                 </template>
                 <template v-else>
-                  <span class="text-xl font-bold text-zinc-900 dark:text-zinc-100">KES {{ p.price_monthly_kes.toLocaleString() }}</span>
-                  <span class="text-xs text-zinc-400">/mo</span>
+                  <span class="text-xl font-bold text-main">KES {{ p.price_monthly_kes.toLocaleString() }}</span>
+                  <span class="text-xs text-dim">/mo</span>
                 </template>
               </div>
-              <div v-if="billingCycle === 'yearly' && p.price_monthly_kes > 0" class="text-[11px] text-zinc-400 mt-0.5">
+              <div v-if="billingCycle === 'yearly' && p.price_monthly_kes > 0" class="text-[11px] text-dim mt-0.5">
                 KES {{ p.price_yearly_kes.toLocaleString() }} billed annually
               </div>
             </div>
 
             <ul class="space-y-2 mb-5 flex-1 text-xs">
-              <li class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              <li class="flex items-center gap-2 text-zinc-600 ">
                 <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 {{ p.max_active_spaces }} active tours
               </li>
-              <li class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              <li class="flex items-center gap-2 text-zinc-600 ">
                 <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 {{ formatBytes(p.max_storage_bytes) }} storage
               </li>
-              <li v-if="p.lead_capture_enabled" class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              <li v-if="p.lead_capture_enabled" class="flex items-center gap-2 text-zinc-600 ">
                 <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 Lead capture
               </li>
@@ -224,11 +224,11 @@
                 <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 Lead capture
               </li>
-              <li v-if="p.branding_customization_enabled" class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              <li v-if="p.branding_customization_enabled" class="flex items-center gap-2 text-zinc-600 ">
                 <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 Agency branding
               </li>
-              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2 text-zinc-600 ">
                 <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 {{ SHOOT_ALLOWANCES[p.name] }} photo shoot{{ SHOOT_ALLOWANCES[p.name] > 1 ? 's' : '' }}/mo
               </li>
@@ -239,15 +239,15 @@
               v-if="p.price_monthly_kes > 0 && p.id !== plan?.id"
               @click="subscribeTo(p.id)"
               :disabled="subscribing === p.id"
-              class="w-full py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
+              class="btn w-full !rounded-xl"
               :class="p.id === recommendedPlan?.id
-                ? 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm'
-                : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'"
+                ? 'btn-primary shadow-sm'
+                : 'btn-secondary'"
             >
               <div v-if="subscribing === p.id" class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
               {{ subscribing === p.id ? 'Redirecting...' : 'Get ' + p.name }}
             </button>
-            <div v-else-if="p.id === plan?.id" class="w-full py-2 text-center text-xs font-semibold text-zinc-400 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+            <div v-else-if="p.id === plan?.id" class="w-full py-2 text-center text-xs font-semibold text-dim border border-border rounded-lg">
               Your current plan
             </div>
           </div>
@@ -255,19 +255,19 @@
       </section>
 
       <!-- ⑤ BILLING CLARITY ───────────────────────────────────────────────── -->
-      <section class="p-5 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+      <section class="p-5 bg-surface-alt rounded-2xl border border-border">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
           <div>
-            <p class="font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Prorated billing</p>
-            <p class="text-zinc-500 dark:text-zinc-400 leading-relaxed">When you upgrade mid-cycle, you're only charged for the remaining days in your current period.</p>
+            <p class="font-semibold text-muted mb-1">Prorated billing</p>
+            <p class="text-dim leading-relaxed">When you upgrade mid-cycle, you're only charged for the remaining days in your current period.</p>
           </div>
           <div>
-            <p class="font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Cancel anytime</p>
-            <p class="text-zinc-500 dark:text-zinc-400 leading-relaxed">Your plan stays active until the end of the billing period. No surprise charges or hidden fees.</p>
+            <p class="font-semibold text-muted mb-1">Cancel anytime</p>
+            <p class="text-dim leading-relaxed">Your plan stays active until the end of the billing period. No surprise charges or hidden fees.</p>
           </div>
           <div>
-            <p class="font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Downgrade rules</p>
-            <p class="text-zinc-500 dark:text-zinc-400 leading-relaxed">Downgrades take effect at renewal. All existing spaces remain accessible until you exceed plan limits.</p>
+            <p class="font-semibold text-muted mb-1">Downgrade rules</p>
+            <p class="text-dim leading-relaxed">Downgrades take effect at renewal. All existing spaces remain accessible until you exceed plan limits.</p>
           </div>
         </div>
       </section>
@@ -278,7 +278,7 @@
     <Teleport to="body">
       <Transition name="toast">
         <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-semibold whitespace-nowrap', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
-          <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-zinc-700/20 text-emerald-400' : 'bg-white dark:bg-zinc-900/20 text-white'">
+          <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-zinc-700/20 text-emerald-400' : 'bg-white  text-white'">
             <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>

@@ -3,11 +3,11 @@
     <!-- Page header -->
     <header class="mb-8 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">Tours</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Manage and organize your virtual tours.</p>
+        <h1 class="text-2xl font-bold tracking-tight text-main">Tours</h1>
+        <p class="text-sm text-dim mt-1">Manage and organize your virtual tours.</p>
       </div>
       <button 
-        class="inline-flex items-center gap-2 px-6 py-2.5 bg-zinc-900 text-white text-[14px] font-bold rounded-xl hover:bg-zinc-800 transition-all hover:-translate-y-0.5 shadow-sm active:scale-[0.98]" 
+        class="btn btn-primary" 
         @click="navigateTo('/app/create')"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -16,13 +16,13 @@
     </header>
 
     <!-- Toolbar -->
-    <div class="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm mb-8">
+    <div class="flex flex-col sm:flex-row gap-4 items-center justify-between bg-surface p-3 rounded-2xl border border-border shadow-sm mb-8">
       <div class="relative w-full sm:w-72 group">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-zinc-700 dark:text-zinc-300 transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input v-model="search" type="text" class="w-full pl-9 pr-4 py-2 bg-transparent border-none focus:ring-0 text-sm outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 dark:text-zinc-100" placeholder="Search tours..." />
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="absolute left-3 top-1/2 -translate-y-1/2 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input v-model="search" type="text" class="w-full pl-9 pr-4 py-2 bg-transparent border-none focus:ring-0 text-sm outline-none placeholder:text-dim text-main" placeholder="Search tours..." />
       </div>
-      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-zinc-100 dark:border-zinc-800 pt-3 sm:pt-0 sm:pl-3">
-        <select v-model="sortBy" class="w-full sm:w-auto pl-3 pr-8 py-1.5 bg-transparent border-transparent text-sm outline-none appearance-none cursor-pointer text-zinc-600 dark:text-zinc-400 font-medium hover:text-zinc-900 dark:text-zinc-100 transition-colors">
+      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-zinc-100  pt-3 sm:pt-0 sm:pl-3">
+        <select v-model="sortBy" class="w-full sm:w-auto pl-3 pr-8 py-1.5 bg-transparent border-transparent text-sm outline-none appearance-none cursor-pointer text-zinc-600  font-medium hover:text-zinc-900  transition-colors">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="name">A → Z</option>
@@ -35,11 +35,11 @@
 
       <!-- Skeletons -->
       <template v-if="pending">
-        <div v-for="n in 4" :key="n" class="h-64 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col animate-pulse">
-          <div class="h-2/3 w-full bg-zinc-100 dark:bg-zinc-800"></div>
+        <div v-for="n in 4" :key="n" class="h-64 bg-white  rounded-xl border border-zinc-200  overflow-hidden flex flex-col animate-pulse">
+          <div class="h-2/3 w-full bg-zinc-100 "></div>
           <div class="flex-1 p-4 flex flex-col justify-between">
-            <div class="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-3/4"></div>
-            <div class="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-1/4"></div>
+            <div class="h-4 bg-zinc-100  rounded w-3/4"></div>
+            <div class="h-3 bg-zinc-100  rounded w-1/4"></div>
           </div>
         </div>
       </template>
@@ -47,50 +47,65 @@
       <!-- Space cards -->
       <template v-else>
         <!-- Empty State: no spaces at all -->
-        <div v-if="!filteredSpaces.length && !search" class="col-span-full py-16 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-500">
-          <div class="max-w-md w-full bg-white dark:bg-zinc-900 p-10 rounded-[2rem] shadow-sm border border-zinc-200 dark:border-zinc-700 text-center flex flex-col items-center">
-            <h2 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-3">👋 Welcome to Viewora</h2>
-            <p class="text-zinc-500 dark:text-zinc-400 mb-8 font-medium text-[16px]">Create your first virtual tour in under 2 minutes.</p>
+        <div v-if="!filteredSpaces.length && !search" class="col-span-full py-12 md:py-24 animate-in fade-in zoom-in-95 duration-500">
+          <div class="relative group mx-auto max-w-2xl px-4">
+            <!-- iOS-style futuristic glass card -->
+            <div class="absolute -inset-0.5 bg-gradient-to-r from-zinc-300/30 to-zinc-500/30 dark:from-zinc-100/10 dark:to-zinc-400/10 rounded-[2rem] blur-xl opacity-20 group-hover:opacity-30 transition duration-700"></div>
             
-            <div class="space-y-4 mb-10 w-full max-w-[280px]">
-              <div class="flex items-center gap-4 text-left">
-                <div class="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-700 dark:text-zinc-300 shrink-0">1</div>
-                <p class="text-[14px] font-bold text-zinc-700 dark:text-zinc-300">Pick a tour type</p>
+            <div class="relative bg-zinc-100/10 dark:bg-white/5 backdrop-blur-3xl p-8 md:p-12 rounded-[2rem] border border-white/20 dark:border-white/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+              <div class="mb-6 flex items-center justify-center">
+                <div class="w-12 h-12 rounded-full bg-main/10 flex items-center justify-center text-main">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                </div>
               </div>
-              <div class="flex items-center gap-4 text-left">
-                <div class="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-700 dark:text-zinc-300 shrink-0">2</div>
-                <p class="text-[14px] font-bold text-zinc-700 dark:text-zinc-300">Upload 360° photos</p>
-              </div>
-              <div class="flex items-center gap-4 text-left">
-                <div class="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-700 dark:text-zinc-300 shrink-0">3</div>
-                <p class="text-[14px] font-bold text-zinc-700 dark:text-zinc-300">Share your link</p>
-              </div>
-            </div>
 
-            <div class="flex flex-col gap-3 w-full">
-              <button class="w-full py-4 bg-zinc-900 text-white text-[15px] font-bold rounded-xl hover:bg-zinc-800 transition-all hover:-translate-y-0.5 shadow-sm active:scale-[0.98]" @click="navigateTo('/app/create')">
-                + Create New Tour
-              </button>
-              <button class="w-full py-4 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[15px] font-bold rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:bg-zinc-800 transition-all hover:border-zinc-300 dark:hover:border-zinc-600 dark:border-zinc-600 disabled:opacity-50" @click="generateDemoTour" :disabled="creatingDemo">
-                 👁 See Example Tour
-              </button>
+              <h2 class="text-2xl md:text-3xl font-extrabold text-main mb-3 tracking-tight">Welcome to Viewora</h2>
+              <p class="text-dim mb-10 font-medium text-sm md:text-base max-w-md">Create your first virtual tour in under 2 minutes.</p>
+              
+              <div class="flex items-center justify-center gap-3 sm:gap-6 mb-12 w-full relative">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">1</div>
+                  <p class="hidden sm:block text-[13px] font-bold text-main">Define</p>
+                </div>
+                <div class="w-4 md:w-8 h-px bg-white/10"></div>
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">2</div>
+                  <p class="hidden sm:block text-[13px] font-bold text-main">Upload</p>
+                </div>
+                <div class="w-4 md:w-8 h-px bg-white/10"></div>
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">3</div>
+                  <p class="hidden sm:block text-[13px] font-bold text-main">Share</p>
+                </div>
+              </div>
+
+              <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
+                <button @click="navigateTo('/app/create')" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-bold flex items-center justify-center gap-2 border border-white/20 bg-white/5 hover:bg-white hover:text-black group shadow-sm active:scale-95">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="transition-transform group-hover:scale-110"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Start Creating
+                </button>
+                <button @click="generateDemoTour" :disabled="creatingDemo" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-semibold flex items-center justify-center gap-2 border border-transparent hover:border-white/10 bg-white/5 hover:bg-white/10 text-main active:scale-95 disabled:opacity-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  See Example
+                </button>
+              </div>
             </div>
           </div>
         </div>
         <!-- Empty State: no search results -->
         <div v-else-if="!filteredSpaces.length && search" class="col-span-full py-16 flex flex-col items-center justify-center text-center">
-          <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-2">No spaces match <span class="text-zinc-900 dark:text-zinc-100">"{{ search }}"</span></p>
-          <button class="text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100" @click="search = ''">Clear search</button>
+          <p class="text-sm font-medium text-zinc-500  mb-2">No spaces match <span class="text-zinc-900 ">"{{ search }}"</span></p>
+          <button class="text-sm font-medium text-zinc-500  hover:text-zinc-900 " @click="search = ''">Clear search</button>
         </div>
 
         <div
           v-for="space in filteredSpaces"
           :key="space.id" 
-          class="group relative flex flex-col h-[280px] bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden hover:border-zinc-300 dark:hover:border-zinc-600 dark:border-zinc-600 hover:shadow-lg transition-all duration-300 cursor-pointer"
+          class="group relative flex flex-col h-[280px] bg-card rounded-2xl border border-border overflow-hidden hover:border-text-dim hover:shadow-lg transition-all duration-300 cursor-pointer"
           @click="navigateTo(`/app/spaces/${space.id}`)"
         >
           <!-- Thumbnail -->
-          <div class="h-2/3 w-full bg-zinc-50 dark:bg-zinc-800 relative overflow-hidden border-b border-zinc-100 dark:border-zinc-800">
+          <div class="h-2/3 w-full bg-surface-alt relative overflow-hidden border-b border-border">
             <div 
               v-if="space.cover_image_url"
               class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
@@ -98,7 +113,7 @@
             ></div>
             <div 
               v-else
-              :class="['w-full h-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 transition-all duration-500 group-hover:bg-zinc-200']"
+              :class="['w-full h-full flex items-center justify-center bg-zinc-100  transition-all duration-500 group-hover:bg-zinc-200']"
             >
                <svg v-if="!space.is_published" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-zinc-300"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
@@ -108,7 +123,7 @@
                 :class="['px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm border backdrop-blur-md transition-colors', 
                          space.is_published 
                            ? 'bg-emerald-500 text-white border-emerald-400' 
-                           : 'bg-white dark:bg-zinc-900/90 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700']"
+                           : 'bg-white  text-zinc-600  border-zinc-200 ']"
               >
                 {{ space.is_published ? 'Published' : 'Draft' }}
               </span>
@@ -117,7 +132,7 @@
             <!-- Quick Actions (Hover) -->
             <div class="absolute inset-0 bg-zinc-900/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                <button 
-                 class="w-10 h-10 flex items-center justify-center bg-white dark:bg-zinc-900 rounded-xl text-zinc-700 dark:text-zinc-300 shadow-sm hover:bg-zinc-900 hover:text-white transition-all duration-200 active:scale-90"
+                 class="w-10 h-10 flex items-center justify-center bg-white  rounded-xl text-zinc-700  shadow-sm hover:bg-zinc-900 hover:text-white transition-all duration-200 active:scale-90"
                  @click.stop="navigateTo(`/app/spaces/${space.id}`)"
                  title="Edit"
                >
@@ -127,7 +142,7 @@
                  v-if="space.is_published && space.slug"
                  :href="`/p/${space.slug}`"
                  target="_blank"
-                 class="w-10 h-10 flex items-center justify-center bg-white dark:bg-zinc-900 rounded-xl text-zinc-700 dark:text-zinc-300 shadow-sm hover:bg-zinc-900 hover:text-white transition-all duration-200 active:scale-90"
+                 class="w-10 h-10 flex items-center justify-center bg-white  rounded-xl text-zinc-700  shadow-sm hover:bg-zinc-900 hover:text-white transition-all duration-200 active:scale-90"
                  @click.stop
                  title="View Live"
                >
@@ -138,28 +153,28 @@
 
           <!-- Body -->
           <div class="flex-1 p-4 flex flex-col justify-between">
-            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate" :title="space.title">{{ space.title }}</h3>
+            <h3 class="text-sm font-semibold text-main truncate" :title="space.title">{{ space.title }}</h3>
             <div class="flex items-center justify-between mt-auto">
-              <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+              <span class="text-xs font-medium text-dim flex items-center gap-1.5">
                 {{ formatDate(space.created_at) }}
               </span>
 
               <!-- More menu -->
               <div class="relative">
                 <button 
-                  class="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-600 dark:text-zinc-400 transition-colors"
+                  class="p-1 hover:bg-surface-alt rounded text-dim hover:text-main transition-colors"
                   @click.stop.prevent="toggleDropdown(space.id, $event)"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
                 </button>
                 <div 
                   v-if="activeDropdown === space.id" 
-                  class="absolute bottom-full right-0 mb-2 w-36 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 p-1 z-20 flex flex-col"
+                  class="absolute bottom-full right-0 mb-2 w-36 bg-card text-main rounded-lg shadow-lg border border-border p-1 z-20 flex flex-col"
                 >
-                  <button class="w-full text-left px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:bg-zinc-800 rounded-md" @click.stop.prevent="handleTogglePublish(space)">
+                  <button class="w-full text-left px-3 py-1.5 text-sm font-medium hover:bg-surface-alt rounded-md" @click.stop.prevent="handleTogglePublish(space)">
                     {{ space.is_published ? 'Unpublish' : 'Publish' }}
                   </button>
-                  <button class="w-full text-left px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-md" @click.stop.prevent="confirmDelete(space)">
+                  <button class="w-full text-left px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-500/10 rounded-md" @click.stop.prevent="confirmDelete(space)">
                     Delete
                   </button>
                 </div>
@@ -189,7 +204,7 @@
       <!-- Toast -->
       <Transition name="toast">
         <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold transition-all', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
-          <div class="w-6 h-6 rounded-full flex items-center justify-center" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white dark:bg-zinc-900/20 text-white'">
+          <div class="w-6 h-6 rounded-full flex items-center justify-center" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white  text-white'">
             <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>

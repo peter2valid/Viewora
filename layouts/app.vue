@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen app-bg-premium font-sans antialiased text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white">
+  <div class="min-h-screen bg-bg font-sans antialiased text-main selection:bg-main selection:text-bg">
     <!-- Mobile Backdrop -->
     <div
       v-if="isSidebarOpen"
@@ -10,7 +10,7 @@
     <!-- Sidebar -->
     <aside 
       :class="[
-        'fixed inset-y-0 left-0 w-64 bg-zinc-950 border-r border-zinc-900 z-[100] transition-transform duration-300 ease-in-out lg:translate-x-0 overflow-hidden flex flex-col',
+        'fixed inset-y-0 left-0 w-64 bg-black border-r border-zinc-900 z-[100] transition-transform duration-300 ease-in-out lg:translate-x-0 overflow-hidden flex flex-col',
         isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none'
       ]"
     >
@@ -44,9 +44,9 @@
       </div>
 
       <!-- User Profile Area -->
-      <div class="p-4 border-t border-zinc-900 bg-zinc-950/50">
+      <div class="p-4 border-t border-zinc-900 bg-black/50">
         <div class="flex items-center gap-3 mb-4 px-2">
-           <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-semibold text-white">
+           <div class="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-semibold text-white">
              {{ authStore.avatarInitials }}
            </div>
            <div class="flex-1 min-w-0">
@@ -74,12 +74,12 @@
     <!-- Main Viewport -->
     <div class="lg:pl-64 flex flex-col min-h-screen">
       <!-- Topbar / Mobile Navigation -->
-      <header class="h-16 flex items-center justify-between px-6 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-[80] lg:hidden">
+      <header class="h-16 flex items-center justify-between px-6 bg-surface border-b border-border sticky top-0 z-[80] lg:hidden">
         <NuxtLink to="/app" class="flex items-center gap-2">
-           <div class="w-6 h-6 rounded-md bg-zinc-900 flex items-center justify-center">
-             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+           <div class="w-6 h-6 rounded-md bg-main flex items-center justify-center">
+             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="text-bg"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
            </div>
-           <span class="text-base font-bold tracking-tight text-zinc-900">Viewora</span>
+           <span class="text-base font-bold tracking-tight text-main">Viewora</span>
         </NuxtLink>
         <div class="flex items-center gap-1">
           <button @click="toggleTheme" class="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
@@ -93,7 +93,7 @@
       </header>
 
       <!-- App View -->
-      <main class="flex-1 p-6 md:p-8 lg:p-10 max-w-6xl mx-auto w-full dark:text-zinc-100">
+      <main class="flex-1 p-4 md:p-8 lg:p-10 max-w-6xl mx-auto w-full overflow-x-hidden">
         <slot />
       </main>
     </div>
@@ -138,15 +138,6 @@ const logout = async () => {
 </script>
 
 <style scoped>
-/* Premium solid backgrounds */
-.app-bg-premium {
-  background-color: #fafafa;
-}
-
-:global(.dark .app-bg-premium) {
-  background-color: #09090b;
-}
-
 /* Page crossfade transition */
 .page-enter-active,
 .page-leave-active {
