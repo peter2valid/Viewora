@@ -3,20 +3,20 @@
     <!-- Page Header -->
     <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="space-y-1">
-        <h1 class="text-2xl font-bold tracking-tight text-zinc-950">Analytics</h1>
-        <p class="text-sm text-zinc-500">
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">Analytics</h1>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">
           Real-time performance metrics for your published virtual tours.
         </p>
       </div>
 
       <!-- Range Selector -->
-      <div class="p-1 bg-white border border-zinc-200 rounded-lg flex items-center shadow-sm">
+      <div class="p-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg flex items-center shadow-sm">
         <button
           v-for="r in ranges"
           :key="r.value"
           @click="activeRange = r.value"
           class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
-          :class="activeRange === r.value ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-900'"
+          :class="activeRange === r.value ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100'"
         >
           {{ r.label }}
         </button>
@@ -32,28 +32,28 @@
           { label: 'Total Views', value: totalViews, sub: `${viewsToday} today`, icon: 'eye' },
           { label: 'Leads Captured', value: totalLeads, sub: 'All time', icon: 'users' },
           { label: 'Top Source', value: topSource, sub: `${topSourceViews} views`, icon: 'link' },
-          { label: 'Top Space', value: topSpaceName, sub: `${topSpaceViews} views`, icon: 'home' }
-        ]" :key="metric.label" class="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm transition-shadow hover:shadow-md group">
+          { label: 'Top Tour', value: topTourName, sub: `${topTourViews} views`, icon: 'home' }
+        ]" :key="metric.label" class="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-600 dark:border-zinc-600 group">
           <div class="flex items-center justify-between mb-4">
-            <span class="text-sm font-medium text-zinc-500">{{ metric.label }}</span>
-            <div class="text-zinc-400 group-hover:text-zinc-900 transition-colors">
+            <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ metric.label }}</span>
+            <div class="text-zinc-400 group-hover:text-zinc-900 dark:text-zinc-100 transition-colors">
                <svg v-if="metric.icon === 'eye'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                <svg v-else-if="metric.icon === 'users'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                <svg v-else-if="metric.icon === 'link'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
           </div>
-          <div class="text-2xl font-semibold text-zinc-900 tracking-tight leading-none mb-1">{{ metric.value }}</div>
+          <div class="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mb-1">{{ metric.value }}</div>
           <div class="text-xs text-zinc-400 font-medium">{{ metric.sub }}</div>
         </div>
       </div>
 
       <!-- Main Chart Card -->
-      <div class="bg-white rounded-xl border border-zinc-200 shadow-sm p-6 flex flex-col gap-8">
+      <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm p-6 flex flex-col gap-8">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-base font-semibold text-zinc-900 tracking-tight">Visitor Intelligence</h3>
-            <p class="text-xs text-zinc-500">{{ activeRangeLabel }}</p>
+            <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight">Visitor Intelligence</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ activeRangeLabel }}</p>
           </div>
           <div class="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-semibold uppercase tracking-wider border border-emerald-200">
              <div class="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -64,12 +64,12 @@
         <!-- Custom Bar Chart Visualization -->
         <div class="h-[240px] flex items-end gap-2 px-2 relative group/chart">
           <!-- Empty State Overlay -->
-          <div v-if="chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm z-20 rounded-lg">
-             <div class="w-10 h-10 bg-zinc-50 text-zinc-300 rounded-lg flex items-center justify-center mb-3 border border-zinc-100">
+          <div v-if="chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-zinc-900/60 backdrop-blur-sm z-20 rounded-lg">
+             <div class="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-300 rounded-lg flex items-center justify-center mb-3 border border-zinc-100 dark:border-zinc-800">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
              </div>
-             <p class="text-xs font-semibold text-zinc-900">No data recorded</p>
-             <p class="text-xs text-zinc-500 mt-1">Share your spaces to start gathering intelligence.</p>
+             <p class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">No data recorded</p>
+             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Share your tours to start gathering intelligence.</p>
           </div>
 
           <!-- Y Axis (Minimal) -->
@@ -88,55 +88,55 @@
               
               <!-- The Bar -->
               <div 
-                class="w-full min-h-[2px] rounded-t-sm transition-all duration-500 ease-out group-hover/bar:bg-zinc-900"
-                :class="day.views > 0 ? 'bg-zinc-800' : 'bg-zinc-50'"
+                class="w-full min-h-[2px] rounded-t-lg transition-all duration-500 ease-out group-hover/bar:bg-zinc-900"
+                :class="day.views > 0 ? 'bg-zinc-800' : 'bg-zinc-100 dark:bg-zinc-800'"
                 :style="{ height: (day.views / (maxY || 1) * 100) + '%' }"
               ></div>
             </div>
-            <span class="text-[10px] font-medium text-zinc-400 transition-colors group-hover/bar:text-zinc-900 hidden md:block">{{ day.label }}</span>
+            <span class="text-[10px] font-medium text-zinc-400 transition-colors group-hover/bar:text-zinc-900 dark:text-zinc-100 hidden md:block">{{ day.label }}</span>
           </div>
         </div>
       </div>
 
       <!-- performance Table Card -->
-      <div class="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col">
-          <header class="p-6 border-b border-zinc-100 flex items-center justify-between">
+      <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden flex flex-col">
+          <header class="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
              <div>
-                <h3 class="text-base font-semibold text-zinc-900 tracking-tight">Performance Leaderboard</h3>
-                <p class="text-xs text-zinc-500">Ranking by total engagement.</p>
+                <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight">Performance Leaderboard</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">Ranking by total engagement.</p>
              </div>
           </header>
 
           <div v-if="spaceStats.length === 0" class="p-12 flex flex-col items-center justify-center text-center">
-             <div class="w-10 h-10 bg-zinc-50 text-zinc-200 rounded-lg flex items-center justify-center mb-3 border border-zinc-100">
+             <div class="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-200 rounded-lg flex items-center justify-center mb-3 border border-zinc-100 dark:border-zinc-800">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
              </div>
-             <p class="text-xs font-medium text-zinc-500">No data available for the selected range.</p>
+             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">No data available for the selected range.</p>
           </div>
           <div v-else class="overflow-x-auto">
             <table class="w-full text-left border-collapse table-fixed min-w-[800px]">
-              <thead class="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-zinc-100">
-                <tr class="text-xs font-medium text-zinc-500">
-                  <th class="w-[40%] px-6 py-3">Space</th>
-                  <th class="w-[15%] px-6 py-3 text-right">Total</th>
-                  <th class="w-[10%] px-6 py-3 text-center">Dir</th>
-                  <th class="w-[10%] px-6 py-3 text-center">QR</th>
-                  <th class="w-[10%] px-6 py-3 text-center">WA</th>
-                  <th class="w-[15%] px-6 py-3 text-right">Leads</th>
+              <thead class="sticky top-0 bg-white dark:bg-zinc-900/80 backdrop-blur-md z-10 border-b border-zinc-100 dark:border-zinc-800">
+                <tr class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                  <th class="w-[40%] px-6 py-4">Tour</th>
+                  <th class="w-[15%] px-6 py-4 text-right">Total</th>
+                  <th class="w-[10%] px-6 py-4 text-center">Dir</th>
+                  <th class="w-[10%] px-6 py-4 text-center">QR</th>
+                  <th class="w-[10%] px-6 py-4 text-center">WA</th>
+                  <th class="w-[15%] px-6 py-4 text-right">Leads</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-zinc-50">
-                <tr v-for="stat in spaceStats" :key="stat.id" class="group hover:bg-zinc-50/50 transition-colors">
+                <tr v-for="stat in tourStats" :key="stat.id" class="group hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:bg-zinc-800/50 transition-colors">
                   <td class="px-6 py-4">
-                    <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-medium text-zinc-900 hover:text-emerald-600 transition-colors truncate block">
+                    <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 hover:text-zinc-900 dark:text-zinc-100 transition-colors truncate block">
                       {{ stat.title }}
                     </NuxtLink>
                   </td>
-                  <td class="px-6 py-4 text-right text-sm font-semibold text-zinc-900">{{ stat.total_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.direct_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.qr_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.whatsapp_views }}</td>
-                  <td class="px-6 py-4 text-right text-sm font-medium text-emerald-600">{{ stat.leads_count }}</td>
+                  <td class="px-6 py-4 text-right text-sm font-bold text-zinc-900 dark:text-zinc-100">{{ stat.total_views }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-zinc-500 dark:text-zinc-400 font-medium">{{ stat.direct_views }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-zinc-500 dark:text-zinc-400 font-medium">{{ stat.qr_views }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-zinc-500 dark:text-zinc-400 font-medium">{{ stat.whatsapp_views }}</td>
+                  <td class="px-6 py-4 text-right text-sm font-bold text-zinc-700 dark:text-zinc-300">{{ stat.leads_count }}</td>
                 </tr>
               </tbody>
             </table>
@@ -215,7 +215,7 @@ const topSource = computed(() => {
 
 const topSourceViews = computed(() => sourceTotals.value[topSource.value as keyof typeof sourceTotals.value] || 0)
 
-const spaceStats = computed(() => {
+const tourStats = computed(() => {
   const props: Record<string, any> = {}
   rawStats.value.forEach(s => {
     const pid = s.space_id || s.property_id
@@ -241,8 +241,8 @@ const spaceStats = computed(() => {
   return Object.values(props).sort((a, b) => b.total_views - a.total_views)
 })
 
-const topSpaceName = computed(() => spaceStats.value[0]?.title || '—')
-const topSpaceViews = computed(() => spaceStats.value[0]?.total_views || 0)
+const topTourName = computed(() => tourStats.value[0]?.title || '—')
+const topTourViews = computed(() => tourStats.value[0]?.total_views || 0)
 
 // Chart logic
 const chartDays = computed(() => {

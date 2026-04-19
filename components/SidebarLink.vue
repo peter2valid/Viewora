@@ -1,12 +1,12 @@
 <template>
   <NuxtLink
     :to="to"
-    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+    class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 group"
     :class="isActive
-      ? 'bg-zinc-800/80 text-white'
-      : 'text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50'"
+      ? 'bg-white/10 text-white'
+      : 'text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/60'"
   >
-    <div v-html="iconSvg" class="flex items-center justify-center" :class="isActive ? 'text-zinc-50' : 'text-zinc-500'"></div>
+    <div v-html="iconSvg" class="flex items-center justify-center transition-colors" :class="isActive ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'"></div>
     <span class="tracking-tight">{{ label }}</span>
   </NuxtLink>
 </template>

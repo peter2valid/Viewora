@@ -4,20 +4,20 @@
     <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="space-y-1">
         <div class="flex items-center gap-3">
-          <h1 class="text-2xl font-bold tracking-tight text-zinc-950">Lead Hub</h1>
+          <h1 class="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">Lead Hub</h1>
           <span v-if="canCapture && !pending" class="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-semibold uppercase tracking-wider rounded-md border border-emerald-200">
             {{ filteredLeads.length }} Total
           </span>
         </div>
-        <p class="text-sm text-zinc-500">
-          Manage prospective client interests from your virtual tours.
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">
+          Manage prospective client interests from your interactive tours.
         </p>
       </div>
 
       <div class="flex items-center gap-3">
         <button 
           v-if="canCapture"
-          class="flex items-center gap-2 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-50"
+          class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50"
           @click="exportLeads"
           :disabled="!filteredLeads.length"
         >
@@ -29,26 +29,26 @@
 
     <!-- ── Upgrade Wall (Gated) ────────────────────────────────────────── -->
     <div v-if="!canCapture" class="flex-1 flex items-center justify-center p-6">
-      <div class="max-w-md w-full bg-white rounded-xl border border-zinc-200 p-10 text-center shadow-sm relative overflow-hidden">
+      <div class="max-w-md w-full bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 p-10 text-center shadow-sm relative overflow-hidden">
         <div class="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
         <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-6">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
-        <h2 class="text-xl font-bold tracking-tight text-zinc-950 mb-3">Premium Intelligence</h2>
-        <p class="text-zinc-500 text-sm leading-relaxed mb-8">
+        <h2 class="text-xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 mb-3">Premium Intelligence</h2>
+        <p class="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-8">
           Unlock the Lead Hub to capture name, email, and intent directly from tour visitors.
         </p>
         
-        <div class="space-y-3 mb-8 text-left bg-zinc-50 p-5 rounded-lg border border-zinc-100">
+        <div class="space-y-3 mb-8 text-left bg-zinc-50 dark:bg-zinc-800 p-5 rounded-lg border border-zinc-100 dark:border-zinc-800">
           <div v-for="feat in ['Visitor Identity Capture', 'Source Attribution', 'Instant CRM Sync']" :key="feat" class="flex items-center gap-3">
             <div class="w-4 h-4 bg-emerald-500 text-white rounded-full flex items-center justify-center flex-shrink-0">
                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <span class="text-xs font-medium text-zinc-700">{{ feat }}</span>
+            <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{{ feat }}</span>
           </div>
         </div>
 
-        <NuxtLink to="/app/billing" class="block w-full py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm text-center">
+        <NuxtLink to="/app/billing" class="block w-full py-3 bg-zinc-900 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 transition-all shadow-sm text-center active:scale-[0.98]">
           Upgrade to Plus
         </NuxtLink>
       </div>
@@ -58,7 +58,7 @@
     <template v-else>
       <!-- Filters Toolbar -->
       <section class="mb-6">
-        <div class="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-zinc-200 shadow-sm">
+        <div class="flex flex-wrap items-center gap-3 bg-white dark:bg-zinc-900 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
           <div class="relative flex-1 min-w-[240px]">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input 
@@ -69,12 +69,12 @@
             />
           </div>
 
-          <div class="flex items-center gap-2 border-l border-zinc-100 pl-3">
-            <select v-model="projectFilter" class="bg-transparent text-sm font-medium text-zinc-600 hover:text-zinc-900 outline-none cursor-pointer pr-6 py-1.5 border-transparent focus:ring-0">
-              <option value="">All Spaces</option>
+          <div class="flex items-center gap-2 border-l border-zinc-100 dark:border-zinc-800 pl-3">
+            <select v-model="projectFilter" class="bg-transparent text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 outline-none cursor-pointer pr-6 py-1.5 border-transparent focus:ring-0">
+              <option value="">All Tours</option>
               <option v-for="p in projectOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
-            <select v-model="statusFilter" class="bg-transparent text-sm font-medium text-zinc-600 hover:text-zinc-900 outline-none cursor-pointer pr-6 py-1.5 border-transparent focus:ring-0">
+            <select v-model="statusFilter" class="bg-transparent text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 outline-none cursor-pointer pr-6 py-1.5 border-transparent focus:ring-0">
               <option value="">All Statuses</option>
               <option value="new">New</option>
               <option value="contacted">Contacted</option>
@@ -86,36 +86,36 @@
       </section>
 
       <!-- Main Data Table -->
-      <section class="flex-1 min-h-0 bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+      <section class="flex-1 min-h-0 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden flex flex-col">
         
         <!-- Loading Skeleton -->
         <div v-if="pending" class="divide-y divide-zinc-50">
           <div v-for="n in 5" :key="n" class="px-6 py-4 flex items-center gap-4 animate-pulse">
-            <div class="w-7 h-7 bg-zinc-100 rounded-full flex-shrink-0"></div>
+            <div class="w-7 h-7 bg-zinc-100 dark:bg-zinc-800 rounded-full flex-shrink-0"></div>
             <div class="flex-1 min-w-0 space-y-1.5">
-              <div class="h-3 bg-zinc-100 rounded w-28"></div>
-              <div class="h-2 bg-zinc-100 rounded w-16"></div>
+              <div class="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-28"></div>
+              <div class="h-2 bg-zinc-100 dark:bg-zinc-800 rounded w-16"></div>
             </div>
             <div class="hidden sm:flex flex-col gap-1.5 w-36">
-              <div class="h-3 bg-zinc-100 rounded w-28"></div>
-              <div class="h-2 bg-zinc-100 rounded w-16"></div>
+              <div class="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-28"></div>
+              <div class="h-2 bg-zinc-100 dark:bg-zinc-800 rounded w-16"></div>
             </div>
             <div class="hidden md:flex flex-col gap-1.5 w-28">
-              <div class="h-3 bg-zinc-100 rounded w-20"></div>
-              <div class="h-2 bg-zinc-100 rounded w-12"></div>
+              <div class="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-20"></div>
+              <div class="h-2 bg-zinc-100 dark:bg-zinc-800 rounded w-12"></div>
             </div>
-            <div class="w-16 h-5 bg-zinc-100 rounded-full"></div>
-            <div class="w-16 h-3 bg-zinc-100 rounded ml-auto"></div>
+            <div class="w-16 h-5 bg-zinc-100 dark:bg-zinc-800 rounded-full"></div>
+            <div class="w-16 h-3 bg-zinc-100 dark:bg-zinc-800 rounded ml-auto"></div>
           </div>
         </div>
 
         <!-- Empty State -->
         <div v-else-if="!filteredLeads.length" class="flex-1 flex flex-col items-center justify-center p-12 text-center">
-          <div class="w-12 h-12 bg-zinc-50 text-zinc-300 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <div class="w-12 h-12 bg-zinc-50 dark:bg-zinc-800 text-zinc-300 rounded-xl flex items-center justify-center mx-auto mb-4">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <h3 class="text-base font-semibold text-zinc-900 mb-1">No Active Prospects</h3>
-          <p class="text-sm text-zinc-500 max-w-xs mx-auto mb-6">
+          <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No Active Prospects</h3>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto mb-6">
             {{ search || projectFilter || statusFilter ? 'No leads match your current criteria.' : 'Visitors who enquire through your tours will appear here.' }}
           </p>
           <button v-if="search || projectFilter || statusFilter" class="text-sm font-medium text-emerald-600 hover:text-emerald-700" @click="search = ''; projectFilter = ''; statusFilter = ''">
@@ -126,25 +126,25 @@
         <!-- The Table -->
         <div v-else class="flex-1 overflow-auto">
           <table class="w-full text-left border-collapse table-fixed min-w-[800px]">
-            <thead class="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-zinc-100">
+            <thead class="sticky top-0 bg-white dark:bg-zinc-900/80 backdrop-blur-md z-10 border-b border-zinc-100 dark:border-zinc-800">
               <tr>
-                <th class="w-[25%] px-6 py-3 text-xs font-medium text-zinc-500">Prospect</th>
-                <th class="w-[25%] px-6 py-3 text-xs font-medium text-zinc-500">Contact</th>
-                <th class="w-[20%] px-6 py-3 text-xs font-medium text-zinc-500">Source</th>
-                <th class="w-[15%] px-6 py-3 text-xs font-medium text-zinc-500">Status</th>
-                <th class="w-[15%] px-6 py-3 text-xs font-medium text-zinc-500 text-right">Captured</th>
+                <th class="w-[25%] px-6 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">Prospect</th>
+                <th class="w-[25%] px-6 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">Contact</th>
+                <th class="w-[20%] px-6 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">Source</th>
+                <th class="w-[15%] px-6 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">Status</th>
+                <th class="w-[15%] px-6 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 text-right">Captured</th>
                 <th class="w-[50px] px-6 py-3"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-zinc-50">
-              <tr v-for="lead in filteredLeads" :key="lead.id" class="group hover:bg-zinc-50/50 transition-colors">
+              <tr v-for="lead in filteredLeads" :key="lead.id" class="group hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:bg-zinc-800/50 transition-colors">
                 <td class="px-6 py-4">
                   <div class="flex items-center gap-3">
-                    <div class="w-7 h-7 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center text-[10px] font-bold">
+                    <div class="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center text-[10px] font-bold">
                       {{ (lead.name || 'P')[0].toUpperCase() }}
                     </div>
                     <div class="flex flex-col min-w-0">
-                      <span class="text-sm font-medium text-zinc-900 truncate">{{ lead.name || 'Anonymous' }}</span>
+                      <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ lead.name || 'Anonymous' }}</span>
                       <button v-if="lead.message" class="text-[10px] text-emerald-600 font-semibold text-left hover:underline" @click="expandedLead = lead">
                          View Message
                       </button>
@@ -153,13 +153,13 @@
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex flex-col min-w-0">
-                    <a :href="`mailto:${lead.email}`" class="text-sm text-zinc-600 hover:text-zinc-900 truncate">{{ lead.email }}</a>
+                    <a :href="`mailto:${lead.email}`" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 truncate">{{ lead.email }}</a>
                     <span v-if="lead.phone" class="text-[10px] text-zinc-400">{{ lead.phone }}</span>
                   </div>
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex flex-col min-w-0">
-                    <span v-if="lead.projects" class="text-xs font-medium text-zinc-900 truncate">{{ (lead.projects as any).name }}</span>
+                    <span v-if="lead.projects" class="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ (lead.projects as any).name }}</span>
                     <span class="text-[10px] text-zinc-400">{{ formatSource(lead.source) }}</span>
                   </div>
                 </td>
@@ -170,7 +170,7 @@
                       lead.status === 'new' ? 'bg-amber-50 border-amber-200 text-amber-700' :
                       lead.status === 'contacted' ? 'bg-blue-50 border-blue-200 text-blue-700' :
                       lead.status === 'qualified' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                      'bg-zinc-50 border-zinc-200 text-zinc-600'
+                      'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
                     ]"
                     @click="updateStatus(lead, cycleStatus(lead.status))"
                   >
@@ -184,7 +184,7 @@
                   </button>
                 </td>
                 <td class="px-6 py-4 text-right">
-                  <span class="text-xs text-zinc-500">{{ formatDate(lead.created_at) }}</span>
+                  <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ formatDate(lead.created_at) }}</span>
                 </td>
                 <td class="px-6 py-4 text-right">
                   <button 
@@ -205,29 +205,29 @@
         <Transition name="modal">
           <div v-if="expandedLead" class="fixed inset-0 z-[100] flex items-center justify-center p-6">
             <div class="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm" @click="expandedLead = null"></div>
-            <div class="relative w-full max-w-lg bg-white rounded-xl shadow-xl overflow-hidden border border-zinc-200">
-              <header class="px-6 py-5 flex items-center justify-between border-b border-zinc-100">
-                 <h3 class="text-base font-semibold text-zinc-900">Inquiry Message</h3>
-                 <button class="p-1 text-zinc-400 hover:text-zinc-600 rounded transition-colors" @click="expandedLead = null">
+            <div class="relative w-full max-w-lg bg-white dark:bg-zinc-900 rounded-xl shadow-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
+              <header class="px-6 py-5 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
+                 <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Inquiry Message</h3>
+                 <button class="p-1 text-zinc-400 hover:text-zinc-600 dark:text-zinc-400 rounded transition-colors" @click="expandedLead = null">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                  </button>
               </header>
               <div class="p-6 space-y-6">
-                <div class="bg-zinc-50 p-5 rounded-lg border border-zinc-100 text-sm leading-relaxed text-zinc-700 italic">
+                <div class="bg-zinc-50 dark:bg-zinc-800 p-5 rounded-lg border border-zinc-100 dark:border-zinc-800 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 italic">
                   "{{ expandedLead.message }}"
                 </div>
                 <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center font-bold">
+                  <div class="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center font-bold">
                      {{ expandedLead.name?.[0] || 'P' }}
                   </div>
                   <div class="flex flex-col min-w-0">
-                    <span class="text-sm font-semibold text-zinc-900 truncate">{{ expandedLead.name || 'Anonymous' }}</span>
-                    <span class="text-xs text-zinc-500 truncate">{{ expandedLead.email }}</span>
+                    <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{{ expandedLead.name || 'Anonymous' }}</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate">{{ expandedLead.email }}</span>
                   </div>
                 </div>
               </div>
-              <footer class="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-end">
-                 <a :href="`mailto:${expandedLead.email}?subject=Response from Viewora`" class="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors">Reply via Email</a>
+              <footer class="px-6 py-4 bg-zinc-50 dark:bg-zinc-800 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
+                 <a :href="`mailto:${expandedLead.email}?subject=Response from Viewora`" class="px-5 py-2.5 bg-zinc-900 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 transition-all shadow-sm active:scale-[0.98]">Reply via Email</a>
               </footer>
             </div>
           </div>
