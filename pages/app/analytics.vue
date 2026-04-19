@@ -166,32 +166,30 @@
              </div>
              <p class="text-xs font-medium text-dim">No data available for the selected range.</p>
           </div>
-          <div v-else class="overflow-x-auto">
+          <div v-else class="overflow-x-auto scrollbar-premium">
             <table class="w-full text-left border-collapse table-fixed min-w-[800px]">
-                <tr class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                  <th class="w-[40%] px-6 py-4">Tour</th>
-                  <th class="w-[15%] px-6 py-4 text-right">Total</th>
-                  <th class="w-[10%] px-6 py-4 text-center">Dir</th>
-                  <th class="w-[10%] px-6 py-4 text-center">QR</th>
-                  <th class="w-[10%] px-6 py-4 text-center">WA</th>
-                  <th class="w-[15%] px-6 py-4 text-right">Leads</th>
+              <thead class="border-b border-border bg-surface-alt/50">
+                <tr class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60">
+                  <th class="w-[40%] px-8 py-5">Property Domain</th>
+                  <th class="w-[15%] px-8 py-5 text-right">Atmospheres</th>
+                  <th class="w-[10%] px-8 py-5 text-center">Direct</th>
+                  <th class="w-[10%] px-8 py-5 text-center">Proxy</th>
+                  <th class="w-[10%] px-8 py-5 text-center">WA</th>
+                  <th class="w-[15%] px-8 py-5 text-right">Intent</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-zinc-50">
-                <tr v-for="stat in tourStats" :key="stat.id" class="group hover:bg-zinc-50   transition-colors">
-                  <td class="px-6 py-4">
-                    <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-bold text-zinc-900  hover:text-zinc-900  transition-colors truncate block">
+              <tbody class="divide-y divide-border/5">
+                <tr v-for="stat in tourStats" :key="stat.id" class="group hover:bg-surface-alt/30 transition-all duration-300">
+                  <td class="px-8 py-5">
+                    <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-black text-main hover:text-main transition-colors truncate block tracking-tight">
                       {{ stat.title }}
                     </NuxtLink>
                   </td>
-                  <td class="px-6 py-4 text-right text-sm font-bold text-zinc-900 ">{{ stat.total_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500  font-medium">{{ stat.direct_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500  font-medium">{{ stat.qr_views }}</td>
-                  <td class="px-6 py-4 text-right text-sm font-bold text-zinc-900">{{ stat.total_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.direct_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.qr_views }}</td>
-                  <td class="px-6 py-4 text-center text-xs text-zinc-500 font-medium">{{ stat.whatsapp_views }}</td>
-                  <td class="px-6 py-4 text-right text-sm font-bold text-zinc-700">{{ stat.leads_count }}</td>
+                  <td class="px-8 py-5 text-right text-sm font-black text-main tabular-nums">{{ stat.total_views }}</td>
+                  <td class="px-8 py-5 text-center text-[11px] text-dim font-bold tabular-nums">{{ stat.direct_views }}</td>
+                  <td class="px-8 py-5 text-center text-[11px] text-dim font-bold tabular-nums">{{ stat.qr_views }}</td>
+                  <td class="px-8 py-5 text-center text-[11px] text-dim font-bold tabular-nums">{{ stat.whatsapp_views }}</td>
+                  <td class="px-8 py-5 text-right text-sm font-black text-main tabular-nums">{{ stat.leads_count }}</td>
                 </tr>
               </tbody>
             </table>

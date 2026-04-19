@@ -95,16 +95,17 @@
               </div>
             </div>
           </div>
+        </div>
       </section>
 
       <!-- Save Footer -->
       <div class="flex justify-end pt-4">
          <button 
-           class="px-8 py-3 bg-zinc-900 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50" 
+           class="btn btn-primary !px-8 !py-3 !rounded-xl text-sm font-black uppercase tracking-widest shadow-2xl active:scale-[0.98] disabled:opacity-50" 
            @click="saveProfile" 
            :disabled="saving"
          >
-           {{ saving ? 'Saving changes...' : 'Save Settings' }}
+           {{ saving ? 'Synchronizing Profile...' : 'Authorize Changes' }}
          </button>
       </div>
 

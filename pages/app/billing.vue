@@ -97,14 +97,17 @@
             <p class="text-sm text-dim font-bold max-w-lg leading-relaxed">{{ planSubtitles[recommendedPlan.name] || 'Professional agency tools and increased quotas.' }}</p>
 
             <!-- Value diff chips -->
+            <div class="flex flex-wrap gap-2 mt-8">
+              <span v-if="recommendedPlan.lead_capture_enabled && !plan?.lead_capture_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-alt text-main/60 text-xs font-black rounded-full border border-border">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                 Lead capture
               </span>
-              <span v-if="recommendedPlan.branding_customization_enabled && !plan?.branding_customization_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <span v-if="recommendedPlan.branding_customization_enabled && !plan?.branding_customization_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-alt text-main/60 text-xs font-black rounded-full border border-border">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                 Agency branding
               </span>
-              <span v-if="shootsDiff > 0" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span v-if="shootsDiff > 0" class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-alt text-main/60 text-xs font-black rounded-full border border-border">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 +{{ shootsDiff }} photo shoot{{ shootsDiff > 1 ? 's' : '' }} / mo
               </span>
             </div>
@@ -230,8 +233,9 @@
               @click="subscribeTo(p.id)"
               :disabled="subscribing === p.id"
               class="btn w-full !rounded-xl"
-              <div v-if="subscribing === p.id" class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
-              {{ subscribing === p.id ? 'Redirecting...' : 'Get ' + p.name }}
+            >
+              <div v-if="subscribing === p.id" class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin mr-2 inline-block align-middle"></div>
+              <span>{{ subscribing === p.id ? 'Redirecting...' : 'Get ' + p.name }}</span>
             </button>
             <div v-else-if="p.id === plan?.id" class="w-full py-2 text-center text-xs font-semibold text-dim border border-border rounded-lg">
               Your current plan

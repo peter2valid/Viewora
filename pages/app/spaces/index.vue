@@ -33,16 +33,16 @@
     </header>
 
     <!-- Toolbar -->
-    <div class="flex flex-col sm:flex-row gap-4 items-center justify-between bg-surface p-3 rounded-2xl border border-border shadow-sm mb-8">
-      <div class="relative w-full sm:w-72 group">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="absolute left-3 top-1/2 -translate-y-1/2 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input v-model="search" type="text" class="w-full pl-9 pr-4 py-2 bg-transparent border-none focus:ring-0 text-sm outline-none placeholder:text-dim text-main" placeholder="Search tours..." />
+    <div class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-2.5 !rounded-2xl border border-border shadow-sm mb-12">
+      <div class="relative w-full sm:w-80 group">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="absolute left-4 top-1/2 -translate-y-1/2 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input v-model="search" type="text" class="w-full pl-11 pr-5 py-2.5 bg-transparent border-none focus:ring-0 text-sm font-bold outline-none placeholder:text-dim/60 text-main" placeholder="Search your property domain..." />
       </div>
-      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-zinc-100  pt-3 sm:pt-0 sm:pl-3">
-        <select v-model="sortBy" class="w-full sm:w-auto pl-3 pr-8 py-1.5 bg-transparent border-transparent text-sm outline-none appearance-none cursor-pointer text-zinc-600  font-medium hover:text-zinc-900  transition-colors">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="name">A → Z</option>
+      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-3">
+        <select v-model="sortBy" class="w-full sm:w-auto pl-4 pr-10 py-2 bg-transparent border-transparent text-xs font-black uppercase tracking-widest outline-none appearance-none cursor-pointer text-main hover:text-main transition-colors">
+          <option value="newest">Sort: Chronological</option>
+          <option value="oldest">Sort: Legacy</option>
+          <option value="name">Sort: Alphabetical</option>
         </select>
       </div>
     </div>
@@ -61,46 +61,25 @@
     <!-- Space cards -->
     <template v-else>
       <!-- Empty State: no spaces at all -->
-      <div v-if="!filteredSpaces.length && !search" class="col-span-full py-12 md:py-24 animate-in fade-in zoom-in-95 duration-500">
-        <div class="relative group mx-auto max-w-2xl px-4">
+      <div v-if="!filteredSpaces.length && !search" class="col-span-full py-12 md:py-24 animate-in fade-in zoom-in-95 duration-700">
+        <div class="relative group mx-auto max-w-2xl px-4 w-full">
           <!-- iOS-style futuristic glass card -->
-          <div class="absolute -inset-0.5 bg-gradient-to-r from-zinc-300/30 to-zinc-500/30 dark:from-zinc-100/10 dark:to-zinc-400/10 rounded-[2rem] blur-xl opacity-20 group-hover:opacity-30 transition duration-700"></div>
+          <div class="absolute -inset-0.5 bg-main/5 blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000"></div>
           
-          <div class="relative bg-zinc-100/10 dark:bg-white/5 backdrop-blur-3xl p-8 md:p-12 rounded-[2rem] border border-white/20 dark:border-white/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
-            <div class="mb-6 flex items-center justify-center">
-              <div class="w-12 h-12 rounded-full bg-main/10 flex items-center justify-center text-main">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+          <div class="relative card-glass p-8 sm:p-12 md:p-16 !rounded-[3rem] border-main/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+            <div class="mb-8 flex items-center justify-center">
+              <div class="w-16 h-16 rounded-full bg-main/10 flex items-center justify-center text-main">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
               </div>
             </div>
 
-            <h2 class="text-2xl md:text-3xl font-extrabold text-main mb-3 tracking-tight">Welcome to Viewora</h2>
-            <p class="text-dim mb-10 font-medium text-sm md:text-base max-w-md">Create your first virtual tour in under 2 minutes.</p>
+            <h2 class="text-3xl font-black text-main mb-3 tracking-tight">Expand Your Reality</h2>
+            <p class="text-dim mb-12 font-bold text-base max-w-md">Your portfolio is currently a clean slate. Start capturing spaces to build your brand.</p>
             
-            <div class="flex items-center justify-center gap-3 sm:gap-6 mb-12 w-full relative">
-              <div class="flex items-center gap-2">
-                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">1</div>
-                <p class="hidden sm:block text-[13px] font-bold text-main">Define</p>
-              </div>
-              <div class="w-4 md:w-8 h-px bg-white/10"></div>
-              <div class="flex items-center gap-2">
-                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">2</div>
-                <p class="hidden sm:block text-[13px] font-bold text-main">Upload</p>
-              </div>
-              <div class="w-4 md:w-8 h-px bg-white/10"></div>
-              <div class="flex items-center gap-2">
-                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">3</div>
-                <p class="hidden sm:block text-[13px] font-bold text-main">Share</p>
-              </div>
-            </div>
-
             <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
-              <button @click="navigateTo('/app/create')" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-bold flex items-center justify-center gap-2 border border-white/20 bg-white/5 hover:bg-white hover:text-black group shadow-sm active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="transition-transform group-hover:scale-110"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Start Creating
-              </button>
-              <button @click="generateDemoTour" :disabled="creatingDemo" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-semibold flex items-center justify-center gap-2 border border-transparent hover:border-white/10 bg-white/5 hover:bg-white/10 text-main active:scale-95 disabled:opacity-50">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                See Example
+              <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 !rounded-2xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create First Tour
               </button>
             </div>
           </div>

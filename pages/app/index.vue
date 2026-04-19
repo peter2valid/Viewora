@@ -9,23 +9,23 @@
     </header>
 
     <!-- ── Loading Skeleton ──────────────────────────────────────────────── -->
-    <section v-if="pending" class="flex flex-col gap-6">
-      <div class="h-48 bg-zinc-100  rounded-2xl animate-pulse"></div>
+    <section v-if="pending" class="flex flex-col gap-8">
+      <div class="h-60 bg-surface-alt/50 rounded-[2rem] border border-border/50 animate-pulse"></div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div v-for="n in 4" :key="n" class="bg-zinc-100  h-24 rounded-xl animate-pulse"></div>
+        <div v-for="n in 4" :key="n" class="bg-surface-alt/50 h-32 rounded-3xl animate-pulse border border-border/50"></div>
       </div>
     </section>
 
     <section v-else class="flex flex-col gap-8">
       
       <!-- EMPTY STATE / ONBOARDING (If 0 spaces) -->
-      <div v-if="!hasSpaces" class="relative group mx-auto max-w-2xl">
+      <div v-if="!hasSpaces" class="relative group mx-auto max-w-2xl w-full">
         <!-- iOS-style futuristic glass card -->
-        <div class="absolute -inset-0.5 bg-gradient-to-r from-zinc-300/30 to-zinc-500/30 dark:from-zinc-100/10 dark:to-zinc-400/10 rounded-[2rem] blur-xl opacity-20 group-hover:opacity-30 transition duration-700"></div>
+        <div class="absolute -inset-0.5 bg-main/5 blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000"></div>
         
-        <div class="relative bg-zinc-100/10 dark:bg-white/5 backdrop-blur-3xl p-6 sm:p-10 md:p-12 rounded-[2rem] border border-white/20 dark:border-white/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+        <div class="relative card-glass p-8 sm:p-12 md:p-16 !rounded-[3rem] border-main/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
           <!-- Subtle Inner Glow -->
-          <div class="absolute -top-12 -right-12 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -top-12 -right-12 w-64 h-64 bg-main/5 rounded-full blur-3xl pointer-events-none"></div>
 
           <div class="mb-4 md:mb-6 flex items-center justify-center">
             <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-main/10 flex items-center justify-center text-main">
@@ -55,13 +55,13 @@
           </div>
 
           <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
-            <button @click="navigateTo('/app/create')" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-bold flex items-center justify-center gap-2 border border-white/20 bg-white/5 hover:bg-white hover:text-black group shadow-sm active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="transition-transform group-hover:scale-110"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-4 !rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Start Creating
             </button>
-            <button @click="navigateTo('/app/spaces')" class="flex-1 !py-4 text-sm !rounded-xl transition-all duration-300 font-semibold flex items-center justify-center gap-2 border border-transparent hover:border-white/10 bg-white/5 hover:bg-white/10 text-main active:scale-95">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              View Examples
+            <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-4 !rounded-2xl hover:bg-surface active:scale-95 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Discover
             </button>
           </div>
         </div>

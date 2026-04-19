@@ -542,7 +542,7 @@
                 </button>
               </div>
               <p v-else class="text-xs text-dim font-bold relative z-10">Upload a panorama to create your first scene, then build your virtual walkthrough.</p>
-            </div>    </div>
+            </div>
 
            <div v-if="panorama?.processing_status === 'failed'" class="mt-3 flex items-center gap-3">
              <p class="text-xs text-rose-600">Panorama processing failed.</p>
@@ -569,7 +569,8 @@
         </section>
       </div>
 
-      <!-- SHARE TAB       <div v-if="activeTab === 'share'" class="max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <!-- SHARE TAB -->
+      <div v-if="activeTab === 'share'" class="max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div v-if="!canShare" class="px-6 py-4 card-glass border-amber-500/20 bg-amber-500/5 text-amber-500 text-sm font-bold shadow-lg">
           Share unlocks after your first panorama is uploaded and processed.
         </div>
@@ -622,7 +623,7 @@
               </div>
            </div>
         </section>
-      </div>div>
+      </div>
 
     </div>
   </div>

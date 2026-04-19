@@ -60,8 +60,9 @@
             <path d="M17 3H3a1 1 0 00-1 1v10a1 1 0 001 1h4l3 3 3-3h4a1 1 0 001-1V4a1 1 0 00-1-1z"/>
           </svg>
           Inquire Now
-          <div class="absolute -top-1 -right-1 w-3 h-3 bg-main rounded-full animate-pulse shadow-[0_0_10px_rgba(var(--main-rgb),0.8)] border-2 border-surface"></div>
-        </but        <Transition name="sheet-premium">
+        </button>
+
+        <Transition name="sheet-premium">
           <div
             v-if="leadOpen"
             id="lead-form"
@@ -138,7 +139,7 @@
               </footer>
             </div>
           </div>
-        </Transition>/Transition>
+        </Transition>
       </template>
     </template>
 
