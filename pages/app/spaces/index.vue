@@ -8,10 +8,10 @@
       </div>
       <button 
         class="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors shadow-sm" 
-        @click="openCreateModal"
+        @click="navigateTo('/app/create')"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        New Space
+        + Create Tour
       </button>
     </header>
 
@@ -47,16 +47,35 @@
       <!-- Space cards -->
       <template v-else>
         <!-- Empty State: no spaces at all -->
-        <div v-if="!filteredSpaces.length && !search" class="col-span-full py-20 flex flex-col items-center justify-center text-center">
-          <div class="w-12 h-12 bg-zinc-100 text-zinc-300 rounded-xl flex items-center justify-center mx-auto mb-4 border border-zinc-200">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <div v-if="!filteredSpaces.length && !search" class="col-span-full py-16 flex flex-col items-center justify-center text-center">
+          <div class="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-zinc-200 text-left">
+            <h2 class="text-2xl font-bold text-zinc-900 mb-2">👋 Welcome to Viewora</h2>
+            <p class="text-zinc-500 mb-6 font-medium">Let's get your first interactive 360° tour up and running.</p>
+            
+            <div class="space-y-4 mb-8">
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-sm font-bold text-zinc-900 shrink-0">1</div>
+                <p class="text-sm font-medium text-zinc-700">Create your first tour</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-sm font-bold text-zinc-900 shrink-0">2</div>
+                <p class="text-sm font-medium text-zinc-700">Upload your 360° image</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-sm font-bold text-zinc-900 shrink-0">3</div>
+                <p class="text-sm font-medium text-zinc-700">Share with clients</p>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <button class="w-full py-3 bg-zinc-900 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 transition-colors shadow-sm" @click="navigateTo('/app/create')">
+                + Create New Tour
+              </button>
+              <button class="w-full py-3 bg-white border border-zinc-200 text-zinc-900 text-sm font-bold rounded-xl hover:bg-zinc-50 transition-colors disabled:opacity-50" @click="generateDemoTour" :disabled="creatingDemo">
+                {{ creatingDemo ? 'Creating Demo...' : 'View Demo Tour' }}
+              </button>
+            </div>
           </div>
-          <h3 class="text-base font-semibold text-zinc-900 mb-1">No spaces yet</h3>
-          <p class="text-sm text-zinc-500 max-w-xs mb-5">Create your first virtual tour to start sharing immersive 360° experiences.</p>
-          <button class="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors" @click="openCreateModal">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Create First Space
-          </button>
         </div>
         <!-- Empty State: no search results -->
         <div v-else-if="!filteredSpaces.length && search" class="col-span-full py-16 flex flex-col items-center justify-center text-center">
@@ -155,62 +174,6 @@
 
     <!-- ── Modals + Toast ── -->
     <Teleport to="body">
-      <!-- Create Modal -->
-      <Transition name="modal">
-        <div v-if="showCreateModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-sm" @click.self="closeCreateModal">
-          <div class="w-full max-w-md bg-white rounded-xl shadow-xl border border-zinc-200 overflow-hidden transform transition-all duration-300">
-            <div class="px-6 py-5 flex items-center justify-between border-b border-zinc-100">
-              <h3 class="text-base font-semibold text-zinc-900">Create New Space</h3>
-              <button class="p-1 text-zinc-400 hover:text-zinc-600 rounded transition-colors" @click.stop="closeCreateModal">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            
-            <form @submit.prevent="handleCreate">
-              <div class="p-6 space-y-5">
-                <div v-if="modalError" class="p-3 bg-red-50 border border-red-100 rounded-md text-sm font-medium text-red-600">
-                  {{ modalError }}
-                </div>
-
-                <div class="space-y-4">
-                  <div class="flex flex-col gap-1.5">
-                    <label class="text-sm font-medium text-zinc-700" for="prop-name">Space Name</label>
-                    <input
-                      id="prop-name"
-                      v-model="createForm.name"
-                      type="text"
-                      class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow"
-                      placeholder="e.g. Luxury Beachfront Villa"
-                      required
-                    />
-                  </div>
-                  <div class="flex flex-col gap-1.5">
-                    <label class="text-sm font-medium text-zinc-700" for="prop-desc">Description <span class="text-zinc-400 font-normal">(optional)</span></label>
-                    <textarea
-                      id="prop-desc"
-                      v-model="createForm.description"
-                      class="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow resize-none"
-                      rows="3"
-                      placeholder="Enter a brief overview..."
-                    ></textarea>
-                  </div>
-                </div>
-              </div>
-
-              <div class="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-end gap-3">
-                <button type="button" class="px-4 py-2 text-sm font-medium text-zinc-600 bg-white border border-zinc-200 rounded-md hover:bg-zinc-50 transition-colors" @click.stop="closeCreateModal">Cancel</button>
-                <button 
-                  type="submit" 
-                  class="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                  :disabled="creating"
-                >
-                  {{ creating ? 'Creating...' : 'Create' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </Transition>
 
       <!-- Delete Confirm -->
       <AppConfirmationModal
@@ -252,15 +215,29 @@ const search = ref('')
 const sortBy = ref<'newest' | 'oldest' | 'name'>('newest')
 const activeDropdown = ref<string | null>(null)
 
-// Create modal
-const showCreateModal = ref(false)
-const createForm = ref({ name: '', description: '' })
-const modalError = ref<string | null>(null)
-const creating = ref(false)
+
 
 // Delete
 const spaceToDelete = ref<Space | null>(null)
 const deleting = ref(false)
+
+// Demo tour
+const creatingDemo = ref(false)
+const generateDemoTour = async () => {
+  creatingDemo.value = true
+  try {
+    const space = await createSpace({
+      title: 'Sample Apartment Tour',
+      description: 'A pre-generated virtual tour to help you explore Viewora.',
+      space_type: 'other'
+    })
+    navigateTo(`/app/spaces/${space.id}?tab=360`)
+  } catch (e: any) {
+    showToast(e.data?.statusMessage ?? e.message ?? 'Failed to create demo tour.', 'error')
+  } finally {
+    creatingDemo.value = false
+  }
+}
 
 const deleteMessage = computed(() => {
   if (!spaceToDelete.value) return ''
@@ -308,34 +285,7 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   toastTimer = setTimeout(() => { toast.value = null }, 3200)
 }
 
-// Create
-const openCreateModal = () => {
-  modalError.value = null
-  createForm.value = { name: '', description: '' }
-  showCreateModal.value = true
-}
-const closeCreateModal = () => {
-  showCreateModal.value = false
-  createForm.value = { name: '', description: '' }
-  modalError.value = null
-}
-const handleCreate = async () => {
-  creating.value = true
-  modalError.value = null
-  try {
-    const space = await createSpace({
-      title: createForm.value.name,
-      description: createForm.value.description || undefined,
-      space_type: 'other'
-    })
-    closeCreateModal()
-    showToast(`"${space.title}" created`)
-  } catch (e: any) {
-    modalError.value = e.data?.statusMessage ?? e.message ?? 'Failed to create space.'
-  } finally {
-    creating.value = false
-  }
-}
+
 
 // Publish
 const handleTogglePublish = async (space: Space) => {

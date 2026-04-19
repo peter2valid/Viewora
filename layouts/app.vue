@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen app-grid-bg font-sans antialiased text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white">
+  <div class="min-h-screen app-bg-premium font-sans antialiased text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white">
     <!-- Mobile Backdrop -->
     <div
       v-if="isSidebarOpen"
@@ -28,40 +28,19 @@
       </div>
 
       <!-- Navigation Content -->
-      <div class="flex-1 overflow-y-auto px-3 py-6 space-y-8">
-        <!-- Section: Overview -->
-        <div>
-          <nav class="space-y-0.5">
-            <SidebarLink to="/app" icon="dashboard" label="Dashboard" :is-active="isExactRoute('/app')" @click="isSidebarOpen = false" />
-          </nav>
-        </div>
+      <div class="flex-1 overflow-y-auto px-3 py-6 space-y-4">
+        <nav class="space-y-1">
+          <SidebarLink to="/app" icon="dashboard" label="Dashboard" :is-active="isExactRoute('/app')" @click="isSidebarOpen = false" />
+          <SidebarLink to="/app/spaces" icon="spaces" label="Tours" :is-active="route.path.startsWith('/app/spaces')" @click="isSidebarOpen = false" />
+          <SidebarLink to="/app/analytics" icon="analytics" label="Insights" :is-active="route.path.startsWith('/app/analytics') || route.path.startsWith('/app/leads')" @click="isSidebarOpen = false" />
+        </nav>
 
-        <!-- Section: Content -->
-        <div>
-           <h3 class="px-3 text-xs font-semibold text-zinc-500 mb-2">Content</h3>
-           <nav class="space-y-0.5">
-             <SidebarLink to="/app/spaces" icon="spaces" label="Spaces" :is-active="route.path.startsWith('/app/spaces')" @click="isSidebarOpen = false" />
-             <SidebarLink to="/app/leads" icon="leads" label="Leads" :is-active="route.path.startsWith('/app/leads')" @click="isSidebarOpen = false" />
-             <SidebarLink to="/app/analytics" icon="analytics" label="Analytics" :is-active="route.path.startsWith('/app/analytics')" @click="isSidebarOpen = false" />
-           </nav>
-        </div>
+        <div class="border-t border-zinc-900 mx-2"></div>
 
-        <!-- Section: Services -->
-        <div>
-           <h3 class="px-3 text-xs font-semibold text-zinc-500 mb-2">Services</h3>
-           <nav class="space-y-0.5">
-             <SidebarLink to="/app/capture" icon="capture" label="Capture" :is-active="route.path.startsWith('/app/capture')" @click="isSidebarOpen = false" />
-           </nav>
-        </div>
-
-        <!-- Section: Account -->
-        <div>
-           <h3 class="px-3 text-xs font-semibold text-zinc-500 mb-2">Account</h3>
-           <nav class="space-y-0.5">
-             <SidebarLink to="/app/billing" icon="billing" label="Billing" :is-active="route.path.startsWith('/app/billing')" @click="isSidebarOpen = false" />
-             <SidebarLink to="/app/settings" icon="settings" label="Settings" :is-active="route.path.startsWith('/app/settings')" @click="isSidebarOpen = false" />
-           </nav>
-        </div>
+        <nav class="space-y-1">
+          <SidebarLink to="/app/settings" icon="settings" label="Settings" :is-active="route.path.startsWith('/app/settings')" @click="isSidebarOpen = false" />
+          <SidebarLink to="/app/billing" icon="billing" label="Billing" :is-active="route.path.startsWith('/app/billing')" @click="isSidebarOpen = false" />
+        </nav>
       </div>
 
       <!-- User Profile Area -->
@@ -159,24 +138,23 @@ const logout = async () => {
 </script>
 
 <style scoped>
-/* Futuristic box-grid background — light */
-.app-grid-bg {
-  background-color: #f8f9fb;
-  background-image:
-    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 220, 130, 0.09) 0%, transparent 60%),
-    linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
-  background-size: 100% 100%, 32px 32px, 32px 32px;
+/* Premium solid backgrounds */
+.app-bg-premium {
+  background-color: #fafafa;
 }
 
-/* Futuristic box-grid background — dark */
-:global(.dark) .app-grid-bg {
-  background-color: #0a0a0a;
-  background-image:
-    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 220, 130, 0.07) 0%, transparent 60%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 100% 100%, 32px 32px, 32px 32px;
+:global(.dark .app-bg-premium) {
+  background-color: #09090b;
+}
+
+/* Page crossfade transition */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.15s ease-in-out;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
 }
 
 /* Minimal scrollbar */

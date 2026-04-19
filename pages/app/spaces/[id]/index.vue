@@ -329,8 +329,9 @@
                 <h3 class="text-base font-semibold text-zinc-900">360 Tour Builder</h3>
                 <p class="text-sm text-zinc-500 mt-0.5">Your viewer is always live. Upload or replace panoramas anytime.</p>
               </div>
-              <label class="cursor-pointer w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-colors shadow-sm">
+              <label class="cursor-pointer w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 text-white text-sm font-semibold rounded-xl transition-all shadow-sm group" :class="!hasPanorama ? 'bg-zinc-950 animate-pulse ring-4 ring-zinc-900/20 hover:animate-none' : 'bg-zinc-900 hover:bg-zinc-800'">
                 <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
+                <svg v-if="!hasPanorama" class="w-4 h-4 shadow-sm" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Upload 360 Image to Start Tour
               </label>
            </div>
@@ -432,10 +433,15 @@
                 </div>
               </div>
 
-             <div v-if="showHotspotPrompt" class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
-               <div>
-                 <p class="text-sm font-semibold text-sky-800">Next step: Start adding hotspots</p>
-                 <p class="text-xs text-sky-700 mt-0.5">Edit mode is already on. Click anywhere inside the viewer to place your first hotspot.</p>
+             <div v-if="showHotspotPrompt" class="rounded-xl border-2 border-sky-400 bg-sky-50 px-5 py-4 shadow-md animate-pulse">
+               <div class="flex items-start gap-3">
+                 <div class="w-8 h-8 rounded-full bg-sky-200 flex flex-shrink-0 items-center justify-center text-sky-700">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                 </div>
+                 <div>
+                   <p class="text-sm font-bold text-sky-900">Next step: Start adding hotspots</p>
+                   <p class="text-xs text-sky-800 mt-1 font-medium">Edit mode is already on. Click anywhere inside the viewer to place your first hotspot.</p>
+                 </div>
                </div>
              </div>
 
@@ -668,7 +674,7 @@ const planStore = usePlanStore()
 
 const space = ref<any>(null)
 const media = ref<any[]>([])
-const activeTab = ref('details')
+const activeTab = ref((route.query.tab as string) || 'details')
 const saving = ref(false)
 const publishing = ref(false)
 const deletingMedia = ref(false)
