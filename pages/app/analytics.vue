@@ -149,7 +149,7 @@
                     <span class="text-xs font-bold text-main">{{ source.views }} views</span>
                  </div>
                  <div class="h-1.5 w-full bg-surface-alt rounded-full overflow-hidden border border-border">
-                    <div class="h-full bg-main rounded-full transition-all duration-1000" :style="{ width: (source.views / totalViews * 100) + '%' }"></div>
+                    <div class="h-full bg-main rounded-full transition-all duration-1000" :style="{ width: totalViews > 0 ? (source.views / totalViews * 100) + '%' : '0%' }"></div>
                  </div>
               </div>
               <div v-if="!topSources.length" class="text-center py-12 text-xs text-dim">
@@ -275,6 +275,14 @@ const topSource = computed(() => {
 })
 
 const topSourceViews = computed(() => sourceTotals.value[topSource.value as keyof typeof sourceTotals.value] || 0)
+
+const topSources = computed(() => {
+  const totals = sourceTotals.value
+  return Object.entries(totals)
+    .filter(([_, views]) => views > 0)
+    .map(([name, views]) => ({ name, views }))
+    .sort((a, b) => b.views - a.views)
+})
 
 const tourStats = computed(() => {
   const props: Record<string, any> = {}

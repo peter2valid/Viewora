@@ -331,7 +331,7 @@ const activeProject = computed(() => {
 })
 
 const filteredLeads = computed(() => {
-  let list = leads.value
+  let list = Array.isArray(leads.value) ? leads.value.slice() : []
   if (projectFilter.value) list = list.filter(l => l.project_id === projectFilter.value)
   if (statusFilter.value) list = list.filter(l => l.status === statusFilter.value)
   if (search.value.trim()) {
