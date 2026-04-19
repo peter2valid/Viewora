@@ -2,62 +2,62 @@
   <div class="h-full flex flex-col max-w-4xl">
     <!-- Header -->
     <header class="mb-8">
-      <h1 class="text-2xl font-bold tracking-tight text-zinc-950 ">Settings</h1>
-      <p class="text-sm text-zinc-500  mt-1">Manage your account and agency preferences.</p>
+      <h1 class="text-2xl font-bold tracking-tight text-main">Settings</h1>
+      <p class="text-sm text-dim mt-1">Manage your account and agency preferences.</p>
     </header>
 
     <div class="space-y-8">
       <!-- Profile Section -->
-      <section class="bg-white  rounded-xl border border-zinc-200  shadow-sm overflow-hidden">
-        <div class="p-6 border-b border-zinc-100 ">
-          <h3 class="text-base font-semibold text-zinc-900 ">Account Profile</h3>
-          <p class="text-sm text-zinc-500  mt-1">Information about your professional identity.</p>
+      <section class="card-glass overflow-hidden">
+        <div class="p-6 border-b border-border">
+          <h3 class="text-base font-bold text-main">Account Profile</h3>
+          <p class="text-sm text-dim mt-1">Information about your professional identity.</p>
         </div>
         <div class="p-6 space-y-6">
           <!-- Email (Read-only) -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-zinc-700 ">Email Address</label>
-            <div class="px-3 py-2 bg-zinc-50  border border-zinc-200  rounded-md text-sm text-zinc-500  flex items-center justify-between">
+          <div class="flex flex-col gap-2">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Account Identifier</label>
+            <div class="input-glass px-5 py-3 text-sm font-bold text-dim/60 flex items-center justify-between !bg-surface-alt/50 border-main/10">
               {{ user?.email }}
-              <span class="text-[10px] uppercase font-bold text-zinc-400">Read-only</span>
+              <span class="text-[9px] font-black tracking-widest opacity-50">Locked</span>
             </div>
           </div>
 
           <!-- Name -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-zinc-700 " for="full-name">Full Name</label>
+          <div class="flex flex-col gap-2">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1" for="full-name">Display Name</label>
             <input
               id="full-name"
               v-model="profileForm.fullName"
               type="text"
-              class="w-full px-4 py-2.5 bg-white  border border-zinc-200  focus:border-zinc-400  focus:ring-1 focus:ring-zinc-400  rounded-xl text-sm outline-none transition-all shadow-sm"
-              placeholder="Peter Parker"
+              class="input-glass w-full px-5 py-3 text-sm font-bold placeholder:text-dim/40"
+              placeholder="e.g. Peter Parker"
             />
           </div>
         </div>
       </section>
 
       <!-- Agency Branding -->
-      <section class="bg-white  rounded-xl border border-zinc-200  shadow-sm overflow-hidden" :class="!planStore.entitlements?.branding_customization_enabled ? 'opacity-75' : ''">
-        <div class="p-6 border-b border-zinc-100  flex items-center justify-between">
+      <section class="card-glass overflow-hidden" :class="!planStore.entitlements?.branding_customization_enabled ? 'opacity-75' : ''">
+        <div class="p-6 border-b border-border flex items-center justify-between">
           <div>
-            <h3 class="text-base font-semibold text-zinc-900 ">Agency Branding</h3>
-            <p class="text-sm text-zinc-500  mt-1">Customize how your agency appears on virtual tours.</p>
+            <h3 class="text-base font-bold text-main">Agency Branding</h3>
+            <p class="text-sm text-dim mt-1">Customize how your agency appears on virtual tours.</p>
           </div>
-          <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-wider rounded-md">
+          <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2.5 py-1 bg-main text-bg text-[10px] font-bold uppercase tracking-wider rounded-md">
             Pro Feature
           </div>
         </div>
 
         <div class="p-6 space-y-8">
           <!-- Agency Name -->
-<div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-zinc-700 " for="agency-name">Agency Name</label>
+          <div class="flex flex-col gap-2">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1" for="agency-name">Enterprise / Agency Name</label>
             <input
               id="agency-name"
               v-model="profileForm.agencyName"
               type="text"
-              class="w-full px-3 py-2 bg-white  border border-zinc-200  focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm disabled:bg-zinc-50  disabled:cursor-not-allowed"
+              class="input-glass w-full px-5 py-3 text-sm font-bold placeholder:text-dim/40 disabled:opacity-40"
               placeholder="Skyline Virtual Realty"
               :disabled="!planStore.entitlements?.branding_customization_enabled"
             />
@@ -65,11 +65,11 @@
 
           <!-- Logo Upload -->
           <div class="space-y-3">
-            <label class="text-sm font-medium text-zinc-700 ">Agency Logo</label>
+            <label class="text-sm font-bold text-main">Agency Logo</label>
             <div class="flex items-center gap-6">
-              <div class="w-20 h-20 bg-zinc-50  rounded-lg border border-zinc-200  flex items-center justify-center overflow-hidden">
+              <div class="w-20 h-20 bg-surface-alt rounded-xl border border-border flex items-center justify-center overflow-hidden shadow-inner">
                 <img v-if="profileForm.agencyLogoUrl" :src="profileForm.agencyLogoUrl" alt="Logo" class="w-full h-full object-contain p-2" />
-                <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-zinc-300"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-dim/50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </div>
 
               <div class="flex flex-col gap-2">
@@ -84,18 +84,17 @@
                   />
                   <label 
                     for="logo-upload" 
-                    class="px-3 py-1.5 bg-white  border border-zinc-200  text-xs font-semibold text-zinc-700  rounded-md hover:bg-zinc-50   transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+                    class="px-4 py-2 bg-surface border border-border text-xs font-bold text-main rounded-xl hover:bg-surface-alt transition-colors cursor-pointer shadow-sm disabled:opacity-50"
                     :class="{ 'pointer-events-none opacity-50': !planStore.entitlements?.branding_customization_enabled || uploading }"
                   >
                     {{ uploading ? 'Uploading...' : 'Change Logo' }}
                   </label>
-                  <button v-if="profileForm.agencyLogoUrl" class="text-xs font-medium text-rose-600 hover:text-rose-700" @click="profileForm.agencyLogoUrl = ''">Remove</button>
+                  <button v-if="profileForm.agencyLogoUrl" class="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors" @click="profileForm.agencyLogoUrl = ''">Remove</button>
                 </div>
-                <p class="text-xs text-zinc-400">PNG or SVG. Recommended size 120x60px.</p>
+                <p class="text-xs text-dim">PNG or SVG. Recommended size 120x60px.</p>
               </div>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- Save Footer -->

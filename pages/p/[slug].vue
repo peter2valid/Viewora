@@ -11,33 +11,33 @@
         aria-hidden="true"
       />
       <div class="tour-page-loading-scrim" aria-hidden="true" />
-      <div class="tour-page-loading-bar" aria-hidden="true" />
       <div class="tour-page-loading-center">
-        <div class="tour-page-loading-dot" />
-        <p class="tour-page-loading-text">Immersing…</p>
+        <div class="w-1.5 h-1.5 bg-main rounded-full animate-pulse shadow-[0_0_15px_rgba(var(--main-rgb),0.8)] mb-4"></div>
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-main/60 animate-in fade-in slide-in-from-bottom-2 duration-1000">Synchronizing Atmosphere</p>
       </div>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="state === 'error'" class="tour-page-error" role="main">
-      <div class="tour-page-error-card">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="tour-page-error-icon" aria-hidden="true">
-          <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
-        </svg>
-        <h1 class="tour-page-error-title">Tour unavailable</h1>
-        <p class="tour-page-error-body">{{ errorMessage }}</p>
-        <a href="/" class="tour-page-error-link">← Back to Viewora</a>
+    <div v-else-if="state === 'error'" class="tour-page-error p-6" role="main">
+      <div class="max-w-md w-full card-glass p-10 text-center shadow-2xl animate-in zoom-in-95 duration-500">
+        <div class="w-16 h-16 bg-surface-alt text-main/30 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-border">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-8 h-8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        </div>
+        <h1 class="text-xl font-black text-main tracking-tight mb-2">Transmission Interrupted</h1>
+        <p class="text-sm text-dim font-bold leading-relaxed mb-8">{{ errorMessage }}</p>
+        <NuxtLink to="/" class="btn btn-secondary !px-8 !py-3 !rounded-xl text-[11px] font-black uppercase tracking-widest">Return to Base</NuxtLink>
       </div>
     </div>
 
-    <!-- No scenes state (tour exists but has no uploaded panoramas yet) -->
-    <div v-else-if="state === 'empty'" class="tour-page-error" role="main">
-      <div class="tour-page-error-card">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="tour-page-error-icon" aria-hidden="true">
-          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-        </svg>
-        <h1 class="tour-page-error-title">Tour coming soon</h1>
-        <p class="tour-page-error-body">This tour hasn't been set up yet. Check back soon.</p>
+    <!-- No scenes state -->
+    <div v-else-if="state === 'empty'" class="tour-page-error p-6" role="main">
+      <div class="max-w-md w-full card-glass p-10 text-center shadow-2xl animate-in zoom-in-95 duration-500">
+        <div class="w-16 h-16 bg-surface-alt text-main/30 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-border">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-8 h-8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <h1 class="text-xl font-black text-main tracking-tight mb-2">Architectural Draft</h1>
+        <p class="text-sm text-dim font-bold leading-relaxed mb-4">This spatial experience is currently being staged by the creator.</p>
+        <span class="text-[10px] font-black uppercase tracking-widest text-main/40">Coming Soon</span>
       </div>
     </div>
 
@@ -51,99 +51,94 @@
       <!-- Lead form — bottom sheet, shows after delay or CTA click -->
       <template v-if="tour.space.lead_form_enabled">
         <button
-          class="tour-lead-cta"
+          class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-8 py-4 card-glass !rounded-full text-sm font-black text-main shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-main/20 hover:scale-105 active:scale-95 transition-all animate-in slide-in-from-bottom-10"
           :aria-expanded="leadOpen"
           aria-controls="lead-form"
           @click="leadOpen = true"
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 text-main">
             <path d="M17 3H3a1 1 0 00-1 1v10a1 1 0 001 1h4l3 3 3-3h4a1 1 0 001-1V4a1 1 0 00-1-1z"/>
           </svg>
-          Inquire
-        </button>
-
-        <Transition name="sheet">
+          Inquire Now
+          <div class="absolute -top-1 -right-1 w-3 h-3 bg-main rounded-full animate-pulse shadow-[0_0_10px_rgba(var(--main-rgb),0.8)] border-2 border-surface"></div>
+        </but        <Transition name="sheet-premium">
           <div
             v-if="leadOpen"
             id="lead-form"
-            class="tour-lead-sheet-backdrop"
+            class="fixed inset-0 z-[200] flex items-end justify-center p-0 md:p-6 md:pb-12"
             role="dialog"
             aria-label="Inquiry form"
             @click.self="leadOpen = false"
           >
-            <div class="tour-lead-sheet">
-              <div class="tour-lead-sheet-header">
-                <p class="tour-lead-sheet-title">{{ tour.space.title }}</p>
-                <button class="tour-lead-close" aria-label="Close" @click="leadOpen = false">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4l8 8M12 4l-8 8"/>
-                  </svg>
-                </button>
+            <div class="absolute inset-0 bg-zinc-950/60 backdrop-blur-xl" @click="leadOpen = false"></div>
+            
+            <div class="relative w-full max-w-xl card-glass !rounded-t-[2.5rem] md:!rounded-[2.5rem] border-main/20 shadow-[0_-20px_100px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col max-h-[90dvh]">
+              <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-main/10 via-main to-main/10"></div>
+              
+              <header class="px-8 py-8 flex items-center justify-between border-b border-border bg-surface-alt/30">
+                 <div class="space-y-1">
+                   <h3 class="text-[10px] font-black text-main uppercase tracking-widest">Connect with Curator</h3>
+                   <p class="text-lg font-black text-main tracking-tight truncate max-w-[300px]">{{ tour.space.title }}</p>
+                 </div>
+                 <button class="w-10 h-10 flex items-center justify-center text-dim hover:text-main hover:bg-surface-alt rounded-2xl transition-all" @click="leadOpen = false">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="3" class="w-4 h-4"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                 </button>
+              </header>
+
+              <div class="flex-1 overflow-y-auto p-8 md:p-10 scrollbar-premium">
+                <!-- Success State -->
+                <div v-if="leadSent" class="py-12 flex flex-col items-center text-center animate-in zoom-in-95 duration-500">
+                  <div class="w-20 h-20 bg-main text-bg rounded-3xl flex items-center justify-center mb-8 shadow-[0_20px_50px_rgba(var(--main-rgb),0.3)] border-4 border-surface">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <h4 class="text-2xl font-black text-main tracking-tight mb-2">Transmission Successful</h4>
+                  <p class="text-sm text-dim font-bold max-w-xs mx-auto leading-relaxed mb-10">Your inquiry has been encrypted and synchronized with the property curator.</p>
+                  <button class="btn btn-secondary !px-10 !py-3 !rounded-xl text-[11px] font-black uppercase tracking-widest" @click="resetLead">Send Supplemental Message</button>
+                </div>
+
+                <!-- Inquiry Form -->
+                <form v-else class="space-y-6" @submit.prevent="submitLead" novalidate>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex flex-col gap-2">
+                      <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Identity</label>
+                      <input id="lead-name" v-model="leadForm.name" type="text" placeholder="Your name" class="input-glass w-full px-5 py-3.5 text-sm font-bold" required />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Response Channel</label>
+                      <input id="lead-email" v-model="leadForm.email" type="email" placeholder="email@address.com" class="input-glass w-full px-5 py-3.5 text-sm font-bold" required />
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-2">
+                    <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Direct Line <span class="opacity-40 italic">(Optional)</span></label>
+                    <input id="lead-phone" v-model="leadForm.phone" type="tel" placeholder="+254 700 000 000" class="input-glass w-full px-5 py-3.5 text-sm font-bold" />
+                  </div>
+
+                  <div class="flex flex-col gap-2">
+                    <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Contextual Message</label>
+                    <textarea id="lead-message" v-model="leadForm.message" placeholder="Describe your requirements or questions about this space..." rows="4" class="input-glass w-full px-5 py-4 text-sm font-bold resize-none"></textarea>
+                  </div>
+
+                  <p v-if="leadError" class="text-xs font-black text-rose-500 bg-rose-500/10 p-4 rounded-xl border border-rose-500/20" role="alert">{{ leadError }}</p>
+
+                  <button type="submit" class="btn btn-primary w-full !py-4 !rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl relative group overflow-hidden" :disabled="leadPending">
+                    <div v-if="leadPending" class="absolute inset-0 bg-main flex items-center justify-center">
+                       <div class="w-5 h-5 border-3 border-bg/30 border-t-bg rounded-full animate-spin"></div>
+                    </div>
+                    Initiate Connection
+                  </button>
+                </form>
               </div>
 
-              <!-- Success -->
-              <div v-if="leadSent" class="tour-lead-success">
-                <div class="tour-lead-success-icon" aria-hidden="true">✓</div>
-                <p class="tour-lead-success-title">Inquiry sent</p>
-                <p class="tour-lead-success-body">The property owner will be in touch with you shortly.</p>
-                <button class="tour-lead-success-again" @click="resetLead">Send another</button>
-              </div>
-
-              <!-- Form -->
-              <form v-else class="tour-lead-form" @submit.prevent="submitLead" novalidate>
-                <div class="tour-lead-field">
-                  <label for="lead-name" class="tour-lead-label">Full name</label>
-                  <input
-                    id="lead-name"
-                    v-model="leadForm.name"
-                    type="text"
-                    placeholder="Your name"
-                    required
-                    autocomplete="name"
-                    class="tour-lead-input"
-                  />
-                </div>
-                <div class="tour-lead-field">
-                  <label for="lead-email" class="tour-lead-label">Email</label>
-                  <input
-                    id="lead-email"
-                    v-model="leadForm.email"
-                    type="email"
-                    placeholder="you@email.com"
-                    required
-                    autocomplete="email"
-                    class="tour-lead-input"
-                  />
-                </div>
-                <div class="tour-lead-field">
-                  <label for="lead-phone" class="tour-lead-label">Phone <span class="tour-lead-optional">(optional)</span></label>
-                  <input
-                    id="lead-phone"
-                    v-model="leadForm.phone"
-                    type="tel"
-                    placeholder="+254 700 000 000"
-                    autocomplete="tel"
-                    class="tour-lead-input"
-                  />
-                </div>
-                <div class="tour-lead-field">
-                  <label for="lead-message" class="tour-lead-label">Message <span class="tour-lead-optional">(optional)</span></label>
-                  <textarea
-                    id="lead-message"
-                    v-model="leadForm.message"
-                    placeholder="Questions or requirements…"
-                    rows="3"
-                    class="tour-lead-input tour-lead-textarea"
-                  />
-                </div>
-                <p v-if="leadError" class="tour-lead-error" role="alert">{{ leadError }}</p>
-                <button type="submit" class="tour-lead-submit" :disabled="leadPending">
-                  {{ leadPending ? 'Sending…' : 'Send inquiry' }}
-                </button>
-              </form>
+              <footer class="px-10 py-6 bg-surface-alt/30 border-t border-border flex items-center justify-center">
+                 <p class="text-[9px] font-black uppercase tracking-[0.2em] text-dim/40 italic flex items-center gap-2">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Viewora Spatial Encryption Active
+                 </p>
+              </footer>
             </div>
           </div>
-        </Transition>
+        </Transition>/Transition>
       </template>
     </template>
 
@@ -617,17 +612,20 @@ useHead({
 .tour-lead-success-again:hover { text-decoration: underline; }
 
 /* ── Sheet transition ─────────────────────────────────────── */
-.sheet-enter-active { transition: opacity 200ms ease; }
-.sheet-leave-active { transition: opacity 200ms ease; }
-.sheet-enter-from, .sheet-leave-to { opacity: 0; }
-.sheet-enter-active .tour-lead-sheet,
-.sheet-leave-active .tour-lead-sheet { transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1); }
-.sheet-enter-from .tour-lead-sheet,
-.sheet-leave-to .tour-lead-sheet { transform: translateY(100%); }
+.sheet-premium-enter-active { transition: opacity 200ms ease; }
+.sheet-premium-leave-active { transition: opacity 200ms ease-in; }
+.sheet-premium-enter-from, .sheet-premium-leave-to { opacity: 0; }
+.sheet-premium-enter-active .card-glass,
+.sheet-premium-leave-active .card-glass { transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1); }
+.sheet-premium-enter-from .card-glass,
+.sheet-premium-leave-to .card-glass { transform: translateY(100%); }
+
+.fade-smooth-enter-active, .fade-smooth-leave-active { transition: opacity 400ms ease; }
+.fade-smooth-enter-from, .fade-smooth-leave-to { opacity: 0; }
 
 /* ── Reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .tour-page-loading-dot, .tour-page-loading-bar, @keyframes dot-pulse, @keyframes page-load-bar { animation: none !important; }
-  .sheet-enter-active, .sheet-leave-active { transition-duration: 0ms !important; }
+  .animate-pulse, .animate-spin { animation: none !important; }
+  .sheet-premium-enter-active, .sheet-premium-leave-active { transition-duration: 0ms !important; }
 }
 </style>

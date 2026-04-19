@@ -10,19 +10,19 @@
     <!-- Sidebar -->
     <aside 
       :class="[
-        'fixed inset-y-0 left-0 w-64 bg-black border-r border-zinc-900 z-[100] transition-transform duration-300 ease-in-out lg:translate-x-0 overflow-hidden flex flex-col',
+        'fixed inset-y-0 left-0 w-64 bg-surface border-r border-border z-[100] transition-transform duration-300 ease-in-out lg:translate-x-0 overflow-hidden flex flex-col',
         isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none'
       ]"
     >
       <!-- Sidebar Header / Brand -->
-      <div class="h-16 flex items-center justify-between px-6 border-b border-zinc-900">
+      <div class="h-16 flex items-center justify-between px-6 border-b border-border">
         <NuxtLink to="/app" class="flex items-center gap-3 transition-opacity hover:opacity-80" @click="isSidebarOpen = false">
-          <div class="w-6 h-6 rounded-md bg-white flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+          <div class="w-6 h-6 rounded-md bg-main flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-bg"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </div>
-          <span class="text-base font-bold tracking-tight text-white">Viewora</span>
+          <span class="text-base font-bold tracking-tight text-main">Viewora</span>
         </NuxtLink>
-        <button class="lg:hidden p-2 -mr-2 text-zinc-400 hover:text-white transition-colors" @click="isSidebarOpen = false">
+        <button class="lg:hidden p-2 -mr-2 text-dim hover:text-main transition-colors" @click="isSidebarOpen = false">
            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
@@ -35,7 +35,7 @@
           <SidebarLink to="/app/analytics" icon="analytics" label="Insights" :is-active="route.path.startsWith('/app/analytics') || route.path.startsWith('/app/leads')" @click="isSidebarOpen = false" />
         </nav>
 
-        <div class="border-t border-zinc-900 mx-2"></div>
+        <div class="border-t border-border mx-2"></div>
 
         <nav class="space-y-1">
           <SidebarLink to="/app/settings" icon="settings" label="Settings" :is-active="route.path.startsWith('/app/settings')" @click="isSidebarOpen = false" />
@@ -44,19 +44,19 @@
       </div>
 
       <!-- User Profile Area -->
-      <div class="p-4 border-t border-zinc-900 bg-black/50">
+      <div class="p-4 border-t border-border bg-surface-alt/50">
         <div class="flex items-center gap-3 mb-4 px-2">
-           <div class="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-semibold text-white">
+           <div class="w-9 h-9 rounded-full bg-surface-alt border border-border flex items-center justify-center text-xs font-bold text-main shadow-sm">
              {{ authStore.avatarInitials }}
            </div>
            <div class="flex-1 min-w-0">
-             <p class="text-sm font-medium text-zinc-200 truncate">{{ user?.email?.split('@')[0] }}</p>
-             <p class="text-xs text-zinc-500 truncate">{{ planStore.plan?.name || 'Free' }} Plan</p>
+             <p class="text-sm font-bold text-main truncate">{{ user?.email?.split('@')[0] }}</p>
+             <p class="text-[10px] font-extrabold uppercase tracking-widest text-dim truncate">{{ planStore.plan?.name || 'Free' }} Plan</p>
            </div>
         </div>
 
         <!-- Theme toggle -->
-        <button @click="toggleTheme" class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 rounded-lg transition-colors mb-1">
+        <button @click="toggleTheme" class="flex items-center gap-2 w-full px-3 py-2 text-sm font-bold text-dim hover:text-main hover:bg-surface-alt/80 rounded-xl transition-all mb-1 group">
           <!-- Sun icon (shown in dark mode) -->
           <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
           <!-- Moon icon (shown in light mode) -->
@@ -64,8 +64,8 @@
           {{ isDark ? 'Light Mode' : 'Dark Mode' }}
         </button>
 
-        <button @click="logout" class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 rounded-lg transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <button @click="logout" class="flex items-center gap-2 w-full px-3 py-2 text-sm font-bold text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
           Sign Out
         </button>
       </div>

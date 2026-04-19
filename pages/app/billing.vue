@@ -9,28 +9,28 @@
 
     <!-- Loading skeleton -->
     <div v-if="pending" class="space-y-6 animate-pulse">
-      <div class="h-44 bg-zinc-200 rounded-2xl"></div>
-      <div class="h-32 bg-zinc-100  rounded-2xl"></div>
+      <div class="h-44 bg-surface-alt rounded-2xl"></div>
+      <div class="h-32 bg-surface-alt rounded-2xl"></div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div v-for="i in 4" :key="i" class="h-56 bg-zinc-100  rounded-2xl"></div>
+        <div v-for="i in 4" :key="i" class="h-56 bg-surface-alt rounded-2xl"></div>
       </div>
     </div>
 
     <div v-else class="space-y-6">
 
       <!-- ① CURRENT PLAN ──────────────────────────────────────────────────── -->
-      <section class="bg-surface-alt rounded-2xl p-6 md:p-8 border border-border shadow-xl transition-all">
+      <section class="card-glass p-6 md:p-8">
         <div class="flex flex-col md:flex-row md:items-start justify-between gap-6 overflow-hidden">
 
           <!-- Plan identity -->
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-3">
               <span class="text-[10px] font-bold uppercase tracking-widest text-dim">Current Plan</span>
-              <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass">{{ statusLabel }}</span>
+              <span class="px-2 py-0.5 rounded-full border border-border text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass">{{ statusLabel }}</span>
             </div>
-            <h2 class="text-3xl font-bold tracking-tight text-main">{{ plan?.name || 'Free' }}</h2>
-            <p class="text-sm text-muted mt-1">{{ planSubtitles[plan?.name] || 'Basic access' }}</p>
-            <p v-if="subscription?.current_period_end" class="text-xs text-dim mt-2">
+            <h2 class="text-3xl font-bold tracking-tight text-main tracking-tight">{{ plan?.name || 'Free' }}</h2>
+            <p class="text-sm text-dim mt-1">{{ planSubtitles[plan?.name] || 'Basic access' }}</p>
+            <p v-if="subscription?.current_period_end" class="text-xs text-dim mt-2 font-medium">
               Renews {{ formatDate(subscription.current_period_end) }}
             </p>
           </div>
@@ -38,73 +38,65 @@
           <!-- Usage stats -->
           <div class="flex items-start gap-8 md:gap-10 flex-shrink-0">
             <div class="text-center">
-              <div class="text-2xl font-bold tabular-nums text-main">{{ usage?.active_spaces_count || 0 }}</div>
-              <div class="text-xs text-muted mt-0.5">of {{ plan?.max_active_spaces || 0 }}<br>tours</div>
+              <div class="text-2xl font-bold tabular-nums text-main leading-none">{{ usage?.active_spaces_count || 0 }}</div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-dim mt-2">Tours</div>
             </div>
             <div class="text-center">
-              <div class="text-2xl font-bold tabular-nums text-main">{{ formatBytes(usage?.storage_used_bytes || 0) }}</div>
-              <div class="text-xs text-muted mt-0.5">of {{ formatBytes(plan?.max_storage_bytes || 0) }}<br>storage</div>
+              <div class="text-2xl font-bold tabular-nums text-main leading-none">{{ formatBytes(usage?.storage_used_bytes || 0) }}</div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-dim mt-2">Storage</div>
             </div>
           </div>
         </div>
 
         <!-- Usage progress bars -->
-        <div class="mt-6 grid grid-cols-2 gap-4">
+        <div class="mt-8 grid grid-cols-2 gap-4">
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs text-muted">Tours</span>
-              <span class="text-xs font-medium tabular-nums" :class="spaceUsagePct >= 80 ? 'text-amber-500' : 'text-muted'">{{ spaceUsagePct }}%</span>
+              <span class="text-[10px] font-bold uppercase tracking-tight text-dim">Active Tours Capacity</span>
+              <span class="text-xs font-bold tabular-nums" :class="spaceUsagePct >= 80 ? 'text-amber-500' : 'text-main'">{{ spaceUsagePct }}%</span>
             </div>
-            <div class="h-1 bg-border rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000" :class="spaceUsagePct >= 80 ? 'bg-amber-500' : 'bg-main'" :style="{ width: spaceUsagePct + '%' }"></div>
+            <div class="h-1.5 bg-surface-alt rounded-full overflow-hidden border border-border">
+              <div class="h-full rounded-full transition-all duration-1000" :class="spaceUsagePct >= 80 ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-main'" :style="{ width: spaceUsagePct + '%' }"></div>
             </div>
           </div>
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs text-zinc-500 ">Storage</span>
-              <span class="text-xs font-medium tabular-nums" :class="storageUsagePct >= 80 ? 'text-amber-400' : 'text-zinc-500 '">{{ storageUsagePct }}%</span>
+              <span class="text-[10px] font-bold uppercase tracking-tight text-dim">Cloud Storage</span>
+              <span class="text-xs font-bold tabular-nums" :class="storageUsagePct >= 80 ? 'text-amber-500' : 'text-main'">{{ storageUsagePct }}%</span>
             </div>
-            <div class="h-1 bg-white  rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000" :class="storageUsagePct >= 80 ? 'bg-amber-400' : 'bg-zinc-400'" :style="{ width: storageUsagePct + '%' }"></div>
+            <div class="h-1.5 bg-surface-alt rounded-full overflow-hidden border border-border">
+              <div class="h-full rounded-full transition-all duration-1000" :class="storageUsagePct >= 80 ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-main'" :style="{ width: storageUsagePct + '%' }"></div>
             </div>
           </div>
         </div>
       </section>
 
       <!-- ② UPGRADE TRIGGER ──────────────────────────────────────────────── -->
-      <div v-if="isNearLimit && recommendedPlan" class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" class="flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <div class="flex-1">
-          <p class="text-sm font-semibold text-amber-900">You're close to your limit</p>
-          <p class="text-xs text-amber-700 mt-0.5">{{ limitMessage }}</p>
+      <div v-if="isNearLimit && recommendedPlan" class="flex items-start gap-4 p-6 card-glass border-amber-500/20 bg-amber-500/5 shadow-xl animate-in fade-in slide-in-from-bottom-5">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0 border border-amber-500/20 text-amber-500">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
-        <button @click="scrollToPlans" class="text-xs font-bold text-amber-800 hover:text-amber-900 whitespace-nowrap underline underline-offset-2">Upgrade now</button>
+        <div class="flex-1">
+          <p class="text-sm font-black text-amber-500 uppercase tracking-widest">Quota Threshold Notice</p>
+          <p class="text-xs text-amber-200/60 mt-1 font-bold leading-relaxed">{{ limitMessage }}</p>
+        </div>
+        <button @click="scrollToPlans" class="btn btn-secondary !px-5 !py-2.5 !rounded-xl !text-amber-500 !border-amber-500/20 hover:!bg-amber-500 hover:!text-bg text-xs">Upgrade Fleet</button>
       </div>
 
       <!-- ③ RECOMMENDED UPGRADE ──────────────────────────────────────────── -->
-      <section v-if="recommendedPlan" class="relative bg-main rounded-2xl border border-border p-6 md:p-8 overflow-hidden shadow-lg group">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none transition-transform group-hover:scale-110"></div>
+      <section v-if="recommendedPlan" class="relative card-glass p-8 md:p-12 overflow-hidden shadow-2xl group border-main/20">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-main/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none transition-transform group-hover:scale-110 duration-1000"></div>
+        <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-main/10 via-main to-main/10"></div>
 
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-10 relative z-10">
           <div class="flex-1">
-            <div class="flex items-center gap-2 mb-3">
-              <span class="px-2.5 py-1 bg-bg text-main text-[10px] font-bold uppercase tracking-wider rounded-md border border-border">Recommended for you</span>
+            <div class="flex items-center gap-3 mb-6">
+              <span class="px-4 py-1.5 bg-main text-bg text-[9px] font-black uppercase tracking-widest rounded-lg shadow-xl">Exclusive Accelerator</span>
             </div>
-            <h3 class="text-2xl font-bold mb-1 tracking-tight text-bg">Upgrade to {{ recommendedPlan.name }}</h3>
-            <p class="text-sm text-bg/70">{{ planSubtitles[recommendedPlan.name] || '' }}</p>
+            <h3 class="text-4xl font-black mb-2 tracking-tighter text-main">Scale to {{ recommendedPlan.name }}</h3>
+            <p class="text-sm text-dim font-bold max-w-lg leading-relaxed">{{ planSubtitles[recommendedPlan.name] || 'Professional agency tools and increased quotas.' }}</p>
 
             <!-- Value diff chips -->
-            <div class="mt-5 flex flex-wrap gap-2">
-              <span v-if="spaceDiff > 0" class="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-md">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                {{ spaceDiff }} more tours
-              </span>
-              <span v-if="storageDiffGB > 0" class="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-md">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                {{ storageDiffGB }}GB more storage
-              </span>
-              <span v-if="recommendedPlan.lead_capture_enabled && !plan?.lead_capture_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 Lead capture
               </span>
               <span v-if="recommendedPlan.branding_customization_enabled && !plan?.branding_customization_enabled" class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-full">
@@ -148,19 +140,19 @@
         <div class="flex items-center justify-between mb-5">
           <h3 class="text-base font-semibold text-main">All plans</h3>
           <!-- Toggle -->
-          <div class="flex items-center gap-3 p-1 bg-surface-alt rounded-lg">
+          <div class="flex items-center gap-3 p-1 bg-surface-alt rounded-xl border border-border">
             <button
               @click="billingCycle = 'monthly'"
-              class="px-3 py-1.5 text-sm font-medium rounded-md transition-all"
-              :class="billingCycle === 'monthly' ? 'bg-bg text-main shadow-sm' : 'text-muted hover:text-main'"
+              class="px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200"
+              :class="billingCycle === 'monthly' ? 'bg-main text-bg shadow-sm' : 'text-dim hover:text-main'"
             >Monthly</button>
             <button
               @click="billingCycle = 'yearly'"
-              class="px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5"
-              :class="billingCycle === 'yearly' ? 'bg-bg text-main shadow-sm' : 'text-muted hover:text-main'"
+              class="px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 flex items-center gap-2"
+              :class="billingCycle === 'yearly' ? 'bg-main text-bg shadow-sm' : 'text-dim hover:text-main'"
             >
               Yearly
-              <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded">Save ~20%</span>
+              <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-extrabold rounded-md border border-emerald-500/30">Save 20%</span>
             </button>
           </div>
         </div>
@@ -170,20 +162,18 @@
           <div
             v-for="p in availablePlans"
             :key="p.id"
-            class="relative rounded-2xl border p-5 flex flex-col transition-all"
+            class="relative p-6 flex flex-col transition-all duration-300 card-glass"
             :class="[
               p.id === plan?.id
-                ? 'border-main bg-surface-alt ring-1 ring-main'
-                : p.id === recommendedPlan?.id
-                  ? 'border-border bg-bg shadow-md'
-                  : 'border-border bg-bg'
+                ? 'border-main ring-1 ring-main shadow-xl'
+                : 'border-border'
             ]"
           >
             <!-- Badges -->
             <div class="absolute -top-3 left-4 flex gap-1.5">
-              <span v-if="p.id === plan?.id" class="px-2 py-0.5 bg-zinc-900 text-white text-[10px] font-bold rounded-full shadow">Current</span>
-              <span v-if="p.id === recommendedPlan?.id && p.id !== plan?.id" class="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow">Recommended</span>
-              <span v-if="planHighlight[p.name]" class="px-2 py-0.5 bg-zinc-100  text-zinc-600  text-[10px] font-bold rounded-full shadow">{{ planHighlight[p.name] }}</span>
+              <span v-if="p.id === plan?.id" class="px-2.5 py-1 bg-main text-bg text-[10px] font-bold rounded-lg shadow-lg border border-border">Current Plan</span>
+              <span v-if="p.id === recommendedPlan?.id && p.id !== plan?.id" class="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-lg shadow-lg border border-emerald-500">Recommended</span>
+              <span v-if="planHighlight[p.name]" class="px-2.5 py-1 bg-surface-alt text-main text-[10px] font-bold rounded-lg shadow-lg border border-border">{{ planHighlight[p.name] }}</span>
             </div>
 
             <div class="mb-4 mt-2">
@@ -207,30 +197,30 @@
               </div>
             </div>
 
-            <ul class="space-y-2 mb-5 flex-1 text-xs">
-              <li class="flex items-center gap-2 text-zinc-600 ">
-                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                {{ p.max_active_spaces }} active tours
+            <ul class="space-y-3 mb-8 flex-1 text-[13px]">
+              <li class="flex items-center gap-2.5 text-dim">
+                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="font-bold text-main">{{ p.max_active_spaces }}</span> active tours
               </li>
-              <li class="flex items-center gap-2 text-zinc-600 ">
-                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                {{ formatBytes(p.max_storage_bytes) }} storage
+              <li class="flex items-center gap-2.5 text-dim">
+                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="font-bold text-main">{{ formatBytes(p.max_storage_bytes) }}</span> storage
               </li>
-              <li v-if="p.lead_capture_enabled" class="flex items-center gap-2 text-zinc-600 ">
-                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <li v-if="p.lead_capture_enabled" class="flex items-center gap-2.5 text-dim">
+                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                 Lead capture
               </li>
-              <li v-else class="flex items-center gap-2 text-zinc-300">
-                <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <li v-else class="flex items-center gap-2.5 text-dim/30">
+                <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 Lead capture
               </li>
-              <li v-if="p.branding_customization_enabled" class="flex items-center gap-2 text-zinc-600 ">
-                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <li v-if="p.branding_customization_enabled" class="flex items-center gap-2.5 text-dim">
+                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                 Agency branding
               </li>
-              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2 text-zinc-600 ">
-                <svg class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                {{ SHOOT_ALLOWANCES[p.name] }} photo shoot{{ SHOOT_ALLOWANCES[p.name] > 1 ? 's' : '' }}/mo
+              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2.5 text-dim">
+                <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="font-bold text-main">{{ SHOOT_ALLOWANCES[p.name] }}</span> photo shoots/mo
               </li>
             </ul>
 
@@ -240,10 +230,6 @@
               @click="subscribeTo(p.id)"
               :disabled="subscribing === p.id"
               class="btn w-full !rounded-xl"
-              :class="p.id === recommendedPlan?.id
-                ? 'btn-primary shadow-sm'
-                : 'btn-secondary'"
-            >
               <div v-if="subscribing === p.id" class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
               {{ subscribing === p.id ? 'Redirecting...' : 'Get ' + p.name }}
             </button>

@@ -3,14 +3,14 @@
     <!-- Header with Breadcrumbs & Actions -->
     <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="space-y-1">
-        <nav class="flex items-center gap-2 text-xs font-bold text-zinc-400 mb-1">
-           <NuxtLink to="/app/spaces" class="hover:text-zinc-900  transition-colors uppercase tracking-wider">Tours</NuxtLink>
+        <nav class="flex items-center gap-2 text-[10px] font-extrabold text-dim mb-1">
+           <NuxtLink to="/app/spaces" class="hover:text-main transition-colors uppercase tracking-widest">Tours</NuxtLink>
            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg>
-           <span class="text-zinc-500  truncate max-w-[150px] uppercase tracking-wider">{{ space?.title || '...' }}</span>
+           <span class="text-main/50 truncate max-w-[150px] uppercase tracking-widest">{{ space?.title || '...' }}</span>
         </nav>
         <div class="flex items-center gap-3">
-          <h1 class="text-3xl font-black tracking-tight text-zinc-950  truncate max-w-[300px] md:max-w-md">{{ space?.title || 'Edit Tour' }}</h1>
-          <div v-if="space?.is_published" class="px-2.5 py-1 rounded-lg bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest shadow-sm">Live</div>
+          <h1 class="text-3xl font-black tracking-tight text-main truncate max-w-[300px] md:max-w-md">{{ space?.title || 'Edit Tour' }}</h1>
+          <div v-if="space?.is_published" class="px-2.5 py-1 rounded-lg bg-emerald-500 text-bg text-[10px] font-bold uppercase tracking-widest shadow-lg border border-emerald-400">Live</div>
         </div>
       </div>
       
@@ -19,14 +19,13 @@
            v-if="space?.is_published && space.slug" 
            :href="`/p/${space.slug}`" 
            target="_blank" 
-           class="inline-flex items-center gap-2 px-5 py-2.5 bg-white  text-zinc-700  text-sm font-bold rounded-xl border border-zinc-200  hover:bg-zinc-50   hover:border-zinc-300   transition-all shadow-sm active:scale-95"
+           class="btn btn-secondary !rounded-xl"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           View Live
         </a>
         <button 
-          class="inline-flex items-center gap-2 px-6 py-2.5 text-white text-sm font-bold rounded-xl transition-all shadow-sm active:scale-[0.98] disabled:opacity-50" 
-          :class="space?.is_published ? 'bg-zinc-900 hover:bg-zinc-800' : 'bg-zinc-900 hover:bg-zinc-800'"
+          class="btn btn-primary !rounded-xl"
           @click="handleTogglePublish" 
           :disabled="publishing"
         >
@@ -37,21 +36,21 @@
     </header>
 
     <!-- Navigation Tabs -->
-    <div class="flex items-center gap-8 overflow-x-auto border-b border-zinc-200  mb-8 scrollbar-hide">
+    <div class="flex items-center gap-10 overflow-x-auto border-b border-border mb-8 scrollbar-hide">
       <button 
         v-for="tab in editorTabs" 
         :key="tab.id" 
-        class="flex items-center py-4 border-b-2 text-[15px] font-bold transition-all relative whitespace-nowrap group"
+        class="flex items-center py-4 border-b-2 text-sm font-bold transition-all relative whitespace-nowrap group"
         :class="[
-          activeTab === tab.id ? 'border-zinc-900 text-zinc-900 ' : 'border-transparent text-zinc-500 ',
-          tab.disabled ? 'opacity-45 cursor-not-allowed' : 'hover:text-zinc-900 '
+          activeTab === tab.id ? 'border-main text-main' : 'border-transparent text-dim',
+          tab.disabled ? 'opacity-30 cursor-not-allowed' : 'hover:text-main'
         ]"
         :disabled="tab.disabled"
         @click="selectTab(tab.id, tab.disabled)"
       >
         {{ tab.label }}
-        <div v-if="activeTab === tab.id" class="absolute -bottom-px left-0 right-0 h-px bg-zinc-900"></div>
-        <span v-if="tab.disabled" class="ml-2 text-[9px] font-black uppercase tracking-widest bg-zinc-100  text-zinc-400 px-1.5 py-0.5 rounded-md">Locked</span>
+        <div v-if="activeTab === tab.id" class="absolute -bottom-px left-0 right-0 h-0.5 bg-main rounded-t-full"></div>
+        <span v-if="tab.disabled" class="ml-2 text-[9px] font-black uppercase tracking-widest bg-surface-alt text-dim/50 px-2 py-0.5 rounded-lg border border-border">Locked</span>
       </button>
     </div>
 
@@ -67,29 +66,36 @@
         </button>
       </div>
 
-      <div class="mb-10 rounded-3xl border border-zinc-200  bg-white  p-6 shadow-sm">
-        <div class="flex items-center justify-between gap-3 mb-4">
-          <p class="text-base font-bold text-zinc-900 ">Tour Setup Progress</p>
-          <p class="text-sm font-bold text-zinc-700  bg-zinc-100  px-3 py-1 rounded-full">{{ completedSetupSteps }}/{{ setupSteps.length }} Complete</p>
+      <div class="card-glass p-6 md:p-8 mb-10 overflow-hidden relative">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none"></div>
+        <div class="flex items-center justify-between gap-3 mb-5">
+          <p class="text-base font-bold text-main tracking-tight">Tour Setup Progress</p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-main bg-surface-alt border border-border px-3 py-1.5 rounded-lg shadow-sm">
+            {{ completedSetupSteps }}/{{ setupSteps.length }} Steps
+          </p>
         </div>
-        <div class="w-full h-2.5 rounded-full bg-zinc-100  overflow-hidden mb-6">
-          <div class="h-full bg-zinc-800 transition-all duration-700 ease-out" :style="{ width: `${setupProgressPercent}%` }"></div>
+        <div class="w-full h-2.5 rounded-full bg-surface-alt border border-border overflow-hidden mb-8">
+          <div class="h-full bg-main transition-all duration-1000 ease-out shadow-[0_0_10px_var(--accent)]" :style="{ width: `${setupProgressPercent}%` }"></div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div
             v-for="step in setupSteps"
             :key="step.id"
-            class="px-4 py-3 rounded-xl border text-[13px] font-bold transition-all duration-300"
-            :class="step.done ? 'border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-zinc-100  bg-zinc-50  text-zinc-400'"
+            class="px-5 py-4 rounded-xl border transition-all duration-500"
+            :class="step.done 
+                    ? 'card-glass border-emerald-500/20 bg-emerald-500/5 text-emerald-400' 
+                    : 'bg-surface-alt/50 border-border text-dim/50'"
           >
             <div class="flex items-center gap-3">
               <div 
-                class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 border-2"
-                :class="step.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-zinc-200  text-transparent'"
+                class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-500"
+                :class="step.done 
+                        ? 'bg-emerald-500 border-emerald-500 text-bg shadow-[0_0_10px_rgba(16,185,129,0.5)]' 
+                        : 'border-border text-transparent'"
               >
-                <svg v-if="step.done" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg v-if="step.done" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              {{ step.label }}
+              <span class="text-xs font-bold tracking-tight">{{ step.label }}</span>
             </div>
           </div>
         </div>
@@ -136,78 +142,88 @@
 
       <!-- DETAILS TAB -->
       <div v-if="activeTab === 'details'" class="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <form @submit.prevent="handleUpdateDetails" class="space-y-8">
-          <section class="bg-white  rounded-xl border border-zinc-200  shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-zinc-100 ">
-              <h3 class="text-base font-semibold text-zinc-900 ">Basic Information</h3>
+        <form @submit.prevent="handleUpdateDetails" class="space-y-6">
+          <section class="card-glass overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-border bg-surface-alt/30">
+              <h3 class="text-base font-bold text-main tracking-tight">Basic Information</h3>
             </div>
             <div class="p-6 space-y-6">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-bold text-zinc-900 ">Tour Title</label>
-                <input v-model="detailsForm.title" type="text" class="w-full px-4 py-2.5 bg-zinc-50  border border-zinc-200  focus:border-zinc-400  focus:ring-1 focus:ring-zinc-400  rounded-xl text-sm font-medium outline-none transition-all shadow-sm" required placeholder="e.g. Modern Minimalist Loft" />
+              <div class="flex flex-col gap-2">
+                <label class="text-[11px] font-black uppercase tracking-widest text-dim ml-1">Tour Title</label>
+                <input v-model="detailsForm.title" type="text" class="input-glass w-full px-5 py-3 text-sm font-bold" required placeholder="e.g. Modern Minimalist Loft" />
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium text-zinc-700 ">Custom Slug</label>
-                <div class="flex items-center gap-2">
-                   <span class="text-sm text-zinc-400 font-mono">viewora.com/p/</span>
-                   <input v-model="detailsForm.slug" type="text" class="flex-1 px-3 py-2 bg-white  border border-zinc-200  focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm" placeholder="unique-space-id" />
+              <div class="flex flex-col gap-2">
+                <label class="text-[11px] font-black uppercase tracking-widest text-dim ml-1">Custom Slug</label>
+                <div class="flex items-center gap-3">
+                   <span class="text-xs text-dim/50 font-mono bg-surface-alt px-3 py-1 rounded-lg border border-border">viewora.com/p/</span>
+                   <input v-model="detailsForm.slug" type="text" class="input-glass flex-1 px-4 py-2.5 text-sm font-bold" placeholder="unique-space-id" />
                 </div>
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium text-zinc-700 ">Description</label>
-                <textarea v-model="detailsForm.description" class="w-full px-3 py-2 bg-white  border border-zinc-200  focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-md text-sm outline-none transition-shadow shadow-sm resize-none" rows="4" placeholder="Brief overview of the property..."></textarea>
+              <div class="flex flex-col gap-2">
+                <label class="text-[11px] font-black uppercase tracking-widest text-dim ml-1">Description</label>
+                <textarea v-model="detailsForm.description" class="input-glass w-full px-4 py-3 text-sm font-bold resize-none min-h-[120px]" placeholder="Brief overview of the property..."></textarea>
               </div>
             </div>
           </section>
 
-          <section class="bg-white  rounded-xl border border-zinc-200  shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-zinc-100  flex items-center justify-between">
-              <h3 class="text-base font-semibold text-zinc-900 ">Feature Toggles</h3>
+          <section class="card-glass overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-border bg-surface-alt/30">
+              <h3 class="text-base font-bold text-main tracking-tight">Feature Toggles</h3>
             </div>
-            <div class="divide-y divide-zinc-100">
-              <div class="flex items-center justify-between p-6">
+            <div class="divide-y divide-border">
+              <div class="flex items-center justify-between p-6 group hover:bg-main/[0.02] transition-colors">
                 <div>
-                  <span class="text-sm font-semibold text-zinc-900  block">Lead Capture Form</span>
-                  <span class="text-xs text-zinc-500  mt-0.5 block">Enable visitor enquiry collection.</span>
+                  <span class="text-sm font-bold text-main block">Lead Capture Form</span>
+                  <span class="text-[11px] font-medium text-dim mt-1 block">Enable visitor enquiry collection.</span>
                 </div>
                 <div class="flex items-center gap-3">
-                  <div v-if="!planStore.entitlements?.lead_capture_enabled" class="px-2 py-0.5 bg-zinc-100  text-zinc-500  text-[10px] font-bold uppercase rounded">Pro</div>
+                  <div v-if="!planStore.entitlements?.lead_capture_enabled" class="px-2.5 py-1 bg-surface-alt text-dim text-[9px] font-black uppercase tracking-widest rounded-lg border border-border">Locked</div>
                   <button 
                     v-else
                     type="button" 
-                    class="w-10 h-5 rounded-full relative transition-colors duration-200 focus:outline-none"
-                    :class="space?.lead_form_enabled ? 'bg-zinc-900' : 'bg-zinc-200'"
                     @click="handleToggleFeature('lead_form_enabled')"
+                    :class="[
+                      'w-12 h-6 rounded-full relative transition-all duration-300 focus:outline-none border-2',
+                      space?.lead_form_enabled ? 'bg-main border-main' : 'bg-surface-alt border-border'
+                    ]"
                   >
-                    <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-white  transition-transform duration-200" :class="space?.lead_form_enabled ? 'translate-x-5' : ''"></div>
+                    <div 
+                      class="absolute top-1 left-1 w-3 h-3 rounded-full transition-all duration-300 shadow-sm"
+                      :class="space?.lead_form_enabled ? 'translate-x-6 bg-bg' : 'bg-dim'"
+                    ></div>
                   </button>
                 </div>
               </div>
 
-              <div class="flex items-center justify-between p-6">
+              <div class="flex items-center justify-between p-6 group hover:bg-main/[0.02] transition-colors">
                 <div>
-                  <span class="text-sm font-semibold text-zinc-900  block">Agency Branding</span>
-                  <span class="text-xs text-zinc-500  mt-0.5 block">Display your agency watermark.</span>
+                  <span class="text-sm font-bold text-main block">Agency Branding</span>
+                  <span class="text-[11px] font-medium text-dim mt-1 block">Display your agency watermark.</span>
                 </div>
                 <div class="flex items-center gap-3">
-                  <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2 py-0.5 bg-zinc-100  text-zinc-500  text-[10px] font-bold uppercase rounded">Pro</div>
+                  <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2.5 py-1 bg-surface-alt text-dim text-[9px] font-black uppercase tracking-widest rounded-lg border border-border">Locked</div>
                   <button 
                     v-else
                     type="button" 
-                    class="w-10 h-5 rounded-full relative transition-colors duration-200 focus:outline-none"
-                    :class="space?.branding_enabled ? 'bg-zinc-900' : 'bg-zinc-200'"
                     @click="handleToggleFeature('branding_enabled')"
+                    :class="[
+                      'w-12 h-6 rounded-full relative transition-all duration-300 focus:outline-none border-2',
+                      space?.branding_enabled ? 'bg-main border-main' : 'bg-surface-alt border-border'
+                    ]"
                   >
-                    <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-white  transition-transform duration-200" :class="space?.branding_enabled ? 'translate-x-5' : ''"></div>
+                    <div 
+                      class="absolute top-1 left-1 w-3 h-3 rounded-full transition-all duration-300 shadow-sm"
+                      :class="space?.branding_enabled ? 'translate-x-6 bg-bg' : 'bg-dim'"
+                    ></div>
                   </button>
                 </div>
               </div>
             </div>
           </section>
 
-          <div class="flex justify-end sticky bottom-0 bg-white  backdrop-blur-md py-6 border-t border-zinc-100  -mx-4 px-4 sm:mx-0 sm:px-0 z-[10]">
-            <button type="submit" class="px-8 py-3 bg-zinc-900 text-white text-[15px] font-bold rounded-xl hover:bg-zinc-800 transition-all hover:-translate-y-0.5 shadow-sm active:scale-[0.98] disabled:opacity-50" :disabled="saving">
-              {{ saving ? 'Saving...' : 'Save Details' }}
+          <div class="flex justify-end sticky bottom-8 bg-surface/80 backdrop-blur-xl py-6 border border-border rounded-2xl mx-auto max-w-2xl px-8 z-[10] shadow-2xl mt-12 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300">
+            <button type="submit" class="btn btn-primary !px-12 !py-4 text-base" :disabled="saving">
+              {{ saving ? 'Saving Changes...' : 'Save Details' }}
             </button>
           </div>
         </form>
@@ -215,50 +231,51 @@
 
       <!-- GALLERY TAB -->
       <div v-if="activeTab === 'gallery'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white  p-8 rounded-[2rem] border border-zinc-200  shadow-sm">
-           <div class="space-y-1">
-             <h3 class="text-xl font-black tracking-tight text-zinc-950 ">Property Photos</h3>
-             <p class="text-sm text-zinc-500  font-medium">Add high-resolution photography for your tour carousel.</p>
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 card-glass p-8 shadow-2xl">
+           <div class="space-y-2">
+             <h3 class="text-xl font-black tracking-tight text-main">Property Photos</h3>
+             <p class="text-sm text-dim font-medium max-w-md">Add high-resolution photography for your tour carousel.</p>
            </div>
-           <div class="flex items-center gap-3">
+           <div class="flex items-center gap-4">
              <Transition name="fade-smooth">
                <div
                  v-if="showFirstUploadHint"
-                 class="px-3 py-2 rounded-lg bg-zinc-100  border border-zinc-200  text-zinc-700  text-xs font-semibold animate-pulse"
+                 class="px-4 py-2 rounded-xl bg-main/5 border border-main/20 text-main text-[10px] font-black uppercase tracking-widest animate-pulse"
                >
-                 Start here: upload your first photo
+                 Recommendation: upload first
                </div>
              </Transition>
-             <label class="cursor-pointer inline-flex items-center justify-center gap-3 px-8 py-4 bg-zinc-900 text-white text-[15px] font-bold rounded-2xl hover:bg-zinc-800 shadow-sm transition-all active:scale-[0.98] group">
+             <label class="btn btn-primary !px-10 !py-5 cursor-pointer !rounded-2xl group overflow-hidden relative">
                <input type="file" multiple accept="image/*" class="hidden" @change="handleGalleryUpload" />
-               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="group-hover:rotate-90 transition-transform duration-300"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-               Upload Photos
+               <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="relative z-10"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+               <span class="relative z-10">Upload Photos</span>
              </label>
            </div>
         </header>
 
-        <div v-if="galleryLocalUploads.length" class="space-y-3">
-          <div class="p-3 rounded-lg bg-zinc-50  border border-zinc-200  flex items-center justify-between">
-            <p class="text-xs font-semibold text-zinc-700 ">Uploading {{ galleryLocalUploads.length }} file{{ galleryLocalUploads.length > 1 ? 's' : '' }}</p>
-            <p class="text-xs text-zinc-500 ">{{ uploadSummaryText }}</p>
+        <div v-if="galleryLocalUploads.length" class="space-y-4">
+          <div class="p-4 rounded-2xl bg-surface-alt/50 border border-border flex items-center justify-between">
+            <p class="text-xs font-bold text-main">Uploading {{ galleryLocalUploads.length }} file{{ galleryLocalUploads.length > 1 ? 's' : '' }}</p>
+            <p class="text-xs text-dim font-bold">{{ uploadSummaryText }}</p>
           </div>
-          <TransitionGroup name="toast" tag="div" class="space-y-3">
+          <TransitionGroup name="fade-smooth" tag="div" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div
             v-for="item in galleryLocalUploads"
             :key="item.id"
-            class="p-4 bg-white  border border-zinc-200  rounded-xl"
+            class="p-5 card-glass border-main/10 shadow-lg"
           >
-            <div class="flex items-center justify-between gap-4 mb-2">
-              <p class="text-sm font-semibold text-zinc-900  truncate">{{ item.fileName }}</p>
-              <span class="text-xs font-medium text-zinc-500 ">{{ localStateLabel(item.state) }}</span>
+            <div class="flex items-center justify-between gap-4 mb-3">
+              <p class="text-sm font-bold text-main truncate">{{ item.fileName }}</p>
+              <span class="text-[10px] font-black uppercase tracking-widest text-dim">{{ localStateLabel(item.state) }}</span>
             </div>
-            <div class="h-2 bg-zinc-100  rounded-full overflow-hidden">
+            <div class="h-1.5 bg-surface-alt border border-border rounded-full overflow-hidden">
               <div
-                class="h-full rounded-full"
-                :class="item.state === 'uploading' ? 'bg-zinc-900 w-1/2 animate-pulse' : item.state === 'registering' || item.state === 'signing' ? 'bg-zinc-700 w-3/4 animate-pulse' : item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-zinc-400 w-full'"
+                class="h-full rounded-full transition-all duration-500"
+                :class="item.state === 'uploading' ? 'bg-main w-1/2 animate-pulse' : item.state === 'registering' || item.state === 'signing' ? 'bg-main/60 w-3/4 animate-pulse' : item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-main/30 w-full'"
               ></div>
             </div>
-            <p v-if="item.error" class="text-xs text-rose-600 mt-2">{{ item.error }}</p>
+            <p v-if="item.error" class="text-[10px] font-bold text-rose-500 mt-2">{{ item.error }}</p>
           </div>
           </TransitionGroup>
         </div>
@@ -267,117 +284,107 @@
            <div 
              v-for="(img, idx) in galleryMedia" 
              :key="img.id" 
-             class="group relative aspect-[4/3] bg-white  rounded-[2rem] overflow-hidden border border-zinc-200  shadow-sm hover:border-zinc-300   hover:shadow-xl hover:-translate-y-2 transition-all duration-500 animate-in fade-in"
+             class="group relative aspect-[4/3] card-glass overflow-hidden shadow-xl hover:-translate-y-2 transition-all duration-700 animate-in fade-in"
              :class="completionRingClass(img.id)"
              :style="{ animationDelay: `${idx * 50}ms` }"
            >
-              <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" />
-              <div class="absolute top-4 left-4 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass(img.processing_status)">
+              <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" loading="lazy" />
+              <div class="absolute top-4 left-4 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest backdrop-blur-md shadow-lg" :class="statusBadgeClass(img.processing_status)">
                 {{ statusLabel(img.processing_status) }}
-              </div>
-              <div v-if="completionFxMap[img.id]" class="absolute top-4 right-4 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg success-pulse transition-opacity duration-500" :class="completionFxMap[img.id] === 'exit' ? 'opacity-0' : 'opacity-100'">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
               
               <!-- Premium Overlay -->
-              <div class="absolute inset-0 bg-zinc-950/20 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-[2px] flex items-center justify-center gap-4">
+              <div class="absolute inset-0 bg-main/10 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-[4px] flex items-center justify-center gap-4">
                  <button 
-                   class="w-12 h-12 bg-white  text-zinc-950  rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-300"
+                   class="w-12 h-12 bg-surface border border-border text-main rounded-2xl shadow-2xl flex items-center justify-center hover:bg-main hover:text-bg hover:border-main hover:scale-110 active:scale-90 transition-all duration-300"
                    @click="previewImage = img"
                    title="Preview Image"
                  >
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                  </button>
                  <button 
-                   class="w-12 h-12 bg-rose-500 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-300" 
+                   class="w-12 h-12 bg-rose-500/90 text-bg rounded-2xl shadow-2xl flex items-center justify-center hover:bg-rose-500 hover:scale-110 active:scale-90 transition-all duration-300" 
                    @click="confirmDeleteMedia(img.id)"
                    title="Delete Image"
                  >
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                  </button>
-                 <button
-                   v-if="img.processing_status === 'failed'"
-                   class="px-4 h-12 bg-amber-500 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-300 text-xs font-bold"
-                   :disabled="Boolean(retryingMediaMap[img.id])"
-                   @click="handleRetryMedia(img.id)"
-                   title="Retry Processing"
-                 >
-                   {{ retryingMediaMap[img.id] ? 'Retrying...' : 'Retry' }}
-                 </button>
               </div>
 
               <!-- Identification Tag -->
-              <div class="absolute bottom-6 left-6 px-3 py-1 bg-white  backdrop-blur-md rounded-lg text-[10px] font-black uppercase tracking-widest text-zinc-900  border border-white/20 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 shadow-sm">
-                 IMG-{{ img.id.slice(0, 4) }}
+              <div class="absolute bottom-6 left-6 px-3 py-1.5 bg-surface/80 backdrop-blur-xl rounded-lg text-[10px] font-black uppercase tracking-widest text-main border border-border opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-700 delay-100 shadow-xl">
+                 ID: {{ img.id.slice(0, 4) }}
               </div>
            </div>
         </div>
         
-        <div v-else class="p-20 bg-white  border-2 border-dashed border-zinc-200  rounded-[3rem] flex flex-col items-center justify-center text-center group hover:border-zinc-400 transition-colors">
-            <div class="relative w-full max-w-lg aspect-[16/8] rounded-3xl overflow-hidden mb-8 border border-zinc-200  bg-gradient-to-br from-zinc-100 via-white to-zinc-100">
-              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/25 via-transparent to-transparent"></div>
-              <div class="absolute top-4 left-4 px-2 py-1 rounded-md bg-white  text-[10px] font-bold text-zinc-700  border border-zinc-200 ">Sample Tour Flow</div>
-              <div class="absolute bottom-4 left-4 flex gap-2">
-               <span class="px-2 py-1 rounded-full text-[10px] font-semibold bg-white  border border-zinc-200  text-zinc-700 ">Living Room</span>
-               <span class="px-2 py-1 rounded-full text-[10px] font-semibold bg-white  border border-zinc-200  text-zinc-700 ">Kitchen</span>
-               <span class="px-2 py-1 rounded-full text-[10px] font-semibold bg-zinc-900 text-white">+ Hotspot</span>
+        <div v-else class="p-20 card-glass border-2 border-dashed border-border flex flex-col items-center justify-center text-center group hover:border-main/50 transition-all duration-700 animate-in zoom-in-95">
+            <div class="relative w-full max-w-lg aspect-[16/8] rounded-[2.5rem] overflow-hidden mb-12 border border-border bg-surface-alt/50">
+              <div class="absolute inset-0 bg-gradient-to-t from-main/10 via-transparent to-transparent"></div>
+              <div class="absolute top-6 left-6 px-3 py-1.5 rounded-lg bg-surface/90 backdrop-blur-md text-[9px] font-black uppercase tracking-widest text-main border border-border shadow-lg">Preview Flow</div>
+              <div class="absolute bottom-6 left-6 flex gap-3">
+               <span class="px-3 py-1.5 rounded-full text-[10px] font-bold bg-surface/90 border border-border text-main shadow-sm">Front View</span>
+               <span class="px-3 py-1.5 rounded-full text-[10px] font-bold bg-surface/90 border border-border text-main shadow-sm">Kitchen</span>
+               <span class="px-3 py-1.5 rounded-full text-[10px] font-black bg-main text-bg shadow-xl">+ Add Hotspot</span>
               </div>
            </div>
-           <h4 class="text-xl font-black text-zinc-950  mb-2">Awaiting Visuals</h4>
-           <p class="text-sm text-zinc-500  max-w-xs mx-auto font-medium">
-             Upload high-quality interior and exterior photos to populate the property carousel.
+           <h4 class="text-2xl font-black text-main mb-3 tracking-tight">Your Gallery is Empty</h4>
+           <p class="text-sm text-dim max-w-sm mx-auto font-bold leading-relaxed">
+             Upload high-quality photography to build a stunning property showcase for your clients.
            </p>
         </div>
       </div>
 
       <!-- 360 STUDIO TAB -->
-      <div v-if="activeTab === '360'" class="max-w-3xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <section class="bg-white  rounded-xl border border-zinc-200  shadow-sm overflow-hidden p-6">
-           <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
-              <div>
-                <h3 class="text-base font-semibold text-zinc-900 ">360 Tour Builder</h3>
-                <p class="text-sm text-zinc-500  mt-0.5">Your viewer is always live. Upload or replace panoramas anytime.</p>
+      <div v-if="activeTab === '360'" class="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <section class="card-glass overflow-hidden p-6 md:p-8 shadow-2xl relative">
+           <div class="absolute top-0 right-0 w-96 h-96 bg-main/5 blur-[120px] pointer-events-none"></div>
+           <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 relative z-10">
+              <div class="space-y-1">
+                <h3 class="text-xl font-black text-main tracking-tight">360 Tour Builder</h3>
+                <p class="text-sm text-dim font-bold">Upload or replace panoramas to build your virtual walkthrough.</p>
               </div>
-              <label class="cursor-pointer w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 text-white text-sm font-bold rounded-xl transition-all shadow-md group" :class="!hasPanorama ? 'bg-zinc-900 animate-pulse hover:animate-none hover:bg-zinc-800' : 'bg-zinc-900 hover:bg-zinc-800'">
+              <label class="btn btn-primary !px-8 !py-5 cursor-pointer !rounded-2xl group overflow-hidden relative">
                 <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-                <svg v-if="!hasPanorama" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload 360 Image to Start
+                <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+                <svg v-if="!hasPanorama" class="w-5 h-5 relative z-10" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span class="relative z-10 font-black uppercase tracking-widest text-xs">Upload Panorama</span>
               </label>
            </div>
 
-           <div v-if="panoramaSaveState" class="mb-3 px-3 py-2 rounded-lg border text-xs font-semibold" :class="panoramaSaveState === 'saving' ? 'bg-sky-50 border-sky-200 text-sky-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'">
-             {{ panoramaSaveState === 'saving' ? 'Uploading 360 image... Optimizing for fast loading.' : 'Saved 360 image ✅' }}
+           <div v-if="panoramaSaveState" class="mb-6 px-4 py-3 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest shadow-lg animate-in slide-in-from-top-2" :class="panoramaSaveState === 'saving' ? 'bg-main/5 border-main/20 text-main animate-pulse' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'">
+             {{ panoramaSaveState === 'saving' ? 'Optimizing 360 workflow...' : 'Panorama Synchronized' }}
            </div>
 
-           <div class="rounded-xl border border-zinc-200  bg-zinc-50  p-4 mb-3">
-             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-3">
-               <div>
-                 <p class="text-sm font-semibold text-zinc-900 ">Inline Hotspot Editor</p>
-                 <p class="text-xs text-zinc-500  mt-0.5">No page switch: turn on edit mode, then click inside the viewer to place hotspots.</p>
+           <div class="rounded-2xl bg-surface-alt/50 border border-border p-6 mb-8 shadow-inner relative z-10">
+             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6">
+               <div class="space-y-1">
+                 <p class="text-sm font-black text-main uppercase tracking-widest">Interactive Hotspots</p>
+                 <p class="text-xs text-dim font-bold">Turn on edit mode and click inside the 360 viewer to place points.</p>
                </div>
                <button
-                 class="w-full sm:w-auto px-4 py-2 rounded-lg text-xs font-semibold border transition-colors"
-                 :class="inlineEditMode ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white  text-zinc-700  border-zinc-200  hover:bg-zinc-50   hover:border-zinc-300 '"
+                 class="btn !px-6 !py-3 !rounded-xl text-[11px] font-black uppercase tracking-widest"
+                 :class="inlineEditMode ? 'btn-primary' : 'btn-secondary'"
                  :disabled="!hasPanorama"
                  @click="inlineEditMode = !inlineEditMode"
                >
-                 {{ inlineEditMode ? 'Editing On (Click Viewer)' : 'Enable Edit Mode' }}
+                 {{ inlineEditMode ? 'Editor Active' : 'Enable Hotspots' }}
                </button>
              </div>
 
-             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-               <div class="space-y-1">
-                 <label class="text-[11px] font-semibold text-zinc-600  uppercase tracking-wider">Hotspot Type</label>
-                 <select v-model="hotspotDraftType" class="w-full px-3 py-2 bg-white  border border-zinc-300  rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500" :disabled="!hasPanorama">
-                   <option value="info">Info</option>
-                   <option value="scene_link">Scene Link</option>
-                   <option value="url">External URL</option>
+             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div class="space-y-2">
+                 <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Type</label>
+                 <select v-model="hotspotDraftType" class="input-glass w-full px-4 py-2.5 text-xs font-bold" :disabled="!hasPanorama">
+                   <option value="info">Information</option>
+                   <option value="scene_link">Scene Portal</option>
+                   <option value="url">Web Link</option>
                  </select>
                </div>
-               <div class="space-y-1 md:col-span-2" v-if="hotspotDraftType === 'scene_link'">
-                 <label class="text-[11px] font-semibold text-zinc-600  uppercase tracking-wider">Link To Scene</label>
-                 <select v-model="hotspotTargetSceneId" class="w-full px-3 py-2 bg-white  border border-zinc-300  rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500" :disabled="!hasPanorama || sceneChips.length < 2">
-                   <option value="">Auto choose next scene</option>
+               <div class="space-y-2 md:col-span-2" v-if="hotspotDraftType === 'scene_link'">
+                 <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Target Portal</label>
+                 <select v-model="hotspotTargetSceneId" class="input-glass w-full px-4 py-2.5 text-xs font-bold" :disabled="!hasPanorama || sceneChips.length < 2">
+                   <option value="">Auto-Sequential</option>
                    <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
                  </select>
                </div>
@@ -424,9 +431,9 @@
                 </div>
 
                 <!-- Remove Panorama — floats above the viewer -->
-                <div v-if="hasPanorama" class="absolute bottom-3 inset-x-0 flex justify-center z-10 pointer-events-none">
+                <div v-if="hasPanorama" class="absolute bottom-6 inset-x-0 flex justify-center z-10 pointer-events-none">
                   <button
-                    class="pointer-events-auto px-4 py-2 bg-white  backdrop-blur-sm text-zinc-900  text-sm font-medium rounded-lg shadow-xl hover:bg-white  transition-colors"
+                    class="btn btn-secondary !px-5 !py-2.5 !rounded-xl backdrop-blur-md shadow-2xl pointer-events-auto border-main/20 hover:bg-rose-500 hover:text-bg hover:border-rose-500"
                     @click.stop="confirmDeleteMedia(panorama!.id)"
                   >
                     Remove Panorama
@@ -455,80 +462,87 @@
              </div>
 
              <Transition name="fade-smooth">
-               <div v-if="editingHotspotId" class="rounded-xl border border-zinc-200  bg-white  p-4 shadow-sm">
-                 <div class="flex items-center justify-between gap-3 mb-3">
-                   <div>
-                     <p class="text-sm font-semibold text-zinc-900 ">Hotspot Edit Panel</p>
-                     <p class="text-xs text-zinc-500  mt-0.5">Update the label, type, and link target before saving.</p>
+               <div v-if="editingHotspotId" class="card-glass p-6 shadow-2xl relative z-10 border-main/20 animate-in slide-in-from-bottom-5">
+                 <div class="flex items-center justify-between gap-3 mb-6">
+                   <div class="space-y-1">
+                     <p class="text-sm font-black text-main uppercase tracking-widest">Edit Hotspot</p>
+                     <p class="text-xs text-dim font-bold">Configure label, type, and destination.</p>
                    </div>
-                   <button class="text-xs font-semibold text-zinc-500  hover:text-zinc-900 " @click="closeHotspotEditor">Close</button>
+                   <button class="text-[10px] font-black uppercase tracking-widest text-dim hover:text-main transition-colors" @click="closeHotspotEditor">Close</button>
                  </div>
 
-                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                   <div class="space-y-1">
-                     <label class="text-[11px] font-semibold text-zinc-600  uppercase tracking-wider">Title</label>
-                     <input v-model="hotspotEditForm.title" type="text" class="w-full px-3 py-2 bg-zinc-50  border border-zinc-300  rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500" placeholder="Spot name" />
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div class="space-y-2">
+                     <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Label</label>
+                     <input v-model="hotspotEditForm.title" type="text" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="Spot name" />
                    </div>
-                   <div class="space-y-1">
-                     <label class="text-[11px] font-semibold text-zinc-600  uppercase tracking-wider">Type</label>
-                     <select v-model="hotspotEditForm.type" class="w-full px-3 py-2 bg-zinc-50  border border-zinc-300  rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500">
-                       <option value="info">Info</option>
-                       <option value="scene_link">Scene Link</option>
-                       <option value="url">External Link</option>
+                   <div class="space-y-2">
+                     <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Type</label>
+                     <select v-model="hotspotEditForm.type" class="input-glass w-full px-4 py-3 text-sm font-bold">
+                       <option value="info">Information</option>
+                       <option value="scene_link">Portal</option>
+                       <option value="url">External</option>
                      </select>
                    </div>
                  </div>
 
-                 <div class="mt-3 space-y-1">
-                   <label class="text-[11px] font-semibold text-zinc-600  uppercase tracking-wider">Description</label>
-                   <textarea v-model="hotspotEditForm.description" rows="3" class="w-full px-3 py-2 bg-zinc-50  border border-zinc-300  rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 resize-none" placeholder="Describe this point of interest..."></textarea>
+                 <div class="mt-6 space-y-2">
+                   <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Metadata / Description</label>
+                   <textarea v-model="hotspotEditForm.description" rows="3" class="input-glass w-full px-4 py-3 text-sm font-bold resize-none" placeholder="Describe this point of interest..."></textarea>
                  </div>
 
-                 <div v-if="hotspotEditForm.type === 'scene_link'" class="mt-3 space-y-1">
-                   <label class="text-[11px] font-semibold text-zinc-600  uppercase tracking-wider">Target Scene</label>
-                   <select v-model="hotspotEditForm.targetSceneId" class="w-full px-3 py-2 bg-zinc-50  border border-zinc-300  rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500">
-                     <option value="">Choose scene</option>
+                 <div v-if="hotspotEditForm.type === 'scene_link'" class="mt-6 space-y-2">
+                   <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Destination Portal</label>
+                   <select v-model="hotspotEditForm.targetSceneId" class="input-glass w-full px-4 py-3 text-sm font-bold">
+                     <option value="">Next Sequential</option>
                      <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
                    </select>
                  </div>
 
-                 <div v-if="hotspotEditForm.type === 'url'" class="mt-3 space-y-1">
-                   <label class="text-[11px] font-semibold text-zinc-600  uppercase tracking-wider">Link</label>
-                   <input v-model="hotspotEditForm.link" type="url" class="w-full px-3 py-2 bg-zinc-50  border border-zinc-300  rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500" placeholder="https://" />
+                 <div v-if="hotspotEditForm.type === 'url'" class="mt-6 space-y-2">
+                   <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">URL Destination</label>
+                   <input v-model="hotspotEditForm.link" type="url" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="https://" />
                  </div>
 
-                 <div class="mt-4 flex flex-wrap gap-2">
-                   <button class="px-5 py-2 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 shadow-sm transition-all active:scale-[0.98]" @click="saveHotspotEdits">Save Hotspot</button>
-                   <button class="px-4 py-2 rounded-lg bg-white  border border-zinc-300  text-zinc-700  text-xs font-semibold hover:bg-zinc-50  " @click="deleteEditingHotspot">Delete</button>
+                 <div class="mt-8 flex flex-wrap gap-3">
+                   <button class="btn btn-primary !px-8 !py-3 !rounded-xl text-xs" @click="saveHotspotEdits">Update Hotspot</button>
+                   <button class="btn btn-secondary !px-6 !py-3 !rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 border-rose-500/20" @click="deleteEditingHotspot">Delete</button>
                  </div>
                </div>
              </Transition>
 
-           <div class="rounded-xl border border-zinc-200  bg-zinc-50  p-4">
-             <div class="flex items-center justify-between gap-3 mb-3">
-               <p class="text-sm font-semibold text-zinc-900 ">Scenes</p>
-               <button
-                 class="px-4 py-2 rounded-xl border border-zinc-200  bg-white  text-xs font-bold text-zinc-700  hover:bg-zinc-50   hover:border-zinc-300   transition-all shadow-sm active:scale-95 disabled:opacity-50"
-                   :disabled="!hasPanorama || addScenePending"
-                 @click="handleAddScene"
-               >
-                   {{ addScenePending ? 'Adding...' : '+ Add Scene' }}
-               </button>
-             </div>
-             <div v-if="sceneChips.length" class="flex flex-wrap gap-2">
-               <button
-                 v-for="scene in sceneChips"
-                 :key="scene.id"
-                 type="button"
-                 class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors"
-                 :class="selectedSceneId === scene.id ? 'bg-zinc-900 text-white border-zinc-900' : scene.ready ? 'bg-white  text-zinc-800  border-zinc-200  hover:bg-zinc-50   hover:border-zinc-300 ' : 'bg-white  text-zinc-500  border-zinc-100 '"
-                 @click="selectScene(scene.id)"
-               >
-                 {{ scene.label }}
-               </button>
-             </div>
-             <p v-else class="text-xs text-zinc-500 ">Upload a panorama to create Scene 1, then keep adding rooms to build a full walkthrough.</p>
-           </div>
+            <div class="card-glass p-6 md:p-8 bg-surface-alt/5 relative overflow-hidden">
+              <div class="flex items-center justify-between gap-6 mb-8 relative z-10">
+                <div class="space-y-1">
+                  <p class="text-sm font-black text-main uppercase tracking-widest">Walkthrough Scenes</p>
+                  <p class="text-xs text-dim font-bold">Total panoramic rooms in this tour.</p>
+                </div>
+                <button
+                  class="btn btn-secondary !px-5 !py-2.5 !rounded-xl text-[10px] font-black uppercase tracking-widest"
+                  :disabled="!hasPanorama || addScenePending"
+                  @click="handleAddScene"
+                >
+                    {{ addScenePending ? 'Synchronizing...' : '+ Add Scene' }}
+                </button>
+              </div>
+              <div v-if="sceneChips.length" class="flex flex-wrap gap-3 relative z-10">
+                <button
+                  v-for="scene in sceneChips"
+                  :key="scene.id"
+                  type="button"
+                  class="px-5 py-2.5 rounded-xl text-[11px] font-extrabold uppercase tracking-widest border transition-all duration-300 shadow-sm"
+                  :class="selectedSceneId === scene.id 
+                          ? 'bg-main text-bg border-main shadow-lg scale-105' 
+                          : scene.ready 
+                            ? 'bg-surface border-border text-main hover:bg-surface-alt' 
+                            : 'bg-surface-alt border-border text-dim/50 opacity-50'"
+                  @click="selectScene(scene.id)"
+                >
+                  {{ scene.label }}
+                </button>
+              </div>
+              <p v-else class="text-xs text-dim font-bold relative z-10">Upload a panorama to create your first scene, then build your virtual walkthrough.</p>
+            </div>    </div>
 
            <div v-if="panorama?.processing_status === 'failed'" class="mt-3 flex items-center gap-3">
              <p class="text-xs text-rose-600">Panorama processing failed.</p>
@@ -555,57 +569,60 @@
         </section>
       </div>
 
-      <!-- SHARE TAB -->
-      <div v-if="activeTab === 'share'" class="max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div v-if="!canShare" class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm font-medium">
-          Share unlocks after your first panorama is uploaded.
+      <!-- SHARE TAB       <div v-if="activeTab === 'share'" class="max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div v-if="!canShare" class="px-6 py-4 card-glass border-amber-500/20 bg-amber-500/5 text-amber-500 text-sm font-bold shadow-lg">
+          Share unlocks after your first panorama is uploaded and processed.
         </div>
-        <section class="bg-white  rounded-xl border border-zinc-200  shadow-sm overflow-hidden">
-           <div class="p-6 border-b border-zinc-100 ">
-              <h3 class="text-base font-semibold text-zinc-900 ">Public Access</h3>
+        <section class="card-glass overflow-hidden shadow-2xl">
+           <div class="p-6 border-b border-border bg-surface-alt/30">
+              <h3 class="text-base font-bold text-main tracking-tight">Public Access</h3>
            </div>
-           <div class="p-6 space-y-6">
-              <div class="space-y-4">
-                <label class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Direct Link</label>
-                <div class="flex gap-2">
-                   <input readonly :value="publicUrl" class="flex-1 px-4 py-3 bg-zinc-50  border border-zinc-200  rounded-xl text-sm font-mono text-zinc-600  outline-none focus:ring-1 focus:ring-zinc-300" />
-                   <button class="px-6 py-3 bg-white  border border-zinc-200  text-zinc-900  text-sm font-bold rounded-xl hover:bg-zinc-50   hover:border-zinc-300   shadow-sm transition-all active:scale-95 disabled:opacity-50" :disabled="!canShare" @click="copyLink(publicUrl)">Copy Link</button>
+           <div class="p-8 space-y-8">
+              <div class="space-y-3">
+                <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Direct Link</label>
+                <div class="flex gap-3">
+                   <input readonly :value="publicUrl" class="input-glass flex-1 px-5 py-3 text-sm font-mono font-bold" />
+                   <button class="btn btn-secondary !px-6 !py-3 !rounded-xl" :disabled="!canShare" @click="copyLink(publicUrl)">Copy</button>
                 </div>
-                <div class="mt-4 flex flex-wrap gap-3">
-                  <button class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50" :disabled="!canShare" @click="shareOnWhatsapp">
+                <div class="mt-6 flex flex-wrap gap-4">
+                  <button class="btn !bg-emerald-600 !hover:bg-emerald-500 !text-bg !border-none !px-8 !py-3 !rounded-2xl text-xs" :disabled="!canShare" @click="shareOnWhatsapp">
                     Share on WhatsApp
                   </button>
-                  <a :href="publicUrl" target="_blank" class="px-5 py-2.5 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none" :class="!canShare ? 'disabled' : ''">
+                  <a :href="publicUrl" target="_blank" class="btn btn-primary !px-8 !py-3 !rounded-2xl text-xs" :class="!canShare ? 'opacity-50 pointer-events-none' : ''">
                     Open Live Tour
                   </a>
                 </div>
               </div>
 
-              <div class="rounded-lg border border-zinc-200  bg-zinc-50  p-3">
-                <p class="text-xs font-semibold text-zinc-800 ">Lead Conversion Actions</p>
-                <p class="text-xs text-zinc-600  mt-1">Turn on Lead Capture in Details and your live tour will include the request viewing form for client inquiries.</p>
-                <button class="mt-2 px-3 py-1.5 rounded-md bg-white  border border-zinc-300  text-xs font-semibold text-zinc-700  hover:bg-zinc-100  " @click="activeTab = 'details'">
-                  Configure Lead Capture
-                </button>
+              <div class="rounded-2xl bg-surface-alt/50 border border-border p-5 shadow-inner">
+                <div class="flex items-center justify-between mb-4">
+                  <div class="space-y-1">
+                    <p class="text-sm font-bold text-main">Lead Generation</p>
+                    <p class="text-[11px] font-medium text-dim">Enable capture in Details to collect client inquiries.</p>
+                  </div>
+                  <button class="btn btn-secondary !px-4 !py-2 !rounded-xl text-[10px] font-black uppercase" @click="activeTab = 'details'">
+                    Configure
+                  </button>
+                </div>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-zinc-100 ">
-                 <div class="space-y-3">
-                    <label class="text-xs font-medium text-zinc-500  uppercase tracking-wider">QR Code</label>
-                    <div class="p-4 bg-zinc-50  rounded-lg flex flex-col items-center gap-4">
-                       <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}`" class="w-32 h-32 rounded shadow-sm border border-zinc-200 " />
-                        <button class="text-xs font-semibold text-zinc-900  hover:underline disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!canShare" @click="downloadQR('png')">Download PNG</button>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-border">
+                 <div class="space-y-4">
+                    <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">QR Distribution</label>
+                    <div class="p-6 bg-surface-alt/50 rounded-2xl border border-border flex flex-col items-center gap-4">
+                       <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}`" class="w-32 h-32 rounded-xl shadow-2xl border border-border" />
+                        <button class="text-[10px] font-black uppercase tracking-widest text-main hover:text-accent transition-colors disabled:opacity-50" :disabled="!canShare" @click="downloadQR('png')">Save PNG Asset</button>
                     </div>
                  </div>
-                 <div class="space-y-3">
-                    <label class="text-xs font-medium text-zinc-500  uppercase tracking-wider">Embed Code</label>
-                    <textarea readonly :value="embedCode" class="w-full h-32 bg-zinc-50  border border-zinc-200  p-3 rounded-lg text-[10px] font-mono text-zinc-600  outline-none resize-none"></textarea>
-                      <button class="w-full py-2 bg-white  border border-zinc-200  text-zinc-900  text-xs font-bold rounded-md hover:bg-zinc-50   shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!canShare" @click="copyLink(embedCode)">Copy Embed iFrame</button>
+                 <div class="space-y-4">
+                    <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Embedding Code</label>
+                    <textarea readonly :value="embedCode" class="input-glass w-full h-32 p-4 text-[10px] font-mono font-bold resize-none"></textarea>
+                    <button class="btn btn-secondary w-full !py-3 !rounded-xl text-[10px] font-black uppercase" :disabled="!canShare" @click="copyLink(embedCode)">Copy iFrame Tag</button>
                  </div>
               </div>
            </div>
         </section>
-      </div>
+      </div>div>
 
     </div>
   </div>
@@ -653,14 +670,13 @@
       <Transition name="fade-smooth">
         <div
           v-if="toast"
-          class="fixed bottom-6 right-6 z-[400] px-4 py-3 rounded-xl border shadow-xl max-w-sm"
-          :class="toast.type === 'success' ? 'bg-emerald-50  border-emerald-200  text-emerald-900 ' : 'bg-rose-50  border-rose-200  text-rose-900 '"
+          class="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-4 card-glass border-main/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[400] animate-in slide-in-from-bottom-5 fade-in duration-500"
         >
-          <div class="flex items-start gap-2">
-            <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mt-0.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <p class="text-sm font-medium">{{ toast.message }}</p>
-          </div>
+          <div 
+            class="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+            :class="toast.type === 'success' ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-rose-500 shadow-rose-500/50'"
+          ></div>
+          <span class="text-xs font-bold text-main tracking-tight">{{ toast.message }}</span>
         </div>
       </Transition>
     </Teleport>

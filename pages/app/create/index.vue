@@ -4,25 +4,25 @@
     <!-- STEP 1: Type Selection -->
     <div v-if="step === 1" class="w-full max-w-[900px] mt-12 px-4 sm:px-6 flex flex-col items-center">
       <div class="text-center mb-10 w-full">
-        <h1 class="text-3xl font-bold text-zinc-900  mb-2">What are you creating?</h1>
-        <p class="text-base text-zinc-500 ">Choose the type of tour to get the best setup</p>
+        <h1 class="text-3xl font-bold text-main mb-2 tracking-tight">What are you creating?</h1>
+        <p class="text-base text-dim">Choose the type of tour to get the best setup</p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 w-full max-w-[800px] mx-auto">
         <div 
           v-for="option in typeOptions" 
           :key="option.id"
-          class="flex items-center h-[160px] p-6 rounded-2xl transition-all duration-150 cursor-pointer border bg-white "
+          class="flex items-center h-[160px] p-6 rounded-2xl transition-all duration-300 cursor-pointer card-glass"
           :class="[
             selectedType === option.id 
-              ? 'border-zinc-900 shadow-sm ring-1 ring-zinc-900 ' 
-              : 'border-zinc-200  hover:-translate-y-0.5 hover:shadow-md hover:border-zinc-300 '
+              ? 'border-main ring-1 ring-main shadow-lg' 
+              : 'border-border'
           ]"
           @click="selectedType = option.id"
         >
           <div 
-            class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors"
-            :class="selectedType === option.id ? 'bg-zinc-900 text-white' : 'bg-zinc-100  text-zinc-500 '"
+            class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300"
+            :class="selectedType === option.id ? 'bg-main text-bg' : 'bg-surface-alt text-dim group-hover:bg-surface border border-border'"
           >
             <!-- Property -->
             <svg v-if="option.id === 'property'" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
@@ -34,19 +34,17 @@
             <svg v-else-if="option.id === 'multiple'" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="14" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="14" width="8" height="8" rx="2" ry="2"/><rect x="14" y="14" width="8" height="8" rx="2" ry="2"/></svg>
           </div>
           <div class="ml-5 flex-1">
-            <h3 class="text-[16px] font-bold text-zinc-900  leading-tight">{{ option.title }}</h3>
-            <p class="text-[13px] text-zinc-500  mt-1.5 leading-snug">{{ option.description }}</p>
+            <h3 class="text-[17px] font-bold text-main leading-tight">{{ option.title }}</h3>
+            <p class="text-[14px] text-dim mt-1.5 leading-snug">{{ option.description }}</p>
           </div>
         </div>
       </div>
 
-      <div class="mt-8 w-full flex flex-col items-center">
-        <p class="text-[13px] text-zinc-400 font-medium mb-4 text-center">Not sure? Start with Property — you can change later.</p>
+      <div class="mt-10 w-full flex flex-col items-center">
+        <p class="text-[13px] text-dim font-medium mb-6 text-center">Not sure? Start with Property — you can change later.</p>
         <button 
-          class="w-full md:w-[240px] h-[52px] px-5 font-bold text-[15px] rounded-xl transition-all duration-150"
-          :class="selectedType 
-             ? 'bg-zinc-900 text-white shadow-sm hover:bg-zinc-800 hover:-translate-y-0.5 active:scale-[0.98]' 
-             : 'bg-zinc-100  text-zinc-400 cursor-not-allowed pointer-events-none'"
+          class="btn btn-primary w-full md:w-[240px] !h-[54px] !rounded-xl"
+          :disabled="!selectedType"
           @click="step = 2"
         >
           Continue
@@ -57,36 +55,36 @@
     <!-- STEP 2: Basic Setup -->
     <div v-if="step === 2" class="w-full max-w-[600px] mt-12 px-4 sm:px-6 flex flex-col items-center animate-in slide-in-from-right-4 duration-300">
       <div class="mb-8 w-full">
-        <button @click="step = 1" class="text-sm font-medium text-zinc-500  hover:text-zinc-900  mb-8 flex items-center gap-1 transition-colors">
+        <button @click="step = 1" class="text-sm font-semibold text-dim hover:text-main mb-8 flex items-center gap-1 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           Back
         </button>
-        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-100  text-zinc-700  rounded-lg text-[13px] font-semibold mb-4 border border-zinc-200 ">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-alt text-main rounded-lg text-[13px] font-bold mb-4 border border-border">
           Creating: {{ selectedOptionData?.title }} {{ selectedOptionData?.emoji }}
         </div>
-        <h1 class="text-3xl font-bold text-zinc-900  mb-2">Basic Setup</h1>
-        <p class="text-base text-zinc-500 ">Give your tour a name to start building.</p>
+        <h1 class="text-3xl font-bold text-main mb-2 tracking-tight">Basic Setup</h1>
+        <p class="text-base text-dim">Give your tour a name to start building.</p>
       </div>
 
-      <div class="w-full bg-white  p-6 md:p-8 rounded-2xl border border-zinc-200  shadow-sm space-y-5">
-        <div class="space-y-1.5">
-          <label class="text-sm font-semibold text-zinc-900 ">Tour Name <span class="text-red-500">*</span></label>
+      <div class="w-full card-glass p-6 md:p-10 rounded-2xl space-y-6">
+        <div class="space-y-2">
+          <label class="text-sm font-bold text-main">Tour Name <span class="text-red-500">*</span></label>
           <input 
             v-model="tourName" 
             type="text" 
             placeholder="e.g. 123 Main Street" 
             autofocus
-            class="w-full px-4 py-3 bg-zinc-50  border border-zinc-200  rounded-xl text-zinc-900  text-base outline-none focus:bg-white  focus:border-zinc-400  focus:ring-1 focus:ring-zinc-400  transition-colors"
+            class="w-full px-4 py-3.5 bg-surface-alt border border-border rounded-xl text-main text-base outline-none focus:bg-surface focus:border-main focus:ring-1 focus:ring-main transition-all placeholder:text-dim"
           />
         </div>
         
-        <div class="space-y-1.5">
-          <label class="text-sm font-semibold text-zinc-900 ">Location <span class="text-zinc-400 font-normal">(Optional)</span></label>
+        <div class="space-y-2">
+          <label class="text-sm font-bold text-main">Location <span class="text-dim font-normal">(Optional)</span></label>
           <input 
             v-model="locationText" 
             type="text" 
             placeholder="City, Neighborhood etc." 
-            class="w-full px-4 py-3 bg-zinc-50  border border-zinc-200  rounded-xl text-zinc-900  text-base outline-none focus:bg-white  focus:border-zinc-400  focus:ring-1 focus:ring-zinc-400  transition-colors"
+            class="w-full px-4 py-3.5 bg-surface-alt border border-border rounded-xl text-main text-base outline-none focus:bg-surface focus:border-main focus:ring-1 focus:ring-main transition-all placeholder:text-dim"
           />
         </div>
 
@@ -94,12 +92,9 @@
           {{ errorMsg }}
         </div>
 
-        <div class="pt-3">
+        <div class="pt-4">
           <button 
-            class="w-full h-14 font-bold text-[15px] rounded-xl transition-all duration-150 flex items-center justify-center gap-2 shadow-sm"
-            :class="!tourName.trim() || creating 
-              ? 'bg-zinc-100  text-zinc-400 cursor-not-allowed' 
-              : 'bg-zinc-900 text-white hover:bg-zinc-800 hover:-translate-y-0.5 active:scale-[0.98]'"
+            class="btn btn-primary w-full !h-14 !rounded-xl"
             :disabled="!tourName.trim() || creating"
             @click="handleCreateTour"
           >
