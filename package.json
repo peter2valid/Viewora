@@ -8,11 +8,13 @@
     "start": "node .output/server/index.mjs"
   },
   "dependencies": {
-    "@egjs/view360": "^3.6.4",
+    "@cloudimage/360-view": "^4.10.0",
     "@nuxt/image": "^2.0.0",
     "@nuxtjs/google-fonts": "^3.2.0",
     "@nuxtjs/supabase": "^2.0.4",
     "@nuxtjs/tailwindcss": "^6.14.0",
+    "@photo-sphere-viewer/core": "^5.14.1",
+    "@photo-sphere-viewer/markers-plugin": "^5.14.1",
     "@pinia/nuxt": "^0.11.3",
     "nuxt": "^3.10.0",
     "pinia": "^3.0.4"

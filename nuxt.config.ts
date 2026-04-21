@@ -53,8 +53,8 @@ export default defineNuxtConfig({
     '/register': { ssr: false },
     '/reset-password': { ssr: false },
     '/confirm': { ssr: false },
-    // Public properties — client-side
-    '/p/**': { ssr: false },
+    // Public tour pages — SSR for fast first paint + Vercel edge caching
+    '/p/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' } },
     // Embed pages — lightweight, no auth
     '/embed/**': { ssr: false },
     // App dashboard — client-side only (auth-protected, user-specific data)
@@ -74,6 +74,36 @@ export default defineNuxtConfig({
     renderJsonPayloads: true,
   },
 
+  build: {
+    transpile: [
+      '@photo-sphere-viewer/core',
+      '@photo-sphere-viewer/markers-plugin',
+    ],
+  },
+
+  components: [
+    { path: '~/components', pathPrefix: true },
+    { path: '~/features/tour/components', pathPrefix: false },
+    { path: '~/features/editor/components', pathPrefix: false },
+    { path: '~/features/viewer/panorama', pathPrefix: false },
+    { path: '~/features/viewer/car', pathPrefix: false },
+    { path: '~/features/viewer/overlay', pathPrefix: false },
+  ],
+
+  imports: {
+    dirs: [
+      'composables',
+      'stores',
+      'features/tour/composables',
+      'features/tour/store',
+      'features/editor/composables',
+      'features/editor/store',
+      'features/viewer/composables',
+      'features/hotspot/composables',
+      'features/hotspot/store',
+    ],
+  },
+
   vite: {
     build: {
       sourcemap: false,
@@ -81,7 +111,7 @@ export default defineNuxtConfig({
         output: {
           manualChunks: {
             'vendor-supabase': ['@supabase/supabase-js'],
-            'vendor-view360': ['@egjs/view360'],
+            'vendor-psv': ['@photo-sphere-viewer/core', '@photo-sphere-viewer/markers-plugin'],
           },
         },
       },

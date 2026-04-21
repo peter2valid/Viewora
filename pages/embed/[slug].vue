@@ -9,9 +9,9 @@
     </div>
 
     <template v-else-if="tour && space">
-      <!-- 360 Viewer -->
+      <!-- PSV Viewer — Photo Sphere Viewer integration pending -->
       <div v-if="tour.scenes?.length" class="relative h-full w-full">
-        <ViewerTourViewer
+        <ViewerPsvViewer
           :tour="tour"
           :share-url="shareUrl"
         />
@@ -55,13 +55,7 @@ onMounted(async () => {
   try {
     const result = await apiFetch<any>(`/p/${encodeURIComponent(slug)}`)
     tour.value = result?.tour || result || null
-    // Fire view event using the space id from the tour data
-    if (space.value?.id) {
-      apiFetch('/analytics/events', {
-        method: 'POST',
-        body: { spaceId: space.value.id, event_type: 'property_view', source: 'embed' }
-      }).catch(() => {})
-    }
+    // View event is recorded server-side by GET /p/:slug — no client ping needed
   } catch (err: any) {
     fetchError.value = err.data?.statusMessage || 'Tour not found'
   } finally {

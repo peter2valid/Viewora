@@ -77,7 +77,7 @@ Two Pinia stores:
 | Route | Mode |
 |---|---|
 | `/app/**` | CSR only, `Cache-Control: no-store` |
-| `/p/**` | CSR only (no auth) |
+| `/p/**` | **SSR**, `Cache-Control: public, s-maxage=60` — Vercel edge cached, fast first paint |
 | `/embed/**` | CSR only (no auth, iframe-safe) |
 | `/login`, `/register`, `/confirm`, `/reset-password` | CSR only |
 
@@ -91,10 +91,10 @@ Two Pinia stores:
 | `composables/useSpaces.ts` | Space CRUD: `fetchSpaces`, `createSpace`, `updateSpace`, `deleteSpace`, `publishSpace`. |
 | `stores/auth.ts` | User identity + profile. |
 | `stores/plan.ts` | Plan limits + `can()` entitlement checks. |
-| `pages/p/[slug].vue` | Public space viewer. Pannellum 360, gallery lightbox, lead form, analytics ping. |
-| `pages/app/spaces/[id]/index.vue` | Space detail editor: media upload, 360 settings, publish. |
+| `pages/p/[slug].vue` | Public tour viewer (SSR). Fetches via `GET /p/:slug`. Full-screen, lead form, scene navigation. View tracked server-side — no client analytics ping needed. |
+| `pages/app/spaces/[id]/index.vue` | Space detail: media upload, 360 settings, publish flow. |
 | `pages/app/billing.vue` | Full billing lifecycle: plan selection → Paystack checkout → subscription status. |
-| `components/app/PannellumViewer.vue` | Pannellum-based 360° viewer. Client-only. |
+| `components/viewer/PsvViewer.vue` | **PSV integration stub.** Mount target ready. Replace template body with Photo Sphere Viewer init in V1. Declares full prop/emit surface (tour, imageUrl, isEditing, hotspots, add-hotspot, hotspot-click, remove-hotspot). |
 | `middleware/auth.ts` | Auth guard for `/app/**`. Bypassed in dev. |
 
 ---
@@ -131,8 +131,9 @@ Media never passes through the API server:
 
 | Area | Status |
 |---|---|
-| Marzipano | Installed in `package.json` but unused. Pannellum is the active 360 renderer. |
-| Hotspots | `hotspots_json` exists in DB and 360 settings — no creation UI or rendering logic. |
+| 360 viewer | **Viewer layer cleared.** `@egjs/view360` removed. `PsvViewer.vue` stub in place — ready for Photo Sphere Viewer V1 integration. All pages compile and route correctly. |
+| PSV integration | Install `@photo-sphere-viewer/core` + plugins, implement `PsvViewer.vue`, wire props/emits. Hotspot handler functions already present in `spaces/[id]/index.vue`. |
+| Capture endpoint | `pages/app/capture/index.vue` calls `POST /capture/request` — no backend handler. Fails silently by design. |
 | QR codes | Plan flags `qr_download_enabled` / `qr_svg_enabled` exist — not implemented. |
 | Advanced analytics gating | `advanced_analytics_enabled` plan flag exists — analytics page doesn't enforce it yet. |
 | Test coverage | None. |

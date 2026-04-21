@@ -17,7 +17,7 @@ The auth-protected dashboard SPA for Viewora. Built with **Nuxt 3**, **Tailwind 
 | Styling | Tailwind CSS v3 (via `@nuxtjs/tailwindcss`) |
 | State | Pinia (`stores/auth.ts`, `stores/plan.ts`) |
 | Auth | `@nuxtjs/supabase` — JWT stored in session, forwarded as Bearer token |
-| 360° Viewer | Marzipano (installed), Pannellum (used via `PannellumViewer.vue`) |
+| 360° Viewer | `@egjs/view360` v3 (via `View360Viewer.vue` + `TourViewer.vue`) |
 | Fonts | Inter 400–700, Outfit 600–700 via Google Fonts |
 | HTTP | `useApiFetch` composable wraps `$fetch` with the Supabase JWT |
 
@@ -64,9 +64,12 @@ viewora-app/
 │
 ├── components/
 │   ├── SidebarLink.vue        # Dashboard nav link with active state
-│   └── app/
-│       ├── ConfirmationModal.vue  # Reusable delete-confirm dialog
-│       └── PannellumViewer.vue    # Pannellum-based 360° panorama viewer
+│   ├── app/
+│   │   └── ConfirmationModal.vue  # Reusable delete-confirm dialog
+│   └── viewer/
+│       ├── View360Viewer.vue  # @egjs/view360 panorama renderer (client-only)
+│       ├── TourViewer.vue     # Full tour UI: scene strip, hotspot popups, share sheet
+│       └── Hotspot.vue        # Individual hotspot overlay marker
 │
 ├── composables/
 │   ├── useApiFetch.ts         # $fetch wrapper that injects Supabase Bearer token
@@ -112,7 +115,7 @@ Loaded once on login via `fetchSubscriptionStatus()`. Exposes the active plan's 
 
 ### `pages/p/[slug].vue`
 
-The public space viewer. Fetches space data server-side via `GET /spaces/by-slug/:slug` (no auth). Renders the Pannellum 360° viewer if a panorama media item exists, or falls back to a cover image. Includes the lead capture form (conditional on `space.lead_form_enabled`), gallery lightbox, and optional agency branding overlay. Fires `POST /analytics/view` on load.
+Public tour viewer — SSR with Vercel edge caching (`s-maxage=60`). Fetches via `GET /p/:slug` which calls the `get_tour_data()` Supabase RPC (returns space + scenes + hotspots). Renders `TourViewer` → `View360Viewer` for 360° panoramas. Includes lead capture form (gated on `lead_form_enabled`). View analytics are recorded server-side — no client-side ping needed.
 
 ### `pages/app/billing.vue`
 
@@ -124,12 +127,11 @@ Handles the entire billing lifecycle: plan listing, Paystack checkout initializa
 
 | Route | Mode | Notes |
 |---|---|---|
-| `/login`, `/register`, `/confirm`, `/reset-password` | CSR, no SSR | Auth pages |
-| `/p/**` | CSR | Public space pages, no auth |
-| `/embed/**` | CSR | Embed-safe, no auth |
+| `/login`, `/register`, `/confirm`, `/reset-password` | CSR | Auth pages |
+| `/p/**` | **SSR** | `public, s-maxage=60` — Vercel edge cache, fast first paint |
+| `/embed/**` | CSR | Iframe-safe, no auth |
 | `/app/**` | CSR, `no-store` | Auth-protected dashboard |
 | `/api/**` | — | `private, no-store` caching headers |
-| `/**` (marketing) | Prerendered | N/A — this is the marketing site |
 
 ---
 

@@ -7,6 +7,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Photo Sphere Viewer */
+@import '@photo-sphere-viewer/core/index.css';
+@import '@photo-sphere-viewer/markers-plugin/index.css';
+
 /* ── Design Tokens ── */
 :root {
   /* Surfaces */

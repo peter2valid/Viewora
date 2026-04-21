@@ -415,23 +415,17 @@
 
                <div class="relative rounded-[2rem] overflow-hidden border border-border/40 aspect-[2/1] bg-surface-alt group/viewer">
 
-                <!-- Real 360 viewer — hotspot positions are perspective-correct -->
-                <ClientOnly v-if="hasPanorama && activePanoramaSrc">
-                  <ViewerView360Viewer
-                    class="absolute inset-0 w-full h-full"
-                    :image-url="activePanoramaSrc"
-                    :hotspots="activeSceneHotspots"
-                    :is-editing="inlineEditMode"
-                    @add-hotspot="handleViewerAddHotspot"
-                    @hotspot-click="handleHotspotClick"
-                    @remove-hotspot="handleViewerRemoveHotspot"
-                  />
-                  <template #fallback>
-                    <div class="absolute inset-0 flex items-center justify-center">
-                      <div class="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    </div>
-                  </template>
-                </ClientOnly>
+                <!-- ViewerShell: routes to PSV (panorama) or car-spin viewer based on space type -->
+                <ViewerShell
+                  v-if="hasPanorama && activePanoramaSrc"
+                  class="absolute inset-0 w-full h-full"
+                  :active-scene="activeViewerScene"
+                  :space-type="space?.space_type"
+                  :hotspots="activeSceneHotspots"
+                  :is-editing="inlineEditMode"
+                  @add-hotspot="handleViewerAddHotspot"
+                  @hotspot-click="handleHotspotClick"
+                />
 
                 <!-- Placeholder shown before any panorama is uploaded -->
                 <div v-if="!hasPanorama" class="absolute inset-0">
@@ -712,6 +706,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { definePageMeta, useSeoMeta, useSupabaseClient, useRoute } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
+import ViewerShell from '~/features/viewer/ViewerShell.vue'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
@@ -829,6 +824,24 @@ const activePanoramaSrc = computed(() => {
   if (localPanoramaPreviewUrl.value) return localPanoramaPreviewUrl.value
   if (panorama.value?.public_url) return panorama.value.public_url
   return placeholderPanoramaUrl
+})
+
+// TourScene shape expected by ViewerShell / PsvViewer
+const activeViewerScene = computed(() => {
+  const url = activePanoramaSrc.value
+  if (!url || url === placeholderPanoramaUrl) return null
+  const s = space.value?.property_360_settings?.[0]
+  return {
+    id: activeScene.value?.id ?? 'editor-scene',
+    imageUrl: url,
+    hotspots: activeSceneHotspots.value ?? [],
+    settings: {
+      hfov_default: s?.hfov_default ?? 90,
+      pitch_default: s?.pitch_default ?? 0,
+      yaw_default: s?.yaw_default ?? 0,
+      auto_rotate_enabled: s?.auto_rotate_enabled ?? false,
+    },
+  }
 })
 const panoramaStatusLabel = computed(() => {
   if (!panorama.value) return localPanoramaPreviewUrl.value ? 'Preview' : 'Placeholder'
@@ -1126,7 +1139,7 @@ function resolveTargetSceneId(currentSceneId: string) {
   return next === currentSceneId ? null : next
 }
 
-// Called by View360Viewer with real spherical (yaw, pitch) — perspective-correct.
+// Called by PsvViewer with spherical (yaw, pitch) — wire to PSV click event in V1.
 async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: number }) {
   if (addingHotspot.value) return  // debounce concurrent clicks
   addingHotspot.value = true
@@ -1202,7 +1215,7 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
   }
 }
 
-// Called by View360Viewer's remove-hotspot emit (edit mode ✕ button).
+// Called by PsvViewer's remove-hotspot emit (edit mode ✕ button).
 async function handleViewerRemoveHotspot(hotspotId: string) {
   if (deletingHotspotsMap.value[hotspotId]) return  // prevent double-delete from rapid clicks
   const sceneId = selectedSceneId.value

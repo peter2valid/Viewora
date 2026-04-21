@@ -2,7 +2,7 @@
   <!-- Full-screen tour page. No app chrome. -->
   <div class="tour-page">
 
-    <!-- Loading state — blurred scene image while Pannellum initialises -->
+    <!-- Loading state — blurred scene image while viewer initialises -->
     <div v-if="state === 'loading'" class="tour-page-loading" aria-label="Loading tour">
       <div
         v-if="blurCover"
@@ -41,9 +41,9 @@
       </div>
     </div>
 
-    <!-- Main viewer — rendered once tour data is loaded -->
+    <!-- Main viewer — PSV integration pending -->
     <template v-else-if="state === 'ready' && tour">
-      <ViewerTourViewer
+      <ViewerPsvViewer
         :tour="tour"
         :share-url="shareUrl"
       />
@@ -147,8 +147,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useSeoMeta, useHead } from '#imports'
+import { ref, computed } from 'vue'
+import { useRoute, useSeoMeta, useHead, useAsyncData } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 
 // ── Types ──────────────────────────────────────────────────────
@@ -204,6 +204,24 @@ const state = ref<PageState>('loading')
 const tour = ref<TourData | null>(null)
 const errorMessage = ref('This tour is unavailable or has been removed.')
 
+// Server-side fetch — data is embedded in the HTML payload, no client re-fetch on hydration
+const { data: _tourPayload, error: _tourError } = await useAsyncData(
+  `tour:${slug}`,
+  () => apiFetch<{ tour: TourData }>(`/p/${encodeURIComponent(slug)}`),
+  { server: true, lazy: false }
+)
+
+if (_tourError.value) {
+  const msg = (_tourError.value as any)?.data?.statusMessage ?? _tourError.value?.message ?? ''
+  errorMessage.value = msg.includes('404') || msg.toLowerCase().includes('not found')
+    ? "This tour doesn't exist or has been unpublished."
+    : 'Something went wrong loading this tour.'
+  state.value = 'error'
+} else if (_tourPayload.value) {
+  tour.value = _tourPayload.value.tour
+  state.value = _tourPayload.value.tour.scenes.some(s => s.raw_image_url) ? 'ready' : 'empty'
+}
+
 // Lead form
 const leadOpen = ref(false)
 const leadPending = ref(false)
@@ -234,27 +252,6 @@ const ogImage = computed(() =>
   ?? tour.value?.scenes[0]?.thumbnail_url
   ?? 'https://app.viewora.software/images/og-default.png'
 )
-
-// ── Data fetch ─────────────────────────────────────────────────
-
-onMounted(fetchTour)
-
-async function fetchTour() {
-  state.value = 'loading'
-  try {
-    const result = await apiFetch<{ tour: TourData }>(`/p/${encodeURIComponent(slug)}`)
-    tour.value = result.tour
-
-    const hasScenes = result.tour.scenes.some(s => s.raw_image_url)
-    state.value = hasScenes ? 'ready' : 'empty'
-  } catch (err: any) {
-    const msg = err?.data?.statusMessage ?? err?.message ?? ''
-    errorMessage.value = msg.includes('404') || msg.toLowerCase().includes('not found')
-      ? 'This tour doesn\'t exist or has been unpublished.'
-      : 'Something went wrong loading this tour.'
-    state.value = 'error'
-  }
-}
 
 // ── Lead form ──────────────────────────────────────────────────
 
