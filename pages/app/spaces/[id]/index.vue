@@ -224,7 +224,7 @@ import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
 
-definePageMeta({ layout: 'app', middleware: 'auth' })
+definePageMeta({ layout: 'editor', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
 
 const route = useRoute()
