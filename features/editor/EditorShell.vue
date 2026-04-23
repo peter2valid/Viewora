@@ -480,6 +480,10 @@ onBeforeUnmount(() => {
     clearInterval(heartbeatTimer.value)
     heartbeatTimer.value = null
   }
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+    toastTimer = null
+  }
 })
 
 function setPanoramaPreview(file: File) {
@@ -582,22 +586,27 @@ async function fetchHotspots(sceneId: string) {
   try {
     const result = await apiFetch<any>(`/scenes/${sceneId}/hotspots`)
     const list = mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(result), 'hotspots'))
-    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: list }
+    // Preserve pending optimistic entries when merging fetched hotspots
+    const pending = (hotspotsByScene.value[sceneId] ?? []).filter((h) => h._pending === true)
+    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: pending.length ? [...list, ...pending] : list }
   } catch {
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: hotspotsByScene.value[sceneId] || [] }
   }
 }
 
-function selectScene(sceneId: string) {
+async function selectScene(sceneId: string) {
   if (sceneId === selectedSceneId.value) return
   isSceneTransitioning.value = true
   selectedSceneId.value = sceneId
-  if (!hotspotsByScene.value[sceneId]) {
-    void fetchHotspots(sceneId)
+  try {
+    if (!hotspotsByScene.value[sceneId]) {
+      await fetchHotspots(sceneId)
+    }
+  } finally {
+    setTimeout(() => {
+      isSceneTransitioning.value = false
+    }, 650)
   }
-  setTimeout(() => {
-    isSceneTransitioning.value = false
-  }, 650)
 }
 
 const ensureSceneForEditing = (() => {
@@ -795,13 +804,18 @@ async function saveHotspotEdits() {
 
 async function deleteEditingHotspot() {
   if (!editingHotspotId.value || !editingHotspotSceneId.value) return
+  const deletedId = editingHotspotId.value
+  const sceneId = editingHotspotSceneId.value
+  // Optimistically remove from UI
+  const previousHotspots = hotspotsByScene.value[sceneId] || []
+  hotspotsByScene.value[sceneId] = previousHotspots.filter((h) => h.id !== deletedId)
   try {
-    await apiFetch(`/hotspots/${editingHotspotId.value}`, { method: 'DELETE' })
-    const sceneId = editingHotspotSceneId.value
-    hotspotsByScene.value[sceneId] = (hotspotsByScene.value[sceneId] || []).filter((h) => h.id !== editingHotspotId.value)
+    await apiFetch(`/hotspots/${deletedId}`, { method: 'DELETE' })
     showToast('Hotspot deleted')
     closeHotspotEditor()
   } catch (e: any) {
+    // Restore on error
+    hotspotsByScene.value[sceneId] = previousHotspots
     showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
   }
 }
