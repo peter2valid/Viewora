@@ -66,19 +66,13 @@ const handle = ref<PsvViewerHandle | null>(null)
 const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')
 
-onMounted(async () => {
-  if (!props.scene?.imageUrl) {
-    state.value = 'empty'
-    return
-  }
-
+async function initWithScene(scene: TourScene) {
   if (!containerEl.value) return
-
   state.value = 'loading'
   try {
     handle.value = await initViewer(
       containerEl.value,
-      props.scene,
+      scene,
       () => {
         state.value = 'ready'
         emit('loaded')
@@ -101,6 +95,15 @@ onMounted(async () => {
     errorMessage.value = err?.message || 'Viewer initialisation failed'
     emit('error', err instanceof Error ? err : new Error(String(err)))
   }
+}
+
+onMounted(async () => {
+  if (!props.scene?.imageUrl) {
+    state.value = 'empty'
+    return
+  }
+
+  await initWithScene(props.scene)
 })
 
 // Scene change → destroy old + load new
@@ -108,7 +111,10 @@ watch(
   () => props.scene,
   async (next, prev) => {
     if (!next?.imageUrl) { state.value = 'empty'; return }
-    if (!handle.value) return
+    if (!handle.value) {
+      await initWithScene(next)
+      return
+    }
     if (next.id === prev?.id) return
     state.value = 'loading'
     try {

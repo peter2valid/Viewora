@@ -3,7 +3,7 @@
     <ClientOnly>
       <!-- Panorama viewer (all non-automotive spaces) -->
       <PsvViewer
-        v-if="viewerType === 'panorama'"
+        v-show="viewerType !== 'car'"
         :scene="activeScene"
         :hotspots="safeHotspots(hotspots ?? [])"
         :is-editing="isEditing"
@@ -16,16 +16,6 @@
       <!-- Car spin viewer (automotive space type — stub until integrated) -->
       <div v-else-if="viewerType === 'car'" class="viewer-car-stub">
         <p class="viewer-car-stub__label">Car viewer — integration pending</p>
-      </div>
-
-      <!-- No viewable content -->
-      <div v-else class="viewer-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="viewer-empty__icon">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <circle cx="8.5" cy="8.5" r="1.5" />
-          <path d="M21 15l-5-5L5 21" />
-        </svg>
-        <p class="viewer-empty__msg">No media uploaded yet</p>
       </div>
 
       <template #fallback>
@@ -79,7 +69,6 @@ const viewerType = computed((): 'panorama' | 'car' | 'empty' => {
   overflow: hidden;
 }
 
-.viewer-empty,
 .viewer-car-stub,
 .viewer-loading {
   position: absolute;
@@ -91,13 +80,6 @@ const viewerType = computed((): 'panorama' | 'car' | 'empty' => {
   gap: 10px;
 }
 
-.viewer-empty__icon {
-  width: 28px;
-  height: 28px;
-  color: rgba(255, 255, 255, 0.2);
-}
-
-.viewer-empty__msg,
 .viewer-car-stub__label {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.25);

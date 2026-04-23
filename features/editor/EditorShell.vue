@@ -294,7 +294,9 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useSupabaseClient } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
+import type { Hotspot } from '~/domain/hotspot'
 import EditorCanvas from '~/features/editor/EditorCanvas.vue'
+import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
 
 const props = defineProps<{
   spaceId: string
@@ -307,7 +309,6 @@ const planStore = usePlanStore()
 const space = ref<any>(null)
 const media = ref<any[]>([])
 const publishing = ref(false)
-const deletingMedia = ref(false)
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const retryingMediaMap = ref<Record<string, boolean>>({})
@@ -318,11 +319,9 @@ const localPanoramaPreviewUrl = ref<string | null>(null)
 const placeholderPanoramaUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23111627"/><stop offset="55%" stop-color="%231f2a44"/><stop offset="100%" stop-color="%232a4365"/></linearGradient></defs><rect width="1600" height="800" fill="url(%23g)"/><circle cx="1220" cy="230" r="180" fill="rgba(255,255,255,0.08)"/><circle cx="360" cy="600" r="260" fill="rgba(255,255,255,0.06)"/><g fill="none" stroke="rgba(255,255,255,0.35)"><path d="M0 540h1600"/><path d="M0 480h1600"/></g><text x="120" y="170" fill="rgba(255,255,255,0.88)" font-family="Arial" font-size="48" font-weight="700">Viewora 360 Tour Preview</text><text x="120" y="235" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="28">Upload your panorama to replace this placeholder instantly.</text></svg>'
 const addScenePending = ref(false)
 const addingHotspot = ref(false)
-const deletingHotspotsMap = ref<Record<string, boolean>>({})
-let ensureScenePromise: Promise<string | null> | null = null
 const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
-const hotspotsByScene = ref<Record<string, any[]>>({})
+const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
 const inlineEditMode = ref(false)
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
@@ -336,7 +335,6 @@ const hotspotEditForm = ref({
   link: '',
   targetSceneId: '',
 })
-const analyticsSummary = ref<any[]>([])
 const sceneRealtimeChannels = ref<any[]>([])
 let sceneRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -413,21 +411,19 @@ const panoramaStatusLabel = computed(() => {
 })
 
 const hotspotCount = computed(() => {
-  if (Object.keys(hotspotsByScene.value).length > 0) {
-    return Object.values(hotspotsByScene.value).reduce((sum: number, items: any) => sum + (Array.isArray(items) ? items.length : 0), 0)
-  }
-  const raw = space.value?.property_360_settings?.[0]?.hotspots_json
-  if (Array.isArray(raw)) return raw.length
-  if (raw && typeof raw === 'object') return Object.keys(raw).length
-  return 0
+  return Object.values(hotspotsByScene.value).reduce((sum, items) => sum + items.length, 0)
 })
 
 const sceneChips = computed(() => {
   if (!hasPanorama.value || !scenes.value.length) return []
   return scenes.value
     .slice()
-    .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0))
-    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'ready' || Boolean(s.raw_image_url) }))
+    .sort((a, b) => {
+      const orderDiff = Number(a.order_index || 0) - Number(b.order_index || 0)
+      if (orderDiff !== 0) return orderDiff
+      return String(a.id || '').localeCompare(String(b.id || ''))
+    })
+    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'complete' || Boolean(s.raw_image_url) }))
 })
 
 const hasProcessingMedia = computed(() => media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing'))
@@ -505,11 +501,11 @@ async function fetchScenes() {
     const loadedScenes = unwrapApiData<any>(result)?.scenes || result?.scenes || []
     scenes.value = loadedScenes
 
-    const newMap: Record<string, any[]> = {}
+    const newMap: Record<string, EditorHotspot[]> = {}
     for (const scene of loadedScenes) {
       if (Array.isArray(scene.hotspots)) {
-        const dbHotspots: any[] = scene.hotspots
-        const pending = (hotspotsByScene.value[scene.id] ?? []).filter((h: any) => h._pending === true)
+        const dbHotspots = mapDbHotspots(scene.hotspots)
+        const pending = (hotspotsByScene.value[scene.id] ?? []).filter((h) => h._pending === true)
         newMap[scene.id] = pending.length ? [...dbHotspots, ...pending] : dbHotspots
       } else if (hotspotsByScene.value[scene.id] !== undefined) {
         newMap[scene.id] = hotspotsByScene.value[scene.id]
@@ -517,7 +513,7 @@ async function fetchScenes() {
         try {
           const hRes = await apiFetch<any>(`/scenes/${scene.id}/hotspots`, { signal })
           if (version !== fetchScenesVersion) return
-          newMap[scene.id] = unwrapApiData<any>(hRes)?.hotspots ?? hRes?.hotspots ?? []
+          newMap[scene.id] = mapDbHotspots(unwrapApiData<any>(hRes)?.hotspots ?? hRes?.hotspots ?? [])
         } catch (err: any) {
           if (isAbortError(err)) return
           newMap[scene.id] = hotspotsByScene.value[scene.id] ?? []
@@ -577,7 +573,7 @@ function stopSceneRealtime() {
 async function fetchHotspots(sceneId: string) {
   try {
     const result = await apiFetch<any>(`/scenes/${sceneId}/hotspots`)
-    const list = unwrapApiData<any>(result)?.hotspots || result?.hotspots || []
+    const list = mapDbHotspots(unwrapApiData<any>(result)?.hotspots || result?.hotspots || [])
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: list }
   } catch {
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: hotspotsByScene.value[sceneId] || [] }
@@ -596,40 +592,44 @@ function selectScene(sceneId: string) {
   }, 650)
 }
 
-async function ensureSceneForEditing(): Promise<string | null> {
-  if (selectedSceneId.value) return selectedSceneId.value
-  if (!panorama.value?.public_url) return null
+const ensureSceneForEditing = (() => {
+  let ensureScenePromise: Promise<string | null> | null = null
 
-  if (addScenePending.value) return null
+  return async (): Promise<string | null> => {
+    if (selectedSceneId.value) return selectedSceneId.value
+    if (!panorama.value?.public_url) return null
 
-  if (ensureScenePromise) return ensureScenePromise
+    if (addScenePending.value) return null
 
-  ensureScenePromise = (async () => {
-    try {
-      const createResponse = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, {
-        method: 'POST',
-        body: {
-          name: `Scene ${(scenes.value?.length || 0) + 1}`,
-          raw_image_url: panorama.value!.public_url,
-          initial_yaw: 0,
-          initial_pitch: 0,
-        },
-      })
-      const createdScene = unwrapApiData<any>(createResponse)?.scene || createResponse?.scene
-      if (createdScene) {
-        scenes.value = [...scenes.value, createdScene]
-        selectedSceneId.value = createdScene.id
-        hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
-        return createdScene.id as string
+    if (ensureScenePromise) return ensureScenePromise
+
+    ensureScenePromise = (async () => {
+      try {
+        const createResponse = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, {
+          method: 'POST',
+          body: {
+            name: `Scene ${(scenes.value?.length || 0) + 1}`,
+            raw_image_url: panorama.value!.public_url,
+            initial_yaw: 0,
+            initial_pitch: 0,
+          },
+        })
+        const createdScene = unwrapApiData<any>(createResponse)?.scene || createResponse?.scene
+        if (createdScene) {
+          scenes.value = [...scenes.value, createdScene]
+          selectedSceneId.value = createdScene.id
+          hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
+          return createdScene.id as string
+        }
+        return null
+      } finally {
+        ensureScenePromise = null
       }
-      return null
-    } finally {
-      ensureScenePromise = null
-    }
-  })()
+    })()
 
-  return ensureScenePromise
-}
+    return ensureScenePromise
+  }
+})()
 
 function resolveTargetSceneId(currentSceneId: string) {
   if (hotspotTargetSceneId.value && hotspotTargetSceneId.value !== currentSceneId) {
@@ -676,7 +676,17 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
 
   const beforeCount = hotspotCount.value
   const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-  const optimisticEntry = { ...payload, id: tempId, _pending: true }
+  const optimisticEntry: EditorHotspot = {
+    id: tempId,
+    yaw,
+    pitch,
+    type: hotspotDraftType.value,
+    label: payload.label,
+    url: payload.content?.url,
+    targetSceneId: payload.target_scene_id,
+    description: payload.content?.text,
+    _pending: true,
+  }
   hotspotsByScene.value = {
     ...hotspotsByScene.value,
     [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), optimisticEntry],
@@ -689,11 +699,12 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
     })
     const created = unwrapApiData<any>(response)?.hotspot || response?.hotspot
     if (created) {
+      const mappedCreated = mapDbHotspot(created)
       hotspotsByScene.value = {
         ...hotspotsByScene.value,
         [sceneId]: (hotspotsByScene.value[sceneId] ?? [])
-          .filter((h: any) => h.id !== tempId)
-          .concat([created]),
+          .filter((h) => h.id !== tempId)
+          .concat([mappedCreated]),
       }
       if (beforeCount === 0) {
         showToast('Your tour is now interactive')
@@ -704,7 +715,7 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
   } catch (e: any) {
     hotspotsByScene.value = {
       ...hotspotsByScene.value,
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h: any) => h.id !== tempId),
+      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== tempId),
     }
     showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
   } finally {
@@ -712,68 +723,34 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
   }
 }
 
-async function handleViewerRemoveHotspot(hotspotId: string) {
-  if (deletingHotspotsMap.value[hotspotId]) return
-  const sceneId = selectedSceneId.value
-  if (!sceneId) return
-
-  const isPending = (hotspotsByScene.value[sceneId] ?? []).some(
-    (h: any) => h.id === hotspotId && h._pending === true
-  )
-  if (isPending) {
-    hotspotsByScene.value = {
-      ...hotspotsByScene.value,
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h: any) => h.id !== hotspotId),
-    }
-    return
-  }
-
-  deletingHotspotsMap.value = { ...deletingHotspotsMap.value, [hotspotId]: true }
-  try {
-    await apiFetch(`/hotspots/${hotspotId}`, { method: 'DELETE' })
-    hotspotsByScene.value = {
-      ...hotspotsByScene.value,
-      [sceneId]: (hotspotsByScene.value[sceneId] || []).filter((h: any) => h.id !== hotspotId),
-    }
-    if (editingHotspotId.value === hotspotId) closeHotspotEditor()
-    showToast('Hotspot deleted')
-  } catch (e: any) {
-    showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
-  } finally {
-    const next = { ...deletingHotspotsMap.value }
-    delete next[hotspotId]
-    deletingHotspotsMap.value = next
-  }
-}
-
 function handleHotspotClick(id: string) {
-  const hotspot = activeSceneHotspots.value.find((h: any) => h.id === id)
+  const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
   if (!hotspot) return
   if (inlineEditMode.value) {
     openHotspotEditor(hotspot, selectedSceneId.value)
     return
   }
-  if (hotspot.type === 'scene_link' && hotspot.target_scene_id) {
-    selectScene(hotspot.target_scene_id)
+  if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
+    selectScene(hotspot.targetSceneId)
     showToast('Moved to linked scene')
     return
   }
-  if (hotspot.type === 'url' && hotspot.content?.url) {
-    window.open(hotspot.content.url, '_blank', 'noopener,noreferrer')
+  if (hotspot.type === 'url' && hotspot.url) {
+    window.open(hotspot.url, '_blank', 'noopener,noreferrer')
     return
   }
   showToast(hotspot.label || 'Hotspot selected')
 }
 
-function openHotspotEditor(hotspot: any, sceneId: string) {
+function openHotspotEditor(hotspot: EditorHotspot, sceneId: string) {
   editingHotspotId.value = hotspot.id
   editingHotspotSceneId.value = sceneId
   hotspotEditForm.value = {
     type: hotspot.type || 'info',
     title: hotspot.label || '',
-    description: hotspot.content?.text || '',
-    link: hotspot.content?.url || '',
-    targetSceneId: hotspot.target_scene_id || '',
+    description: hotspot.description || '',
+    link: hotspot.url || '',
+    targetSceneId: hotspot.targetSceneId || '',
   }
 }
 
@@ -868,8 +845,9 @@ function localStateLabel(state: LocalUploadState) {
 function statusLabel(status?: string) {
   if (status === 'pending') return 'Queued'
   if (status === 'processing') return 'Processing'
+  if (status === 'complete') return 'Complete'
   if (status === 'failed') return 'Failed'
-  return 'Ready'
+  return 'Unknown'
 }
 
 function statusBadgeClass(status?: string) {
@@ -964,15 +942,6 @@ async function fetchSpace(silent = false, polling = false) {
 
     if (!polling) {
       await fetchScenes()
-    }
-
-    if (!analyticsSummary.value.length) {
-      try {
-        const summary = await apiFetch<any>(`/analytics/summary/${props.spaceId}`)
-        analyticsSummary.value = unwrapApiData<any>(summary) || summary || []
-      } catch {
-        analyticsSummary.value = []
-      }
     }
 
     if (!selectedSceneId.value && scenes.value.length) {
@@ -1112,7 +1081,6 @@ async function handleRetryMedia(mediaId: string) {
 }
 
 async function confirmDeleteMedia(mediaId: string) {
-  deletingMedia.value = true
   const wasPanorama = media.value.find((m: any) => m.id === mediaId)?.media_type === 'panorama'
   try {
     await apiFetch(`/uploads/${mediaId}`, { method: 'DELETE' })
@@ -1126,8 +1094,6 @@ async function confirmDeleteMedia(mediaId: string) {
     showToast('Media deleted')
   } catch (err: any) {
     showToast(`Failed to delete media: ${err.data?.statusMessage || err.message}`, 'error')
-  } finally {
-    deletingMedia.value = false
   }
 }
 </script>
