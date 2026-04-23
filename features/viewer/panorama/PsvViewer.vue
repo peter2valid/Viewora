@@ -65,6 +65,11 @@ const containerEl = ref<HTMLElement | null>(null)
 const handle = ref<PsvViewerHandle | null>(null)
 const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')
+let resizeObserver: ResizeObserver | null = null
+
+function resizeViewer() {
+  handle.value?.viewer?.resize?.()
+}
 
 async function initWithScene(scene: TourScene) {
   if (!containerEl.value) return
@@ -90,6 +95,7 @@ async function initWithScene(scene: TourScene) {
       },
       (id) => emit('hotspot-click', id),
     )
+    resizeViewer()
   } catch (err: any) {
     state.value = 'error'
     errorMessage.value = err?.message || 'Viewer initialisation failed'
@@ -98,6 +104,13 @@ async function initWithScene(scene: TourScene) {
 }
 
 onMounted(async () => {
+  if (containerEl.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      if (state.value === 'ready') resizeViewer()
+    })
+    resizeObserver.observe(containerEl.value)
+  }
+
   if (!props.scene?.imageUrl) {
     state.value = 'empty'
     return
@@ -138,6 +151,8 @@ watch(
 )
 
 onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
   destroy(handle.value)
   handle.value = null
 })

@@ -201,8 +201,12 @@
 
       <!-- Remove panorama button -->
       <div v-if="hasPanorama" class="canvas-remove-wrap">
-        <button class="canvas-remove-btn" @click.stop="confirmDeleteMedia(panorama!.id)">
-          Remove Panorama
+        <button
+          class="canvas-remove-btn"
+          :disabled="Boolean(deletingMedia[panorama!.id])"
+          @click.stop="confirmDeleteMedia(panorama!.id)"
+        >
+          {{ deletingMedia[panorama!.id] ? 'Removing…' : 'Remove Panorama' }}
         </button>
       </div>
 
@@ -322,6 +326,7 @@ const addingHotspot = ref(false)
 const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
 const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
+const deletingMedia = ref<Record<string, boolean>>({})
 const inlineEditMode = ref(false)
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
@@ -352,6 +357,7 @@ type LocalUploadItem = {
   error?: string
 }
 const localUploads = ref<LocalUploadItem[]>([])
+const pollFailureCount = ref(0)
 
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -423,7 +429,7 @@ const sceneChips = computed(() => {
       if (orderDiff !== 0) return orderDiff
       return String(a.id || '').localeCompare(String(b.id || ''))
     })
-    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'complete' || Boolean(s.raw_image_url) }))
+    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'complete' || s.status === 'ready' }))
 })
 
 const hasProcessingMedia = computed(() => media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing'))
@@ -881,6 +887,7 @@ function statusBadgeClass(status?: string) {
 
 function startPolling() {
   if (pollingTimer.value) return
+  pollFailureCount.value = 0
   pollingTimer.value = setInterval(async () => {
     await fetchSpace(true, true)
   }, 3000)
@@ -976,7 +983,16 @@ async function fetchSpace(silent = false, polling = false) {
         markRecentlyCompleted(item.id)
       }
     }
+
+    pollFailureCount.value = 0
   } catch (e: any) {
+    if (polling) {
+      pollFailureCount.value += 1
+      if (pollFailureCount.value >= 3) {
+        stopPolling()
+        showToast('Background refresh stopped after repeated errors. Reload to resume.', 'error')
+      }
+    }
     if (!silent) {
       showToast('Failed to load space data', 'error')
     }
@@ -1103,6 +1119,8 @@ async function handleRetryMedia(mediaId: string) {
 }
 
 async function confirmDeleteMedia(mediaId: string) {
+  if (deletingMedia.value[mediaId]) return
+  deletingMedia.value = { ...deletingMedia.value, [mediaId]: true }
   const wasPanorama = media.value.find((m: any) => m.id === mediaId)?.media_type === 'panorama'
   try {
     await apiFetch(`/uploads/${mediaId}`, { method: 'DELETE' })
@@ -1116,6 +1134,8 @@ async function confirmDeleteMedia(mediaId: string) {
     showToast('Media deleted')
   } catch (err: any) {
     showToast(`Failed to delete media: ${err.data?.statusMessage || err.message}`, 'error')
+  } finally {
+    deletingMedia.value = { ...deletingMedia.value, [mediaId]: false }
   }
 }
 </script>
