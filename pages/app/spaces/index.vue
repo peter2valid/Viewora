@@ -47,7 +47,7 @@
     </header>
 
     <!-- Toolbar (Only if we have spaces) -->
-    <div v-if="spaces.length > 0 || search" @click="$refs.searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-1 !rounded-2xl border border-border shadow-sm mb-12 cursor-pointer group/search hover:border-main/20 transition-colors">
+    <div v-if="spaces.length > 0 || search" @click="searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-1 !rounded-2xl border border-border shadow-sm mb-12 cursor-pointer group/search hover:border-main/20 transition-colors">
       <div class="relative w-full sm:w-80 group h-12 flex items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="absolute left-4 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input 
@@ -339,6 +339,7 @@ useSeoMeta({ title: 'Spaces | Viewora' })
 const { spaces, pending, error, fetchSpaces, createSpace, deleteSpace, publishSpace } = useSpaces()
 
 const search = ref('')
+const searchInput = ref<HTMLInputElement>()
 const sortBy = ref<'newest' | 'oldest' | 'name'>('newest')
 const viewMode = ref<'grid' | 'list'>('grid')
 const activeDropdown = ref<string | null>(null)

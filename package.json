@@ -17,6 +17,8 @@
     "@photo-sphere-viewer/markers-plugin": "^5.14.1",
     "@pinia/nuxt": "^0.11.3",
     "nuxt": "^3.10.0",
-    "pinia": "^3.0.4"
+    "pinia": "^3.0.4",
+    "posthog-js": "^1.371.1",
+    "@sentry/vue": "^8"
   }
 }

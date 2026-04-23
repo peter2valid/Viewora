@@ -100,10 +100,15 @@ export async function loadScene(
 /** Adds a single hotspot marker. */
 export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): void {
   if (!handle?.markers) return
+  // Use tooltip.content as plain text (not HTML) to prevent stored XSS via hotspot labels.
+  // PSV treats { content } as a plain-text tooltip; the string-form `tooltip` is rendered as HTML.
+  const tooltipConfig = hotspot.label
+    ? { content: hotspot.label, className: 'psv-tooltip--plain' }
+    : undefined
   handle.markers.addMarker({
     id: hotspot.id,
     position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-    tooltip: hotspot.label ?? undefined,
+    tooltip: tooltipConfig,
     className: `psv-hs psv-hs--${hotspot.type}`,
     html: '<div class="psv-hotspot-pin"></div>',
   })

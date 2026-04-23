@@ -2,7 +2,7 @@ export interface Hotspot {
   id: string
   yaw: number
   pitch: number
-  type: 'info' | 'link' | 'scene'
+  type: 'info' | 'url' | 'scene_link'
   label?: string
   url?: string
   targetSceneId?: string

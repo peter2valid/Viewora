@@ -25,6 +25,14 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Forward real client IP so backend rate limiting works correctly.
+  // Vercel sets x-forwarded-for; fall back to x-real-ip.
+  const clientIp = headers['x-forwarded-for'] || headers['x-real-ip']
+  if (typeof clientIp === 'string' && clientIp.length > 0) {
+    // x-forwarded-for can be a comma-separated list; take the first (original client)
+    forwardedHeaders['x-forwarded-for'] = clientIp.split(',')[0].trim()
+  }
+
   try {
     return await $fetch(`${target.replace(/\/$/, '')}${path}`, {
       method,

@@ -9,7 +9,7 @@
     </div>
 
     <template v-else-if="tour && space">
-      <!-- PSV Viewer — Photo Sphere Viewer integration pending -->
+      <!-- PSV Viewer — Photo Sphere Viewer integration via ViewerPsvViewer -->
       <div v-if="tour.scenes?.length" class="relative h-full w-full">
         <ViewerPsvViewer
           :tour="tour"
@@ -36,32 +36,27 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
-import { ref, computed, onMounted } from 'vue'
+import { computed } from 'vue'
 
 const { apiFetch } = useApiFetch()
 const route = useRoute()
 const slug = route.params.slug as string
 
-const pending = ref(true)
-const fetchError = ref('')
-const tour = ref<any>(null)
+// SSR fetch — data embedded in HTML payload, no client re-fetch on hydration
+const { data: _payload, error: _error, pending } = await useAsyncData(
+  `embed:${slug}`,
+  () => apiFetch<any>(`/p/${encodeURIComponent(slug)}`),
+  { server: true, lazy: false }
+)
 
-// Derive space from tour data — single source of truth is the /p/:slug endpoint.
+const fetchError = computed(() => {
+  if (!_error.value) return ''
+  return (_error.value as any)?.data?.statusMessage ?? 'Tour not found'
+})
+
+const tour = computed(() => _payload.value?.tour || _payload.value || null)
 const space = computed(() => tour.value?.space ?? null)
 const shareUrl = computed(() => `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.value?.slug || space.value?.id || slug}`)
-
-onMounted(async () => {
-  pending.value = true
-  try {
-    const result = await apiFetch<any>(`/p/${encodeURIComponent(slug)}`)
-    tour.value = result?.tour || result || null
-    // View event is recorded server-side by GET /p/:slug — no client ping needed
-  } catch (err: any) {
-    fetchError.value = err.data?.statusMessage || 'Tour not found'
-  } finally {
-    pending.value = false
-  }
-})
 </script>
 
 <style scoped>

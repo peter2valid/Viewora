@@ -233,8 +233,8 @@ onUnmounted(() => {
 }
 
 :global(.psv-hs--info .psv-hotspot-pin) { background: #fff; }
-:global(.psv-hs--link .psv-hotspot-pin) { background: #60a5fa; }
-:global(.psv-hs--scene .psv-hotspot-pin) { background: #a78bfa; }
+:global(.psv-hs--url .psv-hotspot-pin) { background: #60a5fa; }
+:global(.psv-hs--scene_link .psv-hotspot-pin) { background: #a78bfa; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

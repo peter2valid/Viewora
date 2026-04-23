@@ -20,6 +20,8 @@ export default defineNuxtConfig({
       // a dedicated backend is deployed (e.g. https://api.viewora.software).
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'https://app.viewora.software',
+      posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
+      sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
     },
   },
 
@@ -55,8 +57,8 @@ export default defineNuxtConfig({
     '/confirm': { ssr: false },
     // Public tour pages — SSR for fast first paint + Vercel edge caching
     '/p/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' } },
-    // Embed pages — lightweight, no auth
-    '/embed/**': { ssr: false },
+    // Embed pages — SSR for fast first paint in iframes
+    '/embed/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15' } },
     // App dashboard — client-side only (auth-protected, user-specific data)
     '/app/**': { ssr: false, headers: { 'Cache-Control': 'no-store' } },
     // API — no caching for authenticated data

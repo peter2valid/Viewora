@@ -29,7 +29,7 @@ export interface Hotspot360 {
   id: string
   yaw: number
   pitch: number
-  type: 'info' | 'link' | 'scene'
+  type: 'info' | 'url' | 'scene_link'
   label?: string
   url?: string
   scene_id?: string

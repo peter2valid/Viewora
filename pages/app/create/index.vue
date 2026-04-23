@@ -28,13 +28,13 @@
             :class="selectedType === option.id ? 'bg-white text-black' : 'bg-white/5 text-zinc-400 group-hover:bg-white/10 group-hover:text-white'"
           >
             <!-- Property -->
-            <svg v-if="option.id === 'property'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+            <svg v-if="option.id === 'residential'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
             <!-- Car -->
-            <svg v-else-if="option.id === 'car'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+            <svg v-else-if="option.id === 'automotive'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
             <!-- Business -->
-            <svg v-else-if="option.id === 'business'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+            <svg v-else-if="option.id === 'commercial'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
             <!-- Multiple -->
-            <svg v-else-if="option.id === 'multiple'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="14" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="14" width="8" height="8" rx="2" ry="2"/><rect x="14" y="14" width="8" height="8" rx="2" ry="2"/></svg>
+            <svg v-else-if="option.id === 'other'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="14" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="14" width="8" height="8" rx="2" ry="2"/><rect x="14" y="14" width="8" height="8" rx="2" ry="2"/></svg>
           </div>
           <div class="ml-5 md:ml-6 flex-1 z-10">
             <h3 class="text-base md:text-xl font-bold text-white leading-tight">{{ option.title }}</h3>
@@ -131,10 +131,10 @@ const creating = ref(false)
 const errorMsg = ref<string | null>(null)
 
 const typeOptions = [
-  { id: 'property', title: 'Property / Space', description: 'Apartments, Airbnb, hotels', emoji: '🏠' },
-  { id: 'car', title: 'Car / Vehicle', description: 'Show interior and exterior views', emoji: '🚗' },
-  { id: 'business', title: 'Business / Institution', description: 'Schools, offices, facilities', emoji: '🏢' },
-  { id: 'multiple', title: 'Multiple Items', description: 'Show multiple tours in one link', emoji: '📦' },
+  { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels', emoji: '🏠' },
+  { id: 'automotive', title: 'Car / Vehicle', description: 'Show interior and exterior views', emoji: '🚗' },
+  { id: 'commercial', title: 'Business / Institution', description: 'Schools, offices, facilities', emoji: '🏢' },
+  { id: 'other', title: 'Multiple Items', description: 'Show multiple tours in one link', emoji: '📦' },
 ]
 
 const selectedOptionData = computed(() => typeOptions.find(o => o.id === selectedType.value))

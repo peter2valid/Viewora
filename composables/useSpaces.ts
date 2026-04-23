@@ -88,7 +88,7 @@ export const useSpaces = () => {
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
-  const createSpace = async (payload: { title: string; space_type: Space['space_type']; description?: string }) => {
+  const createSpace = async (payload: { title: string; space_type: Space['space_type']; description?: string; location_text?: string }) => {
     pending.value = true
     error.value = null
     try {

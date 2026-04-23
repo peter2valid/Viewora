@@ -3,13 +3,13 @@
    Aesthetic: Linear / Vercel / Framer
    ============================================================ */
 
+/* Photo Sphere Viewer — must precede @tailwind */
+@import '@photo-sphere-viewer/core/index.css';
+@import '@photo-sphere-viewer/markers-plugin/index.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Photo Sphere Viewer */
-@import '@photo-sphere-viewer/core/index.css';
-@import '@photo-sphere-viewer/markers-plugin/index.css';
 
 /* ── Design Tokens ── */
 :root {
