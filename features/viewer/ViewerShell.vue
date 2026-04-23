@@ -1,17 +1,18 @@
 <template>
   <div class="viewer-shell">
     <ClientOnly>
-      <!-- Panorama viewer (all non-automotive spaces) -->
-      <PsvViewer
-        v-show="viewerType !== 'car'"
-        :scene="activeScene"
-        :hotspots="safeHotspots(hotspots ?? [])"
-        :is-editing="isEditing"
-        @loaded="emit('loaded')"
-        @error="emit('error', $event)"
-        @add-hotspot="emit('add-hotspot', $event)"
-        @hotspot-click="emit('hotspot-click', $event)"
-      />
+      <!-- Panorama viewer (all non-automotive spaces) — always mounted to preserve WebGL context -->
+      <div v-if="viewerType !== 'car'">
+        <PsvViewer
+          :scene="activeScene"
+          :hotspots="safeHotspots(hotspots ?? [])"
+          :is-editing="isEditing"
+          @loaded="emit('loaded')"
+          @error="emit('error', $event)"
+          @add-hotspot="emit('add-hotspot', $event)"
+          @hotspot-click="emit('hotspot-click', $event)"
+        />
+      </div>
 
       <!-- Car spin viewer (automotive space type — stub until integrated) -->
       <div v-else-if="viewerType === 'car'" class="viewer-car-stub">
