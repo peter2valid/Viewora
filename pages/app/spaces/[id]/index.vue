@@ -1,697 +1,211 @@
 <template>
   <div class="h-full flex flex-col">
-    <!-- Header with Breadcrumbs & Actions -->
-    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div class="space-y-1">
-        <nav class="flex items-center gap-2 text-[10px] font-extrabold text-dim mb-1">
-           <NuxtLink to="/app/spaces" class="hover:text-main transition-colors uppercase tracking-widest">Tours</NuxtLink>
-           <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg>
-           <span class="text-main/50 truncate max-w-[150px] uppercase tracking-widest">{{ space?.title || '...' }}</span>
-        </nav>
-        <div class="flex items-center gap-3">
-          <h1 class="text-3xl font-black tracking-tight text-main truncate max-w-[300px] md:max-w-md">{{ space?.title || 'Edit Tour' }}</h1>
-          <div v-if="space?.is_published" class="px-2.5 py-1 rounded-lg bg-emerald-500 text-bg text-[10px] font-bold uppercase tracking-widest shadow-lg border border-emerald-400">Live</div>
-        </div>
-      </div>
-      
+
+    <!-- Minimal header: title + publish action -->
+    <header class="flex items-center justify-between mb-4 px-1">
       <div class="flex items-center gap-3">
-        <a 
-           v-if="space?.is_published && space.slug" 
-           :href="`/p/${space.slug}`" 
-           target="_blank" 
-           class="btn btn-secondary shadow-sm"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          View Live
-        </a>
-        <button 
-          class="btn btn-primary shadow-2xl"
-          @click="handleTogglePublish" 
-          :disabled="publishing"
-        >
+        <NuxtLink to="/app/spaces" class="text-dim hover:text-main transition-colors text-sm font-semibold">← Tours</NuxtLink>
+        <h1 class="text-lg font-bold text-main truncate max-w-xs">{{ space?.title || 'Edit Tour' }}</h1>
+        <span v-if="space?.is_published" class="px-2 py-0.5 rounded bg-emerald-500 text-bg text-[10px] font-bold uppercase tracking-widest">Live</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a v-if="space?.is_published && space.slug" :href="`/p/${space.slug}`" target="_blank" class="btn btn-secondary shadow-sm">View Live</a>
+        <button class="btn btn-primary" @click="handleTogglePublish" :disabled="publishing">
           <div v-if="publishing" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           {{ space?.is_published ? 'Unpublish' : 'Publish Tour' }}
         </button>
       </div>
     </header>
 
-    <!-- Navigation Tabs (Panoee-style Essential Menu) -->
-    <div class="flex items-center gap-2 overflow-x-auto bg-surface-alt p-1.5 rounded-2xl border border-border mb-10 scrollbar-hide w-max mx-auto md:mx-0 shadow-sm">
-      <button 
-        v-for="tab in editorTabs" 
-        :key="tab.id" 
-        class="flex items-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all relative whitespace-nowrap group"
-        :class="[
-          activeTab === tab.id ? 'bg-main text-bg shadow-[0_10px_20px_-5px_rgba(0,0,0,0.5)]' : 'text-dim hover:text-main',
-          tab.disabled ? 'opacity-30 cursor-not-allowed' : ''
-        ]"
-        :disabled="tab.disabled"
-        @click="selectTab(tab.id, tab.disabled)"
+    <!-- Processing status (minimal inline banner) -->
+    <Transition name="fade-smooth">
+      <div
+        v-if="hasProcessingMedia"
+        class="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium"
+        :class="isProcessingStuck ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sky-50 border-sky-200 text-sky-800'"
       >
-        <div class="flex items-center gap-3">
-          <!-- Subtle icon logic could go here -->
-          <span>{{ tab.label }}</span>
-        </div>
-        <span v-if="tab.disabled" class="ml-2 text-[8px] font-black bg-surface text-dim/40 px-1.5 py-0.5 rounded-md border border-border/50">Locked</span>
-      </button>
-    </div>
+        <div class="w-3 h-3 border-2 rounded-full animate-spin flex-shrink-0" :class="isProcessingStuck ? 'border-amber-300 border-t-amber-700' : 'border-sky-300 border-t-sky-700'"></div>
+        <span v-if="isProcessingStuck">Processing is taking longer than expected. Working in background.</span>
+        <span v-else>Processing in background...</span>
+        <span class="ml-auto text-xs font-semibold">{{ processingElapsedSeconds }}s</span>
+      </div>
+    </Transition>
 
-    <!-- Tab Content -->
-    <div class="flex-1">
-      <div v-if="postPublishPrompt" class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <p class="text-sm font-semibold text-emerald-800">Your tour is now live</p>
-          <p class="text-xs text-emerald-700 mt-0.5">Share it now to start getting client interest.</p>
+    <!-- Main editor area -->
+    <div class="flex-1 flex flex-col min-h-0 gap-3">
+
+      <!-- Viewer toolbar -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div :class="['px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md', panorama?.processing_status === 'ready' ? 'bg-emerald-500/90 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
+            {{ panoramaStatusLabel }}
+          </div>
+          <span class="text-sm font-bold text-main">{{ activeScene?.name || 'Untitled Scene' }}</span>
         </div>
-        <button class="btn btn-primary !bg-emerald-700 !border-emerald-700 shadow-xl" @click="activeTab = 'share'; postPublishPrompt = false">
-           Share Live Tour
+        <label class="btn btn-secondary !px-4 !py-2.5 !rounded-xl cursor-pointer">
+          <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
+          Swap Panorama
+        </label>
+      </div>
+
+      <!-- Panorama viewer container -->
+      <div class="relative rounded-2xl overflow-hidden aspect-[2/1] bg-surface-alt group/viewer">
+
+        <!-- ViewerShell: routes to PSV (panorama) or car-spin viewer based on space type -->
+        <ViewerShell
+          v-if="hasPanorama && activePanoramaSrc"
+          class="absolute inset-0 w-full h-full"
+          :active-scene="activeViewerScene"
+          :space-type="space?.space_type"
+          :hotspots="activeSceneHotspots"
+          :is-editing="inlineEditMode"
+          @add-hotspot="handleViewerAddHotspot"
+          @hotspot-click="handleHotspotClick"
+        />
+
+        <!-- Placeholder shown before any panorama is uploaded -->
+        <div v-if="!hasPanorama" class="absolute inset-0">
+          <img :src="placeholderPanoramaUrl" class="w-full h-full object-cover opacity-85" />
+          <div class="absolute inset-0 bg-gradient-to-br from-zinc-950/30 via-transparent to-zinc-950/40"></div>
+        </div>
+
+        <!-- Processing status badge -->
+        <div class="absolute top-3 left-3 z-10 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass(panorama?.processing_status)">
+          {{ panoramaStatusLabel }}
+        </div>
+
+        <!-- Completion FX badge -->
+        <div v-if="panorama && completionFxMap[panorama.id]" class="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg success-pulse transition-opacity duration-500" :class="completionFxMap[panorama.id] === 'exit' ? 'opacity-0' : 'opacity-100'">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+
+        <!-- Remove panorama button -->
+        <div v-if="hasPanorama" class="absolute bottom-6 inset-x-0 flex justify-center z-10 pointer-events-none">
+          <button
+            class="btn btn-secondary !px-5 !py-2.5 !rounded-xl backdrop-blur-md shadow-2xl pointer-events-auto border-main/20 hover:bg-rose-500 hover:text-bg hover:border-rose-500"
+            @click.stop="confirmDeleteMedia(panorama!.id)"
+          >
+            Remove Panorama
+          </button>
+        </div>
+
+        <!-- Empty state guide -->
+        <div v-if="!hasPanorama" class="absolute inset-x-0 bottom-0 p-5 z-10">
+          <div class="rounded-xl border border-white/15 bg-black/35 backdrop-blur-sm p-4 text-white">
+            <p class="text-sm font-semibold">Step 1: Upload your first 360 image</p>
+            <p class="text-xs text-white/75 mt-1">Choose a high-resolution equirectangular panorama (2:1) to start your interactive tour instantly.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload progress (in-flight panorama uploads only) -->
+      <div v-if="panoramaLocalUploads.length" class="space-y-2">
+        <div v-for="item in panoramaLocalUploads" :key="item.id" class="p-3 bg-surface-alt rounded-lg border border-border">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-semibold text-main truncate">{{ item.fileName }}</p>
+            <span class="text-[11px] text-dim">{{ localStateLabel(item.state) }}</span>
+          </div>
+          <div class="h-1.5 bg-surface border border-border rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500" :class="item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-main w-1/2 animate-pulse'"></div>
+          </div>
+          <p v-if="item.error" class="text-[10px] font-bold text-rose-500 mt-1">{{ item.error }}</p>
+        </div>
+      </div>
+
+      <!-- Processing failure + retry -->
+      <div v-if="panorama?.processing_status === 'failed'" class="flex items-center gap-3">
+        <p class="text-xs text-rose-600">Panorama processing failed.</p>
+        <button
+          class="px-3 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold"
+          :disabled="Boolean(retryingMediaMap[panorama.id])"
+          @click="handleRetryMedia(panorama.id)"
+        >
+          {{ retryingMediaMap[panorama.id] ? 'Retrying...' : 'Retry processing' }}
         </button>
       </div>
 
-      <div class="card-glass p-6 md:p-8 mb-10 overflow-hidden relative">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none"></div>
-        <div class="flex items-center justify-between gap-3 mb-5">
-          <p class="text-base font-bold text-main tracking-tight">Tour Setup Progress</p>
-          <p class="text-[10px] font-black uppercase tracking-widest text-main bg-surface-alt border border-border px-3 py-1.5 rounded-lg shadow-sm">
-            {{ completedSetupSteps }}/{{ setupSteps.length }} Steps
-          </p>
-        </div>
-        <div class="w-full h-2.5 rounded-full bg-surface-alt border border-border overflow-hidden mb-8">
-          <div class="h-full bg-main transition-all duration-1000 ease-out shadow-[0_0_10px_var(--accent)]" :style="{ width: `${setupProgressPercent}%` }"></div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div
-            v-for="step in setupSteps"
-            :key="step.id"
-            class="px-5 py-4 rounded-xl border transition-all duration-500"
-            :class="step.done 
-                    ? 'card-glass border-emerald-500/20 bg-emerald-500/5 text-emerald-400' 
-                    : 'bg-surface-alt/50 border-border text-dim/50'"
-          >
-            <div class="flex items-center gap-3">
-              <div 
-                class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-500"
-                :class="step.done 
-                        ? 'bg-emerald-500 border-emerald-500 text-bg shadow-[0_0_10px_rgba(16,185,129,0.5)]' 
-                        : 'border-border text-transparent'"
-              >
-                <svg v-if="step.done" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <span class="text-xs font-bold tracking-tight">{{ step.label }}</span>
-            </div>
-          </div>
-        </div>
+      <!-- Scene selector strip -->
+      <div v-if="sceneChips.length" class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+        <button
+          v-for="scene in sceneChips"
+          :key="scene.id"
+          class="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-widest border transition-all duration-300 whitespace-nowrap"
+          :class="selectedSceneId === scene.id
+            ? 'bg-main text-bg border-main shadow-md'
+            : scene.ready
+              ? 'bg-surface border-border text-main hover:bg-surface-alt'
+              : 'bg-surface-alt border-border text-dim/50 opacity-50'"
+          @click="selectScene(scene.id)"
+        >
+          {{ scene.label }}
+        </button>
+        <button
+          class="flex-shrink-0 px-3 py-2 rounded-xl border-2 border-dashed border-border text-dim hover:text-main hover:border-main/30 transition-all text-xs"
+          :disabled="!hasPanorama || addScenePending"
+          @click="handleAddScene"
+        >
+          {{ addScenePending ? '...' : '+ Add Scene' }}
+        </button>
       </div>
 
+      <!-- Hotspot editor panel -->
       <Transition name="fade-smooth">
-        <div
-          v-if="hasProcessingMedia"
-          class="mb-6 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border"
-          :class="isProcessingStuck ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sky-50 border-sky-200 text-sky-800'"
-        >
-          <div class="flex items-center gap-2 text-sm font-medium">
-            <div class="w-3.5 h-3.5 border-2 rounded-full animate-spin" :class="isProcessingStuck ? 'border-amber-300 border-t-amber-700' : 'border-sky-300 border-t-sky-700'"></div>
-            <span v-if="isProcessingStuck">Processing is taking longer than expected. You can keep working while we finish in the background.</span>
-            <span v-else>Media processing is in progress in the background.</span>
+        <div v-if="editingHotspotId" class="card-glass p-6 shadow-xl border-main/20">
+          <div class="flex items-center justify-between gap-3 mb-5">
+            <p class="text-sm font-bold text-main uppercase tracking-widest">Edit Hotspot</p>
+            <button class="text-[10px] font-bold uppercase tracking-widest text-dim hover:text-main transition-colors" @click="closeHotspotEditor">Close</button>
           </div>
-          <span class="text-xs font-semibold">{{ processingElapsedSeconds }}s</span>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Label</label>
+              <input v-model="hotspotEditForm.title" type="text" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="Spot name" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Type</label>
+              <select v-model="hotspotEditForm.type" class="input-glass w-full px-4 py-3 text-sm font-bold">
+                <option value="info">Information</option>
+                <option value="scene_link">Portal</option>
+                <option value="url">External</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-4 space-y-1.5">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Description</label>
+            <textarea v-model="hotspotEditForm.description" rows="2" class="input-glass w-full px-4 py-3 text-sm font-bold resize-none" placeholder="Describe this point of interest..."></textarea>
+          </div>
+
+          <div v-if="hotspotEditForm.type === 'scene_link'" class="mt-4 space-y-1.5">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Destination Portal</label>
+            <select v-model="hotspotEditForm.targetSceneId" class="input-glass w-full px-4 py-3 text-sm font-bold">
+              <option value="">Next Sequential</option>
+              <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
+            </select>
+          </div>
+
+          <div v-if="hotspotEditForm.type === 'url'" class="mt-4 space-y-1.5">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">URL</label>
+            <input v-model="hotspotEditForm.link" type="url" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="https://" />
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-3">
+            <button class="btn btn-primary !px-8 !py-3 !rounded-xl text-xs" @click="saveHotspotEdits">Update Hotspot</button>
+            <button class="btn btn-secondary !px-6 !py-3 !rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 border-rose-500/20" @click="deleteEditingHotspot">Delete</button>
+          </div>
         </div>
       </Transition>
-
-      <div v-if="activeTab === '360'" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
-        <div class="rounded-xl border border-zinc-200  bg-white  p-4 shadow-sm">
-          <p class="text-[11px] uppercase tracking-wider text-zinc-500  font-semibold">Views</p>
-          <p class="mt-2 text-2xl font-bold text-zinc-950 ">{{ analyticsMetrics.totalViews }}</p>
-          <p class="text-xs text-zinc-500  mt-1">Tracked on the live tour</p>
-        </div>
-        <div class="rounded-xl border border-zinc-200  bg-white  p-4 shadow-sm">
-          <p class="text-[11px] uppercase tracking-wider text-zinc-500  font-semibold">Leads</p>
-          <p class="mt-2 text-2xl font-bold text-zinc-950 ">{{ analyticsMetrics.totalLeads }}</p>
-          <p class="text-xs text-zinc-500  mt-1">Request form submissions</p>
-        </div>
-        <div class="rounded-xl border border-zinc-200  bg-white  p-4 shadow-sm">
-          <p class="text-[11px] uppercase tracking-wider text-zinc-500  font-semibold">WhatsApp Shares</p>
-          <p class="mt-2 text-2xl font-bold text-zinc-950 ">{{ analyticsMetrics.whatsappViews }}</p>
-          <p class="text-xs text-zinc-500  mt-1">Sent directly from the tour</p>
-        </div>
-        <div class="rounded-xl border border-zinc-200  bg-white  p-4 shadow-sm">
-          <p class="text-[11px] uppercase tracking-wider text-zinc-500  font-semibold">QR Opens</p>
-          <p class="mt-2 text-2xl font-bold text-zinc-950 ">{{ analyticsMetrics.qrViews }}</p>
-          <p class="text-xs text-zinc-500  mt-1">Shared through QR code</p>
-        </div>
-      </div>
-
-
-      <!-- DETAILS TAB -->
-      <div v-if="activeTab === 'details'" class="max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <form @submit.prevent="handleUpdateDetails" class="space-y-6">
-          <section class="card-glass overflow-hidden shadow-2xl border-main/5">
-            <div class="p-8 border-b border-border bg-surface-alt/30 flex items-center justify-between">
-              <div>
-                <h3 class="text-lg font-black text-main tracking-tight">Global Settings</h3>
-                <p class="text-[10px] font-bold text-dim uppercase tracking-widest mt-1">Tour Identity & Core Config</p>
-              </div>
-              <div class="w-10 h-10 rounded-xl bg-main/5 border border-main/10 flex items-center justify-center text-main">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              </div>
-            </div>
-            <div class="p-8 space-y-8">
-              <div class="flex flex-col gap-2.5">
-                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60 ml-1">Project Name</label>
-                <input v-model="detailsForm.title" type="text" class="input-glass w-full px-6 py-4 text-sm font-black border-border/40 focus:border-main/20" required placeholder="e.g. Modern Minimalist Loft" />
-              </div>
-              <div class="flex flex-col gap-2.5">
-                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60 ml-1">Custom Link URL</label>
-                <div class="flex items-center gap-0 overflow-hidden rounded-2xl border border-border/40 bg-surface-alt/50">
-                   <span class="px-5 py-4 text-[11px] font-bold text-dim border-r border-border/40 bg-surface-alt flex-shrink-0">viewora.com/p/</span>
-                   <input v-model="detailsForm.slug" type="text" class="bg-transparent flex-1 px-5 py-4 text-sm font-black outline-none placeholder:text-dim/30" placeholder="unique-space-id" />
-                </div>
-              </div>
-              <div class="flex flex-col gap-2.5">
-                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60 ml-1">Tour Description</label>
-                <textarea v-model="detailsForm.description" class="input-glass w-full px-6 py-4 text-sm font-bold resize-none min-h-[140px] border-border/40 focus:border-main/20" placeholder="Brief overview of the property..."></textarea>
-              </div>
-            </div>
-          </section>
-
-          <section class="card-glass overflow-hidden shadow-2xl">
-            <div class="p-6 border-b border-border bg-surface-alt/30">
-              <h3 class="text-base font-bold text-main tracking-tight">Feature Toggles</h3>
-            </div>
-            <div class="divide-y divide-border">
-              <div class="flex items-center justify-between p-6 group hover:bg-main/[0.02] transition-colors">
-                <div>
-                  <span class="text-sm font-bold text-main block">Lead Capture Form</span>
-                  <span class="text-[11px] font-medium text-dim mt-1 block">Enable visitor enquiry collection.</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <div v-if="!planStore.entitlements?.lead_capture_enabled" class="px-2.5 py-1 bg-surface-alt text-dim text-[9px] font-black uppercase tracking-widest rounded-lg border border-border">Locked</div>
-                  <button 
-                    v-else
-                    type="button" 
-                    @click="handleToggleFeature('lead_form_enabled')"
-                    :class="[
-                      'w-12 h-6 rounded-full relative transition-all duration-300 focus:outline-none border-2',
-                      space?.lead_form_enabled ? 'bg-main border-main' : 'bg-surface-alt border-border'
-                    ]"
-                  >
-                    <div 
-                      class="absolute top-1 left-1 w-3 h-3 rounded-full transition-all duration-300 shadow-sm"
-                      :class="space?.lead_form_enabled ? 'translate-x-6 bg-bg' : 'bg-dim'"
-                    ></div>
-                  </button>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-between p-6 group hover:bg-main/[0.02] transition-colors">
-                <div>
-                  <span class="text-sm font-bold text-main block">Agency Branding</span>
-                  <span class="text-[11px] font-medium text-dim mt-1 block">Display your agency watermark.</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <div v-if="!planStore.entitlements?.branding_customization_enabled" class="px-2.5 py-1 bg-surface-alt text-dim text-[9px] font-black uppercase tracking-widest rounded-lg border border-border">Locked</div>
-                  <button 
-                    v-else
-                    type="button" 
-                    @click="handleToggleFeature('branding_enabled')"
-                    :class="[
-                      'w-12 h-6 rounded-full relative transition-all duration-300 focus:outline-none border-2',
-                      space?.branding_enabled ? 'bg-main border-main' : 'bg-surface-alt border-border'
-                    ]"
-                  >
-                    <div 
-                      class="absolute top-1 left-1 w-3 h-3 rounded-full transition-all duration-300 shadow-sm"
-                      :class="space?.branding_enabled ? 'translate-x-6 bg-bg' : 'bg-dim'"
-                    ></div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <div class="flex justify-end sticky bottom-8 bg-surface/80 backdrop-blur-xl py-6 border border-border rounded-2xl mx-auto max-w-2xl px-8 z-[10] shadow-2xl mt-12 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300">
-            <button type="submit" class="btn btn-primary !px-12 !py-4 text-base" :disabled="saving">
-              {{ saving ? 'Saving Changes...' : 'Save Details' }}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- GALLERY TAB -->
-      <div v-if="activeTab === 'gallery'" class="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 card-glass p-8 shadow-2xl">
-           <div class="space-y-2">
-             <h3 class="text-xl font-black tracking-tight text-main">Property Photos</h3>
-             <p class="text-sm text-dim font-medium max-w-md">Add high-resolution photography for your tour carousel.</p>
-           </div>
-           <div class="flex items-center gap-4">
-             <Transition name="fade-smooth">
-               <div
-                 v-if="showFirstUploadHint"
-                 class="px-4 py-2 rounded-xl bg-main/5 border border-main/20 text-main text-[10px] font-black uppercase tracking-widest animate-pulse"
-               >
-                 Recommendation: upload first
-               </div>
-             </Transition>
-             <label class="btn btn-primary !px-10 !py-5 cursor-pointer !rounded-2xl group overflow-hidden relative">
-               <input type="file" multiple accept="image/*" class="hidden" @change="handleGalleryUpload" />
-               <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
-               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="relative z-10"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-               <span class="relative z-10">Upload Photos</span>
-             </label>
-           </div>
-        </header>
-
-        <div v-if="galleryLocalUploads.length" class="space-y-4">
-          <div class="p-4 rounded-2xl bg-surface-alt/50 border border-border flex items-center justify-between">
-            <p class="text-xs font-bold text-main">Uploading {{ galleryLocalUploads.length }} file{{ galleryLocalUploads.length > 1 ? 's' : '' }}</p>
-            <p class="text-xs text-dim font-bold">{{ uploadSummaryText }}</p>
-          </div>
-          <TransitionGroup name="fade-smooth" tag="div" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div
-            v-for="item in galleryLocalUploads"
-            :key="item.id"
-            class="p-5 card-glass border-main/10 shadow-lg"
-          >
-            <div class="flex items-center justify-between gap-4 mb-3">
-              <p class="text-sm font-bold text-main truncate">{{ item.fileName }}</p>
-              <span class="text-[10px] font-black uppercase tracking-widest text-dim">{{ localStateLabel(item.state) }}</span>
-            </div>
-            <div class="h-1.5 bg-surface-alt border border-border rounded-full overflow-hidden">
-              <div
-                class="h-full rounded-full transition-all duration-500"
-                :class="item.state === 'uploading' ? 'bg-main w-1/2 animate-pulse' : item.state === 'registering' || item.state === 'signing' ? 'bg-main/60 w-3/4 animate-pulse' : item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-main/30 w-full'"
-              ></div>
-            </div>
-            <p v-if="item.error" class="text-[10px] font-bold text-rose-500 mt-2">{{ item.error }}</p>
-          </div>
-          </TransitionGroup>
-        </div>
-
-        <div v-if="galleryMedia.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-           <div 
-             v-for="(img, idx) in galleryMedia" 
-             :key="img.id" 
-             class="group relative aspect-[4/3] card-glass overflow-hidden shadow-xl hover:-translate-y-2 transition-all duration-700 animate-in fade-in"
-             :class="completionRingClass(img.id)"
-             :style="{ animationDelay: `${idx * 50}ms` }"
-           >
-              <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" loading="lazy" />
-              <div class="absolute top-4 left-4 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest backdrop-blur-md shadow-lg" :class="statusBadgeClass(img.processing_status)">
-                {{ statusLabel(img.processing_status) }}
-              </div>
-              
-              <!-- Premium Overlay -->
-              <div class="absolute inset-0 bg-main/10 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-[4px] flex items-center justify-center gap-4">
-                 <button 
-                   class="w-12 h-12 bg-surface border border-border text-main rounded-2xl shadow-2xl flex items-center justify-center hover:bg-main hover:text-bg hover:border-main hover:scale-110 active:scale-90 transition-all duration-300"
-                   @click="previewImage = img"
-                   title="Preview Image"
-                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                 </button>
-                 <button 
-                   class="w-12 h-12 bg-rose-500/90 text-bg rounded-2xl shadow-2xl flex items-center justify-center hover:bg-rose-500 hover:scale-110 active:scale-90 transition-all duration-300" 
-                   @click="confirmDeleteMedia(img.id)"
-                   title="Delete Image"
-                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                 </button>
-              </div>
-
-              <!-- Identification Tag -->
-              <div class="absolute bottom-6 left-6 px-3 py-1.5 bg-surface/80 backdrop-blur-xl rounded-lg text-[10px] font-black uppercase tracking-widest text-main border border-border opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-700 delay-100 shadow-xl">
-                 ID: {{ img.id.slice(0, 4) }}
-              </div>
-           </div>
-        </div>
-        
-        <div v-else class="p-20 card-glass border-2 border-dashed border-border flex flex-col items-center justify-center text-center group hover:border-main/50 transition-all duration-700 animate-in zoom-in-95">
-            <div class="relative w-full max-w-lg aspect-[16/8] rounded-[2.5rem] overflow-hidden mb-12 border border-border bg-surface-alt/50">
-              <div class="absolute inset-0 bg-gradient-to-t from-main/10 via-transparent to-transparent"></div>
-              <div class="absolute top-6 left-6 px-3 py-1.5 rounded-lg bg-surface/90 backdrop-blur-md text-[9px] font-black uppercase tracking-widest text-main border border-border shadow-lg">Preview Flow</div>
-              <div class="absolute bottom-6 left-6 flex gap-3">
-               <span class="px-3 py-1.5 rounded-full text-[10px] font-bold bg-surface/90 border border-border text-main shadow-sm">Front View</span>
-               <span class="px-3 py-1.5 rounded-full text-[10px] font-bold bg-surface/90 border border-border text-main shadow-sm">Kitchen</span>
-               <span class="px-3 py-1.5 rounded-full text-[10px] font-black bg-main text-bg shadow-xl">+ Add Hotspot</span>
-              </div>
-           </div>
-           <h4 class="text-2xl font-black text-main mb-3 tracking-tight">Your Gallery is Empty</h4>
-           <p class="text-sm text-dim max-w-sm mx-auto font-bold leading-relaxed">
-             Upload high-quality photography to build a stunning property showcase for your clients.
-           </p>
-        </div>
-      </div>
-
-      <!-- EDITOR TAB (The 'Essential' Heart) -->
-      <div v-if="activeTab === '360'" class="max-w-6xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        
-        <!-- Scene Management (Moved to top, Panoee-style) -->
-        <div class="card-glass p-1.5 !rounded-3xl border-main/5 shadow-2xl bg-surface-alt/5 overflow-hidden relative group">
-          <div class="absolute inset-0 bg-gradient-to-r from-main/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 relative z-10">
-            <div class="p-6 lg:p-8 flex-shrink-0 lg:border-r border-border/40">
-              <div class="flex items-center gap-4 mb-2">
-                <h3 class="text-lg font-black text-main tracking-tight">Essential Scenes</h3>
-                <span class="px-2 py-0.5 rounded-md bg-main text-bg text-[10px] font-black">{{ sceneChips.length }}</span>
-              </div>
-              <p class="text-[10px] font-bold text-dim uppercase tracking-[0.2em]">Walkthrough Portal Management</p>
-            </div>
-            
-            <div class="flex-1 p-6 lg:p-4 overflow-x-auto scrollbar-hide">
-              <div v-if="sceneChips.length" class="flex items-center gap-4">
-                <button
-                  v-for="scene in sceneChips"
-                  :key="scene.id"
-                  type="button"
-                  class="group/scene px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all duration-500 whitespace-nowrap min-w-[140px] text-left relative overflow-hidden"
-                  :class="selectedSceneId === scene.id 
-                          ? 'bg-main text-bg border-main shadow-2xl scale-105 -translate-y-1' 
-                          : 'bg-surface/50 border-border/40 text-dim hover:text-main hover:border-main/20'"
-                  @click="selectScene(scene.id)"
-                >
-                  <div class="relative z-10">
-                    <p class="opacity-50 mb-1 group-hover/scene:opacity-100 transition-opacity text-[8px]">Scene</p>
-                    <p class="truncate">{{ scene.label }}</p>
-                  </div>
-                  <div v-if="selectedSceneId === scene.id" class="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent"></div>
-                </button>
-                
-                <button
-                  class="flex-shrink-0 w-12 h-[72px] rounded-2xl border-2 border-dashed border-border/40 flex items-center justify-center text-dim hover:text-main hover:border-main/20 hover:bg-main/5 transition-all"
-                  :disabled="!hasPanorama || addScenePending"
-                  @click="handleAddScene"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                </button>
-              </div>
-              <p v-else class="text-sm font-bold text-dim/60 px-4 italic">No scenes created yet. Upload a panorama to start.</p>
-            </div>
-          </div>
-        </div>
-
-        <section class="card-glass overflow-hidden p-0 md:p-1 !rounded-[2.5rem] shadow-2xl relative border-main/5">
-           <div class="absolute top-0 right-0 w-96 h-96 bg-main/5 blur-[120px] pointer-events-none"></div>
-           
-           <div class="flex flex-col lg:flex-row min-h-[600px]">
-             <!-- Main Viewer Area -->
-             <div class="flex-1 relative p-4 lg:p-8">
-               <div class="flex items-center justify-between mb-6 relative z-10">
-                 <div class="flex items-center gap-4">
-                   <div :class="['px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg border backdrop-blur-md', panorama?.processing_status === 'ready' ? 'bg-emerald-500/90 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
-                     {{ panoramaStatusLabel }}
-                   </div>
-                   <h4 class="text-sm font-black text-main uppercase tracking-widest">{{ activeScene?.name || 'Untitled Scene' }}</h4>
-                 </div>
-
-                 <div class="flex items-center gap-3">
-                   <label class="btn btn-secondary !px-4 !py-2.5 !rounded-xl cursor-pointer group overflow-hidden relative shadow-sm border-main/10">
-                     <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                     <span class="text-[10px] font-black uppercase tracking-widest relative z-10">Swap Pano</span>
-                   </label>
-                 </div>
-               </div>
-
-               <div class="relative rounded-[2rem] overflow-hidden border border-border/40 aspect-[2/1] bg-surface-alt group/viewer">
-
-                <!-- ViewerShell: routes to PSV (panorama) or car-spin viewer based on space type -->
-                <ViewerShell
-                  v-if="hasPanorama && activePanoramaSrc"
-                  class="absolute inset-0 w-full h-full"
-                  :active-scene="activeViewerScene"
-                  :space-type="space?.space_type"
-                  :hotspots="activeSceneHotspots"
-                  :is-editing="inlineEditMode"
-                  @add-hotspot="handleViewerAddHotspot"
-                  @hotspot-click="handleHotspotClick"
-                />
-
-                <!-- Placeholder shown before any panorama is uploaded -->
-                <div v-if="!hasPanorama" class="absolute inset-0">
-                  <img :src="placeholderPanoramaUrl" class="w-full h-full object-cover opacity-85" />
-                  <div class="absolute inset-0 bg-gradient-to-br from-zinc-950/30 via-transparent to-zinc-950/40"></div>
-                  <div class="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-white  text-[11px] font-semibold text-zinc-800  border border-zinc-200 ">
-                    Demo preview loaded
-                  </div>
-                </div>
-
-                <!-- Processing status badge -->
-                <div class="absolute top-3 left-3 z-10 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass(panorama?.processing_status)">
-                  {{ panoramaStatusLabel }}
-                </div>
-
-                <!-- Completion FX badge -->
-                <div v-if="panorama && completionFxMap[panorama.id]" class="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg success-pulse transition-opacity duration-500" :class="completionFxMap[panorama.id] === 'exit' ? 'opacity-0' : 'opacity-100'">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-
-                <!-- Remove Panorama — floats above the viewer -->
-                <div v-if="hasPanorama" class="absolute bottom-6 inset-x-0 flex justify-center z-10 pointer-events-none">
-                  <button
-                    class="btn btn-secondary !px-5 !py-2.5 !rounded-xl backdrop-blur-md shadow-2xl pointer-events-auto border-main/20 hover:bg-rose-500 hover:text-bg hover:border-rose-500"
-                    @click.stop="confirmDeleteMedia(panorama!.id)"
-                  >
-                    Remove Panorama
-                  </button>
-                </div>
-
-                <!-- Empty state guide -->
-                <div v-if="!hasPanorama" class="absolute inset-x-0 bottom-0 p-5 z-10">
-                  <div class="rounded-xl border border-white/15 bg-black/35 backdrop-blur-sm p-4 text-white">
-                    <p class="text-sm font-semibold">Step 1: Upload your first 360 image</p>
-                    <p class="text-xs text-white/75 mt-1">Choose a high-resolution equirectangular panorama (2:1) to start your interactive tour instantly.</p>
-                  </div>
-                </div>
-              </div>
-
-             <div v-if="showHotspotPrompt" class="rounded-xl border-2 border-sky-400 bg-sky-50 px-5 py-4 shadow-md animate-pulse">
-               <div class="flex items-start gap-3">
-                 <div class="w-8 h-8 rounded-full bg-sky-200 flex flex-shrink-0 items-center justify-center text-sky-700">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                 </div>
-                 <div>
-                   <p class="text-sm font-bold text-sky-900">Next step: Start adding hotspots</p>
-                   <p class="text-xs text-sky-800 mt-1 font-medium">Edit mode is already on. Click anywhere inside the viewer to place your first hotspot.</p>
-                 </div>
-               </div>
-             </div>
-
-             <Transition name="fade-smooth">
-               <div v-if="editingHotspotId" class="card-glass p-6 shadow-2xl relative z-10 border-main/20 animate-in slide-in-from-bottom-5">
-                 <div class="flex items-center justify-between gap-3 mb-6">
-                   <div class="space-y-1">
-                     <p class="text-sm font-black text-main uppercase tracking-widest">Edit Hotspot</p>
-                     <p class="text-xs text-dim font-bold">Configure label, type, and destination.</p>
-                   </div>
-                   <button class="text-[10px] font-black uppercase tracking-widest text-dim hover:text-main transition-colors" @click="closeHotspotEditor">Close</button>
-                 </div>
-
-                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div class="space-y-2">
-                     <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Label</label>
-                     <input v-model="hotspotEditForm.title" type="text" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="Spot name" />
-                   </div>
-                   <div class="space-y-2">
-                     <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Type</label>
-                     <select v-model="hotspotEditForm.type" class="input-glass w-full px-4 py-3 text-sm font-bold">
-                       <option value="info">Information</option>
-                       <option value="scene_link">Portal</option>
-                       <option value="url">External</option>
-                     </select>
-                   </div>
-                 </div>
-
-                 <div class="mt-6 space-y-2">
-                   <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Metadata / Description</label>
-                   <textarea v-model="hotspotEditForm.description" rows="3" class="input-glass w-full px-4 py-3 text-sm font-bold resize-none" placeholder="Describe this point of interest..."></textarea>
-                 </div>
-
-                 <div v-if="hotspotEditForm.type === 'scene_link'" class="mt-6 space-y-2">
-                   <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Destination Portal</label>
-                   <select v-model="hotspotEditForm.targetSceneId" class="input-glass w-full px-4 py-3 text-sm font-bold">
-                     <option value="">Next Sequential</option>
-                     <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
-                   </select>
-                 </div>
-
-                 <div v-if="hotspotEditForm.type === 'url'" class="mt-6 space-y-2">
-                   <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">URL Destination</label>
-                   <input v-model="hotspotEditForm.link" type="url" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="https://" />
-                 </div>
-
-                 <div class="mt-8 flex flex-wrap gap-3">
-                   <button class="btn btn-primary !px-8 !py-3 !rounded-xl text-xs" @click="saveHotspotEdits">Update Hotspot</button>
-                   <button class="btn btn-secondary !px-6 !py-3 !rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 border-rose-500/20" @click="deleteEditingHotspot">Delete</button>
-                 </div>
-               </div>
-             </Transition>
-
-            <div class="card-glass p-6 md:p-8 bg-surface-alt/5 relative overflow-hidden">
-              <div class="flex items-center justify-between gap-6 mb-8 relative z-10">
-                <div class="space-y-1">
-                  <p class="text-sm font-black text-main uppercase tracking-widest">Walkthrough Scenes</p>
-                  <p class="text-xs text-dim font-bold">Total panoramic rooms in this tour.</p>
-                </div>
-                <button
-                  class="btn btn-secondary !px-5 !py-2.5 !rounded-xl text-[10px] font-black uppercase tracking-widest"
-                  :disabled="!hasPanorama || addScenePending"
-                  @click="handleAddScene"
-                >
-                    {{ addScenePending ? 'Synchronizing...' : '+ Add Scene' }}
-                </button>
-              </div>
-              <div v-if="sceneChips.length" class="flex flex-wrap gap-3 relative z-10">
-                <button
-                  v-for="scene in sceneChips"
-                  :key="scene.id"
-                  type="button"
-                  class="px-5 py-2.5 rounded-xl text-[11px] font-extrabold uppercase tracking-widest border transition-all duration-300 shadow-sm"
-                  :class="selectedSceneId === scene.id 
-                          ? 'bg-main text-bg border-main shadow-lg scale-105' 
-                          : scene.ready 
-                            ? 'bg-surface border-border text-main hover:bg-surface-alt' 
-                            : 'bg-surface-alt border-border text-dim/50 opacity-50'"
-                  @click="selectScene(scene.id)"
-                >
-                  {{ scene.label }}
-                </button>
-              </div>
-              <p v-else class="text-xs text-dim font-bold relative z-10">Upload a panorama to create your first scene, then build your virtual walkthrough.</p>
-            </div>
-
-           <div v-if="panorama?.processing_status === 'failed'" class="mt-3 flex items-center gap-3">
-             <p class="text-xs text-rose-600">Panorama processing failed.</p>
-             <button
-               class="px-3 py-1.5 rounded-md bg-amber-500 text-white text-xs font-semibold"
-               :disabled="Boolean(retryingMediaMap[panorama.id])"
-               @click="handleRetryMedia(panorama.id)"
-             >
-               {{ retryingMediaMap[panorama.id] ? 'Retrying...' : 'Retry processing' }}
-             </button>
-           </div>
-           <div v-if="panoramaLocalUploads.length" class="mt-3 space-y-2">
-             <div v-for="item in panoramaLocalUploads" :key="item.id" class="p-3 bg-zinc-50  rounded-md border border-zinc-200 ">
-               <div class="flex items-center justify-between mb-2">
-                 <p class="text-xs font-semibold text-zinc-800  truncate">{{ item.fileName }}</p>
-                 <span class="text-[11px] text-zinc-500 ">{{ localStateLabel(item.state) }}</span>
-               </div>
-               <div class="h-2 bg-zinc-200 rounded-full overflow-hidden">
-                 <div class="h-full rounded-full" :class="item.state === 'uploading' ? 'bg-zinc-900 w-1/2 animate-pulse' : item.state === 'registering' || item.state === 'signing' ? 'bg-zinc-700 w-3/4 animate-pulse' : item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-zinc-400 w-full'"></div>
-               </div>
-               <p v-if="item.state !== 'failed'" class="text-[11px] text-zinc-500  mt-2">Processing in background. Your preview is already live.</p>
-             </div>
-              </div>
-            </div>
-           </div>
-        </section>
-      </div>
-
-      <!-- SHARE TAB -->
-      <div v-if="activeTab === 'share'" class="max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div v-if="!canShare" class="px-6 py-4 card-glass border-amber-500/20 bg-amber-500/5 text-amber-500 text-sm font-bold shadow-lg">
-          Share unlocks after your first panorama is uploaded and processed.
-        </div>
-        <section class="card-glass overflow-hidden shadow-2xl">
-           <div class="p-6 border-b border-border bg-surface-alt/30">
-              <h3 class="text-base font-bold text-main tracking-tight">Public Access</h3>
-           </div>
-           <div class="p-8 space-y-8">
-              <div class="space-y-3">
-                <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Direct Link</label>
-                <div class="flex gap-3">
-                   <input readonly :value="publicUrl" class="input-glass flex-1 px-5 py-3 text-sm font-mono font-bold" />
-                   <button class="btn btn-secondary !px-6 !py-3 !rounded-xl" :disabled="!canShare" @click="copyLink(publicUrl)">Copy</button>
-                </div>
-                <div class="mt-6 flex flex-wrap gap-4">
-                  <button class="btn !bg-emerald-600 !hover:bg-emerald-500 !text-bg !border-none !px-8 !py-3 !rounded-2xl text-xs" :disabled="!canShare" @click="shareOnWhatsapp">
-                    Share on WhatsApp
-                  </button>
-                  <a :href="publicUrl" target="_blank" class="btn btn-primary !px-8 !py-3 !rounded-2xl text-xs" :class="!canShare ? 'opacity-50 pointer-events-none' : ''">
-                    Open Live Tour
-                  </a>
-                </div>
-              </div>
-
-              <div class="rounded-2xl bg-surface-alt/50 border border-border p-5 shadow-inner">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="space-y-1">
-                    <p class="text-sm font-bold text-main">Lead Generation</p>
-                    <p class="text-[11px] font-medium text-dim">Enable capture in Details to collect client inquiries.</p>
-                  </div>
-                  <button class="btn btn-secondary !px-4 !py-2 !rounded-xl text-[10px] font-black uppercase" @click="activeTab = 'details'">
-                    Configure
-                  </button>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-border">
-                 <div class="space-y-4">
-                    <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">QR Distribution</label>
-                    <div class="p-6 bg-surface-alt/50 rounded-2xl border border-border flex flex-col items-center gap-4">
-                       <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}`" class="w-32 h-32 rounded-xl shadow-2xl border border-border" />
-                        <button class="text-[10px] font-black uppercase tracking-widest text-main hover:text-accent transition-colors disabled:opacity-50" :disabled="!canShare" @click="downloadQR('png')">Save PNG Asset</button>
-                    </div>
-                 </div>
-                 <div class="space-y-4">
-                    <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Embedding Code</label>
-                    <textarea readonly :value="embedCode" class="input-glass w-full h-32 p-4 text-[10px] font-mono font-bold resize-none"></textarea>
-                    <button class="btn btn-secondary w-full !py-3 !rounded-xl text-[10px] font-black uppercase" :disabled="!canShare" @click="copyLink(embedCode)">Copy iFrame Tag</button>
-                 </div>
-              </div>
-           </div>
-        </section>
-      </div>
 
     </div>
-  </div>
 
-    <!-- Image Preview Lightbox -->
-    <Teleport to="body">
-      <Transition name="modal-in">
-        <div v-if="previewImage" class="fixed inset-0 z-[300] flex items-center justify-center p-4 md:p-12">
-           <div class="absolute inset-0 bg-zinc-950/90 backdrop-blur-xl" @click="previewImage = null"></div>
-           
-           <button 
-             class="absolute top-8 right-8 w-12 h-12 bg-white  hover:bg-white  text-white rounded-2xl flex items-center justify-center transition-all duration-300 z-10 backdrop-blur-md"
-             @click="previewImage = null"
-           >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-           </button>
-
-           <div class="relative w-full h-full flex items-center justify-center animate-modal-in pointer-events-none">
-              <img 
-                :src="previewImage.public_url" 
-                class="max-w-full max-h-full object-contain rounded-3xl shadow-2xl pointer-events-auto shadow-white/5" 
-                @click.stop
-              />
-              
-              <!-- Image Metadata Bar -->
-              <div class="absolute bottom-0 left-1/2 -translate-x-1/2 p-6 w-full max-w-xl flex items-center justify-center pointer-events-auto">
-                 <div class="bg-white  backdrop-blur-xl border border-white/20 px-8 py-4 rounded-3xl flex items-center gap-8 shadow-2xl">
-                    <div class="flex flex-col">
-                       <span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Dimensions</span>
-                       <span class="text-sm font-bold text-white">{{ previewImage.width || '?' }} x {{ previewImage.height || '?' }}</span>
-                    </div>
-                    <div class="w-px h-8 bg-white "></div>
-                    <div class="flex flex-col">
-                       <span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">File Size</span>
-                       <span class="text-sm font-bold text-white">{{ (previewImage.file_size_bytes / 1024 / 1024).toFixed(2) }} MB</span>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-      </Transition>
-    </Teleport>
-
+    <!-- Toast notification -->
     <Teleport to="body">
       <Transition name="fade-smooth">
         <div
           v-if="toast"
           class="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-4 card-glass border-main/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[400] animate-in slide-in-from-bottom-5 fade-in duration-500"
         >
-          <div 
+          <div
             class="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"
             :class="toast.type === 'success' ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-rose-500 shadow-rose-500/50'"
           ></div>
@@ -699,6 +213,8 @@
         </div>
       </Transition>
     </Teleport>
+
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -719,11 +235,8 @@ const planStore = usePlanStore()
 
 const space = ref<any>(null)
 const media = ref<any[]>([])
-const activeTab = ref((route.query.tab as string) || 'details')
-const saving = ref(false)
 const publishing = ref(false)
 const deletingMedia = ref(false)
-const previewImage = ref<any>(null)
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const retryingMediaMap = ref<Record<string, boolean>>({})
@@ -732,8 +245,6 @@ const processingStartedAt = ref<number | null>(null)
 const nowTick = ref(Date.now())
 const localPanoramaPreviewUrl = ref<string | null>(null)
 const placeholderPanoramaUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23111627"/><stop offset="55%" stop-color="%231f2a44"/><stop offset="100%" stop-color="%232a4365"/></linearGradient></defs><rect width="1600" height="800" fill="url(%23g)"/><circle cx="1220" cy="230" r="180" fill="rgba(255,255,255,0.08)"/><circle cx="360" cy="600" r="260" fill="rgba(255,255,255,0.06)"/><g fill="none" stroke="rgba(255,255,255,0.35)"><path d="M0 540h1600"/><path d="M0 480h1600"/></g><text x="120" y="170" fill="rgba(255,255,255,0.88)" font-family="Arial" font-size="48" font-weight="700">Viewora 360 Tour Preview</text><text x="120" y="235" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="28">Upload your panorama to replace this placeholder instantly.</text></svg>'
-const showHotspotPrompt = ref(false)
-const panoramaSaveState = ref<'saving' | 'saved' | null>(null)
 const addScenePending = ref(false)
 const addingHotspot = ref(false)
 const deletingHotspotsMap = ref<Record<string, boolean>>({})
@@ -744,7 +255,6 @@ const hotspotsByScene = ref<Record<string, any[]>>({})
 const inlineEditMode = ref(false)
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
-const postPublishPrompt = ref(false)
 const isSceneTransitioning = ref(false)
 const editingHotspotId = ref<string | null>(null)
 const editingHotspotSceneId = ref<string | null>(null)
@@ -760,16 +270,8 @@ const sceneRealtimeChannels = ref<any[]>([])
 let sceneRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Realtime sync guards ──────────────────────────────────────
-// isMounted prevents late Supabase callbacks from scheduling work after the
-// component has been torn down (removeChannel is async; callbacks can arrive
-// in the gap between onBeforeUnmount and the server ACK'ing the unsubscribe).
 let isMounted = false
-// Version counter: each fetchScenes call stamps itself. When the response
-// arrives, if the version no longer matches the current counter, a newer call
-// has already superseded us and this response is discarded.
 let fetchScenesVersion = 0
-// AbortController: lets us cancel the in-flight XHR when a newer fetchScenes
-// call starts, saving bandwidth and preventing out-of-order applies.
 let fetchScenesController: AbortController | null = null
 
 type LocalUploadState = 'local_select' | 'signing' | 'uploading' | 'registering' | 'failed'
@@ -790,36 +292,20 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   toastTimer = setTimeout(() => { toast.value = null }, 3200)
 }
 
-const detailsForm = ref({
-  title: '',
-  description: '',
-  slug: ''
-})
-
 const publicUrl = computed(() => {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
   return `${base}/p/${space.value?.slug || space.value?.id}`
 })
 
-const embedCode = computed(() => {
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
-  return `<iframe src="${base}/embed/${space.value?.slug || space.value?.id}" width="100%" height="600px" frameborder="0" allowfullscreen></iframe>`
-})
-
-const galleryMedia = computed(() => media.value.filter(m => m.media_type === 'gallery_image'))
 const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
-const galleryLocalUploads = computed(() => localUploads.value.filter((u) => u.mediaType === 'gallery'))
 const panoramaLocalUploads = computed(() => localUploads.value.filter((u) => u.mediaType === 'panorama'))
 const hasPanorama = computed(() => Boolean(panorama.value || localPanoramaPreviewUrl.value))
-const canShare = computed(() => Boolean(panorama.value))
 const activeScene = computed(() => scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null)
 const activeSceneHotspots = computed(() => {
   if (!selectedSceneId.value) return []
   return hotspotsByScene.value[selectedSceneId.value] || []
 })
 const activePanoramaSrc = computed(() => {
-  // Blob preview is only used when the active scene has NO real URL yet.
-  // This prevents a mid-upload blob from hijacking other scenes' views.
   if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (localPanoramaPreviewUrl.value) return localPanoramaPreviewUrl.value
   if (panorama.value?.public_url) return panorama.value.public_url
@@ -843,24 +329,12 @@ const activeViewerScene = computed(() => {
     },
   }
 })
+
 const panoramaStatusLabel = computed(() => {
   if (!panorama.value) return localPanoramaPreviewUrl.value ? 'Preview' : 'Placeholder'
   return statusLabel(panorama.value.processing_status)
 })
-const editorTabs = computed(() => [
-  { id: 'details', label: 'Settings', disabled: false },
-  { id: 'gallery', label: 'Photos', disabled: false },
-  { id: '360', label: 'Editor', disabled: false },
-  { id: 'share', label: 'Publish', disabled: !canShare.value }
-])
-const setupSteps = computed(() => [
-  { id: 'create', label: 'Create Space', done: Boolean(space.value?.id) },
-  { id: 'upload', label: 'Upload 360 Image', done: Boolean(panorama.value) },
-  { id: 'hotspots', label: 'Add Hotspots', done: hotspotCount.value > 0 },
-  { id: 'publish', label: 'Publish', done: Boolean(space.value?.is_published) }
-])
-const completedSetupSteps = computed(() => setupSteps.value.filter((s) => s.done).length)
-const setupProgressPercent = computed(() => Math.round((completedSetupSteps.value / setupSteps.value.length) * 100))
+
 const hotspotCount = computed(() => {
   if (Object.keys(hotspotsByScene.value).length > 0) {
     return Object.values(hotspotsByScene.value).reduce((sum: number, items: any) => sum + (Array.isArray(items) ? items.length : 0), 0)
@@ -870,6 +344,7 @@ const hotspotCount = computed(() => {
   if (raw && typeof raw === 'object') return Object.keys(raw).length
   return 0
 })
+
 const sceneChips = computed(() => {
   if (!hasPanorama.value || !scenes.value.length) return []
   return scenes.value
@@ -877,28 +352,10 @@ const sceneChips = computed(() => {
     .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0))
     .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'ready' || Boolean(s.raw_image_url) }))
 })
-const analyticsMetrics = computed(() => {
-  const totalViews = analyticsSummary.value.reduce((sum: number, item: any) => sum + Number(item.total_views || 0), 0)
-  const totalLeads = analyticsSummary.value.reduce((sum: number, item: any) => sum + Number(item.leads_count || 0), 0)
-  const whatsappViews = analyticsSummary.value.reduce((sum: number, item: any) => sum + Number(item.whatsapp_views || 0), 0)
-  const qrViews = analyticsSummary.value.reduce((sum: number, item: any) => sum + Number(item.qr_views || 0), 0)
-  return { totalViews, totalLeads, whatsappViews, qrViews }
-})
+
 const hasProcessingMedia = computed(() => media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing'))
-const showFirstUploadHint = computed(() => media.value.length === 0 && localUploads.value.length === 0 && activeTab.value === 'gallery')
 const processingElapsedSeconds = computed(() => processingStartedAt.value ? Math.floor((nowTick.value - processingStartedAt.value) / 1000) : 0)
 const isProcessingStuck = computed(() => hasProcessingMedia.value && processingElapsedSeconds.value > 45)
-const uploadSummaryText = computed(() => {
-  const uploading = localUploads.value.filter((u) => u.state === 'uploading').length
-  const signing = localUploads.value.filter((u) => u.state === 'signing').length
-  const registering = localUploads.value.filter((u) => u.state === 'registering').length
-  const failed = localUploads.value.filter((u) => u.state === 'failed').length
-  if (failed > 0) return `${failed} failed, ${uploading + signing + registering} active`
-  if (registering > 0) return `Finalizing ${registering}`
-  if (uploading > 0) return `Uploading ${uploading}`
-  if (signing > 0) return `Preparing ${signing}`
-  return 'In progress'
-})
 
 function unwrapApiData<T = any>(value: any): T {
   if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
@@ -933,7 +390,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   isMounted = false
-  // Cancel any in-flight fetchScenes so its response can't apply to unmounted state
   fetchScenesController?.abort()
   fetchScenesController = null
   stopPolling()
@@ -945,18 +401,9 @@ onBeforeUnmount(() => {
   }
 })
 
-function selectTab(tabId: string, disabled = false) {
-  if (disabled) {
-    showToast('Upload your first 360 panorama to unlock sharing.', 'error')
-    return
-  }
-  activeTab.value = tabId
-}
-
 function setPanoramaPreview(file: File) {
   clearPanoramaPreview()
   localPanoramaPreviewUrl.value = URL.createObjectURL(file)
-  panoramaSaveState.value = 'saving'
 }
 
 function clearPanoramaPreview() {
@@ -967,11 +414,8 @@ function clearPanoramaPreview() {
 }
 
 async function fetchScenes() {
-  // Stamp this call's version. Any response that arrives after a newer call
-  // has started will be discarded — prevents stale overwrites.
   const version = ++fetchScenesVersion
 
-  // Cancel any previous in-flight fetchScenes to save bandwidth.
   fetchScenesController?.abort()
   fetchScenesController = new AbortController()
   const { signal } = fetchScenesController
@@ -979,30 +423,20 @@ async function fetchScenes() {
   try {
     const result = await apiFetch<any>(`/spaces/${spaceId}/scenes`, { signal })
 
-    // A newer call already completed — our data is stale, discard silently.
     if (version !== fetchScenesVersion) return
 
     const loadedScenes = unwrapApiData<any>(result)?.scenes || result?.scenes || []
     scenes.value = loadedScenes
 
-    // Build hotspot map. For each scene:
-    //   1. Prefer the bundled hotspots[] from the backend (no N+1).
-    //   2. Merge back any _pending (optimistic) entries not yet in the DB —
-    //      these are hotspots the user just added whose POST is still in flight
-    //      or whose DB insert hasn't propagated to realtime yet.
-    //   3. Fall back to individual fetch only when hotspots key is absent entirely.
     const newMap: Record<string, any[]> = {}
     for (const scene of loadedScenes) {
       if (Array.isArray(scene.hotspots)) {
         const dbHotspots: any[] = scene.hotspots
-        // Re-attach pending entries not yet confirmed by the DB round-trip.
         const pending = (hotspotsByScene.value[scene.id] ?? []).filter((h: any) => h._pending === true)
         newMap[scene.id] = pending.length ? [...dbHotspots, ...pending] : dbHotspots
       } else if (hotspotsByScene.value[scene.id] !== undefined) {
-        // Keep existing local state — don't regress to empty while waiting for DB.
         newMap[scene.id] = hotspotsByScene.value[scene.id]
       } else {
-        // Fallback N+1 for scenes missing the hotspots bundle (should be rare).
         try {
           const hRes = await apiFetch<any>(`/scenes/${scene.id}/hotspots`, { signal })
           if (version !== fetchScenesVersion) return
@@ -1025,26 +459,22 @@ async function fetchScenes() {
       selectedSceneId.value = ''
     }
   } catch (err: any) {
-    if (isAbortError(err)) return  // intentional cancellation — not an error
+    if (isAbortError(err)) return
     scenes.value = []
   }
 }
 
-// ofetch wraps the native AbortError in a FetchError with cause; check both.
 function isAbortError(err: any): boolean {
   return err?.name === 'AbortError' || err?.cause?.name === 'AbortError' || err?.type === 'aborted'
 }
 
 function refreshSceneGraphSoon() {
-  // Guard: Supabase removeChannel() is async; callbacks can fire in the window
-  // between onBeforeUnmount setting isMounted=false and the server ACK. Drop them.
   if (!isMounted) return
   if (sceneRealtimeRefreshTimer) {
     clearTimeout(sceneRealtimeRefreshTimer)
   }
   sceneRealtimeRefreshTimer = setTimeout(() => {
-    if (!isMounted) return  // second guard for the timer itself
-    // DB change event — full refresh including scenes and hotspots (polling=false)
+    if (!isMounted) return
     void fetchSpace(true, false)
   }, 200)
 }
@@ -1089,15 +519,12 @@ function selectScene(sceneId: string) {
   }, 650)
 }
 
-
 async function ensureSceneForEditing(): Promise<string | null> {
   if (selectedSceneId.value) return selectedSceneId.value
   if (!panorama.value?.public_url) return null
 
-  // If the "Add Scene" button is already in flight, don't create a second scene.
   if (addScenePending.value) return null
 
-  // Coalesce concurrent calls so only ONE scene creation request fires.
   if (ensureScenePromise) return ensureScenePromise
 
   ensureScenePromise = (async () => {
@@ -1139,9 +566,8 @@ function resolveTargetSceneId(currentSceneId: string) {
   return next === currentSceneId ? null : next
 }
 
-// Called by PsvViewer with spherical (yaw, pitch) — wire to PSV click event in V1.
 async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: number }) {
-  if (addingHotspot.value) return  // debounce concurrent clicks
+  if (addingHotspot.value) return
   addingHotspot.value = true
 
   const sceneId = await ensureSceneForEditing()
@@ -1171,10 +597,6 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
     payload.target_scene_id = targetSceneId
   }
 
-  // ── Optimistic update ─────────────────────────────────────────
-  // Show the hotspot immediately so the user sees instant feedback.
-  // _pending=true marks it as unconfirmed; fetchScenes merges will preserve it
-  // until the DB round-trip confirms the real record.
   const beforeCount = hotspotCount.value
   const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
   const optimisticEntry = { ...payload, id: tempId, _pending: true }
@@ -1190,7 +612,6 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
     })
     const created = unwrapApiData<any>(response)?.hotspot || response?.hotspot
     if (created) {
-      // Swap temp entry for the real DB record (preserves order, removes _pending flag).
       hotspotsByScene.value = {
         ...hotspotsByScene.value,
         [sceneId]: (hotspotsByScene.value[sceneId] ?? [])
@@ -1204,7 +625,6 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
       }
     }
   } catch (e: any) {
-    // Rollback: remove the optimistic entry so the viewer returns to the correct state.
     hotspotsByScene.value = {
       ...hotspotsByScene.value,
       [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h: any) => h.id !== tempId),
@@ -1215,14 +635,11 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
   }
 }
 
-// Called by PsvViewer's remove-hotspot emit (edit mode ✕ button).
 async function handleViewerRemoveHotspot(hotspotId: string) {
-  if (deletingHotspotsMap.value[hotspotId]) return  // prevent double-delete from rapid clicks
+  if (deletingHotspotsMap.value[hotspotId]) return
   const sceneId = selectedSceneId.value
   if (!sceneId) return
 
-  // Pending (optimistic) hotspot whose POST is still in flight — cancel locally
-  // without hitting the API since there's no server-side record yet.
   const isPending = (hotspotsByScene.value[sceneId] ?? []).some(
     (h: any) => h.id === hotspotId && h._pending === true
   )
@@ -1288,7 +705,6 @@ function closeHotspotEditor() {
   editingHotspotSceneId.value = null
 }
 
-
 async function saveHotspotEdits() {
   if (!editingHotspotId.value || !editingHotspotSceneId.value) return
   try {
@@ -1353,26 +769,15 @@ async function handleAddScene() {
       selectedSceneId.value = createdScene.id
       hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
       showToast(`${createdScene.name || 'Scene'} created`)
-      showHotspotPrompt.value = true
     } else {
       await fetchScenes()
       showToast('Scene created')
-      showHotspotPrompt.value = true
     }
   } catch (e: any) {
     showToast(e?.data?.statusMessage || 'Could not create scene yet. Please try again.', 'error')
   } finally {
     addScenePending.value = false
   }
-}
-
-function shareOnWhatsapp() {
-  if (!canShare.value) {
-    showToast('Upload a panorama first to unlock sharing.', 'error')
-    return
-  }
-  const message = `Take a look at my 360 tour: ${publicUrl.value}`
-  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
 }
 
 function localStateLabel(state: LocalUploadState) {
@@ -1400,7 +805,6 @@ function statusBadgeClass(status?: string) {
 function startPolling() {
   if (pollingTimer.value) return
   pollingTimer.value = setInterval(async () => {
-    // polling=true: only refreshes media statuses, never overwrites form or scenes
     await fetchSpace(true, true)
   }, 3000)
 }
@@ -1456,7 +860,6 @@ function extractUploadErrorMessage(err: any, fileName: string) {
 }
 
 function markRecentlyCompleted(mediaId: string) {
-  // Small delay makes completion feel intentional instead of mechanical.
   setTimeout(() => {
     completionFxMap.value = { ...completionFxMap.value, [mediaId]: 'enter' }
     setTimeout(() => {
@@ -1470,47 +873,7 @@ function markRecentlyCompleted(mediaId: string) {
   }, 150)
 }
 
-function completionRingClass(mediaId: string) {
-  if (!completionFxMap.value[mediaId]) return ''
-  return completionFxMap.value[mediaId] === 'exit'
-    ? 'ring-2 ring-emerald-200 ring-offset-2 transition-all duration-500 opacity-80'
-    : 'ring-2 ring-emerald-300 ring-offset-2 transition-all duration-300 success-pulse'
-}
-
-async function copyLink(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    showToast('Copied to clipboard')
-  } catch (err) {
-    showToast('Failed to copy', 'error')
-  }
-}
-
-async function downloadQR(format: 'png' | 'svg' = 'png') {
-  if (format === 'svg' && !planStore.entitlements?.qr_svg_enabled) {
-    showToast('SVG download is available on the Plus plan and above.', 'error')
-    return
-  }
-  const size = format === 'svg' ? '1000x1000' : '500x500'
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&format=${format}&data=${encodeURIComponent(publicUrl.value + '?src=qr')}`
-  
-  try {
-    const response = await fetch(qrUrl)
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `viewora-qr-${space.value?.slug || 'space'}.${format}`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-  } catch (err) {
-    window.open(qrUrl, '_blank')
-  }
-}
-
-// polling=true → only refresh media statuses, skip form overwrite + scene refetch
+// polling=true → only refresh media statuses, skip scene refetch
 async function fetchSpace(silent = false, polling = false) {
   if (!planStore.plan) {
     await planStore.fetchSubscriptionStatus()
@@ -1520,19 +883,8 @@ async function fetchSpace(silent = false, polling = false) {
     const previousStatusById = new Map(media.value.map((m: any) => [m.id, m.processing_status]))
     const data = await apiFetch<any>(`/spaces/${spaceId}`)
     space.value = data
-
-    // Never overwrite the form while polling — would silently discard user's unsaved edits
-    if (!polling) {
-      detailsForm.value = {
-        title: data.title,
-        description: data.description || '',
-        slug: data.slug || ''
-      }
-    }
-
     media.value = data.property_media || []
 
-    // Scenes+hotspots are only needed on full load, not on media-status polling ticks
     if (!polling) {
       await fetchScenes()
     }
@@ -1545,11 +897,9 @@ async function fetchSpace(silent = false, polling = false) {
         analyticsSummary.value = []
       }
     }
+
     if (!selectedSceneId.value && scenes.value.length) {
       selectedSceneId.value = scenes.value[0].id
-    }
-    if (activeTab.value === 'details' && !media.value.some((m: any) => m.media_type === 'panorama')) {
-      activeTab.value = '360'
     }
 
     for (const item of media.value) {
@@ -1565,35 +915,6 @@ async function fetchSpace(silent = false, polling = false) {
   }
 }
 
-async function handleUpdateDetails() {
-  saving.value = true
-  try {
-    const updated = await apiFetch<any>(`/spaces/${spaceId}`, {
-      method: 'PATCH',
-      body: detailsForm.value
-    })
-    space.value = updated
-    showToast('Details saved')
-  } catch (e) {
-    showToast('Failed to save details', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleToggleFeature(feature: string) {
-  try {
-    const newVal = !space.value[feature]
-    const updated = await apiFetch<any>(`/spaces/${spaceId}`, {
-      method: 'PATCH',
-      body: { [feature]: newVal }
-    })
-    space.value = updated
-  } catch (e: any) {
-    showToast(e.data?.statusMessage || 'Failed to update setting', 'error')
-  }
-}
-
 async function handleTogglePublish() {
   publishing.value = true
   try {
@@ -1602,29 +923,22 @@ async function handleTogglePublish() {
       method: 'POST',
       body: {
         publish: !isLive,
-        slug: detailsForm.value.slug,
+        slug: space.value?.slug,
         lead_form_enabled: space.value.lead_form_enabled,
         branding_enabled: space.value.branding_enabled
       }
     })
     space.value = updated
-    showToast(isLive ? 'Tour unpublished' : 'Tour is now live!')
-    postPublishPrompt.value = !isLive
     if (!isLive) {
-      showToast('🎉 Your tour is LIVE. Share it now to start getting clients.')
+      showToast('Your tour is LIVE. Share it now to start getting clients.')
+    } else {
+      showToast('Tour unpublished')
     }
   } catch (e: any) {
     showToast(e.data?.statusMessage || 'Publishing failed', 'error')
   } finally {
     publishing.value = false
   }
-}
-
-async function handleGalleryUpload(e: any) {
-  const files = e.target.files as FileList
-  if (!files.length) return
-  // Upload all selected files in parallel — sequential was causing multi-file uploads to feel broken
-  await Promise.all(Array.from(files).map(file => uploadFile(file, 'gallery')))
 }
 
 async function handlePanoramaUpload(e: any) {
@@ -1681,18 +995,12 @@ async function uploadFile(file: File, type: string) {
         fileSize: file.size
       }
     }))
-    
+
     media.value.push(record)
     if (type === 'panorama') {
-      activeTab.value = '360'
       clearPanoramaPreview()
-      panoramaSaveState.value = 'saved'
-      showHotspotPrompt.value = true
       inlineEditMode.value = true
       showToast('Click anywhere in the viewer to add your first hotspot')
-      setTimeout(() => {
-        panoramaSaveState.value = null
-      }, 2800)
       await fetchScenes()
     }
     removeLocalUpload(localId)
@@ -1705,10 +1013,8 @@ async function uploadFile(file: File, type: string) {
   } catch (err: any) {
     const humanError = extractUploadErrorMessage(err, file.name)
     updateLocalUpload(localId, { state: 'failed', error: humanError })
-    // Reset panorama save state if it was a panorama upload that failed
     if (localPanoramaPreviewUrl.value) {
       clearPanoramaPreview()
-      panoramaSaveState.value = null
     }
     showToast(humanError, 'error')
   }
@@ -1734,10 +1040,6 @@ async function confirmDeleteMedia(mediaId: string) {
   try {
     await apiFetch(`/uploads/${mediaId}`, { method: 'DELETE' })
     media.value = media.value.filter((m: any) => m.id !== mediaId)
-    if (previewImage.value?.id === mediaId) {
-      previewImage.value = null
-    }
-    // Scenes reference the panorama's public_url — refresh so stale scene chips disappear
     if (wasPanorama) {
       scenes.value = []
       selectedSceneId.value = ''
@@ -1756,8 +1058,6 @@ async function confirmDeleteMedia(mediaId: string) {
 <style scoped>
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
 .fade-smooth-enter-active, .fade-smooth-leave-active { transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
 .fade-smooth-enter-from, .fade-smooth-leave-to { opacity: 0; transform: translateY(6px) scale(0.995); }
 .success-pulse { animation: successPulse 600ms ease-out; }
