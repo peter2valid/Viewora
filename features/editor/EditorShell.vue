@@ -51,10 +51,10 @@
       <!-- Panorama viewer container -->
       <div class="relative rounded-2xl overflow-hidden aspect-[2/1] bg-surface-alt group/viewer">
 
-        <!-- ViewerShell: routes to PSV (panorama) or car-spin viewer based on space type -->
-        <ViewerShell
-          v-if="hasPanorama && activePanoramaSrc"
+        <!-- EditorCanvas: always mounted — v-show inside keeps PSV alive across UI changes -->
+        <EditorCanvas
           class="absolute inset-0 w-full h-full"
+          :visible="hasPanorama && Boolean(activePanoramaSrc)"
           :active-scene="activeViewerScene"
           :space-type="space?.space_type"
           :hotspots="activeSceneHotspots"
@@ -222,7 +222,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useSupabaseClient } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
-import ViewerShell from '~/features/viewer/ViewerShell.vue'
+import EditorCanvas from '~/features/editor/EditorCanvas.vue'
 
 const props = defineProps<{
   spaceId: string
