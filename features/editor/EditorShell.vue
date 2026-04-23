@@ -1,215 +1,287 @@
 <template>
-  <div class="h-full flex flex-col">
+  <div class="editor-shell">
 
-    <!-- Minimal header: title + publish action -->
-    <header class="flex items-center justify-between mb-4 px-1">
-      <div class="flex items-center gap-3">
-        <NuxtLink to="/app/spaces" class="text-dim hover:text-main transition-colors text-sm font-semibold">← Tours</NuxtLink>
-        <h1 class="text-lg font-bold text-main truncate max-w-xs">{{ space?.title || 'Edit Tour' }}</h1>
-        <span v-if="space?.is_published" class="px-2 py-0.5 rounded bg-emerald-500 text-bg text-[10px] font-bold uppercase tracking-widest">Live</span>
+    <!-- ── TopBar ──────────────────────────────────────────── -->
+    <header class="editor-topbar">
+      <div class="editor-topbar__left">
+        <NuxtLink to="/app/spaces" class="topbar-back">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </NuxtLink>
+        <span class="topbar-divider"></span>
+        <h1 class="topbar-title">{{ space?.title || 'Edit Tour' }}</h1>
+        <span v-if="space?.is_published" class="topbar-live-badge">Live</span>
+
+        <!-- Processing status — inline, subtle -->
+        <Transition name="fade-quick">
+          <div v-if="hasProcessingMedia" class="topbar-processing" :class="{ 'topbar-processing--stuck': isProcessingStuck }">
+            <div class="topbar-processing__spinner"></div>
+            <span>{{ isProcessingStuck ? 'Taking longer than expected…' : 'Processing…' }}</span>
+            <span class="topbar-processing__elapsed">{{ processingElapsedSeconds }}s</span>
+          </div>
+        </Transition>
       </div>
-      <div class="flex items-center gap-3">
-        <a v-if="space?.is_published && space.slug" :href="`/p/${space.slug}`" target="_blank" class="btn btn-secondary shadow-sm">View Live</a>
-        <button class="btn btn-primary" @click="handleTogglePublish" :disabled="publishing">
-          <div v-if="publishing" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          {{ space?.is_published ? 'Unpublish' : 'Publish Tour' }}
+
+      <div class="editor-topbar__right">
+        <a
+          v-if="space?.is_published && space.slug"
+          :href="`/p/${space.slug}`"
+          target="_blank"
+          class="topbar-btn topbar-btn--secondary"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Preview
+        </a>
+        <button
+          class="topbar-btn topbar-btn--primary"
+          :disabled="publishing"
+          @click="handleTogglePublish"
+        >
+          <div v-if="publishing" class="topbar-spinner"></div>
+          <template v-else>
+            <span v-if="space?.is_published">Unpublish</span>
+            <span v-else>Publish Tour</span>
+          </template>
         </button>
       </div>
     </header>
 
-    <!-- Processing status (minimal inline banner) -->
-    <Transition name="fade-smooth">
-      <div
-        v-if="hasProcessingMedia"
-        class="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium"
-        :class="isProcessingStuck ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sky-50 border-sky-200 text-sky-800'"
-      >
-        <div class="w-3 h-3 border-2 rounded-full animate-spin flex-shrink-0" :class="isProcessingStuck ? 'border-amber-300 border-t-amber-700' : 'border-sky-300 border-t-sky-700'"></div>
-        <span v-if="isProcessingStuck">Processing is taking longer than expected. Working in background.</span>
-        <span v-else>Processing in background...</span>
-        <span class="ml-auto text-xs font-semibold">{{ processingElapsedSeconds }}s</span>
-      </div>
-    </Transition>
+    <!-- ── Sidebar ─────────────────────────────────────────── -->
+    <aside class="editor-sidebar">
 
-    <!-- Main editor area -->
-    <div class="flex-1 flex flex-col min-h-0 gap-3">
-
-      <!-- Viewer toolbar -->
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div :class="['px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border backdrop-blur-md', panorama?.processing_status === 'ready' ? 'bg-emerald-500/90 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
-            {{ panoramaStatusLabel }}
-          </div>
-          <span class="text-sm font-bold text-main">{{ activeScene?.name || 'Untitled Scene' }}</span>
-        </div>
-        <label class="btn btn-secondary !px-4 !py-2.5 !rounded-xl cursor-pointer">
-          <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-          Swap Panorama
-        </label>
-      </div>
-
-      <!-- Panorama viewer container -->
-      <div class="relative rounded-2xl overflow-hidden aspect-[2/1] bg-surface-alt group/viewer">
-
-        <!-- EditorCanvas: always mounted — v-show inside keeps PSV alive across UI changes -->
-        <EditorCanvas
-          class="absolute inset-0 w-full h-full"
-          :visible="hasPanorama && Boolean(activePanoramaSrc)"
-          :active-scene="activeViewerScene"
-          :space-type="space?.space_type"
-          :hotspots="activeSceneHotspots"
-          :is-editing="inlineEditMode"
-          @add-hotspot="handleViewerAddHotspot"
-          @hotspot-click="handleHotspotClick"
-        />
-
-        <!-- Placeholder shown before any panorama is uploaded -->
-        <div v-if="!hasPanorama" class="absolute inset-0">
-          <img :src="placeholderPanoramaUrl" class="w-full h-full object-cover opacity-85" />
-          <div class="absolute inset-0 bg-gradient-to-br from-zinc-950/30 via-transparent to-zinc-950/40"></div>
-        </div>
-
-        <!-- Processing status badge -->
-        <div class="absolute top-3 left-3 z-10 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass(panorama?.processing_status)">
-          {{ panoramaStatusLabel }}
-        </div>
-
-        <!-- Completion FX badge -->
-        <div v-if="panorama && completionFxMap[panorama.id]" class="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg success-pulse transition-opacity duration-500" :class="completionFxMap[panorama.id] === 'exit' ? 'opacity-0' : 'opacity-100'">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-
-        <!-- Remove panorama button -->
-        <div v-if="hasPanorama" class="absolute bottom-6 inset-x-0 flex justify-center z-10 pointer-events-none">
-          <button
-            class="btn btn-secondary !px-5 !py-2.5 !rounded-xl backdrop-blur-md shadow-2xl pointer-events-auto border-main/20 hover:bg-rose-500 hover:text-bg hover:border-rose-500"
-            @click.stop="confirmDeleteMedia(panorama!.id)"
-          >
-            Remove Panorama
-          </button>
-        </div>
-
-        <!-- Empty state guide -->
-        <div v-if="!hasPanorama" class="absolute inset-x-0 bottom-0 p-5 z-10">
-          <div class="rounded-xl border border-white/15 bg-black/35 backdrop-blur-sm p-4 text-white">
-            <p class="text-sm font-semibold">Step 1: Upload your first 360 image</p>
-            <p class="text-xs text-white/75 mt-1">Choose a high-resolution equirectangular panorama (2:1) to start your interactive tour instantly.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Upload progress (in-flight panorama uploads only) -->
-      <div v-if="panoramaLocalUploads.length" class="space-y-2">
-        <div v-for="item in panoramaLocalUploads" :key="item.id" class="p-3 bg-surface-alt rounded-lg border border-border">
-          <div class="flex items-center justify-between mb-2">
-            <p class="text-xs font-semibold text-main truncate">{{ item.fileName }}</p>
-            <span class="text-[11px] text-dim">{{ localStateLabel(item.state) }}</span>
-          </div>
-          <div class="h-1.5 bg-surface border border-border rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-500" :class="item.state === 'failed' ? 'bg-rose-500 w-full' : 'bg-main w-1/2 animate-pulse'"></div>
-          </div>
-          <p v-if="item.error" class="text-[10px] font-bold text-rose-500 mt-1">{{ item.error }}</p>
-        </div>
-      </div>
-
-      <!-- Processing failure + retry -->
-      <div v-if="panorama?.processing_status === 'failed'" class="flex items-center gap-3">
-        <p class="text-xs text-rose-600">Panorama processing failed.</p>
-        <button
-          class="px-3 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold"
-          :disabled="Boolean(retryingMediaMap[panorama.id])"
-          @click="handleRetryMedia(panorama.id)"
-        >
-          {{ retryingMediaMap[panorama.id] ? 'Retrying...' : 'Retry processing' }}
-        </button>
-      </div>
-
-      <!-- Scene selector strip -->
-      <div v-if="sceneChips.length" class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
-        <button
-          v-for="scene in sceneChips"
-          :key="scene.id"
-          class="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-widest border transition-all duration-300 whitespace-nowrap"
-          :class="selectedSceneId === scene.id
-            ? 'bg-main text-bg border-main shadow-md'
-            : scene.ready
-              ? 'bg-surface border-border text-main hover:bg-surface-alt'
-              : 'bg-surface-alt border-border text-dim/50 opacity-50'"
-          @click="selectScene(scene.id)"
-        >
-          {{ scene.label }}
-        </button>
-        <button
-          class="flex-shrink-0 px-3 py-2 rounded-xl border-2 border-dashed border-border text-dim hover:text-main hover:border-main/30 transition-all text-xs"
-          :disabled="!hasPanorama || addScenePending"
-          @click="handleAddScene"
-        >
-          {{ addScenePending ? '...' : '+ Add Scene' }}
-        </button>
-      </div>
-
-      <!-- Hotspot editor panel -->
-      <Transition name="fade-smooth">
-        <div v-if="editingHotspotId" class="card-glass p-6 shadow-xl border-main/20">
-          <div class="flex items-center justify-between gap-3 mb-5">
-            <p class="text-sm font-bold text-main uppercase tracking-widest">Edit Hotspot</p>
-            <button class="text-[10px] font-bold uppercase tracking-widest text-dim hover:text-main transition-colors" @click="closeHotspotEditor">Close</button>
+      <!-- Hotspot editor (context-aware: fills sidebar when editing) -->
+      <Transition name="panel-slide">
+        <div v-if="editingHotspotId" class="sidebar-panel">
+          <div class="sidebar-panel__header">
+            <p class="sidebar-panel__title">Edit Hotspot</p>
+            <button class="sidebar-panel__close" @click="closeHotspotEditor">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Label</label>
-              <input v-model="hotspotEditForm.title" type="text" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="Spot name" />
+          <div class="sidebar-panel__body">
+            <div class="sidebar-field">
+              <label class="sidebar-label">Label</label>
+              <input v-model="hotspotEditForm.title" type="text" class="sidebar-input" placeholder="Spot name" />
             </div>
-            <div class="space-y-1.5">
-              <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Type</label>
-              <select v-model="hotspotEditForm.type" class="input-glass w-full px-4 py-3 text-sm font-bold">
+            <div class="sidebar-field">
+              <label class="sidebar-label">Type</label>
+              <select v-model="hotspotEditForm.type" class="sidebar-input">
                 <option value="info">Information</option>
                 <option value="scene_link">Portal</option>
-                <option value="url">External</option>
+                <option value="url">External Link</option>
               </select>
+            </div>
+            <div class="sidebar-field">
+              <label class="sidebar-label">Description</label>
+              <textarea v-model="hotspotEditForm.description" rows="3" class="sidebar-input sidebar-input--textarea" placeholder="Describe this point…"></textarea>
+            </div>
+            <div v-if="hotspotEditForm.type === 'scene_link'" class="sidebar-field">
+              <label class="sidebar-label">Destination</label>
+              <select v-model="hotspotEditForm.targetSceneId" class="sidebar-input">
+                <option value="">Next Sequential</option>
+                <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
+              </select>
+            </div>
+            <div v-if="hotspotEditForm.type === 'url'" class="sidebar-field">
+              <label class="sidebar-label">URL</label>
+              <input v-model="hotspotEditForm.link" type="url" class="sidebar-input" placeholder="https://" />
             </div>
           </div>
 
-          <div class="mt-4 space-y-1.5">
-            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Description</label>
-            <textarea v-model="hotspotEditForm.description" rows="2" class="input-glass w-full px-4 py-3 text-sm font-bold resize-none" placeholder="Describe this point of interest..."></textarea>
-          </div>
-
-          <div v-if="hotspotEditForm.type === 'scene_link'" class="mt-4 space-y-1.5">
-            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Destination Portal</label>
-            <select v-model="hotspotEditForm.targetSceneId" class="input-glass w-full px-4 py-3 text-sm font-bold">
-              <option value="">Next Sequential</option>
-              <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
-            </select>
-          </div>
-
-          <div v-if="hotspotEditForm.type === 'url'" class="mt-4 space-y-1.5">
-            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1">URL</label>
-            <input v-model="hotspotEditForm.link" type="url" class="input-glass w-full px-4 py-3 text-sm font-bold" placeholder="https://" />
-          </div>
-
-          <div class="mt-6 flex flex-wrap gap-3">
-            <button class="btn btn-primary !px-8 !py-3 !rounded-xl text-xs" @click="saveHotspotEdits">Update Hotspot</button>
-            <button class="btn btn-secondary !px-6 !py-3 !rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 border-rose-500/20" @click="deleteEditingHotspot">Delete</button>
+          <div class="sidebar-panel__footer">
+            <button class="sidebar-btn sidebar-btn--primary" @click="saveHotspotEdits">Save</button>
+            <button class="sidebar-btn sidebar-btn--danger" @click="deleteEditingHotspot">Delete</button>
           </div>
         </div>
       </Transition>
 
-    </div>
+      <!-- Scene list (shown when not editing a hotspot) -->
+      <div v-if="!editingHotspotId" class="sidebar-scenes">
+        <div class="sidebar-section-header">
+          <span class="sidebar-section-label">Scenes</span>
+          <label class="sidebar-upload-btn" title="Upload new panorama">
+            <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Upload
+          </label>
+        </div>
 
-    <!-- Toast notification -->
+        <!-- Empty state when no panorama yet -->
+        <div v-if="!hasPanorama && !panoramaLocalUploads.length" class="sidebar-empty">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="sidebar-empty__icon"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <p class="sidebar-empty__text">Upload a 360° image to get started</p>
+        </div>
+
+        <!-- Scene chips (vertical list) -->
+        <div v-if="sceneChips.length" class="sidebar-scene-list">
+          <button
+            v-for="scene in sceneChips"
+            :key="scene.id"
+            class="sidebar-scene-item"
+            :class="{
+              'sidebar-scene-item--active': selectedSceneId === scene.id,
+              'sidebar-scene-item--pending': !scene.ready
+            }"
+            @click="selectScene(scene.id)"
+          >
+            <div class="sidebar-scene-item__dot"></div>
+            <span class="sidebar-scene-item__label">{{ scene.label }}</span>
+            <span v-if="!scene.ready" class="sidebar-scene-item__badge">Processing</span>
+          </button>
+        </div>
+
+        <!-- Upload progress rows -->
+        <div v-if="panoramaLocalUploads.length" class="sidebar-uploads">
+          <div v-for="item in panoramaLocalUploads" :key="item.id" class="sidebar-upload-item">
+            <div class="sidebar-upload-item__name">{{ item.fileName }}</div>
+            <div class="sidebar-upload-item__state">{{ localStateLabel(item.state) }}</div>
+            <div class="sidebar-upload-item__bar">
+              <div
+                class="sidebar-upload-item__bar-fill"
+                :class="item.state === 'failed' ? 'sidebar-upload-item__bar-fill--error' : 'sidebar-upload-item__bar-fill--progress'"
+              ></div>
+            </div>
+            <p v-if="item.error" class="sidebar-upload-item__error">{{ item.error }}</p>
+          </div>
+        </div>
+
+        <!-- Processing failure + retry -->
+        <div v-if="panorama?.processing_status === 'failed'" class="sidebar-error-row">
+          <span class="sidebar-error-row__text">Processing failed</span>
+          <button
+            class="sidebar-error-row__btn"
+            :disabled="Boolean(retryingMediaMap[panorama.id])"
+            @click="handleRetryMedia(panorama.id)"
+          >
+            {{ retryingMediaMap[panorama.id] ? 'Retrying…' : 'Retry' }}
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Canvas ──────────────────────────────────────────── -->
+    <main class="editor-canvas">
+
+      <!-- EditorCanvas: always mounted — v-show inside keeps PSV alive -->
+      <EditorCanvas
+        class="absolute inset-0"
+        :visible="hasPanorama && Boolean(activePanoramaSrc)"
+        :active-scene="activeViewerScene"
+        :space-type="space?.space_type"
+        :hotspots="activeSceneHotspots"
+        :is-editing="inlineEditMode"
+        @add-hotspot="handleViewerAddHotspot"
+        @hotspot-click="handleHotspotClick"
+      />
+
+      <!-- Placeholder (no panorama uploaded yet) -->
+      <div v-if="!hasPanorama" class="absolute inset-0 pointer-events-none">
+        <img :src="placeholderPanoramaUrl" class="w-full h-full object-cover opacity-70" />
+        <div class="absolute inset-0 bg-gradient-to-br from-zinc-950/40 via-transparent to-zinc-950/50"></div>
+      </div>
+
+      <!-- Processing status badge (canvas overlay) -->
+      <div
+        v-if="panorama"
+        class="canvas-badge canvas-badge--tl"
+        :class="statusBadgeClass(panorama.processing_status)"
+      >
+        {{ panoramaStatusLabel }}
+      </div>
+
+      <!-- Completion FX badge -->
+      <div
+        v-if="panorama && completionFxMap[panorama.id]"
+        class="canvas-badge canvas-badge--tr canvas-badge--success success-pulse"
+        :class="completionFxMap[panorama.id] === 'exit' ? 'opacity-0' : 'opacity-100'"
+        style="transition: opacity 500ms;"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+
+      <!-- Remove panorama button -->
+      <div v-if="hasPanorama" class="canvas-remove-wrap">
+        <button class="canvas-remove-btn" @click.stop="confirmDeleteMedia(panorama!.id)">
+          Remove Panorama
+        </button>
+      </div>
+
+      <!-- Empty state guide (no panorama) -->
+      <div v-if="!hasPanorama" class="canvas-guide">
+        <div class="canvas-guide__card">
+          <p class="canvas-guide__title">Upload your first 360° image</p>
+          <p class="canvas-guide__sub">Choose a high-resolution equirectangular panorama (2:1 ratio) — your interactive tour starts instantly.</p>
+          <label class="canvas-guide__btn">
+            <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
+            Choose file
+          </label>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── BottomToolbar ───────────────────────────────────── -->
+    <footer class="editor-bottom">
+
+      <!-- Left: current scene name -->
+      <div class="bottom-left">
+        <span class="bottom-scene-name">{{ activeScene?.name || (hasPanorama ? 'Untitled Scene' : 'No scene') }}</span>
+      </div>
+
+      <!-- Center: hotspot tools -->
+      <div class="bottom-center">
+        <!-- Edit mode toggle -->
+        <button
+          class="bottom-tool-btn"
+          :class="{ 'bottom-tool-btn--active': inlineEditMode }"
+          :title="inlineEditMode ? 'Exit hotspot placement' : 'Place hotspots'"
+          @click="inlineEditMode = !inlineEditMode"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>{{ inlineEditMode ? 'Placing…' : 'Add Hotspot' }}</span>
+        </button>
+
+        <!-- Hotspot type selector (only shown when edit mode active) -->
+        <Transition name="fade-quick">
+          <div v-if="inlineEditMode" class="bottom-type-picker">
+            <button
+              v-for="t in hotspotTypes"
+              :key="t.value"
+              class="bottom-type-btn"
+              :class="{ 'bottom-type-btn--active': hotspotDraftType === t.value }"
+              @click="hotspotDraftType = t.value"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+        </Transition>
+      </div>
+
+      <!-- Right: scene + panorama actions -->
+      <div class="bottom-right">
+        <button
+          class="bottom-action-btn"
+          :disabled="!hasPanorama || addScenePending"
+          @click="handleAddScene"
+        >
+          {{ addScenePending ? '…' : '+ Scene' }}
+        </button>
+        <label class="bottom-action-btn bottom-action-btn--upload">
+          <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
+          Swap Panorama
+        </label>
+      </div>
+    </footer>
+
+    <!-- Toast -->
     <Teleport to="body">
       <Transition name="fade-smooth">
         <div
           v-if="toast"
-          class="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-4 card-glass border-main/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[400] animate-in slide-in-from-bottom-5 fade-in duration-500"
+          class="editor-toast"
+          :class="toast.type === 'error' ? 'editor-toast--error' : 'editor-toast--success'"
         >
-          <div
-            class="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"
-            :class="toast.type === 'success' ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-rose-500 shadow-rose-500/50'"
-          ></div>
-          <span class="text-xs font-bold text-main tracking-tight">{{ toast.message }}</span>
+          <div class="editor-toast__dot"></div>
+          <span class="editor-toast__msg">{{ toast.message }}</span>
         </div>
       </Transition>
     </Teleport>
@@ -290,6 +362,12 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   toast.value = { message, type }
   toastTimer = setTimeout(() => { toast.value = null }, 3200)
 }
+
+const hotspotTypes = [
+  { value: 'info' as const, label: 'Info' },
+  { value: 'scene_link' as const, label: 'Portal' },
+  { value: 'url' as const, label: 'Link' },
+]
 
 const publicUrl = computed(() => {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
@@ -781,9 +859,9 @@ async function handleAddScene() {
 
 function localStateLabel(state: LocalUploadState) {
   if (state === 'local_select') return 'Selected'
-  if (state === 'signing') return 'Signing...'
-  if (state === 'uploading') return 'Uploading...'
-  if (state === 'registering') return 'Registering...'
+  if (state === 'signing') return 'Signing…'
+  if (state === 'uploading') return 'Uploading…'
+  if (state === 'registering') return 'Saving…'
   return 'Failed'
 }
 
@@ -795,10 +873,10 @@ function statusLabel(status?: string) {
 }
 
 function statusBadgeClass(status?: string) {
-  if (status === 'pending') return 'bg-amber-100 text-amber-700 border border-amber-200'
-  if (status === 'processing') return 'bg-sky-100 text-sky-700 border border-sky-200'
-  if (status === 'failed') return 'bg-rose-100 text-rose-700 border border-rose-200'
-  return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+  if (status === 'pending') return 'canvas-badge--amber'
+  if (status === 'processing') return 'canvas-badge--sky'
+  if (status === 'failed') return 'canvas-badge--rose'
+  return 'canvas-badge--emerald'
 }
 
 function startPolling() {
@@ -1055,14 +1133,691 @@ async function confirmDeleteMedia(mediaId: string) {
 </script>
 
 <style scoped>
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-.fade-smooth-enter-active, .fade-smooth-leave-active { transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
-.fade-smooth-enter-from, .fade-smooth-leave-to { opacity: 0; transform: translateY(6px) scale(0.995); }
+/* ── Shell ──────────────────────────────────────────────────── */
+.editor-shell {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ── TopBar ─────────────────────────────────────────────────── */
+.editor-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 60px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #111113;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.editor-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.editor-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.topbar-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: rgba(255,255,255,0.4);
+  transition: background 120ms, color 120ms;
+  flex-shrink: 0;
+}
+.topbar-back:hover { background: rgba(255,255,255,0.07); color: #fff; }
+
+.topbar-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+
+.topbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.topbar-live-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #10b981;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topbar-processing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 500;
+}
+.topbar-processing--stuck {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+.topbar-processing__spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+.topbar-processing__elapsed {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 120ms, opacity 120ms;
+}
+.topbar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.topbar-btn--secondary {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.topbar-btn--secondary:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+.topbar-btn--primary {
+  background: #fff;
+  color: #0a0a0b;
+}
+.topbar-btn--primary:hover:not(:disabled) { background: #e5e5e5; }
+
+.topbar-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-top-color: #0a0a0b;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+.editor-sidebar {
+  position: fixed;
+  top: 60px; left: 0; bottom: 60px;
+  width: 240px;
+  z-index: 40;
+  background: #0f0f10;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.editor-sidebar::-webkit-scrollbar { width: 3px; }
+.editor-sidebar::-webkit-scrollbar-track { background: transparent; }
+.editor-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* Hotspot panel */
+.sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.sidebar-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.sidebar-panel__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.sidebar-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255,255,255,0.3);
+  border: none;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.sidebar-panel__close:hover { background: rgba(255,255,255,0.07); color: #fff; }
+
+.sidebar-panel__body {
+  flex: 1;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.sidebar-panel__footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  gap: 8px;
+}
+
+.sidebar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.sidebar-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.9);
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 120ms, background 120ms;
+}
+.sidebar-input:focus { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07); }
+.sidebar-input--textarea { resize: none; line-height: 1.5; }
+
+.sidebar-btn {
+  flex: 1;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.sidebar-btn--primary { background: #fff; color: #0a0a0b; }
+.sidebar-btn--primary:hover { background: #e5e5e5; }
+.sidebar-btn--danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+.sidebar-btn--danger:hover { background: rgba(239,68,68,0.2); }
+
+/* Scene list */
+.sidebar-scenes {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.sidebar-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.sidebar-upload-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+.sidebar-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 20px;
+  text-align: center;
+}
+.sidebar-empty__icon { color: rgba(255,255,255,0.15); }
+.sidebar-empty__text {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  line-height: 1.5;
+}
+
+.sidebar-scene-list {
+  padding: 8px 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-scene-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 8px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms;
+  color: rgba(255,255,255,0.6);
+}
+.sidebar-scene-item:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.9); }
+.sidebar-scene-item--active { background: rgba(255,255,255,0.08); color: #fff; }
+.sidebar-scene-item--pending { opacity: 0.5; }
+
+.sidebar-scene-item__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.sidebar-scene-item--active .sidebar-scene-item__dot { opacity: 1; background: #10b981; }
+
+.sidebar-scene-item__label {
+  font-size: 12px;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-scene-item__badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+/* Upload progress */
+.sidebar-uploads {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  margin-top: 4px;
+}
+.sidebar-upload-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.sidebar-upload-item__name {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.sidebar-upload-item__state {
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 6px;
+}
+.sidebar-upload-item__bar {
+  height: 2px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.sidebar-upload-item__bar-fill {
+  height: 100%;
+  border-radius: 1px;
+}
+.sidebar-upload-item__bar-fill--progress {
+  width: 50%;
+  background: #60a5fa;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.sidebar-upload-item__bar-fill--error { width: 100%; background: #f87171; }
+.sidebar-upload-item__error { font-size: 10px; color: #f87171; margin-top: 4px; }
+
+.sidebar-error-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.sidebar-error-row__text { font-size: 11px; color: #f87171; }
+.sidebar-error-row__btn {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(245,158,11,0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245,158,11,0.2);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.sidebar-error-row__btn:hover:not(:disabled) { background: rgba(245,158,11,0.25); }
+.sidebar-error-row__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Canvas ─────────────────────────────────────────────────── */
+.editor-canvas {
+  position: fixed;
+  top: 60px;
+  left: 240px;
+  right: 0;
+  bottom: 60px;
+  background: #080809;
+  overflow: hidden;
+}
+
+/* Canvas overlays */
+.canvas-badge {
+  position: absolute;
+  z-index: 10;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid transparent;
+}
+.canvas-badge--tl { top: 12px; left: 12px; }
+.canvas-badge--tr {
+  top: 12px; right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+}
+.canvas-badge--amber { background: rgba(245,158,11,0.15); color: #fbbf24; border-color: rgba(245,158,11,0.25); }
+.canvas-badge--sky   { background: rgba(14,165,233,0.15);  color: #7dd3fc; border-color: rgba(14,165,233,0.25); }
+.canvas-badge--rose  { background: rgba(239,68,68,0.15);   color: #fca5a5; border-color: rgba(239,68,68,0.25); }
+.canvas-badge--emerald { background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.25); }
+.canvas-badge--success { background: #10b981; color: #fff; border-color: transparent; }
+
+.canvas-remove-wrap {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+.canvas-remove-btn {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: rgba(15,15,16,0.7);
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.canvas-remove-btn:hover { background: rgba(239,68,68,0.8); color: #fff; border-color: transparent; }
+
+.canvas-guide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+.canvas-guide__card {
+  max-width: 340px;
+  padding: 24px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(16px);
+  text-align: center;
+}
+.canvas-guide__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.95);
+  margin-bottom: 8px;
+}
+.canvas-guide__sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.canvas-guide__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 9px;
+  background: #fff;
+  color: #0a0a0b;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.canvas-guide__btn:hover { background: #e5e5e5; }
+
+/* ── BottomToolbar ───────────────────────────────────────────── */
+.editor-bottom {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 60px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: #111113;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px;
+}
+.bottom-left {
+  flex: 0 0 240px;
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  overflow: hidden;
+}
+.bottom-scene-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bottom-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.bottom-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.bottom-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.6);
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.bottom-tool-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.bottom-tool-btn--active {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset;
+}
+
+.bottom-type-picker {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.bottom-type-btn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  transition: background 100ms, color 100ms;
+}
+.bottom-type-btn:hover { color: rgba(255,255,255,0.8); }
+.bottom-type-btn--active { background: rgba(255,255,255,0.12); color: #fff; }
+
+.bottom-action-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.6);
+  transition: background 120ms, color 120ms;
+  white-space: nowrap;
+}
+.bottom-action-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: #fff; }
+.bottom-action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.bottom-action-btn--upload { cursor: pointer; }
+
+/* ── Toast ───────────────────────────────────────────────────── */
+.editor-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  background: #1a1a1c;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  z-index: 400;
+  white-space: nowrap;
+}
+.editor-toast__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.editor-toast--success .editor-toast__dot { background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.6); }
+.editor-toast--error .editor-toast__dot { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+.editor-toast__msg { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.9); }
+
+/* ── Animations ─────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.fade-quick-enter-active, .fade-quick-leave-active { transition: opacity 150ms ease; }
+.fade-quick-enter-from, .fade-quick-leave-to { opacity: 0; }
+
+.fade-smooth-enter-active, .fade-smooth-leave-active { transition: all 0.25s ease; }
+.fade-smooth-enter-from, .fade-smooth-leave-to { opacity: 0; transform: translateY(6px); }
+
+.panel-slide-enter-active, .panel-slide-leave-active { transition: all 0.2s ease; }
+.panel-slide-enter-from { opacity: 0; transform: translateX(-8px); }
+.panel-slide-leave-to { opacity: 0; transform: translateX(-8px); }
+
 .success-pulse { animation: successPulse 600ms ease-out; }
 @keyframes successPulse {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.08); }
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); }
   100% { transform: scale(1); }
 }
 </style>
