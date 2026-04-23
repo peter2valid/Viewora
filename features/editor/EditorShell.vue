@@ -10,6 +10,10 @@
         <span class="topbar-divider"></span>
         <h1 class="topbar-title">{{ space?.title || 'Edit Tour' }}</h1>
         <span v-if="space?.is_published" class="topbar-live-badge">Live</span>
+        <div class="topbar-stats" v-if="hasPanorama || sceneChips.length || hotspotCount">
+          <span class="topbar-stat"><strong>{{ sceneChips.length }}</strong> Scenes</span>
+          <span class="topbar-stat"><strong>{{ hotspotCount }}</strong> Hotspots</span>
+        </div>
 
         <!-- Processing status — inline, subtle -->
         <Transition name="fade-quick">
@@ -233,6 +237,7 @@
 
       <!-- Center: hotspot tools -->
       <div class="bottom-center">
+        <div class="bottom-cluster">
         <!-- Edit mode toggle -->
         <button
           class="bottom-tool-btn"
@@ -258,6 +263,8 @@
             </button>
           </div>
         </Transition>
+        </div>
+        <span v-if="inlineEditMode" class="bottom-inline-hint">Click the panorama to place a {{ hotspotDraftType }} hotspot</span>
       </div>
 
       <!-- Right: scene + panorama actions -->
@@ -1143,8 +1150,14 @@ async function confirmDeleteMedia(mediaId: string) {
 <style scoped>
 /* ── Shell ──────────────────────────────────────────────────── */
 .editor-shell {
+  --panel-bg: linear-gradient(180deg, rgba(15, 16, 21, 0.94) 0%, rgba(11, 12, 16, 0.94) 100%);
+  --panel-edge: rgba(255, 255, 255, 0.08);
   position: absolute;
   inset: 0;
+  background:
+    radial-gradient(1200px 420px at 72% -10%, rgba(56, 189, 248, 0.09), transparent 55%),
+    radial-gradient(900px 420px at 10% -20%, rgba(16, 185, 129, 0.07), transparent 52%),
+    #08090d;
   overflow: hidden;
 }
 
@@ -1158,8 +1171,10 @@ async function confirmDeleteMedia(mediaId: string) {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  background: #111113;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--panel-edge);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.02);
 }
 .editor-topbar__left {
   display: flex;
@@ -1197,8 +1212,8 @@ async function confirmDeleteMedia(mediaId: string) {
 
 .topbar-title {
   font-size: 13px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.9);
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.96);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1215,6 +1230,33 @@ async function confirmDeleteMedia(mediaId: string) {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.topbar-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;
+}
+
+.topbar-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.38);
+  color: rgba(203, 213, 225, 0.8);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.topbar-stat strong {
+  color: #e2e8f0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .topbar-processing {
@@ -1256,23 +1298,28 @@ async function confirmDeleteMedia(mediaId: string) {
   padding: 0 14px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  border: none;
-  transition: background 120ms, opacity 120ms;
+  border: 1px solid transparent;
+  transition: background 120ms, opacity 120ms, border-color 120ms, transform 120ms;
 }
 .topbar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .topbar-btn--secondary {
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.8);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(15, 23, 42, 0.48);
+  color: rgba(226,232,240,0.9);
+  border-color: rgba(148,163,184,0.26);
 }
-.topbar-btn--secondary:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+.topbar-btn--secondary:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.68);
+  border-color: rgba(148,163,184,0.45);
+  transform: translateY(-1px);
+}
 .topbar-btn--primary {
-  background: #fff;
-  color: #0a0a0b;
+  background: linear-gradient(135deg, #e2e8f0 0%, #f8fafc 48%, #cbd5e1 100%);
+  color: #0f172a;
+  border-color: rgba(226, 232, 240, 0.72);
 }
-.topbar-btn--primary:hover:not(:disabled) { background: #e5e5e5; }
+.topbar-btn--primary:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.03); }
 
 .topbar-spinner {
   width: 12px;
@@ -1289,11 +1336,12 @@ async function confirmDeleteMedia(mediaId: string) {
   top: 60px; left: 0; bottom: 60px;
   width: 240px;
   z-index: 40;
-  background: #0f0f10;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--panel-bg);
+  border-right: 1px solid var(--panel-edge);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  backdrop-filter: blur(14px);
 }
 .editor-sidebar::-webkit-scrollbar { width: 3px; }
 .editor-sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -1573,7 +1621,9 @@ async function confirmDeleteMedia(mediaId: string) {
   left: 240px;
   right: 0;
   bottom: 60px;
-  background: #080809;
+  background:
+    radial-gradient(700px 300px at 85% -5%, rgba(14, 165, 233, 0.08), transparent 60%),
+    #08090d;
   overflow: hidden;
 }
 
@@ -1682,9 +1732,10 @@ async function confirmDeleteMedia(mediaId: string) {
   display: flex;
   align-items: center;
   padding: 0 16px;
-  background: #111113;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--panel-bg);
+  border-top: 1px solid var(--panel-edge);
   gap: 12px;
+  backdrop-filter: blur(16px);
 }
 .bottom-left {
   flex: 0 0 240px;
@@ -1706,7 +1757,17 @@ async function confirmDeleteMedia(mediaId: string) {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 12px;
+}
+
+.bottom-cluster {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.35);
 }
 .bottom-right {
   display: flex;
@@ -1725,17 +1786,17 @@ async function confirmDeleteMedia(mediaId: string) {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.4);
+  color: rgba(226,232,240,0.72);
   transition: background 120ms, color 120ms, border-color 120ms;
 }
-.bottom-tool-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.bottom-tool-btn:hover { background: rgba(30, 41, 59, 0.7); color: #fff; border-color: rgba(148,163,184,0.42); }
 .bottom-tool-btn--active {
-  background: rgba(255,255,255,0.12);
-  color: #fff;
-  border-color: rgba(255,255,255,0.2);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(16, 185, 129, 0.18));
+  color: #f8fafc;
+  border-color: rgba(125, 211, 252, 0.5);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2) inset;
 }
 
 .bottom-type-picker {
@@ -1744,8 +1805,8 @@ async function confirmDeleteMedia(mediaId: string) {
   gap: 2px;
   padding: 3px;
   border-radius: 9px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 .bottom-type-btn {
   height: 26px;
@@ -1756,11 +1817,21 @@ async function confirmDeleteMedia(mediaId: string) {
   cursor: pointer;
   border: none;
   background: transparent;
-  color: rgba(255,255,255,0.45);
+  color: rgba(203,213,225,0.55);
   transition: background 100ms, color 100ms;
 }
-.bottom-type-btn:hover { color: rgba(255,255,255,0.8); }
-.bottom-type-btn--active { background: rgba(255,255,255,0.12); color: #fff; }
+.bottom-type-btn:hover { color: rgba(248,250,252,0.92); }
+.bottom-type-btn--active { background: rgba(56, 189, 248, 0.2); color: #e0f2fe; }
+
+.bottom-inline-hint {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(125, 211, 252, 0.9);
+}
 
 .bottom-action-btn {
   display: inline-flex;
@@ -1771,15 +1842,77 @@ async function confirmDeleteMedia(mediaId: string) {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.42);
+  color: rgba(226,232,240,0.76);
   transition: background 120ms, color 120ms;
   white-space: nowrap;
 }
-.bottom-action-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: #fff; }
+.bottom-action-btn:hover:not(:disabled) { background: rgba(30, 41, 59, 0.7); color: #fff; }
 .bottom-action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .bottom-action-btn--upload { cursor: pointer; }
+
+@media (max-width: 1080px) {
+  .editor-sidebar {
+    width: 208px;
+  }
+  .editor-canvas {
+    left: 208px;
+  }
+  .bottom-left {
+    flex-basis: 208px;
+  }
+  .topbar-stats {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .editor-topbar {
+    height: 56px;
+    padding: 0 10px;
+  }
+  .editor-sidebar {
+    top: 56px;
+    width: 100%;
+    bottom: auto;
+    height: 168px;
+    border-right: none;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  .editor-canvas {
+    top: 224px;
+    left: 0;
+    bottom: 68px;
+  }
+  .editor-bottom {
+    height: 68px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .bottom-left {
+    display: none;
+  }
+  .bottom-center {
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .bottom-center::-webkit-scrollbar {
+    display: none;
+  }
+  .bottom-inline-hint {
+    display: none;
+  }
+  .bottom-right {
+    margin-left: auto;
+    gap: 6px;
+  }
+  .topbar-title {
+    max-width: 120px;
+  }
+}
 
 /* ── Toast ───────────────────────────────────────────────────── */
 .editor-toast {
