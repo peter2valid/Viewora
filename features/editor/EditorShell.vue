@@ -440,6 +440,14 @@ function unwrapApiData<T = any>(value: any): T {
   return value as T
 }
 
+function toArrayPayload<T = any>(value: any, key: string): T[] {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object' && Array.isArray((value as any)[key])) {
+    return (value as any)[key] as T[]
+  }
+  return []
+}
+
 watch(hasProcessingMedia, (isProcessing) => {
   if (isProcessing) {
     startPolling()
@@ -498,7 +506,7 @@ async function fetchScenes() {
 
     if (version !== fetchScenesVersion) return
 
-    const loadedScenes = unwrapApiData<any>(result)?.scenes || result?.scenes || []
+    const loadedScenes = toArrayPayload<any>(unwrapApiData<any>(result), 'scenes')
     scenes.value = loadedScenes
 
     const newMap: Record<string, EditorHotspot[]> = {}
@@ -513,7 +521,7 @@ async function fetchScenes() {
         try {
           const hRes = await apiFetch<any>(`/scenes/${scene.id}/hotspots`, { signal })
           if (version !== fetchScenesVersion) return
-          newMap[scene.id] = mapDbHotspots(unwrapApiData<any>(hRes)?.hotspots ?? hRes?.hotspots ?? [])
+          newMap[scene.id] = mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(hRes), 'hotspots'))
         } catch (err: any) {
           if (isAbortError(err)) return
           newMap[scene.id] = hotspotsByScene.value[scene.id] ?? []
@@ -573,7 +581,7 @@ function stopSceneRealtime() {
 async function fetchHotspots(sceneId: string) {
   try {
     const result = await apiFetch<any>(`/scenes/${sceneId}/hotspots`)
-    const list = mapDbHotspots(unwrapApiData<any>(result)?.hotspots || result?.hotspots || [])
+    const list = mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(result), 'hotspots'))
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: list }
   } catch {
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: hotspotsByScene.value[sceneId] || [] }
