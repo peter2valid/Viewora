@@ -436,7 +436,7 @@ const sceneChips = computed(() => {
       if (orderDiff !== 0) return orderDiff
       return String(a.id || '').localeCompare(String(b.id || ''))
     })
-    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'complete' || s.status === 'ready' }))
+    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'ready' }))
 })
 
 const hasProcessingMedia = computed(() => media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing'))
