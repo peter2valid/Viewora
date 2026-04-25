@@ -1,53 +1,22 @@
 <template>
-  <div class="editor-shell">
+  <div class="editor-shell editor-root">
 
-    <!-- ── TopBar ──────────────────────────────────────────── -->
-    <header class="editor-topbar">
-      <div class="editor-topbar__left">
-        <NuxtLink to="/app/spaces" class="topbar-back">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        </NuxtLink>
-        <span class="topbar-divider"></span>
-        <h1 class="topbar-title">{{ space?.title || 'Edit Tour' }}</h1>
-        <span v-if="space?.is_published" class="topbar-live-badge">Live</span>
-        <div class="topbar-stats" v-if="hasPanorama || sceneChips.length || hotspotCount">
-          <span class="topbar-stat"><strong>{{ sceneChips.length }}</strong> Scenes</span>
-          <span class="topbar-stat"><strong>{{ hotspotCount }}</strong> Hotspots</span>
-        </div>
-
-        <!-- Processing status — inline, subtle -->
-        <Transition name="fade-quick">
-          <div v-if="hasProcessingMedia" class="topbar-processing" :class="{ 'topbar-processing--stuck': isProcessingStuck }">
-            <div class="topbar-processing__spinner"></div>
-            <span>{{ isProcessingStuck ? 'Taking longer than expected…' : 'Processing…' }}</span>
-            <span class="topbar-processing__elapsed">{{ processingElapsedSeconds }}s</span>
-          </div>
-        </Transition>
-      </div>
-
-      <div class="editor-topbar__right">
-        <a
-          v-if="space?.is_published && space.slug"
-          :href="`/p/${space.slug}`"
-          target="_blank"
-          class="topbar-btn topbar-btn--secondary"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          Preview
-        </a>
-        <button
-          class="topbar-btn topbar-btn--primary"
-          :disabled="publishing"
-          @click="handleTogglePublish"
-        >
-          <div v-if="publishing" class="topbar-spinner"></div>
-          <template v-else>
-            <span v-if="space?.is_published">Unpublish</span>
-            <span v-else>Publish Tour</span>
-          </template>
-        </button>
-      </div>
-    </header>
+    <!-- ── Floating UI overlay (pointer-events: none at root, auto per panel) ── -->
+    <div class="editor-overlay">
+      <TopBar
+        :space-name="space?.title || 'Edit Tour'"
+        :is-published="Boolean(space?.is_published)"
+        :slug="space?.slug"
+        :scene-count="sceneChips.length"
+        :hotspot-count="hotspotCount"
+        :publishing="publishing"
+        :has-processing-media="hasProcessingMedia"
+        :is-processing-stuck="isProcessingStuck"
+        :processing-elapsed-seconds="processingElapsedSeconds"
+        @toggle-publish="handleTogglePublish"
+      />
+      <LeftToolbar />
+    </div>
 
     <!-- ── Sidebar ─────────────────────────────────────────── -->
     <aside class="editor-sidebar">
@@ -166,25 +135,27 @@
     <!-- ── Canvas ──────────────────────────────────────────── -->
     <main class="editor-canvas">
 
-      <!-- EditorCanvas: always mounted — v-show inside keeps PSV alive -->
-      <EditorCanvas
-        class="absolute inset-0"
-        :visible="hasPanorama && Boolean(activePanoramaSrc)"
+      <!-- Hidden file input — triggered when ViewerCanvas "Choose File" emits request-upload with no file -->
+      <input
+        ref="canvasFileInput"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        @change="handlePanoramaUpload"
+      />
+
+      <!-- ViewerCanvas owns: PSV wrapper, drag & drop, empty state, hotspot badge -->
+      <ViewerCanvas
         :active-scene="activeViewerScene"
         :space-type="space?.space_type"
         :hotspots="activeSceneHotspots"
-        :is-editing="inlineEditMode"
+        @error="showToast($event.message, 'error')"
         @add-hotspot="handleViewerAddHotspot"
         @hotspot-click="handleHotspotClick"
+        @request-upload="handleViewerCanvasUpload"
       />
 
-      <!-- Placeholder (no panorama uploaded yet) -->
-      <div v-if="!hasPanorama" class="absolute inset-0 pointer-events-none">
-        <img :src="placeholderPanoramaUrl" class="w-full h-full object-cover opacity-70" />
-        <div class="absolute inset-0 bg-gradient-to-br from-zinc-950/40 via-transparent to-zinc-950/50"></div>
-      </div>
-
-      <!-- Processing status badge (canvas overlay) -->
+      <!-- Processing status badge — EditorShell-specific, rendered above ViewerCanvas -->
       <div
         v-if="panorama"
         class="canvas-badge canvas-badge--tl"
@@ -212,18 +183,6 @@
         >
           {{ deletingMedia[panorama!.id] ? 'Removing…' : 'Remove Panorama' }}
         </button>
-      </div>
-
-      <!-- Empty state guide (no panorama) -->
-      <div v-if="!hasPanorama" class="canvas-guide">
-        <div class="canvas-guide__card">
-          <p class="canvas-guide__title">Upload your first 360° image</p>
-          <p class="canvas-guide__sub">Choose a high-resolution equirectangular panorama (2:1 ratio) — your interactive tour starts instantly.</p>
-          <label class="canvas-guide__btn">
-            <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-            Choose file
-          </label>
-        </div>
       </div>
     </main>
 
@@ -358,9 +317,11 @@ import { useSupabaseClient } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import type { Hotspot } from '~/domain/hotspot'
-import EditorCanvas from '~/features/editor/EditorCanvas.vue'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
+import TopBar from '~/features/editor/components/TopBar.vue'
+import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
+import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 
 const editorStore = useEditorStore()
 
@@ -389,7 +350,12 @@ const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
 const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
 const deletingMedia = ref<Record<string, boolean>>({})
-const inlineEditMode = ref(false)
+// Writable computed bridges the bottom-bar toggle and LeftToolbar keyboard shortcuts
+// through the same store state — no separate ref needed.
+const inlineEditMode = computed({
+  get: () => editorStore.mode === 'hotspot',
+  set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
+})
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
 const editingHotspotId = ref<string | null>(null)
@@ -1098,6 +1064,18 @@ async function handlePanoramaUpload(e: any) {
   if (!file) return
   setPanoramaPreview(file)
   await uploadFile(file, 'panorama')
+}
+
+// Hidden file input used by ViewerCanvas's "Choose File" button (drag-drop canvas)
+const canvasFileInput = ref<HTMLInputElement | null>(null)
+
+async function handleViewerCanvasUpload(file?: File) {
+  if (file) {
+    setPanoramaPreview(file)
+    await uploadFile(file, 'panorama')
+  } else {
+    canvasFileInput.value?.click()
+  }
 }
 
 async function uploadFile(file: File, type: string) {
