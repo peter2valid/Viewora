@@ -156,6 +156,7 @@ import { ref, onMounted, computed } from 'vue'
 import { definePageMeta, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
+import { unwrapApiData, toArrayPayload } from '~/shared/utils/api'
 
 definePageMeta({
   layout: 'app',
@@ -174,27 +175,9 @@ const recentLeadsCount = ref(0)
 const hasSpaces = computed(() => spaces.value.length > 0)
 const recentSpaces = computed(() => spaces.value.slice(0, 4))
 
-function unwrapData<T = any>(value: any): T {
-  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
-    return value.data as T
-  }
-  return value as T
-}
-
-function toArray<T = any>(value: any): T[] {
-  const unwrapped = unwrapData<any>(value)
-  if (Array.isArray(unwrapped)) return unwrapped
-  if (unwrapped && typeof unwrapped === 'object') {
-    if (Array.isArray(unwrapped.items)) return unwrapped.items
-    if (Array.isArray(unwrapped.rows)) return unwrapped.rows
-    if (Array.isArray(unwrapped.results)) return unwrapped.results
-  }
-  return []
-}
-
 onMounted(async () => {
   try {
-    const billingData = unwrapData<any>(await apiFetch<any>('/billing/status'))
+    const billingData = unwrapApiData<any>(await apiFetch<any>('/billing/status'))
     plan.value = billingData?.plan ?? null
     usage.value = billingData?.usage ?? null
 
@@ -207,8 +190,8 @@ onMounted(async () => {
       apiFetch<any[]>('/leads')
     ])
 
-    const analyticsData = analyticsRes.status === 'fulfilled' ? toArray<any>(analyticsRes.value) : []
-    const leadsData = leadsRes.status === 'fulfilled' ? toArray<any>(leadsRes.value) : []
+    const analyticsData = analyticsRes.status === 'fulfilled' ? toArrayPayload<any>(analyticsRes.value) : []
+    const leadsData = leadsRes.status === 'fulfilled' ? toArrayPayload<any>(leadsRes.value) : []
     
     totalViews.value = analyticsData.reduce((acc, curr) => acc + Number(curr?.total_views || 0), 0)
     

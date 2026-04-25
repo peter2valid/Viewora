@@ -226,6 +226,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { definePageMeta, useSeoMeta } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { unwrapApiData, toArrayPayload } from '~/shared/utils/api'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Billing | Viewora' })
@@ -242,25 +243,6 @@ const usage = ref<any>(null)
 const availablePlans = ref<any[]>([])
 const plansSection = ref<HTMLElement | null>(null)
 
-function unwrapApiData<T = any>(value: any): T {
-  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
-    return value.data as T
-  }
-  if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) {
-    return value.result as T
-  }
-  return value as T
-}
-
-function toArray<T = any>(value: any): T[] {
-  const unwrapped = unwrapApiData<any>(value)
-  if (Array.isArray(unwrapped)) return unwrapped
-  if (unwrapped && typeof unwrapped === 'object') {
-    if (Array.isArray(unwrapped.items)) return unwrapped.items
-    if (Array.isArray(unwrapped.rows)) return unwrapped.rows
-  }
-  return []
-}
 
 // ── Toast ──────────────────────────────────────────────────────────────────
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -355,7 +337,7 @@ async function fetchBillingData() {
       apiFetch<any[]>('/billing/plans'),
     ])
     const statusData = unwrapApiData<any>(statusRaw)
-    const plansData = toArray<any>(plansRaw)
+    const plansData = toArrayPayload<any>(plansRaw)
     plan.value = statusData.plan
     subscription.value = statusData.subscription
     usage.value = statusData.usage

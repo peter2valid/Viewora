@@ -1,8 +1,4 @@
 export default defineNuxtRouteMiddleware(async () => {
-  // ⚠️ DEV BYPASS: Auth check is skipped in development for convenience.
-  // Comment this line out to test auth redirect flows locally.
-  if (process.dev) return
-
   const user = useSupabaseUser()
   if (user.value) return
 

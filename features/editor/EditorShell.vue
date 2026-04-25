@@ -295,6 +295,58 @@
           <span class="editor-toast__msg">{{ toast.message }}</span>
         </div>
       </Transition>
+
+      <!-- Share modal — shown after first publish -->
+      <Transition name="share-modal">
+        <div v-if="showShareModal" class="share-overlay" @click.self="showShareModal = false">
+          <div class="share-modal" role="dialog" aria-modal="true" aria-label="Share your tour">
+            <!-- Header -->
+            <div class="share-modal__header">
+              <div class="share-modal__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div>
+                <h2 class="share-modal__title">Your tour is live!</h2>
+                <p class="share-modal__sub">Share this link with your clients</p>
+              </div>
+              <button class="share-modal__close" @click="showShareModal = false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <!-- URL row -->
+            <div class="share-modal__url-row">
+              <span class="share-modal__url">{{ publicUrl }}</span>
+              <button class="share-modal__copy" @click="copyPublicUrl">
+                <template v-if="urlCopied">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  Copied!
+                </template>
+                <template v-else>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Copy
+                </template>
+              </button>
+            </div>
+
+            <!-- Actions -->
+            <div class="share-modal__actions">
+              <a
+                :href="`https://wa.me/?text=${encodeURIComponent('Check out my virtual tour: ' + publicUrl)}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="share-modal__whatsapp"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+                Share on WhatsApp
+              </a>
+              <button class="share-modal__done" @click="showShareModal = false">
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </Teleport>
 
   </div>
@@ -308,6 +360,9 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import type { Hotspot } from '~/domain/hotspot'
 import EditorCanvas from '~/features/editor/EditorCanvas.vue'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
+import { useEditorStore } from '~/features/editor/store/useEditorStore'
+
+const editorStore = useEditorStore()
 
 const props = defineProps<{
   spaceId: string
@@ -337,7 +392,6 @@ const deletingMedia = ref<Record<string, boolean>>({})
 const inlineEditMode = ref(false)
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
-const isSceneTransitioning = ref(false)
 const editingHotspotId = ref<string | null>(null)
 const editingHotspotSceneId = ref<string | null>(null)
 const hotspotEditForm = ref({
@@ -368,10 +422,24 @@ const pollFailureCount = ref(0)
 
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
+const showShareModal = ref(false)
+// Keep keyboard-shortcut modal guard in sync with the share modal state.
+watch(showShareModal, (open) => open ? editorStore.openModal() : editorStore.closeModal())
+const urlCopied = ref(false)
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { message, type }
   toastTimer = setTimeout(() => { toast.value = null }, 3200)
+}
+
+async function copyPublicUrl() {
+  try {
+    await navigator.clipboard.writeText(publicUrl.value)
+    urlCopied.value = true
+    setTimeout(() => { urlCopied.value = false }, 2000)
+  } catch {
+    showToast('Could not copy — please copy manually', 'error')
+  }
 }
 
 const hotspotTypes = [
@@ -609,16 +677,9 @@ async function fetchHotspots(sceneId: string) {
 
 async function selectScene(sceneId: string) {
   if (sceneId === selectedSceneId.value) return
-  isSceneTransitioning.value = true
   selectedSceneId.value = sceneId
-  try {
-    if (!hotspotsByScene.value[sceneId]) {
-      await fetchHotspots(sceneId)
-    }
-  } finally {
-    setTimeout(() => {
-      isSceneTransitioning.value = false
-    }, 650)
+  if (!hotspotsByScene.value[sceneId]) {
+    await fetchHotspots(sceneId)
   }
 }
 
@@ -1021,7 +1082,7 @@ async function handleTogglePublish() {
     })
     space.value = updated
     if (!isLive) {
-      showToast('Your tour is LIVE. Share it now to start getting clients.')
+      showShareModal.value = true
     } else {
       showToast('Tour unpublished')
     }
@@ -1154,6 +1215,7 @@ async function confirmDeleteMedia(mediaId: string) {
   --panel-edge: rgba(255, 255, 255, 0.08);
   position: absolute;
   inset: 0;
+  isolation: isolate;
   background:
     radial-gradient(1200px 420px at 72% -10%, rgba(56, 189, 248, 0.09), transparent 55%),
     radial-gradient(900px 420px at 10% -20%, rgba(16, 185, 129, 0.07), transparent 52%),
@@ -1961,4 +2023,165 @@ async function confirmDeleteMedia(mediaId: string) {
   40%  { transform: scale(1.12); }
   100% { transform: scale(1); }
 }
+
+/* ── Share modal ────────────────────────────────────────────── */
+.share-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.share-modal {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(160deg, #13151c 0%, #0e1018 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+
+.share-modal__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.share-modal__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #10b981;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
+}
+
+.share-modal__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+
+.share-modal__sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+}
+
+.share-modal__close {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms, color 120ms;
+  flex-shrink: 0;
+}
+.share-modal__close:hover { background: rgba(255,255,255,0.07); color: #fff; }
+
+.share-modal__url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.share-modal__url {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: monospace;
+}
+
+.share-modal__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms, color 120ms;
+  flex-shrink: 0;
+}
+.share-modal__copy:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+.share-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.share-modal__whatsapp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 48px;
+  border-radius: 12px;
+  background: #25D366;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: filter 120ms, transform 120ms;
+}
+.share-modal__whatsapp:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+.share-modal__done {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.share-modal__done:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); }
+
+.share-modal-enter-active, .share-modal-leave-active {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.share-modal-enter-active .share-modal, .share-modal-leave-active .share-modal {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.share-modal-enter-from { opacity: 0; }
+.share-modal-enter-from .share-modal { transform: scale(0.92) translateY(12px); }
+.share-modal-leave-to { opacity: 0; }
+.share-modal-leave-to .share-modal { transform: scale(0.95) translateY(6px); }
 </style>

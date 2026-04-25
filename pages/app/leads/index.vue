@@ -251,7 +251,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { definePageMeta, useSeoMeta, useSupabaseUser, useSupabaseClient } from '#imports'
+import { definePageMeta, useSeoMeta, useSupabaseUser } from '#imports'
+import { toArrayPayload } from '~/shared/utils/api'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 
@@ -302,7 +303,7 @@ async function loadLeads() {
   pending.value = true
   fetchError.value = ''
   try {
-    leads.value = await apiFetch<Lead[]>('/leads')
+    leads.value = toArrayPayload<Lead>(await apiFetch<any>('/leads'))
   } catch (e: any) {
     fetchError.value = e.data?.statusMessage ?? e.message ?? 'Failed to load leads.'
   } finally {

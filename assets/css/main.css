@@ -3293,3 +3293,64 @@ header.nav {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
 }
 
+/* ============================================================
+   EDITOR — Layout root
+   Must be applied to the outermost editor wrapper.
+   isolation: isolate creates a clean stacking context so that
+   backdrop-filter and transform on child panels don't leak into
+   the page stacking context and break z-index ordering.
+   ============================================================ */
+.editor-root {
+  position: relative;
+  isolation: isolate;
+}
+
+/* ============================================================
+   EDITOR — Overlay layer
+   Wraps all floating panels (TopBar, LeftToolbar, future panels).
+   pointer-events: none at this level — each panel sets auto.
+   ============================================================ */
+.editor-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   EDITOR — Glass system (single source of truth)
+   All floating editor panels (TopBar, LeftToolbar, RightPanel,
+   SceneDock) must use .editor-glass. No variations allowed.
+   ============================================================ */
+
+.editor-glass {
+  background: rgba(10, 12, 20, 0.82);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50);
+}
+
+/* Contrast safety for text-dense areas inside panels.
+   Use when bright panoramas could wash out text behind glass. */
+.panel-inner {
+  background: rgba(0, 0, 0, 0.40);
+  border-radius: 12px;
+}
+
+/* Keyboard focus ring for all interactive elements inside editor panels.
+   :focus-visible only fires on keyboard navigation — mouse clicks are unaffected.
+   Per-element focus-visible:ring-* classes override this where needed. */
+.editor-glass *:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* High-contrast variant for bright panorama scenes.
+   Apply .editor-glass--contrast when scene luminance analysis indicates
+   the background would wash out the default glass opacity.
+   Usage: :class="['editor-glass', needsHighContrast && 'editor-glass--contrast']" */
+.editor-glass--contrast {
+  background: rgba(10, 12, 20, 0.92);
+}
+

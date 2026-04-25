@@ -22,7 +22,6 @@ export interface Settings360 {
   pitch_default: number
   yaw_default: number
   auto_rotate_enabled: boolean
-  hotspots_json: Hotspot360[] | null
 }
 
 export interface Hotspot360 {

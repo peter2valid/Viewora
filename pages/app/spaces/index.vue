@@ -330,7 +330,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'app', middleware: 'auth' })
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSpaces } from '~/composables/useSpaces'
 import { navigateTo } from '#imports'
 import type { Space } from '~/composables/useSpaces'
@@ -342,10 +342,6 @@ const search = ref('')
 const searchInput = ref<HTMLInputElement>()
 const sortBy = ref<'newest' | 'oldest' | 'name'>('newest')
 const viewMode = ref<'grid' | 'list'>('grid')
-const activeDropdown = ref<string | null>(null)
-
-
-
 // Delete
 const spaceToDelete = ref<Space | null>(null)
 const deleting = ref(false)
@@ -379,17 +375,7 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   fetchSpaces()
-  if (import.meta.client) window.addEventListener('click', closeDropdowns)
 })
-onUnmounted(() => {
-  if (import.meta.client) window.removeEventListener('click', closeDropdowns)
-})
-
-const closeDropdowns = () => { activeDropdown.value = null }
-const toggleDropdown = (id: string, e: Event) => {
-  e.preventDefault()
-  activeDropdown.value = activeDropdown.value === id ? null : id
-}
 
 const filteredSpaces = computed(() => {
   let list = Array.isArray(spaces.value) ? spaces.value.slice() : []
@@ -421,7 +407,6 @@ const handleTogglePublish = async (space: Space) => {
   const isLive = space.is_published
   try {
     await publishSpace(space.id, !isLive)
-    activeDropdown.value = null
     showToast(isLive ? `"${space.title}" unpublished` : `"${space.title}" is now live`)
   } catch (e: any) {
     showToast(e.data?.statusMessage ?? 'Failed to update publish status.', 'error')
@@ -431,7 +416,6 @@ const handleTogglePublish = async (space: Space) => {
 // Delete
 const confirmDelete = (space: Space) => {
   spaceToDelete.value = space
-  activeDropdown.value = null
 }
 const handleDelete = async () => {
   if (!spaceToDelete.value) return

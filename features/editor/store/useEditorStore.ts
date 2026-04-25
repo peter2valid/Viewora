@@ -11,6 +11,8 @@ export const useEditorStore = defineStore('editor', () => {
   const isDirty = ref(false)
   const isSaving = ref(false)
   const selectedHotspotId = ref<string | null>(null)
+  // Any open dialog/modal sets this true — keyboard shortcuts check it before firing.
+  const isModalOpen = ref(false)
 
   function setMode(next: EditorMode) {
     mode.value = next
@@ -37,12 +39,21 @@ export const useEditorStore = defineStore('editor', () => {
     if (value) isDirty.value = false
   }
 
+  function openModal() {
+    isModalOpen.value = true
+  }
+
+  function closeModal() {
+    isModalOpen.value = false
+  }
+
   function $reset() {
     mode.value = 'view'
     activePanel.value = null
     isDirty.value = false
     isSaving.value = false
     selectedHotspotId.value = null
+    isModalOpen.value = false
   }
 
   return {
@@ -51,12 +62,15 @@ export const useEditorStore = defineStore('editor', () => {
     isDirty: readonly(isDirty),
     isSaving: readonly(isSaving),
     selectedHotspotId: readonly(selectedHotspotId),
+    isModalOpen: readonly(isModalOpen),
     setMode,
     setPanel,
     selectHotspot,
     markDirty,
     markClean,
     setSaving,
+    openModal,
+    closeModal,
     $reset,
   }
 })
