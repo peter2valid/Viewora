@@ -1373,7 +1373,7 @@ async function confirmDeleteMedia(mediaId: string) {
 /* ── Sidebar ────────────────────────────────────────────────── */
 .editor-sidebar {
   position: fixed;
-  top: 60px; left: 0; bottom: 60px;
+  top: 0; left: 0; bottom: 60px;
   width: 240px;
   z-index: 40;
   background: var(--panel-bg);
@@ -1657,7 +1657,7 @@ async function confirmDeleteMedia(mediaId: string) {
 /* ── Canvas ─────────────────────────────────────────────────── */
 .editor-canvas {
   position: fixed;
-  top: 60px;
+  top: 0;
   left: 240px;
   right: 0;
   bottom: 60px;
@@ -1908,12 +1908,8 @@ async function confirmDeleteMedia(mediaId: string) {
 }
 
 @media (max-width: 780px) {
-  .editor-topbar {
-    height: 56px;
-    padding: 0 10px;
-  }
   .editor-sidebar {
-    top: 56px;
+    top: 0;
     width: 100%;
     bottom: auto;
     height: 168px;
@@ -1921,7 +1917,7 @@ async function confirmDeleteMedia(mediaId: string) {
     border-bottom: 1px solid var(--panel-edge);
   }
   .editor-canvas {
-    top: 224px;
+    top: 168px;
     left: 0;
     bottom: 68px;
   }
