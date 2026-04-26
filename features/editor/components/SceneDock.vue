@@ -15,6 +15,8 @@
     :lift-px="14"
     @select="$emit('select-scene', $event)"
     @add="$emit('add-scene')"
+    @reorder="$emit('reorder-scenes', $event)"
+    @context="$emit('rename-scene', $event)"
   />
 </template>
 
@@ -31,6 +33,8 @@ const props = defineProps<{
 defineEmits<{
   (e: 'select-scene', id: string): void
   (e: 'add-scene'): void
+  (e: 'reorder-scenes', ids: string[]): void
+  (e: 'rename-scene', id: string): void
 }>()
 
 const visible = ref(false)

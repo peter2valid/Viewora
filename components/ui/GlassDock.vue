@@ -18,10 +18,22 @@
           :key="item.id"
           class="glass-dock__item"
           data-dock-item="true"
-          :class="item.id === activeId ? 'glass-dock__item--active' : ''"
+          draggable="true"
+          :class="[
+            item.id === activeId ? 'glass-dock__item--active' : '',
+            item.id === dragSrcId ? 'glass-dock__item--dragging' : '',
+            item.id === dragOverId ? 'glass-dock__item--drag-over' : '',
+          ]"
           :aria-current="item.id === activeId ? 'true' : 'false'"
           :aria-label="item.ariaLabel || item.label"
           @click="emit('select', item.id)"
+          @contextmenu.prevent="emit('context', item.id)"
+          @dragstart="onDragStart(item.id, $event)"
+          @dragenter.prevent="onDragEnter(item.id)"
+          @dragover.prevent
+          @dragleave="onDragLeave(item.id)"
+          @drop.prevent="onDrop(item.id)"
+          @dragend="onDragEnd"
         >
           <span class="glass-dock__thumb">
             <img
@@ -149,12 +161,50 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'select', id: string): void
   (e: 'add'): void
+  (e: 'reorder', ids: string[]): void
+  (e: 'context', id: string): void
 }>()
 
 const visible = ref(false)
 onMounted(() => { visible.value = true })
 
 const dockEl = ref<HTMLElement | null>(null)
+const dragSrcId = ref<string | null>(null)
+const dragOverId = ref<string | null>(null)
+
+function onDragStart(id: string, e: DragEvent) {
+  dragSrcId.value = id
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragEnter(id: string) {
+  if (!dragSrcId.value || id === dragSrcId.value) return
+  dragOverId.value = id
+}
+
+function onDragLeave(id: string) {
+  if (dragOverId.value === id) dragOverId.value = null
+}
+
+function onDrop(id: string) {
+  if (!dragSrcId.value || id === dragSrcId.value) return
+  const ids = props.items.map((i) => i.id)
+  const fromIdx = ids.indexOf(dragSrcId.value)
+  const toIdx = ids.indexOf(id)
+  if (fromIdx !== -1 && toIdx !== -1) {
+    const newIds = [...ids]
+    newIds.splice(fromIdx, 1)
+    newIds.splice(toIdx, 0, dragSrcId.value)
+    emit('reorder', newIds)
+  }
+  dragSrcId.value = null
+  dragOverId.value = null
+}
+
+function onDragEnd() {
+  dragSrcId.value = null
+  dragOverId.value = null
+}
 
 const paddedClass = computed(() => 'glass-dock--padded')
 const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
@@ -340,6 +390,12 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 @keyframes pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.95; }
+}
+
+.glass-dock__item--dragging { opacity: 0.35; cursor: grabbing; }
+.glass-dock__item--drag-over {
+  border-color: rgba(59, 130, 246, 0.55) !important;
+  background: rgba(59, 130, 246, 0.07) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

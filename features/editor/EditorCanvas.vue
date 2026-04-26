@@ -1,7 +1,6 @@
 <template>
   <!-- canvas is always mounted — v-show only toggles display, never destroys PSV -->
   <div v-show="visible" class="canvas">
-    <!-- remove-hotspot is intentionally not wired; deletion is sidebar-only for now -->
     <ViewerShell
       :active-scene="activeScene"
       :space-type="spaceType"

@@ -46,6 +46,8 @@
       :add-scene-pending="addScenePending"
       @select-scene="selectScene"
       @add-scene="handleAddScene"
+      @reorder-scenes="handleReorderScenes"
+      @rename-scene="handleRenameScene"
     />
 
     <!-- Toast + Share modal teleported to body -->
@@ -58,6 +60,96 @@
         >
           <div class="editor-toast__dot"></div>
           <span class="editor-toast__msg">{{ toast.message }}</span>
+        </div>
+      </Transition>
+
+      <Transition name="fade-smooth">
+        <div
+          v-if="deleteCandidate"
+          class="hs-edit-panel"
+          role="dialog"
+          aria-label="Edit hotspot"
+        >
+          <div class="hs-edit-panel__header">
+            <span class="hs-edit-panel__dot" :class="`hs-edit-panel__dot--${editDraft.type}`"></span>
+            <span class="hs-edit-panel__title">Edit hotspot</span>
+            <button class="hs-edit-panel__close" @click="deleteCandidate = null">✕</button>
+          </div>
+
+          <div class="hs-edit-panel__type-tabs">
+            <button class="hs-edit-panel__type-tab" :class="editDraft.type === 'info' ? 'hs-edit-panel__type-tab--active' : ''" @click="editDraft.type = 'info'">Info</button>
+            <button class="hs-edit-panel__type-tab" :class="editDraft.type === 'url' ? 'hs-edit-panel__type-tab--active' : ''" @click="editDraft.type = 'url'">URL</button>
+            <button class="hs-edit-panel__type-tab" :class="editDraft.type === 'scene_link' ? 'hs-edit-panel__type-tab--active' : ''" @click="editDraft.type = 'scene_link'">Link</button>
+          </div>
+
+          <div class="hs-edit-panel__fields">
+            <label class="hs-edit-panel__field">
+              <span class="hs-edit-panel__label-text">Label</span>
+              <input
+                v-model="editDraft.label"
+                class="hs-edit-panel__input"
+                type="text"
+                placeholder="Hotspot label"
+                maxlength="80"
+              />
+            </label>
+
+            <label v-if="editDraft.type === 'info'" class="hs-edit-panel__field">
+              <span class="hs-edit-panel__label-text">Description</span>
+              <input
+                v-model="editDraft.description"
+                class="hs-edit-panel__input"
+                type="text"
+                placeholder="Short description"
+                maxlength="200"
+              />
+            </label>
+
+            <label v-if="editDraft.type === 'url'" class="hs-edit-panel__field">
+              <span class="hs-edit-panel__label-text">URL</span>
+              <input
+                v-model="editDraft.url"
+                class="hs-edit-panel__input"
+                type="url"
+                placeholder="https://..."
+              />
+            </label>
+
+            <label v-if="editDraft.type === 'scene_link'" class="hs-edit-panel__field">
+              <span class="hs-edit-panel__label-text">Go to scene</span>
+              <select v-model="editDraft.targetSceneId" class="hs-edit-panel__input hs-edit-panel__select">
+                <option v-for="s in editableOtherScenes" :key="s.id" :value="s.id">{{ s.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="hs-edit-panel__actions">
+            <button class="hs-edit-panel__save" :disabled="savingHotspot" @click="saveHotspotEdit">
+              <span v-if="savingHotspot" class="hs-edit-panel__spin" />
+              <template v-else>Save</template>
+            </button>
+            <button class="hs-edit-panel__del" :disabled="deletingHotspot" @click="confirmDeleteHotspot">Delete</button>
+          </div>
+        </div>
+      </Transition>
+
+      <Transition name="fade-smooth">
+        <div v-if="renameCandidate" class="rename-popover" role="dialog" aria-label="Rename scene">
+          <span class="rename-popover__label">Scene name</span>
+          <input
+            ref="renameInputRef"
+            v-model="renameDraft"
+            class="rename-popover__input"
+            type="text"
+            maxlength="64"
+            placeholder="Scene name"
+            @keydown.enter="saveRenameScene"
+            @keydown.exact.escape="renameCandidate = null"
+          />
+          <div class="rename-popover__actions">
+            <button class="rename-popover__save" :disabled="renameSaving" @click="saveRenameScene">Save</button>
+            <button class="rename-popover__cancel" @click="renameCandidate = null">✕</button>
+          </div>
         </div>
       </Transition>
 
@@ -91,6 +183,23 @@
               </button>
             </div>
 
+            <div class="share-modal__embed">
+              <p class="share-modal__embed-label">Embed on your website</p>
+              <div class="share-modal__url-row">
+                <code class="share-modal__url share-modal__embed-code">{{ embedUrl }}</code>
+                <button class="share-modal__copy" @click="copyEmbedCode">
+                  <template v-if="embedCopied">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    Copied!
+                  </template>
+                  <template v-else>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy iframe
+                  </template>
+                </button>
+              </div>
+            </div>
+
             <div class="share-modal__actions">
               <a
                 :href="`https://wa.me/?text=${encodeURIComponent('Check out my virtual tour: ' + publicUrl)}`"
@@ -112,7 +221,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useSupabaseClient } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -167,6 +276,17 @@ type LocalUploadItem = {
 }
 const localUploads = ref<LocalUploadItem[]>([])
 const pollFailureCount = ref(0)
+type DeleteCandidate = EditorHotspot & { sceneId: string }
+const deleteCandidate = ref<DeleteCandidate | null>(null)
+const deletingHotspot = ref(false)
+const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' }>({
+  label: '', description: '', url: '', targetSceneId: '', type: 'info',
+})
+const savingHotspot = ref(false)
+const renameCandidate = ref<{ id: string; name: string } | null>(null)
+const renameDraft = ref('')
+const renameSaving = ref(false)
+const renameInputRef = ref<HTMLInputElement | null>(null)
 
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -196,10 +316,26 @@ async function copyPublicUrl() {
   }
 }
 
+async function copyEmbedCode() {
+  const code = `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen style="border-radius:8px"></iframe>`
+  try {
+    await navigator.clipboard.writeText(code)
+    embedCopied.value = true
+    setTimeout(() => { embedCopied.value = false }, 2000)
+  } catch {
+    showToast('Could not copy — please copy manually', 'error')
+  }
+}
+
 const publicUrl = computed(() => {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
   return `${base}/p/${space.value?.slug || space.value?.id}`
 })
+const embedUrl = computed(() => {
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${base}/embed/${space.value?.slug || space.value?.id}`
+})
+const embedCopied = ref(false)
 
 const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
 const hasPanorama = computed(() => Boolean(panorama.value || localPanoramaPreviewUrl.value))
@@ -288,6 +424,10 @@ const sceneChips = computed(() => {
     }))
 })
 
+const editableOtherScenes = computed(() =>
+  deleteCandidate.value ? sceneChips.value.filter((s) => s.id !== deleteCandidate.value!.sceneId) : []
+)
+
 const hasProcessingMedia = computed(() =>
   media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing')
 )
@@ -318,14 +458,99 @@ watch(hasProcessingMedia, (isProcessing) => {
   }
 }, { immediate: true })
 
+watch(inlineEditMode, (editing) => {
+  if (!editing) deleteCandidate.value = null
+})
+
+watch(deleteCandidate, (candidate) => {
+  if (!candidate) return
+  editDraft.value = {
+    label: candidate.label || '',
+    description: candidate.description || '',
+    url: candidate.url || '',
+    targetSceneId: candidate.targetSceneId || sceneChips.value.find((s) => s.id !== candidate.sceneId)?.id || '',
+    type: (candidate.type as 'info' | 'url' | 'scene_link') || 'info',
+  }
+})
+
+watch(renameCandidate, async (val) => {
+  if (!val) return
+  await nextTick()
+  renameInputRef.value?.focus()
+  renameInputRef.value?.select()
+})
+
+function handleRenameScene(id: string) {
+  const scene = scenes.value.find((s) => s.id === id)
+  if (!scene) return
+  deleteCandidate.value = null
+  renameDraft.value = scene.name || ''
+  renameCandidate.value = { id, name: scene.name || '' }
+}
+
+async function saveRenameScene() {
+  if (!renameCandidate.value || renameSaving.value) return
+  const name = renameDraft.value.trim()
+  if (!name) return
+  renameSaving.value = true
+  const { id } = renameCandidate.value
+  const prevScenes = scenes.value.slice()
+  scenes.value = scenes.value.map((s) => s.id === id ? { ...s, name } : s)
+  renameCandidate.value = null
+  try {
+    await apiFetch(`/scenes/${id}`, { method: 'PATCH', body: { name } })
+    showToast('Scene renamed')
+  } catch (e: any) {
+    scenes.value = prevScenes
+    showToast(e?.data?.statusMessage || 'Failed to rename scene', 'error')
+  } finally {
+    renameSaving.value = false
+  }
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    if (deleteCandidate.value) { e.preventDefault(); deleteCandidate.value = null; return }
+    if (renameCandidate.value) { e.preventDefault(); renameCandidate.value = null; return }
+    if (showShareModal.value) { showShareModal.value = false; return }
+    if (inlineEditMode.value) { e.preventDefault(); inlineEditMode.value = false }
+    return
+  }
+  const target = e.target as HTMLElement
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return
+  if (editorStore.isModalOpen) return
+  if (e.key === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    e.preventDefault()
+    inlineEditMode.value = !inlineEditMode.value
+  }
+}
+
+async function handleReorderScenes(orderedIds: string[]) {
+  const prevScenes = scenes.value.slice()
+  const idToScene = new Map(scenes.value.map((s) => [s.id, s]))
+  scenes.value = orderedIds.map((id) => idToScene.get(id)).filter(Boolean) as any[]
+  try {
+    await Promise.all(
+      orderedIds.map((id, idx) =>
+        apiFetch(`/scenes/${id}`, { method: 'PATCH', body: { order_index: idx } })
+      )
+    )
+  } catch {
+    scenes.value = prevScenes
+    showToast('Failed to save scene order', 'error')
+  }
+}
+
 onMounted(async () => {
   isMounted = true
+  window.addEventListener('keydown', handleKeydown)
   await fetchSpace(true)
   startSceneRealtime()
 })
 
 onBeforeUnmount(() => {
   isMounted = false
+  window.removeEventListener('keydown', handleKeydown)
   fetchScenesController?.abort()
   fetchScenesController = null
   stopPolling()
@@ -384,6 +609,10 @@ async function fetchScenes() {
         }
       }
 
+      // Only eager-load hotspots for the active scene; all others load on-demand via selectScene()
+      const activeId = selectedSceneId.value || loadedScenes[0]?.id
+      if (scene.id !== activeId) return null
+
       try {
         const hRes = await apiFetch<any>(`/scenes/${scene.id}/hotspots`, { signal })
         if (version !== fetchScenesVersion) return null
@@ -405,6 +634,12 @@ async function fetchScenes() {
     for (const result of hotspotResults) {
       if (!result) continue
       newMap[result.sceneId] = result.hotspots
+    }
+    // Preserve cached hotspot data for scenes deferred this cycle
+    for (const scene of loadedScenes) {
+      if (!(scene.id in newMap) && hotspotsByScene.value[scene.id] !== undefined) {
+        newMap[scene.id] = hotspotsByScene.value[scene.id]
+      }
     }
 
     hotspotsByScene.value = newMap
@@ -606,6 +841,10 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
 function handleHotspotClick(id: string) {
   const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
   if (!hotspot) return
+  if (inlineEditMode.value) {
+    deleteCandidate.value = { ...hotspot, sceneId: selectedSceneId.value }
+    return
+  }
   if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
     selectScene(hotspot.targetSceneId)
     showToast('Moved to linked scene')
@@ -616,6 +855,76 @@ function handleHotspotClick(id: string) {
     return
   }
   showToast(hotspot.label || 'Hotspot selected')
+}
+
+async function confirmDeleteHotspot() {
+  if (!deleteCandidate.value || deletingHotspot.value) return
+  const { id, sceneId } = deleteCandidate.value
+  deletingHotspot.value = true
+  deleteCandidate.value = null
+  hotspotsByScene.value = {
+    ...hotspotsByScene.value,
+    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== id),
+  }
+  try {
+    await apiFetch(`/scenes/${sceneId}/hotspots/${id}`, { method: 'DELETE' })
+    showToast('Hotspot deleted')
+  } catch (e: any) {
+    await fetchHotspots(sceneId)
+    showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
+  } finally {
+    deletingHotspot.value = false
+  }
+}
+
+async function saveHotspotEdit() {
+  if (!deleteCandidate.value || savingHotspot.value) return
+  savingHotspot.value = true
+  const { id, sceneId } = deleteCandidate.value
+  const newType = editDraft.value.type
+  const patch: any = {}
+  const trimmedLabel = editDraft.value.label.trim()
+  if (trimmedLabel) patch.label = trimmedLabel
+  if (newType !== deleteCandidate.value.type) patch.type = newType
+  if (newType === 'info') {
+    patch.content = { text: editDraft.value.description.trim() || 'Point of interest' }
+  } else if (newType === 'url') {
+    patch.content = { url: editDraft.value.url.trim(), button_label: 'Open link' }
+  } else if (newType === 'scene_link') {
+    if (editDraft.value.targetSceneId) patch.target_scene_id = editDraft.value.targetSceneId
+  }
+  // Optimistic update
+  hotspotsByScene.value = {
+    ...hotspotsByScene.value,
+    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((h) =>
+      h.id !== id ? h : {
+        ...h,
+        type: newType,
+        label: patch.label ?? h.label,
+        description: patch.content?.text ?? h.description,
+        url: patch.content?.url ?? h.url,
+        targetSceneId: patch.target_scene_id ?? h.targetSceneId,
+      }
+    ),
+  }
+  deleteCandidate.value = null
+  try {
+    const res = await apiFetch<any>(`/scenes/${sceneId}/hotspots/${id}`, { method: 'PATCH', body: patch })
+    const updated = unwrapApiData<any>(res)?.hotspot || res?.hotspot
+    if (updated) {
+      const mapped = mapDbHotspot(updated)
+      hotspotsByScene.value = {
+        ...hotspotsByScene.value,
+        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((h) => h.id === id ? mapped : h),
+      }
+    }
+    showToast('Hotspot updated')
+  } catch (e: any) {
+    await fetchHotspots(sceneId)
+    showToast(e?.data?.statusMessage || 'Failed to update hotspot', 'error')
+  } finally {
+    savingHotspot.value = false
+  }
 }
 
 async function handleAddScene() {
@@ -724,6 +1033,25 @@ async function handleTogglePublish() {
   publishing.value = true
   try {
     const isLive = space.value.is_published
+    if (!isLive) {
+      if (!scenes.value.some(sceneHasRenderableImage)) {
+        showToast('Upload at least one scene before publishing.', 'error')
+        return
+      }
+      const sceneIds = new Set(scenes.value.map((s: any) => s.id))
+      let brokenCount = 0
+      for (const hotspots of Object.values(hotspotsByScene.value)) {
+        for (const h of hotspots as EditorHotspot[]) {
+          if (h.type === 'scene_link' && h.targetSceneId && !sceneIds.has(h.targetSceneId)) {
+            brokenCount++
+          }
+        }
+      }
+      if (brokenCount > 0) {
+        showToast(`${brokenCount} scene link${brokenCount > 1 ? 's' : ''} point to deleted scenes. Fix them first.`, 'error')
+        return
+      }
+    }
     const updated = await apiFetch<any>(`/spaces/${props.spaceId}/publish`, {
       method: 'POST',
       body: {
@@ -1098,4 +1426,242 @@ defineExpose({
 .share-modal-enter-from .share-modal { transform: scale(0.92) translateY(12px); }
 .share-modal-leave-to { opacity: 0; }
 .share-modal-leave-to .share-modal { transform: scale(0.95) translateY(6px); }
+
+/* ── Hotspot edit panel ──────────────────────────────────── */
+.hs-edit-panel {
+  position: fixed;
+  bottom: 104px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 308px;
+  background: rgba(10, 12, 20, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  padding: 14px;
+  z-index: 400;
+  backdrop-filter: blur(12px);
+}
+.hs-edit-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.hs-edit-panel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.hs-edit-panel__dot--info { background: rgba(255, 255, 255, 0.85); }
+.hs-edit-panel__dot--url { background: #3B82F6; }
+.hs-edit-panel__dot--scene_link { background: #3B82F6; }
+.hs-edit-panel__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  flex: 1;
+}
+.hs-edit-panel__type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+.hs-edit-panel__close {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms, color 120ms;
+}
+.hs-edit-panel__close:hover { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.6); }
+.hs-edit-panel__type-tabs {
+  display: flex;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 12px;
+}
+.hs-edit-panel__type-tab {
+  flex: 1;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.hs-edit-panel__type-tab--active {
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.85);
+}
+.hs-edit-panel__fields { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.hs-edit-panel__field { display: flex; flex-direction: column; gap: 4px; }
+.hs-edit-panel__label-text {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+}
+.hs-edit-panel__input {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 120ms;
+  width: 100%;
+  box-sizing: border-box;
+}
+.hs-edit-panel__input:focus { border-color: rgba(59, 130, 246, 0.5); }
+.hs-edit-panel__input::placeholder { color: rgba(255, 255, 255, 0.2); }
+.hs-edit-panel__select { cursor: pointer; appearance: none; }
+.hs-edit-panel__actions { display: flex; gap: 8px; }
+.hs-edit-panel__save {
+  flex: 1;
+  height: 32px;
+  border-radius: 8px;
+  background: #3B82F6;
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hs-edit-panel__save:hover { background: #2563EB; }
+.hs-edit-panel__save:disabled { opacity: 0.5; cursor: not-allowed; }
+.hs-edit-panel__del {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #f87171;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.hs-edit-panel__del:hover { background: rgba(239, 68, 68, 0.10); }
+.hs-edit-panel__del:disabled { opacity: 0.5; cursor: not-allowed; }
+.hs-edit-panel__spin {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: hs-spin 0.6s linear infinite;
+}
+@keyframes hs-spin { to { transform: rotate(360deg); } }
+
+/* ── Scene rename popover ───────────────────────────────── */
+.rename-popover {
+  position: fixed;
+  bottom: 104px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  background: rgba(10, 12, 20, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  padding: 14px;
+  z-index: 400;
+  backdrop-filter: blur(12px);
+}
+.rename-popover__label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 8px;
+}
+.rename-popover__input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 120ms;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+.rename-popover__input:focus { border-color: rgba(59, 130, 246, 0.5); }
+.rename-popover__input::placeholder { color: rgba(255, 255, 255, 0.2); }
+.rename-popover__actions { display: flex; gap: 8px; }
+.rename-popover__save {
+  flex: 1;
+  height: 30px;
+  border-radius: 8px;
+  background: #3B82F6;
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.rename-popover__save:hover { background: #2563EB; }
+.rename-popover__save:disabled { opacity: 0.5; cursor: not-allowed; }
+.rename-popover__cancel {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms, color 120ms;
+}
+.rename-popover__cancel:hover { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.6); }
+
+/* ── Share modal embed section ──────────────────────────── */
+.share-modal__embed { margin-bottom: 16px; }
+.share-modal__embed-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 8px;
+}
+.share-modal__embed-code { font-family: monospace; }
 </style>
