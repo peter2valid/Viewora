@@ -37,11 +37,21 @@
         >
           <span class="glass-dock__thumb">
             <img
-              v-if="item.imageUrl"
+              v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl)"
               :src="item.imageUrl"
               :alt="item.label"
               class="glass-dock__thumbImg"
+              loading="lazy"
+              decoding="async"
+              crossorigin="anonymous"
               draggable="false"
+              @load="onThumbLoad(item.imageUrl)"
+              @error="onThumbError(item.imageUrl)"
+            />
+            <span
+              v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl) && !loadedThumbUrls.has(item.imageUrl)"
+              class="glass-dock__thumbLoading"
+              aria-hidden="true"
             />
             <span v-else class="glass-dock__thumbFallback" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -121,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 type DockItem = {
   id: string
@@ -171,6 +181,19 @@ onMounted(() => { visible.value = true })
 const dockEl = ref<HTMLElement | null>(null)
 const dragSrcId = ref<string | null>(null)
 const dragOverId = ref<string | null>(null)
+const loadedThumbUrls = reactive(new Set<string>())
+const failedThumbUrls = reactive(new Set<string>())
+
+function onThumbLoad(url: string | null | undefined) {
+  if (!url) return
+  loadedThumbUrls.add(url)
+  failedThumbUrls.delete(url)
+}
+
+function onThumbError(url: string | null | undefined) {
+  if (!url) return
+  failedThumbUrls.add(url)
+}
 
 function onDragStart(id: string, e: DragEvent) {
   dragSrcId.value = id
@@ -288,6 +311,7 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 
 .glass-dock__thumb {
+  position: relative;
   width: var(--thumb-w);
   height: var(--thumb-h);
   border-radius: 14px;
@@ -312,6 +336,14 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.glass-dock__thumbLoading {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(255,255,255,0.02) 20%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.02) 80%);
+  background-size: 220% 100%;
+  animation: thumb-shimmer 1.25s ease-in-out infinite;
 }
 
 .glass-dock__thumbFallback {
@@ -387,6 +419,10 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes thumb-shimmer {
+  from { background-position: 180% 0; }
+  to { background-position: -40% 0; }
+}
 @keyframes pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.95; }

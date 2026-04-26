@@ -4,8 +4,14 @@
 
     <!-- Loading -->
     <Transition name="fade">
-      <div v-if="state === 'loading'" class="psv-overlay">
-        <div class="psv-spinner" />
+      <div v-if="state === 'loading' || isSwitching" class="psv-overlay">
+        <div class="psv-overlay__panel">
+          <div class="psv-spinner" />
+          <p class="psv-overlay-msg psv-overlay-msg--switching">{{ loadingMessage }}</p>
+          <div class="psv-overlay__progress" aria-hidden="true">
+            <span class="psv-overlay__progressBar" />
+          </div>
+        </div>
       </div>
     </Transition>
 
@@ -35,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
 import {
@@ -66,6 +72,8 @@ const containerEl = ref<HTMLElement | null>(null)
 const handle = ref<PsvViewerHandle | null>(null)
 const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')
+const isSwitching = ref(false)
+const loadingMessage = computed(() => (isSwitching.value ? 'Switching scene...' : 'Preparing panorama...'))
 let resizeObserver: ResizeObserver | null = null
 let resizeRaf: number | null = null
 
@@ -135,12 +143,17 @@ onMounted(async () => {
 watch(
   () => props.scene,
   async (next, prev) => {
-    if (!next?.imageUrl) { state.value = 'empty'; return }
+    if (!next?.imageUrl) {
+      isSwitching.value = false
+      state.value = 'empty'
+      return
+    }
     if (!handle.value) {
       await initWithScene(next)
       return
     }
     if (next.id === prev?.id) return
+    isSwitching.value = true
     try {
       await loadScene(handle.value, next)
       state.value = 'ready'
@@ -150,6 +163,8 @@ watch(
     } catch (err: any) {
       state.value = 'error'
       errorMessage.value = err?.message || 'Failed to switch scene'
+    } finally {
+      isSwitching.value = false
     }
   }
 )
@@ -202,11 +217,28 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   pointer-events: none;
-  background: rgba(10, 10, 10, 0.55);
-  backdrop-filter: blur(10px);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(59, 130, 246, 0.18), transparent 38%),
+    radial-gradient(circle at 86% 78%, rgba(148, 163, 184, 0.12), transparent 44%),
+    rgba(8, 10, 16, 0.62);
+  backdrop-filter: blur(12px);
   z-index: 10;
+}
+
+.psv-overlay__panel {
+  min-width: 196px;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  background: rgba(8, 10, 16, 0.56);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
 }
 
 .psv-overlay--error {
@@ -225,13 +257,36 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+.psv-overlay-msg--switching {
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.psv-overlay__progress {
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.psv-overlay__progressBar {
+  display: block;
+  height: 100%;
+  width: 36%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(96, 165, 250, 0.5), rgba(125, 211, 252, 0.95));
+  animation: load-sweep 1.1s ease-in-out infinite;
+}
+
 .psv-spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: rgba(255, 255, 255, 0.5);
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(147, 197, 253, 0.95);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: spin 0.72s linear infinite;
 }
 
 .psv-edit-hint {
@@ -280,4 +335,8 @@ onUnmounted(() => {
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes load-sweep {
+  0% { transform: translateX(-115%); }
+  100% { transform: translateX(300%); }
+}
 </style>

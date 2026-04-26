@@ -440,6 +440,15 @@ function sceneHasRenderableImage(scene: any): boolean {
   return Boolean(scene.raw_image_url || scene.thumbnail_url || scene.tile_manifest_url)
 }
 
+function scenePreviewUrl(scene: any): string | null {
+  if (!scene) return null
+  return pendingScenePreviewById.value[scene.id]
+    || (scene as any).thumbnail_url
+    || (scene as any).raw_image_url
+    || (scene as any).tile_manifest_url
+    || null
+}
+
 const selectedScene = computed(() =>
   scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null
 )
@@ -513,7 +522,7 @@ const sceneChips = computed(() => {
       id: s.id,
       label: s.name || `Scene ${idx + 1}`,
       ready: s.status === 'ready',
-      imageUrl: (s as any).thumbnail_url || (s as any).raw_image_url || (s as any).tile_manifest_url || pendingScenePreviewById.value[s.id] || null,
+      imageUrl: scenePreviewUrl(s),
     }))
 })
 
@@ -734,8 +743,9 @@ async function fetchScenes() {
     const pendingPreviewNext = { ...pendingScenePreviewById.value }
 
     const hotspotTasks = loadedScenes.map(async (scene: any) => {
-      // Scene now has a real image source: pending local preview can be dropped.
-      if (scene?.raw_image_url || scene?.thumbnail_url || scene?.tile_manifest_url) {
+      // Keep local preview until backend thumbnail is available.
+      // Raw panorama URLs are often large and can be slow as dock thumbnails.
+      if (scene?.thumbnail_url) {
         delete pendingPreviewNext[scene.id]
       }
 

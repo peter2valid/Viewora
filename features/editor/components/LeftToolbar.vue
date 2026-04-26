@@ -2,7 +2,7 @@
   <Transition name="editor-panel--left">
     <aside
       v-if="visible"
-      class="editor-glass fixed left-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto w-16"
+      class="editor-glass fixed left-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl pointer-events-auto w-16 overflow-visible"
     >
       <div
         v-for="tool in tools"
@@ -158,6 +158,7 @@ onBeforeUnmount(() => {
 /* Tooltip — right side of pill */
 .tooltip {
   position: absolute;
+  z-index: 40;
   left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%) translateX(-4px);
