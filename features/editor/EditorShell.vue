@@ -448,7 +448,7 @@ function mapSceneLinkTargets(fromSceneId: string, toSceneId: string) {
   hotspotsByScene.value = next
 }
 
-function createOptimisticLocalScene(file: File, previewUrl?: string): string {
+function createOptimisticLocalScene(file: File, previewUrl?: string, options?: { select?: boolean }): string {
   const id = `local_scene_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const orderIndex = scenes.value.length
   const name = deriveSceneName(file.name, orderIndex + 1)
@@ -463,7 +463,7 @@ function createOptimisticLocalScene(file: File, previewUrl?: string): string {
     _local: true,
   }
   scenes.value = [...scenes.value, optimisticScene]
-  selectedSceneId.value = id
+  if (options?.select) selectedSceneId.value = id
   hotspotsByScene.value = {
     ...hotspotsByScene.value,
     [id]: hotspotsByScene.value[id] ?? [],
@@ -475,6 +475,20 @@ function createOptimisticLocalScene(file: File, previewUrl?: string): string {
     }
   }
   return id
+}
+
+async function enqueuePanoramaFiles(files: File[]) {
+  if (!files.length) return
+  const shouldSelectFirst = !selectedSceneId.value && scenes.value.length === 0
+  const queued = files.map((file, idx) => {
+    const previewUrl = URL.createObjectURL(file)
+    const localSceneId = createOptimisticLocalScene(file, previewUrl, { select: shouldSelectFirst && idx === 0 })
+    return { file, localSceneId }
+  })
+
+  for (const item of queued) {
+    await uploadFile(item.file, 'panorama', { createSceneAfterUpload: true, localSceneId: item.localSceneId })
+  }
 }
 
 async function syncPendingHotspotsForScene(sceneId: string) {
@@ -1341,11 +1355,7 @@ async function handlePanoramaUpload(e: any) {
   if (files.length > 1) {
     showToast(`Uploading ${files.length} scenes in background...`)
   }
-  for (const file of files) {
-    const previewUrl = URL.createObjectURL(file)
-    const localSceneId = createOptimisticLocalScene(file, previewUrl)
-    await uploadFile(file, 'panorama', { createSceneAfterUpload: true, localSceneId })
-  }
+  await enqueuePanoramaFiles(files)
 }
 
 const canvasFileInput = ref<HTMLInputElement | null>(null)
@@ -1370,6 +1380,10 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string, local
   })
   const createdScene = unwrapApiData<any>(response)?.scene || response?.scene
   if (createdScene) {
+    const shouldSelectCreatedScene = localSceneId
+      ? selectedSceneId.value === localSceneId
+      : (!selectedSceneId.value && scenes.value.length === 0)
+
     if (localSceneId && isLocalSceneId(localSceneId)) {
       scenes.value = scenes.value.map((s) => s.id === localSceneId ? createdScene : s)
       if (selectedSceneId.value === localSceneId) selectedSceneId.value = createdScene.id
@@ -1405,22 +1419,14 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string, local
       hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
     }
 
-    selectedSceneId.value = createdScene.id
-    if (localPanoramaPreviewUrl.value) {
-      pendingScenePreviewById.value = {
-        ...pendingScenePreviewById.value,
-        [createdScene.id]: localPanoramaPreviewUrl.value,
-      }
-    }
+    if (shouldSelectCreatedScene) selectedSceneId.value = createdScene.id
   }
   return createdScene || null
 }
 
 async function handleViewerCanvasUpload(file?: File) {
   if (file) {
-    const previewUrl = URL.createObjectURL(file)
-    const localSceneId = createOptimisticLocalScene(file, previewUrl)
-    await uploadFile(file, 'panorama', { createSceneAfterUpload: true, localSceneId })
+    await enqueuePanoramaFiles([file])
   }
   else { canvasFileInput.value?.click() }
 }
@@ -1430,19 +1436,10 @@ async function handleAddSceneFileChange(e: Event) {
   const files = Array.from(input.files || [])
   if (!files.length) return
   input.value = ''
-  addScenePending.value = true
-  try {
-    if (files.length > 1) {
-      showToast(`Adding ${files.length} scenes in background...`)
-    }
-    for (const file of files) {
-      const previewUrl = URL.createObjectURL(file)
-      const localSceneId = createOptimisticLocalScene(file, previewUrl)
-      await uploadFile(file, 'panorama', { createSceneAfterUpload: true, localSceneId })
-    }
-  } finally {
-    addScenePending.value = false
+  if (files.length > 1) {
+    showToast(`Adding ${files.length} scenes in background...`)
   }
+  await enqueuePanoramaFiles(files)
 }
 
 async function uploadFile(
