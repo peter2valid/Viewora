@@ -218,12 +218,13 @@ async function handleRequest() {
       method: 'POST',
       body: { ...requestForm.value, planName: planStore.plan?.name }
     })
-  } catch {
-    // Endpoint may not exist yet — still show confirmation to user
-    // The request details are captured in server logs via the auth token
+    requestSent.value = true
+    showToast('Capture request sent successfully.', 'success')
+  } catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.message || 'Could not send request right now. Please try again.'
+    showToast(msg, 'error')
   } finally {
     submitting.value = false
-    requestSent.value = true
   }
 }
 

@@ -34,13 +34,7 @@
     <TopBar
       :space-name="space?.title || 'Edit Tour'"
       :is-published="Boolean(space?.is_published)"
-      :slug="space?.slug"
-      :scene-count="sceneChips.length"
-      :hotspot-count="hotspotCount"
       :publishing="publishing"
-      :has-processing-media="hasProcessingMedia"
-      :is-processing-stuck="isProcessingStuck"
-      :processing-elapsed-seconds="processingElapsedSeconds"
       @toggle-publish="handleTogglePublish"
     />
 
@@ -143,11 +137,8 @@ const space = ref<any>(null)
 const media = ref<any[]>([])
 const publishing = ref(false)
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
-const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const retryingMediaMap = ref<Record<string, boolean>>({})
 const completionFxMap = ref<Record<string, 'enter' | 'exit'>>({})
-const processingStartedAt = ref<number | null>(null)
-const nowTick = ref(Date.now())
 const localPanoramaPreviewUrl = ref<string | null>(null)
 const placeholderPanoramaUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23111627"/><stop offset="55%" stop-color="%231f2a44"/><stop offset="100%" stop-color="%232a4365"/></linearGradient></defs><rect width="1600" height="800" fill="url(%23g)"/><circle cx="1220" cy="230" r="180" fill="rgba(255,255,255,0.08)"/><circle cx="360" cy="600" r="260" fill="rgba(255,255,255,0.06)"/><g fill="none" stroke="rgba(255,255,255,0.35)"><path d="M0 540h1600"/><path d="M0 480h1600"/></g><text x="120" y="170" fill="rgba(255,255,255,0.88)" font-family="Arial" font-size="48" font-weight="700">Viewora 360 Tour Preview</text><text x="120" y="235" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="28">Upload your panorama to replace this placeholder instantly.</text></svg>'
 const addScenePending = ref(false)
@@ -212,13 +203,48 @@ const publicUrl = computed(() => {
 
 const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
 const hasPanorama = computed(() => Boolean(panorama.value || localPanoramaPreviewUrl.value))
-const activeScene = computed(() => scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null)
+const lastRenderableSceneId = ref('')
+
+function sceneHasRenderableImage(scene: any): boolean {
+  if (!scene) return false
+  if (scene.id && pendingScenePreviewById.value[scene.id]) return true
+  return Boolean(scene.raw_image_url || scene.thumbnail_url || scene.tile_manifest_url)
+}
+
+const selectedScene = computed(() =>
+  scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null
+)
+
+const activeScene = computed(() => {
+  const selected = selectedScene.value
+  if (sceneHasRenderableImage(selected)) return selected
+
+  const lastRenderable = scenes.value.find((s) => s.id === lastRenderableSceneId.value)
+  if (sceneHasRenderableImage(lastRenderable)) return lastRenderable
+
+  const firstRenderable = scenes.value.find((s) => sceneHasRenderableImage(s))
+  return firstRenderable || selected
+})
+
+watch(
+  activeScene,
+  (scene) => {
+    if (scene?.id && sceneHasRenderableImage(scene)) {
+      lastRenderableSceneId.value = scene.id
+    }
+  },
+  { immediate: true },
+)
+
 const activeSceneHotspots = computed(() => {
   if (!selectedSceneId.value) return []
   return hotspotsByScene.value[selectedSceneId.value] || []
 })
 const activePanoramaSrc = computed(() => {
   if (localPanoramaPreviewUrl.value) return localPanoramaPreviewUrl.value
+  if (activeScene.value?.id && pendingScenePreviewById.value[activeScene.value.id]) {
+    return pendingScenePreviewById.value[activeScene.value.id]
+  }
   if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (panorama.value?.public_url) return panorama.value.public_url
   return placeholderPanoramaUrl
@@ -265,10 +291,6 @@ const sceneChips = computed(() => {
 const hasProcessingMedia = computed(() =>
   media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing')
 )
-const processingElapsedSeconds = computed(() =>
-  processingStartedAt.value ? Math.floor((nowTick.value - processingStartedAt.value) / 1000) : 0
-)
-const isProcessingStuck = computed(() => hasProcessingMedia.value && processingElapsedSeconds.value > 45)
 const isUploading = computed(() =>
   localUploads.value.some((u) => u.mediaType === 'panorama' && u.state !== 'failed')
 )
@@ -288,10 +310,8 @@ function toArrayPayload<T = any>(value: any, key: string): T[] {
 watch(hasProcessingMedia, (isProcessing) => {
   if (isProcessing) {
     startPolling()
-    if (!processingStartedAt.value) processingStartedAt.value = Date.now()
   } else {
     stopPolling()
-    processingStartedAt.value = null
     if (localPanoramaPreviewUrl.value && !isUploading.value) {
       clearPanoramaPreview()
     }
@@ -302,7 +322,6 @@ onMounted(async () => {
   isMounted = true
   await fetchSpace(true)
   startSceneRealtime()
-  heartbeatTimer.value = setInterval(() => { nowTick.value = Date.now() }, 1000)
 })
 
 onBeforeUnmount(() => {
@@ -312,7 +331,6 @@ onBeforeUnmount(() => {
   stopPolling()
   stopSceneRealtime()
   clearPanoramaPreview()
-  if (heartbeatTimer.value) { clearInterval(heartbeatTimer.value); heartbeatTimer.value = null }
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
 })
 
@@ -342,26 +360,55 @@ async function fetchScenes() {
     scenes.value = loadedScenes
 
     const newMap: Record<string, EditorHotspot[]> = {}
-    for (const scene of loadedScenes) {
+    const pendingPreviewNext = { ...pendingScenePreviewById.value }
+
+    const hotspotTasks = loadedScenes.map(async (scene: any) => {
+      // Scene now has a real image source: pending local preview can be dropped.
+      if (scene?.raw_image_url || scene?.thumbnail_url || scene?.tile_manifest_url) {
+        delete pendingPreviewNext[scene.id]
+      }
+
       if (Array.isArray(scene.hotspots)) {
         const dbHotspots = mapDbHotspots(scene.hotspots)
         const pending = (hotspotsByScene.value[scene.id] ?? []).filter((h) => h._pending === true)
-        newMap[scene.id] = pending.length ? [...dbHotspots, ...pending] : dbHotspots
-      } else if (hotspotsByScene.value[scene.id] !== undefined) {
-        newMap[scene.id] = hotspotsByScene.value[scene.id]
-      } else {
-        try {
-          const hRes = await apiFetch<any>(`/scenes/${scene.id}/hotspots`, { signal })
-          if (version !== fetchScenesVersion) return
-          newMap[scene.id] = mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(hRes), 'hotspots'))
-        } catch (err: any) {
-          if (isAbortError(err)) return
-          newMap[scene.id] = hotspotsByScene.value[scene.id] ?? []
+        return {
+          sceneId: scene.id,
+          hotspots: pending.length ? [...dbHotspots, ...pending] : dbHotspots,
         }
       }
+
+      if (hotspotsByScene.value[scene.id] !== undefined) {
+        return {
+          sceneId: scene.id,
+          hotspots: hotspotsByScene.value[scene.id],
+        }
+      }
+
+      try {
+        const hRes = await apiFetch<any>(`/scenes/${scene.id}/hotspots`, { signal })
+        if (version !== fetchScenesVersion) return null
+        return {
+          sceneId: scene.id,
+          hotspots: mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(hRes), 'hotspots')),
+        }
+      } catch (err: any) {
+        if (isAbortError(err)) return null
+        return {
+          sceneId: scene.id,
+          hotspots: hotspotsByScene.value[scene.id] ?? [],
+        }
+      }
+    })
+
+    const hotspotResults = await Promise.all(hotspotTasks)
+    if (version !== fetchScenesVersion) return
+    for (const result of hotspotResults) {
+      if (!result) continue
+      newMap[result.sceneId] = result.hotspots
     }
 
     hotspotsByScene.value = newMap
+    pendingScenePreviewById.value = pendingPreviewNext
     fetchScenesController = null
 
     if (loadedScenes.length) {
@@ -431,6 +478,10 @@ async function fetchHotspots(sceneId: string) {
 async function selectScene(sceneId: string) {
   if (sceneId === selectedSceneId.value) return
   selectedSceneId.value = sceneId
+  const selected = scenes.value.find((s) => s.id === sceneId)
+  if (selected && !sceneHasRenderableImage(selected) && selected.status !== 'ready') {
+    showToast('Scene is still preparing. Showing latest ready view.', 'error')
+  }
   if (!hotspotsByScene.value[sceneId]) await fetchHotspots(sceneId)
 }
 
@@ -860,8 +911,6 @@ defineExpose({
   activeSceneHotspots,
   hotspotCount,
   hasProcessingMedia,
-  isProcessingStuck,
-  processingElapsedSeconds,
   publishing,
   inlineEditMode,
   hotspotDraftType,

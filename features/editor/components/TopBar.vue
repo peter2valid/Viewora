@@ -59,13 +59,7 @@ import { useEditorStore } from '~/features/editor/store/useEditorStore'
 defineProps<{
   spaceName: string
   isPublished: boolean
-  slug?: string
-  sceneCount: number
-  hotspotCount: number
   publishing: boolean
-  hasProcessingMedia: boolean
-  isProcessingStuck: boolean
-  processingElapsedSeconds: number
 }>()
 
 defineEmits<{

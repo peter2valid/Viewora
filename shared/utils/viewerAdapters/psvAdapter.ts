@@ -11,6 +11,8 @@ import type { Hotspot } from '~/domain/hotspot'
 export interface PsvViewerHandle {
   viewer: any
   markers: any
+  /** Hotspot signature cache for diff-sync updates */
+  markerSignatures: Map<string, string>
   /** Optional cleanup for DOM-level listeners (e.g. WebGL context loss) */
   cleanup?: () => void
 }
@@ -26,6 +28,17 @@ export function sceneToViewerConfig(scene: TourScene) {
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
   }
+}
+
+function hotspotSignature(hs: Hotspot): string {
+  return [
+    hs.yaw,
+    hs.pitch,
+    hs.type,
+    hs.label ?? '',
+    hs.url ?? '',
+    hs.targetSceneId ?? '',
+  ].join('|')
 }
 
 /**
@@ -110,7 +123,12 @@ export async function initViewer(
     onMarkerClick?.(e.marker.id)
   })
 
-  return { viewer, markers, cleanup: () => { for (const fn of cleanupFns) fn() } }
+  return {
+    viewer,
+    markers,
+    markerSignatures: new Map<string, string>(),
+    cleanup: () => { for (const fn of cleanupFns) fn() },
+  }
 }
 
 /**
@@ -123,6 +141,7 @@ export async function loadScene(
 ): Promise<void> {
   if (!handle?.viewer || !scene.imageUrl) return
   handle.markers.clearMarkers()
+  handle.markerSignatures.clear()
   await handle.viewer.setPanorama(scene.imageUrl, {
     showLoader: false,
     defaultYaw: scene.settings.yaw_default,
@@ -174,13 +193,41 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 export function removeHotspot(handle: PsvViewerHandle | null, id: string): void {
   if (!handle?.markers) return
   try { handle.markers.removeMarker(id) } catch { /* already gone */ }
+  handle.markerSignatures?.delete(id)
 }
 
-/** Replaces the full marker set in one pass. */
+/** Diff-sync marker set to avoid full rebuild on every state update. */
 export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[]): void {
   if (!handle?.markers) return
-  handle.markers.clearMarkers()
-  for (const hs of hotspots) addHotspot(handle, hs)
+
+  const nextById = new Map<string, Hotspot>()
+  for (const hs of hotspots) {
+    if (!hs?.id) continue
+    nextById.set(hs.id, hs)
+  }
+
+  // Remove markers that no longer exist in incoming state.
+  for (const existingId of Array.from(handle.markerSignatures.keys())) {
+    if (!nextById.has(existingId)) {
+      removeHotspot(handle, existingId)
+    }
+  }
+
+  // Add new markers and update changed markers only.
+  for (const [id, hs] of nextById) {
+    const nextSig = hotspotSignature(hs)
+    const prevSig = handle.markerSignatures.get(id)
+    if (!prevSig) {
+      addHotspot(handle, hs)
+      handle.markerSignatures.set(id, nextSig)
+      continue
+    }
+    if (prevSig !== nextSig) {
+      removeHotspot(handle, id)
+      addHotspot(handle, hs)
+      handle.markerSignatures.set(id, nextSig)
+    }
+  }
 }
 
 /** Destroys the viewer and releases all DOM listeners. Call in onUnmounted. */
