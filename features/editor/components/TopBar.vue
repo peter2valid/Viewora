@@ -31,17 +31,6 @@
           </Transition>
         </div>
 
-        <Transition name="topbar-item">
-          <div
-            v-if="hasProcessingMedia"
-            class="hidden md:flex flex-shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-gray-400 bg-white/[0.05] border border-white/[0.08]"
-          >
-            <span class="w-2.5 h-2.5 rounded-full border-2 border-current border-t-transparent animate-spin flex-shrink-0"></span>
-            <span>{{ isProcessingStuck ? 'Processing…' : 'Processing…' }}</span>
-            <span class="text-gray-600">{{ processingElapsedSeconds }}s</span>
-          </div>
-        </Transition>
-
         <button
           @click="$emit('toggle-publish')"
           :disabled="publishing || editorStore.isSaving"

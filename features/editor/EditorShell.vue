@@ -246,7 +246,7 @@ const hotspotCount = computed(() =>
 )
 
 const sceneChips = computed(() => {
-  if (!hasPanorama.value || !scenes.value.length) return []
+  if (!scenes.value.length) return []
   return scenes.value
     .slice()
     .sort((a, b) => {
@@ -258,7 +258,7 @@ const sceneChips = computed(() => {
       id: s.id,
       label: s.name || `Scene ${idx + 1}`,
       ready: s.status === 'ready',
-      imageUrl: (s as any).thumbnail_url || (s as any).raw_image_url || pendingScenePreviewById.value[s.id] || null,
+      imageUrl: (s as any).thumbnail_url || (s as any).raw_image_url || (s as any).tile_manifest_url || pendingScenePreviewById.value[s.id] || null,
     }))
 })
 
@@ -392,8 +392,22 @@ function refreshSceneGraphSoon() {
 
 function startSceneRealtime() {
   stopSceneRealtime()
-  const scenesChannel = supabase.channel(`space:${props.spaceId}:scenes`).on('postgres_changes', { event: '*', schema: 'public', table: 'scenes' }, refreshSceneGraphSoon).subscribe()
-  const hotspotsChannel = supabase.channel(`space:${props.spaceId}:hotspots`).on('postgres_changes', { event: '*', schema: 'public', table: 'hotspots' }, refreshSceneGraphSoon).subscribe()
+  const scenesChannel = supabase
+    .channel(`space:${props.spaceId}:scenes`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'scenes', filter: `property_id=eq.${props.spaceId}` },
+      refreshSceneGraphSoon,
+    )
+    .subscribe()
+  const hotspotsChannel = supabase
+    .channel(`space:${props.spaceId}:hotspots`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'hotspots', filter: `property_id=eq.${props.spaceId}` },
+      refreshSceneGraphSoon,
+    )
+    .subscribe()
   sceneRealtimeChannels.value = [scenesChannel, hotspotsChannel]
 }
 
