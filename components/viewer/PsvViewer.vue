@@ -10,19 +10,20 @@
       @hotspot-click="handleHotspotClick"
     />
 
-    <!-- Scene navigation pills — shown only when tour has multiple scenes -->
-    <div v-if="sceneCount > 1" class="scene-nav">
-      <button
-        v-for="(scene, idx) in tourScenes"
-        :key="scene.id"
-        class="scene-nav__pill"
-        :class="{ 'scene-nav__pill--active': idx === activeSceneIndex }"
-        :aria-label="`Go to ${scene.name || `Scene ${idx + 1}`}`"
-        @click="goToScene(idx)"
-      >
-        {{ scene.name || `Scene ${idx + 1}` }}
-      </button>
-    </div>
+    <GlassDock
+      v-if="sceneCount > 1"
+      :items="dockItems"
+      :active-id="activeSceneId"
+      glass-class="dock-glass"
+      :bottom-px="20"
+      :edge-inset-px="16"
+      :max-strip-vw="80"
+      :max-strip-px="860"
+      :max-scale="1.6"
+      :sigma-px="94"
+      :lift-px="14"
+      @select="goToSceneById"
+    />
   </div>
 </template>
 
@@ -32,6 +33,7 @@ import type { Hotspot } from '~/domain/hotspot'
 import type { TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
+import GlassDock from '~/components/ui/GlassDock.vue'
 
 // tour accepts any shape — public pages use a lighter local TourData type
 const props = defineProps<{
@@ -55,6 +57,17 @@ const activeSceneIndex = ref(0)
 
 const tourScenes = computed<any[]>(() => props.tour?.scenes ?? [])
 const sceneCount = computed(() => tourScenes.value.length)
+const activeSceneId = computed(() => tourScenes.value[activeSceneIndex.value]?.id ?? '')
+
+const dockItems = computed(() =>
+  tourScenes.value.map((s: any, idx: number) => ({
+    id: s.id,
+    label: s.name || `Scene ${idx + 1}`,
+    imageUrl: s.thumbnail_url || s.raw_image_url || null,
+    ariaLabel: `Go to ${s.name || `Scene ${idx + 1}`}`,
+    badge: s.status && s.status !== 'ready' ? 'loading' : null,
+  }))
+)
 
 // Maps a raw API scene (DB column names) to the TourScene shape ViewerShell expects.
 // hotspots are passed via activeSceneHotspots, not embedded in TourScene, so set to [].
@@ -136,44 +149,5 @@ function handleHotspotClick(hotspotId: string) {
   position: relative;
   width: 100%;
   height: 100%;
-}
-
-.scene-nav {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  backdrop-filter: blur(12px);
-  max-width: 90vw;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.scene-nav::-webkit-scrollbar { display: none; }
-
-.scene-nav__pill {
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 120ms, color 120ms;
-}
-.scene-nav__pill:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
-.scene-nav__pill--active {
-  background: rgba(255, 255, 255, 0.9);
-  color: #0a0a0a;
-  border-color: transparent;
 }
 </style>
