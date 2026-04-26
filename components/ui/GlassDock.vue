@@ -1,7 +1,7 @@
 <template>
   <Transition name="glass-dock">
     <div
-      v-if="visible && items.length"
+      v-if="visible && (items.length || showAdd)"
       ref="dockEl"
       class="glass-dock pointer-events-auto fixed left-1/2 -translate-x-1/2 z-30"
       :class="[glassClass, paddedClass]"
@@ -212,6 +212,7 @@ function recalc() {
   const twoSigma2 = 2 * sigma * sigma
   const amp = Math.max(0, props.maxScale - 1)
   const gap = 10 // must match CSS gap in .glass-dock__strip
+  const scrollLeft = strip.scrollLeft || 0
 
   const baseW: number[] = []
   const baseCenter: number[] = []
@@ -230,14 +231,15 @@ function recalc() {
 
     const w = btn.offsetWidth
     baseW[idx] = w
-    // offsetLeft is layout position within strip; unaffected by transforms.
-    baseCenter[idx] = btn.offsetLeft + w / 2
+    // offsetLeft is layout position within strip; subtract scrollLeft to keep math stable
+    // even when the dock strip is horizontally scrolled.
+    baseCenter[idx] = (btn.offsetLeft - scrollLeft) + w / 2
     targetW[idx] = w * s
   })
 
   // Compute where the centers *should* be if items physically expanded.
   // This creates the “push-apart” dock effect without drift/misalignment.
-  const start = buttons[0].offsetLeft
+  const start = (buttons[0].offsetLeft - scrollLeft)
   desiredCenter[0] = start + targetW[0] / 2
   for (let i = 1; i < targetW.length; i++) {
     desiredCenter[i] = desiredCenter[i - 1] + (targetW[i - 1] / 2) + gap + (targetW[i] / 2)
