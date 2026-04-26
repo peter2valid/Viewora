@@ -46,7 +46,7 @@
     <SceneDock
       :scenes="sceneChips"
       :active-scene-id="selectedSceneId"
-      :add-scene-pending="addScenePending"
+      :add-scene-pending="false"
       @select-scene="selectScene"
       @add-scene="handleAddScene"
       @reorder-scenes="handleReorderScenes"
@@ -324,9 +324,7 @@ const publishing = ref(false)
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const retryingMediaMap = ref<Record<string, boolean>>({})
 const completionFxMap = ref<Record<string, 'enter' | 'exit'>>({})
-const localPanoramaPreviewUrl = ref<string | null>(null)
 const placeholderPanoramaUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23111627"/><stop offset="55%" stop-color="%231f2a44"/><stop offset="100%" stop-color="%232a4365"/></linearGradient></defs><rect width="1600" height="800" fill="url(%23g)"/><circle cx="1220" cy="230" r="180" fill="rgba(255,255,255,0.08)"/><circle cx="360" cy="600" r="260" fill="rgba(255,255,255,0.06)"/><g fill="none" stroke="rgba(255,255,255,0.35)"><path d="M0 540h1600"/><path d="M0 480h1600"/></g><text x="120" y="170" fill="rgba(255,255,255,0.88)" font-family="Arial" font-size="48" font-weight="700">Viewora 360 Tour Preview</text><text x="120" y="235" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="28">Upload your panorama to replace this placeholder instantly.</text></svg>'
-const addScenePending = ref(false)
 const addingHotspot = ref(false)
 const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
@@ -335,6 +333,8 @@ const deletingMedia = ref<Record<string, boolean>>({})
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
 const pendingScenePreviewById = ref<Record<string, string>>({})
+type SceneUploadState = 'queued' | 'signing' | 'uploading' | 'registering' | 'processing' | 'ready' | 'failed'
+const sceneUploadStateById = ref<Record<string, SceneUploadState>>({})
 const sceneRealtimeChannels = ref<any[]>([])
 let sceneRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -448,6 +448,20 @@ function mapSceneLinkTargets(fromSceneId: string, toSceneId: string) {
   hotspotsByScene.value = next
 }
 
+function setSceneUploadState(sceneId: string, state: SceneUploadState) {
+  sceneUploadStateById.value = {
+    ...sceneUploadStateById.value,
+    [sceneId]: state,
+  }
+}
+
+function removeSceneUploadState(sceneId: string) {
+  if (!(sceneId in sceneUploadStateById.value)) return
+  const next = { ...sceneUploadStateById.value }
+  delete next[sceneId]
+  sceneUploadStateById.value = next
+}
+
 function createOptimisticLocalScene(file: File, previewUrl?: string, options?: { select?: boolean }): string {
   const id = `local_scene_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const orderIndex = scenes.value.length
@@ -463,6 +477,7 @@ function createOptimisticLocalScene(file: File, previewUrl?: string, options?: {
     _local: true,
   }
   scenes.value = [...scenes.value, optimisticScene]
+  setSceneUploadState(id, 'queued')
   if (options?.select) selectedSceneId.value = id
   hotspotsByScene.value = {
     ...hotspotsByScene.value,
@@ -519,7 +534,11 @@ async function syncPendingHotspotsForScene(sceneId: string) {
     } catch {
       hotspotsByScene.value = {
         ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((x) => x.id === hs.id ? { ...x, _pending: false } : x),
+        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((x) => {
+          if (x.id !== hs.id) return x
+          const { _pending, ...rest } = x
+          return rest
+        }),
       }
     }
   }
@@ -533,14 +552,14 @@ function removeOptimisticLocalScene(localSceneId: string) {
   const nextPreview = { ...pendingScenePreviewById.value }
   delete nextPreview[localSceneId]
   pendingScenePreviewById.value = nextPreview
+  removeSceneUploadState(localSceneId)
   if (selectedSceneId.value === localSceneId) {
     selectedSceneId.value = scenes.value[0]?.id || ''
   }
 }
 
 const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
-const hasPanorama = computed(() => Boolean(panorama.value || localPanoramaPreviewUrl.value))
-const lastRenderableSceneId = ref('')
+const hasPanorama = computed(() => Boolean(panorama.value || scenes.value.length || Object.keys(pendingScenePreviewById.value).length))
 
 function sceneHasRenderableImage(scene: any): boolean {
   if (!scene) return false
@@ -561,26 +580,7 @@ const selectedScene = computed(() =>
   scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null
 )
 
-const activeScene = computed(() => {
-  const selected = selectedScene.value
-  if (sceneHasRenderableImage(selected)) return selected
-
-  const lastRenderable = scenes.value.find((s) => s.id === lastRenderableSceneId.value)
-  if (sceneHasRenderableImage(lastRenderable)) return lastRenderable
-
-  const firstRenderable = scenes.value.find((s) => sceneHasRenderableImage(s))
-  return firstRenderable || selected
-})
-
-watch(
-  activeScene,
-  (scene) => {
-    if (scene?.id && sceneHasRenderableImage(scene)) {
-      lastRenderableSceneId.value = scene.id
-    }
-  },
-  { immediate: true },
-)
+const activeScene = computed(() => selectedScene.value)
 
 const activeSceneHotspots = computed(() => {
   if (!selectedSceneId.value) return []
@@ -590,7 +590,6 @@ const activePanoramaSrc = computed(() => {
   if (activeScene.value?.id && pendingScenePreviewById.value[activeScene.value.id]) {
     return pendingScenePreviewById.value[activeScene.value.id]
   }
-  if (localPanoramaPreviewUrl.value) return localPanoramaPreviewUrl.value
   if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (panorama.value?.public_url) return panorama.value.public_url
   return placeholderPanoramaUrl
@@ -626,12 +625,17 @@ const sceneChips = computed(() => {
       if (orderDiff !== 0) return orderDiff
       return String(a.id || '').localeCompare(String(b.id || ''))
     })
-    .map((s, idx) => ({
-      id: s.id,
-      label: s.name || `Scene ${idx + 1}`,
-      ready: s.status === 'ready',
-      imageUrl: scenePreviewUrl(s),
-    }))
+    .map((s, idx) => {
+      const state: SceneUploadState = sceneUploadStateById.value[s.id] || (s.status === 'ready' ? 'ready' : 'processing')
+      const badge: 'loading' | 'failed' | null = state === 'failed' ? 'failed' : state === 'ready' ? null : 'loading'
+      return {
+        id: s.id,
+        label: s.name || `Scene ${idx + 1}`,
+        ready: state === 'ready',
+        badge,
+        imageUrl: scenePreviewUrl(s),
+      }
+    })
 })
 
 const editableOtherScenes = computed(() =>
@@ -640,9 +644,6 @@ const editableOtherScenes = computed(() =>
 
 const hasProcessingMedia = computed(() =>
   media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing')
-)
-const isUploading = computed(() =>
-  localUploads.value.some((u) => u.mediaType === 'panorama' && u.state !== 'failed')
 )
 
 function unwrapApiData<T = any>(value: any): T {
@@ -662,9 +663,6 @@ watch(hasProcessingMedia, (isProcessing) => {
     startPolling()
   } else {
     stopPolling()
-    if (localPanoramaPreviewUrl.value && !isUploading.value) {
-      clearPanoramaPreview()
-    }
   }
 }, { immediate: true })
 
@@ -818,21 +816,8 @@ onBeforeUnmount(() => {
   fetchScenesController = null
   stopPolling()
   stopSceneRealtime()
-  clearPanoramaPreview()
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
 })
-
-function setPanoramaPreview(file: File) {
-  clearPanoramaPreview()
-  localPanoramaPreviewUrl.value = URL.createObjectURL(file)
-}
-
-function clearPanoramaPreview() {
-  if (localPanoramaPreviewUrl.value) {
-    URL.revokeObjectURL(localPanoramaPreviewUrl.value)
-    localPanoramaPreviewUrl.value = null
-  }
-}
 
 async function fetchScenes() {
   const version = ++fetchScenesVersion
@@ -853,6 +838,22 @@ async function fetchScenes() {
       }
     }
     scenes.value = mergedScenes
+
+    const nextSceneUploadState = { ...sceneUploadStateById.value }
+    const mergedSceneIds = new Set(mergedScenes.map((s: any) => s.id))
+    for (const scene of loadedScenes) {
+      if (scene.status === 'ready') {
+        delete nextSceneUploadState[scene.id]
+      } else if (scene.status === 'failed') {
+        nextSceneUploadState[scene.id] = 'failed'
+      } else {
+        nextSceneUploadState[scene.id] = 'processing'
+      }
+    }
+    for (const id of Object.keys(nextSceneUploadState)) {
+      if (!mergedSceneIds.has(id)) delete nextSceneUploadState[id]
+    }
+    sceneUploadStateById.value = nextSceneUploadState
 
     const newMap: Record<string, EditorHotspot[]> = {}
     const pendingPreviewNext = { ...pendingScenePreviewById.value }
@@ -997,7 +998,6 @@ const ensureSceneForEditing = (() => {
   return async (): Promise<string | null> => {
     if (selectedSceneId.value) return selectedSceneId.value
     if (!panorama.value?.public_url) return null
-    if (addScenePending.value) return null
     if (ensureScenePromise) return ensureScenePromise
 
     ensureScenePromise = (async () => {
@@ -1205,7 +1205,6 @@ async function saveHotspotEdit() {
 }
 
 async function handleAddScene() {
-  if (addScenePending.value) return
   addSceneFileInput.value?.click()
 }
 
@@ -1387,6 +1386,11 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string, local
     if (localSceneId && isLocalSceneId(localSceneId)) {
       scenes.value = scenes.value.map((s) => s.id === localSceneId ? createdScene : s)
       if (selectedSceneId.value === localSceneId) selectedSceneId.value = createdScene.id
+      const currentState = sceneUploadStateById.value[localSceneId]
+      if (currentState) {
+        setSceneUploadState(createdScene.id, createdScene.status === 'ready' ? 'ready' : 'processing')
+        removeSceneUploadState(localSceneId)
+      }
 
       if (hotspotsByScene.value[localSceneId]) {
         hotspotsByScene.value = {
@@ -1417,6 +1421,7 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string, local
     } else {
       scenes.value = [...scenes.value, createdScene]
       hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
+      setSceneUploadState(createdScene.id, createdScene.status === 'ready' ? 'ready' : 'processing')
     }
 
     if (shouldSelectCreatedScene) selectedSceneId.value = createdScene.id
@@ -1448,6 +1453,7 @@ async function uploadFile(
   options?: { createSceneAfterUpload?: boolean; localSceneId?: string }
 ) {
   const localId = createLocalUpload(file, type)
+  if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'signing')
   const sceneCountBeforeUpload = scenes.value.length
   try {
     updateLocalUpload(localId, { state: 'signing' })
@@ -1466,8 +1472,10 @@ async function uploadFile(
     if (!objectKey || !publicUrlVal) throw new Error('Upload signing failed: missing upload metadata from server')
 
     updateLocalUpload(localId, { state: 'uploading' })
+  if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'uploading')
     await $fetch(signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
     updateLocalUpload(localId, { state: 'registering' })
+  if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'registering')
 
     const record = unwrapApiData<any>(await apiFetch<any>('/uploads/complete', {
       method: 'POST',
@@ -1491,6 +1499,9 @@ async function uploadFile(
       }
     }
     removeLocalUpload(localId)
+    if (options?.localSceneId && sceneUploadStateById.value[options.localSceneId]) {
+      setSceneUploadState(options.localSceneId, 'processing')
+    }
     if (record.processing_status === 'pending' || record.processing_status === 'processing') {
       startPolling()
     } else if (record.processing_status === 'complete') {
@@ -1500,8 +1511,8 @@ async function uploadFile(
   } catch (err: any) {
     const humanError = extractUploadErrorMessage(err, file.name)
     updateLocalUpload(localId, { state: 'failed', error: humanError })
+    if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'failed')
     if (options?.localSceneId) removeOptimisticLocalScene(options.localSceneId)
-    if (localPanoramaPreviewUrl.value) clearPanoramaPreview()
     showToast(humanError, 'error')
   }
 }

@@ -25,7 +25,7 @@ import { computed, onMounted, ref } from 'vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
 
 const props = defineProps<{
-  scenes: { id: string; label: string; ready: boolean; imageUrl: string | null }[]
+  scenes: { id: string; label: string; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | null }[]
   activeSceneId: string
   addScenePending: boolean
 }>()
@@ -45,7 +45,7 @@ const dockItems = computed(() =>
     id: s.id,
     label: s.label,
     imageUrl: s.imageUrl,
-    badge: s.ready ? null : 'loading',
+    badge: s.badge ?? (s.ready ? null : 'loading'),
   }))
 )
 </script>
