@@ -5,7 +5,7 @@
     :active-id="activeSceneId"
     :show-add="true"
     :add-disabled="addScenePending"
-    glass-class="editor-glass"
+    glass-class="dock-glass"
     :bottom-px="20"
     :edge-inset-px="20"
     :max-strip-vw="74"

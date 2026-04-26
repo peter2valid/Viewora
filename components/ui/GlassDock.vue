@@ -11,19 +11,16 @@
       }"
       role="navigation"
       aria-label="Scene navigation"
-      @pointermove="onPointerMove"
-      @pointerleave="onPointerLeave"
     >
       <div v-if="items.length" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
         <button
-          v-for="(item, idx) in items"
+          v-for="item in items"
           :key="item.id"
           class="glass-dock__item"
           data-dock-item="true"
           :class="item.id === activeId ? 'glass-dock__item--active' : ''"
           :aria-current="item.id === activeId ? 'true' : 'false'"
           :aria-label="item.ariaLabel || item.label"
-          :style="itemStyle(idx)"
           @click="emit('select', item.id)"
         >
           <span class="glass-dock__thumb">
@@ -54,7 +51,6 @@
           class="glass-dock__item glass-dock__item--add"
           data-dock-item="true"
           :disabled="addDisabled"
-          :style="itemStyle(items.length)"
           aria-label="Add scene"
           @click="emit('add')"
         >
@@ -113,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 type DockItem = {
   id: string
@@ -162,154 +158,6 @@ const dockEl = ref<HTMLElement | null>(null)
 
 const paddedClass = computed(() => 'glass-dock--padded')
 const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
-const dockItemCount = computed(() => props.items.length + ((props.showAdd && props.items.length) ? 1 : 0))
-
-const prefersReducedMotion = ref(false)
-let mediaQuery: MediaQueryList | null = null
-function updateReducedMotion() {
-  prefersReducedMotion.value = Boolean(mediaQuery?.matches)
-}
-
-onMounted(() => {
-  mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null
-  updateReducedMotion()
-  mediaQuery?.addEventListener?.('change', updateReducedMotion)
-})
-onBeforeUnmount(() => {
-  mediaQuery?.removeEventListener?.('change', updateReducedMotion)
-})
-
-// --- Magnification math -------------------------------------------------------
-// Gaussian falloff: scale = 1 + A * exp(-(d^2)/(2*sigma^2))
-// This yields smooth, perfectly symmetric scaling around the pointer.
-const pointerX = ref<number | null>(null)
-let rafId: number | null = null
-
-const scales = ref<number[]>([])
-const lifts = ref<number[]>([])
-const shifts = ref<number[]>([])
-
-function ensureArrays() {
-  const n = dockItemCount.value
-  if (scales.value.length !== n) scales.value = Array.from({ length: n }, () => 1)
-  if (lifts.value.length !== n) lifts.value = Array.from({ length: n }, () => 0)
-  if (shifts.value.length !== n) shifts.value = Array.from({ length: n }, () => 0)
-}
-
-function scheduleRecalc() {
-  if (rafId != null) return
-  rafId = window.requestAnimationFrame(() => {
-    rafId = null
-    recalc()
-  })
-}
-
-function recalc() {
-  ensureArrays()
-  if (prefersReducedMotion.value) {
-    for (let i = 0; i < dockItemCount.value; i++) {
-      scales.value[i] = 1
-      lifts.value[i] = 0
-      shifts.value[i] = 0
-    }
-    return
-  }
-
-  const x = pointerX.value
-  const dock = dockEl.value
-  if (x == null || !dock) {
-    for (let i = 0; i < dockItemCount.value; i++) {
-      scales.value[i] = 1
-      lifts.value[i] = 0
-      shifts.value[i] = 0
-    }
-    return
-  }
-
-  const strip = dock.querySelector<HTMLElement>('.glass-dock__strip')
-  const buttons = dock.querySelectorAll<HTMLButtonElement>('.glass-dock__item[data-dock-item="true"]')
-  if (!strip || buttons.length !== dockItemCount.value) {
-    for (let i = 0; i < dockItemCount.value; i++) {
-      scales.value[i] = 1
-      lifts.value[i] = 0
-      shifts.value[i] = 0
-    }
-    return
-  }
-  const sigma = Math.max(24, props.sigmaPx)
-  const twoSigma2 = 2 * sigma * sigma
-  const amp = Math.max(0, props.maxScale - 1)
-  const gap = 14 // must match CSS gap in .glass-dock__strip
-  const scrollLeft = strip.scrollLeft || 0
-
-  const baseW: number[] = []
-  const baseCenter: number[] = []
-  const targetW: number[] = []
-  const desiredCenter: number[] = []
-
-  buttons.forEach((btn, idx) => {
-    const r = btn.getBoundingClientRect()
-    const cx = r.left + r.width / 2
-    const d = cx - x
-    const g = Math.exp(-(d * d) / twoSigma2)
-    const s = 1 + amp * g
-    scales.value[idx] = s
-    const t = amp > 0 ? (-props.liftPx * (s - 1) / amp) : 0
-    lifts.value[idx] = Number.isFinite(t) ? t : 0
-
-    const w = btn.offsetWidth
-    baseW[idx] = w
-    // offsetLeft is layout position within strip; subtract scrollLeft to keep math stable
-    // even when the dock strip is horizontally scrolled.
-    baseCenter[idx] = (btn.offsetLeft - scrollLeft) + w / 2
-    targetW[idx] = w * s
-  })
-
-  // Compute where the centers *should* be if items physically expanded.
-  // This creates the “push-apart” dock effect without drift/misalignment.
-  const start = (buttons[0].offsetLeft - scrollLeft)
-  desiredCenter[0] = start + targetW[0] / 2
-  for (let i = 1; i < targetW.length; i++) {
-    desiredCenter[i] = desiredCenter[i - 1] + (targetW[i - 1] / 2) + gap + (targetW[i] / 2)
-  }
-
-  for (let i = 0; i < dockItemCount.value; i++) {
-    const dx = desiredCenter[i] - baseCenter[i]
-    shifts.value[i] = Number.isFinite(dx) ? dx : 0
-  }
-
-  // Keep the expanded dock centered to avoid drifting to one side.
-  const n = dockItemCount.value
-  if (n === 1) {
-    shifts.value[0] = 0
-  } else if (n >= 2) {
-    const leftMid = Math.floor((n - 1) / 2)
-    const rightMid = Math.ceil((n - 1) / 2)
-    const corr = ((shifts.value[leftMid] ?? 0) + (shifts.value[rightMid] ?? 0)) / 2
-    for (let i = 0; i < n; i++) shifts.value[i] = (shifts.value[i] ?? 0) - corr
-  }
-}
-
-function onPointerMove(e: PointerEvent) {
-  pointerX.value = e.clientX
-  scheduleRecalc()
-}
-
-function onPointerLeave() {
-  pointerX.value = null
-  scheduleRecalc()
-}
-
-function itemStyle(idx: number) {
-  ensureArrays()
-  return {
-    transform: `translate3d(${shifts.value[idx] ?? 0}px, ${lifts.value[idx] ?? 0}px, 0) scale(${scales.value[idx] ?? 1})`,
-  }
-}
-
-onBeforeUnmount(() => {
-  if (rafId != null) window.cancelAnimationFrame(rafId)
-})
 </script>
 
 <style scoped>
@@ -346,6 +194,9 @@ onBeforeUnmount(() => {
 .glass-dock__item {
   --thumb-w: 108px;
   --thumb-h: 58px;
+  width: 132px;
+  min-width: 132px;
+  max-width: 132px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -359,19 +210,20 @@ onBeforeUnmount(() => {
   cursor: pointer;
   flex-shrink: 0;
   transform-origin: 50% 100%;
-  will-change: transform;
-  transition: background 160ms ease, border-color 160ms ease, filter 160ms ease;
+  will-change: auto;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease;
 }
 
-.glass-dock__item[data-dock-item="true"] {}
-
 .glass-dock__item:hover {
-  background: rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.035);
 }
 
 .glass-dock__item--active {
-  border-color: rgba(59,130,246,0.55);
-  background: rgba(59,130,246,0.10);
+  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.07);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.05),
+    0 10px 20px rgba(0,0,0,0.22);
 }
 
 .glass-dock--solo .glass-dock__item--add {
@@ -390,7 +242,8 @@ onBeforeUnmount(() => {
   height: var(--thumb-h);
   border-radius: 14px;
   overflow: hidden;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -400,8 +253,8 @@ onBeforeUnmount(() => {
 }
 
 .glass-dock__thumb--dashed {
-  background: transparent;
-  border: 1px dashed rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.015);
+  border: 1px dashed rgba(255,255,255,0.16);
   box-shadow: none;
 }
 
@@ -412,7 +265,7 @@ onBeforeUnmount(() => {
 }
 
 .glass-dock__thumbFallback {
-  color: rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.20);
 }
 
 .glass-dock__label {
@@ -420,7 +273,7 @@ onBeforeUnmount(() => {
   font-size: 10px;
   line-height: 1;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.62);
   white-space: nowrap;
@@ -439,17 +292,17 @@ onBeforeUnmount(() => {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: rgba(59,130,246,1);
+  background: rgba(229,231,235,0.95);
   box-shadow: 0 0 0 2px rgba(10,12,20,0.7);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
-.glass-dock__addIcon { color: rgba(148,163,184,0.9); }
+.glass-dock__addIcon { color: rgba(229,231,235,0.78); }
 .glass-dock__spinner {
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  border: 2px solid rgba(148,163,184,0.45);
+  border: 2px solid rgba(229,231,235,0.45);
   border-top-color: transparent;
   animation: spin 0.7s linear infinite;
 }
@@ -469,9 +322,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition: background 140ms ease, border-color 140ms ease;
 }
-.glass-dock__soloAdd:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); transform: translateY(-1px); }
+.glass-dock__soloAdd:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); }
 .glass-dock__soloAdd:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 .glass-dock__soloThumb {
   width: 56px;
@@ -485,8 +338,8 @@ onBeforeUnmount(() => {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.35); }
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.95; }
 }
 
 @media (prefers-reduced-motion: reduce) {

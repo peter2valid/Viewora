@@ -10,6 +10,15 @@
       @change="handlePanoramaUpload"
     />
 
+    <!-- Hidden file input — triggered by SceneDock Add Scene -->
+    <input
+      ref="addSceneFileInput"
+      type="file"
+      accept="image/*"
+      class="hidden"
+      @change="handleAddSceneFileChange"
+    />
+
     <!-- ── Full-viewport viewer ── -->
     <ViewerCanvas
       :active-scene="activeViewerScene"
@@ -537,37 +546,8 @@ function handleHotspotClick(id: string) {
 }
 
 async function handleAddScene() {
-  if (!panorama.value?.public_url) {
-    showToast('Upload a panorama first to create Scene 1.', 'error')
-    return
-  }
-  addScenePending.value = true
-  try {
-    const sceneNumber = (scenes.value?.length || 0) + 1
-    const response = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, {
-      method: 'POST',
-      body: {
-        name: `Scene ${sceneNumber}`,
-        raw_image_url: panorama.value.public_url,
-        initial_yaw: 0,
-        initial_pitch: 0,
-      },
-    })
-    const createdScene = unwrapApiData<any>(response)?.scene || response?.scene
-    if (createdScene) {
-      scenes.value = [...scenes.value, createdScene]
-      selectedSceneId.value = createdScene.id
-      hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
-      showToast(`${createdScene.name || 'Scene'} created`)
-    } else {
-      await fetchScenes()
-      showToast('Scene created')
-    }
-  } catch (e: any) {
-    showToast(e?.data?.statusMessage || 'Could not create scene yet. Please try again.', 'error')
-  } finally {
-    addScenePending.value = false
-  }
+  if (addScenePending.value) return
+  addSceneFileInput.value?.click()
 }
 
 function statusLabel(status?: string) {
@@ -693,19 +673,66 @@ async function handleTogglePublish() {
 async function handlePanoramaUpload(e: any) {
   const file = e.target.files[0] as File
   if (!file) return
+  e.target.value = ''
   setPanoramaPreview(file)
-  await uploadFile(file, 'panorama')
+  await uploadFile(file, 'panorama', { createSceneAfterUpload: true })
 }
 
 const canvasFileInput = ref<HTMLInputElement | null>(null)
+const addSceneFileInput = ref<HTMLInputElement | null>(null)
+
+function deriveSceneName(fileName: string, sceneNumber: number): string {
+  const base = fileName.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim()
+  if (!base) return `Scene ${sceneNumber}`
+  return base.replace(/\s+/g, ' ').slice(0, 64)
+}
+
+async function createSceneWithPanorama(rawImageUrl: string, name?: string) {
+  const sceneNumber = (scenes.value?.length || 0) + 1
+  const response = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, {
+    method: 'POST',
+    body: {
+      name: name || `Scene ${sceneNumber}`,
+      raw_image_url: rawImageUrl,
+      initial_yaw: 0,
+      initial_pitch: 0,
+    },
+  })
+  const createdScene = unwrapApiData<any>(response)?.scene || response?.scene
+  if (createdScene) {
+    scenes.value = [...scenes.value, createdScene]
+    selectedSceneId.value = createdScene.id
+    hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
+  }
+  return createdScene || null
+}
 
 async function handleViewerCanvasUpload(file?: File) {
-  if (file) { setPanoramaPreview(file); await uploadFile(file, 'panorama') }
+  if (file) { setPanoramaPreview(file); await uploadFile(file, 'panorama', { createSceneAfterUpload: true }) }
   else { canvasFileInput.value?.click() }
 }
 
-async function uploadFile(file: File, type: string) {
+async function handleAddSceneFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  input.value = ''
+  setPanoramaPreview(file)
+  addScenePending.value = true
+  try {
+    await uploadFile(file, 'panorama', { createSceneAfterUpload: true })
+  } finally {
+    addScenePending.value = false
+  }
+}
+
+async function uploadFile(
+  file: File,
+  type: string,
+  options?: { createSceneAfterUpload?: boolean }
+) {
   const localId = createLocalUpload(file, type)
+  const sceneCountBeforeUpload = scenes.value.length
   try {
     updateLocalUpload(localId, { state: 'signing' })
     const signedPayload = unwrapApiData<any>(await apiFetch<any>('/uploads/create-signed-url', {
@@ -733,10 +760,20 @@ async function uploadFile(file: File, type: string) {
 
     media.value.push(record)
     if (type === 'panorama') {
+      const shouldCreateScene = options?.createSceneAfterUpload ?? sceneCountBeforeUpload === 0
+      let createdScene: any = null
+      if (shouldCreateScene && record?.public_url) {
+        const sceneName = deriveSceneName(file.name, sceneCountBeforeUpload + 1)
+        createdScene = await createSceneWithPanorama(record.public_url, sceneName)
+      }
       clearPanoramaPreview()
       inlineEditMode.value = true
-      showToast('Click anywhere in the viewer to add your first hotspot')
       await fetchScenes()
+      if (sceneCountBeforeUpload === 0) {
+        showToast('Scene ready. Click anywhere in the viewer to add your first hotspot')
+      } else if (createdScene) {
+        showToast(`${createdScene.name || 'Scene'} added`)
+      }
     }
     removeLocalUpload(localId)
     if (record.processing_status === 'pending' || record.processing_status === 'processing') {
