@@ -36,6 +36,11 @@
           @dragend="onDragEnd"
         >
           <span class="glass-dock__thumb">
+            <span class="glass-dock__thumbNav" aria-hidden="true">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 11.5 21 3l-8.5 18-1.8-7.7z" />
+              </svg>
+            </span>
             <img
               v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl)"
               :src="item.imageUrl"
@@ -326,6 +331,24 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
     inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
+.glass-dock__thumbNav {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.92);
+  background: rgba(0,0,0,0.38);
+  border: 1px solid rgba(255,255,255,0.16);
+  backdrop-filter: blur(3px);
+  z-index: 2;
+  pointer-events: none;
+}
+
 .glass-dock__thumb--dashed {
   background: rgba(255,255,255,0.015);
   border: 1px dashed rgba(255,255,255,0.16);
@@ -344,6 +367,7 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   background: linear-gradient(110deg, rgba(255,255,255,0.02) 20%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.02) 80%);
   background-size: 220% 100%;
   animation: thumb-shimmer 1.25s ease-in-out infinite;
+  z-index: 1;
 }
 
 .glass-dock__thumbFallback {
