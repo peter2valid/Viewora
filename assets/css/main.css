@@ -3314,7 +3314,8 @@ header.nav {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  /* No z-index — avoids creating a stacking context that would trap
+     position:fixed panel z-indexes behind the canvas element. */
 }
 
 /* ============================================================

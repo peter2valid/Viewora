@@ -2,7 +2,7 @@
   <div class="viewer-shell">
     <ClientOnly>
       <!-- Panorama viewer (all non-automotive spaces) — always mounted to preserve WebGL context -->
-      <div v-if="viewerType !== 'car'">
+      <div v-if="viewerType !== 'car'" class="h-full">
         <PsvViewer
           :scene="activeScene"
           :hotspots="safeHotspots(hotspots ?? [])"

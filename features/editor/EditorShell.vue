@@ -174,8 +174,8 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
 
-      <!-- Remove panorama button -->
-      <div v-if="hasPanorama" class="canvas-remove-wrap">
+      <!-- Remove panorama button — only when panorama record exists (not just local preview) -->
+      <div v-if="panorama" class="canvas-remove-wrap">
         <button
           class="canvas-remove-btn"
           :disabled="Boolean(deletingMedia[panorama!.id])"

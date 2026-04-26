@@ -10,7 +10,7 @@
         class="relative group"
       >
         <button
-          :ref="(el) => { buttonRefs.value[tool.mode] = el as HTMLButtonElement }"
+          :ref="(el) => { buttonRefs[tool.mode] = el as HTMLButtonElement }"
           @click="store.setMode(tool.mode)"
           :aria-label="tool.label"
           :aria-pressed="store.mode === tool.mode"
@@ -76,7 +76,7 @@ const route = useRoute()
 const store = useEditorStore()
 const visible = ref(false)
 const flashedMode = ref<EditorMode | null>(null)
-const buttonRefs = ref<Record<string, HTMLButtonElement | null>>({})
+const buttonRefs: Record<string, HTMLButtonElement | null> = {}
 const modeAnnouncement = ref('')
 
 const tools: { mode: EditorMode; label: string; key: string }[] = [
@@ -122,7 +122,7 @@ function onKeydown(e: KeyboardEvent) {
   if (flashTimer) clearTimeout(flashTimer)
   flashedMode.value = next
   flashTimer = setTimeout(() => { flashedMode.value = null }, 120)
-  nextTick(() => { buttonRefs.value[next]?.focus() })
+  nextTick(() => { buttonRefs[next]?.focus() })
 }
 
 onMounted(() => {
