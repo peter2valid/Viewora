@@ -36,6 +36,7 @@
       :is-published="Boolean(space?.is_published)"
       :publishing="publishing"
       @toggle-publish="handleTogglePublish"
+      @toggle-settings="showSettingsPanel = !showSettingsPanel"
     />
 
     <LeftToolbar />
@@ -149,6 +150,79 @@
           <div class="rename-popover__actions">
             <button class="rename-popover__save" :disabled="renameSaving" @click="saveRenameScene">Save</button>
             <button class="rename-popover__cancel" @click="renameCandidate = null">✕</button>
+          </div>
+          <div class="rename-popover__delete-row">
+            <template v-if="sceneDeleteConfirm === renameCandidate.id">
+              <button class="rename-popover__del-confirm" :disabled="deletingScene" @click="confirmDeleteScene(renameCandidate.id)">
+                <span v-if="deletingScene" class="hs-edit-panel__spin" />
+                <template v-else>Confirm delete</template>
+              </button>
+              <button class="rename-popover__del-abort" @click="sceneDeleteConfirm = null">Cancel</button>
+            </template>
+            <template v-else>
+              <button class="rename-popover__del" :disabled="scenes.length <= 1" @click="sceneDeleteConfirm = renameCandidate.id">Delete scene</button>
+            </template>
+          </div>
+        </div>
+      </Transition>
+
+      <Transition name="share-modal">
+        <div v-if="showSettingsPanel" class="share-overlay" @click.self="showSettingsPanel = false">
+          <div class="settings-modal" role="dialog" aria-modal="true" aria-label="Tour settings">
+            <div class="settings-modal__header">
+              <span class="settings-modal__title">Tour settings</span>
+              <button class="share-modal__close" @click="showSettingsPanel = false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div class="settings-modal__field">
+              <div class="settings-modal__field-header">
+                <span class="settings-modal__label">Field of view</span>
+                <span class="settings-modal__value">{{ settingsDraft.hfov }}°</span>
+              </div>
+              <input type="range" v-model.number="settingsDraft.hfov" min="30" max="120" step="1" class="settings-modal__range" />
+            </div>
+
+            <div class="settings-modal__field">
+              <div class="settings-modal__field-header">
+                <span class="settings-modal__label">Starting yaw</span>
+                <span class="settings-modal__value">{{ settingsDraft.yaw }}°</span>
+              </div>
+              <input type="range" v-model.number="settingsDraft.yaw" min="-180" max="180" step="1" class="settings-modal__range" />
+            </div>
+
+            <div class="settings-modal__field">
+              <div class="settings-modal__field-header">
+                <span class="settings-modal__label">Starting pitch</span>
+                <span class="settings-modal__value">{{ settingsDraft.pitch }}°</span>
+              </div>
+              <input type="range" v-model.number="settingsDraft.pitch" min="-90" max="90" step="1" class="settings-modal__range" />
+            </div>
+
+            <div class="settings-modal__toggle-row">
+              <div>
+                <div class="settings-modal__label">Auto-rotate</div>
+                <div class="settings-modal__sublabel">Slowly pan the view on load</div>
+              </div>
+              <button
+                class="settings-modal__toggle"
+                :class="{ 'settings-modal__toggle--on': settingsDraft.autoRotate }"
+                role="switch"
+                :aria-checked="settingsDraft.autoRotate"
+                @click="settingsDraft.autoRotate = !settingsDraft.autoRotate"
+              >
+                <span class="settings-modal__toggle-thumb" />
+              </button>
+            </div>
+
+            <div class="settings-modal__actions">
+              <button class="settings-modal__save" :disabled="settingsSaving" @click="saveSettings">
+                <span v-if="settingsSaving" class="hs-edit-panel__spin" />
+                <template v-else>Save settings</template>
+              </button>
+              <button class="settings-modal__cancel" @click="showSettingsPanel = false">Cancel</button>
+            </div>
           </div>
         </div>
       </Transition>
@@ -287,11 +361,30 @@ const renameCandidate = ref<{ id: string; name: string } | null>(null)
 const renameDraft = ref('')
 const renameSaving = ref(false)
 const renameInputRef = ref<HTMLInputElement | null>(null)
+const showSettingsPanel = ref(false)
+const settingsDraft = ref({ hfov: 90, yaw: 0, pitch: 0, autoRotate: false })
+const settingsSaving = ref(false)
+const sceneDeleteConfirm = ref<string | null>(null)
+const deletingScene = ref(false)
 
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 const showShareModal = ref(false)
 watch(showShareModal, (open) => open ? editorStore.openModal() : editorStore.closeModal())
+watch(showSettingsPanel, (open) => {
+  if (open) {
+    const s = space.value?.property_360_settings?.[0]
+    settingsDraft.value = {
+      hfov: s?.hfov_default ?? 90,
+      yaw: s?.yaw_default ?? 0,
+      pitch: s?.pitch_default ?? 0,
+      autoRotate: s?.auto_rotate_enabled ?? false,
+    }
+    editorStore.openModal()
+  } else {
+    editorStore.closeModal()
+  }
+})
 const urlCopied = ref(false)
 
 // Bridges editorStore mode ↔ ViewerCanvas isEditing prop
@@ -474,7 +567,7 @@ watch(deleteCandidate, (candidate) => {
 })
 
 watch(renameCandidate, async (val) => {
-  if (!val) return
+  if (!val) { sceneDeleteConfirm.value = null; return }
   await nextTick()
   renameInputRef.value?.focus()
   renameInputRef.value?.select()
@@ -508,10 +601,63 @@ async function saveRenameScene() {
   }
 }
 
+async function saveSettings() {
+  if (settingsSaving.value) return
+  settingsSaving.value = true
+  const patch = {
+    hfov_default: settingsDraft.value.hfov,
+    yaw_default: settingsDraft.value.yaw,
+    pitch_default: settingsDraft.value.pitch,
+    auto_rotate_enabled: settingsDraft.value.autoRotate,
+  }
+  const prevSettings = space.value?.property_360_settings?.[0]
+  if (space.value) {
+    space.value = { ...space.value, property_360_settings: [{ ...(prevSettings ?? {}), ...patch }] }
+  }
+  showSettingsPanel.value = false
+  try {
+    await apiFetch(`/spaces/${props.spaceId}/settings`, { method: 'PATCH', body: patch })
+    showToast('Settings saved')
+  } catch (e: any) {
+    if (space.value) {
+      space.value = { ...space.value, property_360_settings: prevSettings !== undefined ? [prevSettings] : [] }
+    }
+    showToast(e?.data?.statusMessage || 'Failed to save settings', 'error')
+  } finally {
+    settingsSaving.value = false
+  }
+}
+
+async function confirmDeleteScene(id: string) {
+  if (deletingScene.value) return
+  deletingScene.value = true
+  const prevScenes = scenes.value.slice()
+  const prevHotspots = { ...hotspotsByScene.value }
+  const prevSelectedId = selectedSceneId.value
+  renameCandidate.value = null
+  sceneDeleteConfirm.value = null
+  scenes.value = scenes.value.filter((s) => s.id !== id)
+  const { [id]: _removed, ...remainingHotspots } = hotspotsByScene.value
+  hotspotsByScene.value = remainingHotspots
+  if (selectedSceneId.value === id) selectedSceneId.value = scenes.value[0]?.id || ''
+  try {
+    await apiFetch(`/scenes/${id}`, { method: 'DELETE' })
+    showToast('Scene deleted')
+  } catch (e: any) {
+    scenes.value = prevScenes
+    hotspotsByScene.value = prevHotspots
+    selectedSceneId.value = prevSelectedId
+    showToast(e?.data?.statusMessage || 'Failed to delete scene', 'error')
+  } finally {
+    deletingScene.value = false
+  }
+}
+
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (deleteCandidate.value) { e.preventDefault(); deleteCandidate.value = null; return }
     if (renameCandidate.value) { e.preventDefault(); renameCandidate.value = null; return }
+    if (showSettingsPanel.value) { showSettingsPanel.value = false; return }
     if (showShareModal.value) { showShareModal.value = false; return }
     if (inlineEditMode.value) { e.preventDefault(); inlineEditMode.value = false }
     return
@@ -1664,4 +1810,180 @@ defineExpose({
   margin-bottom: 8px;
 }
 .share-modal__embed-code { font-family: monospace; }
+
+/* ── Settings modal ─────────────────────────────────────── */
+.settings-modal {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(10,12,20,0.97);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 24px;
+}
+.settings-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.settings-modal__title {
+  font-size: 16px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+}
+.settings-modal__field {
+  margin-bottom: 18px;
+}
+.settings-modal__field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.settings-modal__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.65);
+}
+.settings-modal__sublabel {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  margin-top: 2px;
+}
+.settings-modal__value {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  font-family: monospace;
+  min-width: 40px;
+  text-align: right;
+}
+.settings-modal__range {
+  width: 100%;
+  accent-color: #3B82F6;
+  cursor: pointer;
+}
+.settings-modal__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 22px;
+}
+.settings-modal__toggle {
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.12);
+  padding: 2px;
+  cursor: pointer;
+  transition: background 180ms, border-color 180ms;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.settings-modal__toggle--on {
+  background: #3B82F6;
+  border-color: #3B82F6;
+  justify-content: flex-end;
+}
+.settings-modal__toggle-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: background 180ms;
+}
+.settings-modal__actions {
+  display: flex;
+  gap: 8px;
+}
+.settings-modal__save {
+  flex: 1;
+  height: 40px;
+  border-radius: 10px;
+  background: #3B82F6;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.settings-modal__save:hover { background: #2563EB; }
+.settings-modal__save:disabled { opacity: 0.5; cursor: not-allowed; }
+.settings-modal__cancel {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.settings-modal__cancel:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); }
+
+/* ── Rename popover delete section ──────────────────────── */
+.rename-popover__delete-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.rename-popover__del {
+  flex: 1;
+  height: 28px;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid rgba(239,68,68,0.22);
+  color: rgba(248,113,113,0.7);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.rename-popover__del:hover:not(:disabled) { background: rgba(239,68,68,0.10); color: #f87171; border-color: rgba(239,68,68,0.40); }
+.rename-popover__del:disabled { opacity: 0.35; cursor: not-allowed; }
+.rename-popover__del-confirm {
+  flex: 1;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.40);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rename-popover__del-confirm:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+.rename-popover__del-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+.rename-popover__del-abort {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.35);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.rename-popover__del-abort:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); }
 </style>

@@ -31,22 +31,39 @@
           </Transition>
         </div>
 
-        <button
-          @click="$emit('toggle-publish')"
-          :disabled="publishing || editorStore.isSaving"
-          class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold transition-all duration-[160ms] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-          :class="isPublished
-            ? 'bg-white/[0.08] text-gray-200 border border-white/[0.15] hover:bg-white/[0.12]'
-            : 'bg-blue-600 text-white hover:bg-blue-500'"
-        >
-          <span
-            v-if="publishing || editorStore.isSaving"
-            class="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin"
-          ></span>
-          <template v-else>
-            {{ isPublished ? 'Unpublish' : 'Publish Tour' }}
-          </template>
-        </button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button
+            @click="$emit('toggle-settings')"
+            class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/[0.08] transition-colors"
+            title="Tour settings"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="4" y1="6" x2="20" y2="6"/>
+              <circle cx="9" cy="6" r="2.5" fill="currentColor" stroke="none"/>
+              <line x1="4" y1="12" x2="20" y2="12"/>
+              <circle cx="15" cy="12" r="2.5" fill="currentColor" stroke="none"/>
+              <line x1="4" y1="18" x2="20" y2="18"/>
+              <circle cx="10" cy="18" r="2.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+
+          <button
+            @click="$emit('toggle-publish')"
+            :disabled="publishing || editorStore.isSaving"
+            class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold transition-all duration-[160ms] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            :class="isPublished
+              ? 'bg-white/[0.08] text-gray-200 border border-white/[0.15] hover:bg-white/[0.12]'
+              : 'bg-blue-600 text-white hover:bg-blue-500'"
+          >
+            <span
+              v-if="publishing || editorStore.isSaving"
+              class="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin"
+            ></span>
+            <template v-else>
+              {{ isPublished ? 'Unpublish' : 'Publish Tour' }}
+            </template>
+          </button>
+        </div>
       </div>
     </header>
   </Transition>
@@ -64,6 +81,7 @@ defineProps<{
 
 defineEmits<{
   (e: 'toggle-publish'): void
+  (e: 'toggle-settings'): void
 }>()
 
 const editorStore = useEditorStore()
