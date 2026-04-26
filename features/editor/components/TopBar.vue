@@ -2,7 +2,7 @@
   <Transition name="editor-panel--top">
     <header
       v-if="visible"
-      class="editor-glass fixed top-5 left-1/2 -translate-x-1/2 z-30 flex items-center h-12 px-3 gap-3 rounded-2xl w-[calc(100vw-40px)] max-w-[1400px] pointer-events-auto"
+      class="editor-glass fixed top-5 left-1/2 -translate-x-1/2 z-30 flex items-center h-12 px-3 gap-3 rounded-2xl w-[calc(100vw-40px)] max-w-[1100px] pointer-events-auto"
     >
       <!-- ── Left ── -->
       <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -25,7 +25,7 @@
           <Transition name="dot-pop">
             <span
               v-if="editorStore.isDirty"
-              class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400"
+              class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-white/50"
               title="Unsaved changes"
             ></span>
           </Transition>
@@ -34,9 +34,9 @@
         <!-- Live badge -->
         <span
           v-if="isPublished"
-          class="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-wide"
+          class="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-wide"
         >
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
           Live
         </span>
 
@@ -55,14 +55,11 @@
         <Transition name="topbar-item">
           <div
             v-if="hasProcessingMedia"
-            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium"
-            :class="isProcessingStuck
-              ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
-              : 'text-sky-400 bg-sky-500/10 border border-sky-500/20'"
+            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-gray-400 bg-white/[0.05] border border-white/[0.08]"
           >
             <span class="w-2.5 h-2.5 rounded-full border-2 border-current border-t-transparent animate-spin flex-shrink-0"></span>
             <span>{{ isProcessingStuck ? 'Taking longer than expected…' : 'Processing…' }}</span>
-            <span class="text-gray-500">{{ processingElapsedSeconds }}s</span>
+            <span class="text-gray-600">{{ processingElapsedSeconds }}s</span>
           </div>
         </Transition>
 
@@ -92,7 +89,7 @@
           class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold hover:scale-[1.03] active:scale-[0.96] disabled:scale-100 transition-all duration-[180ms] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
           :class="isPublished
             ? 'bg-white/[0.08] text-gray-200 border border-white/[0.15] hover:bg-white/[0.12]'
-            : 'bg-blue-600 text-white hover:bg-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.4)]'"
+            : 'bg-blue-600 text-white hover:bg-blue-500'"
         >
           <span
             v-if="publishing || editorStore.isSaving"
@@ -135,20 +132,16 @@ onMounted(() => { visible.value = true })
 </script>
 
 <style scoped>
-/* Unified panel mount — all panels float up from same depth */
 .editor-panel--top-enter-active  { transition: opacity 180ms ease, transform 180ms ease; }
-/* TopBar must preserve the -translate-x-1/2 centering while floating up */
 .editor-panel--top-enter-from    { opacity: 0; transform: translate(-50%, 6px); }
 .editor-panel--top-leave-active  { transition: opacity 140ms ease, transform 140ms ease; }
 .editor-panel--top-leave-to      { opacity: 0; transform: translate(-50%, 6px); }
 
-/* Processing indicator inline fade */
 .topbar-item-enter-active,
 .topbar-item-leave-active { transition: opacity 150ms ease, transform 150ms ease; }
 .topbar-item-enter-from,
 .topbar-item-leave-to     { opacity: 0; transform: translateY(-3px); }
 
-/* Unsaved dot */
 .dot-pop-enter-active { transition: opacity 150ms ease, transform 150ms ease; }
 .dot-pop-leave-active { transition: opacity 100ms ease, transform 100ms ease; }
 .dot-pop-enter-from,

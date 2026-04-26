@@ -1,10 +1,7 @@
 <template>
   <main
-    class="absolute inset-0 z-0 overflow-hidden"
-    :class="[
-      hasScene ? 'bg-[#0A0A0A]' : 'bg-[radial-gradient(ellipse_at_top,_rgba(15,23,42,0.8)_0%,_#0A0A0A_70%)]',
-      isHotspotMode && hasScene ? 'cursor-crosshair' : ''
-    ]"
+    class="absolute inset-0 z-0 overflow-hidden bg-[#0A0A0A]"
+    :class="isHotspotMode && hasScene ? 'cursor-crosshair' : ''"
     @dragenter.prevent="onDragenter"
     @dragover.prevent
     @dragleave="onDragleave"
@@ -28,13 +25,13 @@
       @hotspot-click="$emit('hotspot-click', $event)"
     />
 
-    <!-- Hotspot mode badge — confirm-pulse animation on enter signals mode activation -->
+    <!-- Hotspot mode badge -->
     <Transition name="badge-confirm">
       <div
         v-if="isHotspotMode && hasScene"
-        class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/[0.1] border border-sky-500/20 backdrop-blur-sm pointer-events-none select-none"
+        class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/[0.1] border border-blue-500/20 backdrop-blur-sm pointer-events-none select-none"
       >
-        <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
         Hotspot Mode — click to place
       </div>
     </Transition>
@@ -45,7 +42,6 @@
         v-if="!hasScene"
         class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3"
       >
-        <!-- First-load orientation — gives new users immediate context before they see the card -->
         <p
           v-if="!isDragging"
           class="text-[11px] font-medium text-gray-600 uppercase tracking-widest select-none pointer-events-none"
@@ -58,17 +54,17 @@
           class="max-w-[300px] w-full p-6 rounded-2xl text-center transition-all duration-200"
           :class="isDragging
             ? 'border-2 border-dashed border-blue-500/60 bg-blue-500/[0.05] scale-[1.02]'
-            : 'border border-dashed border-white/20 bg-slate-950/70 backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.6)]'"
+            : 'border border-dashed border-white/10 bg-white/[0.03]'"
         >
           <!-- Icon -->
           <div
             class="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors duration-200"
-            :class="isDragging ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-white/[0.06] border border-white/10'"
+            :class="isDragging ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-white/[0.04] border border-white/8'"
           >
             <svg
               v-if="!isDragging"
               width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-              class="text-gray-500" aria-hidden="true"
+              class="text-gray-600" aria-hidden="true"
             >
               <circle cx="12" cy="12" r="10"/>
               <line x1="2" y1="12" x2="22" y2="12"/>
@@ -89,9 +85,8 @@
             <p class="text-[13px] font-semibold text-gray-100 mb-2">Upload your first 360° image</p>
             <p class="text-[11px] text-gray-500 leading-relaxed mb-5">Choose an equirectangular panorama (2:1 ratio) to start building your interactive tour.</p>
 
-            <!-- Primary action -->
             <button
-              class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold bg-white text-gray-900 hover:bg-gray-100 hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 w-full mb-2"
+              class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold bg-blue-600 text-white hover:bg-blue-500 hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 w-full mb-2"
               @click="$emit('request-upload')"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -101,7 +96,6 @@
               Choose File
             </button>
 
-            <!-- Secondary action hint -->
             <p class="text-[10px] text-gray-600 font-medium">
               Drop a 360° image or click to upload
             </p>
@@ -113,7 +107,7 @@
           </template>
         </div>
 
-        <!-- Drop error — shown when a non-image file is dropped -->
+        <!-- Drop error -->
         <Transition name="error-fade">
           <p
             v-if="dropError"
@@ -155,7 +149,6 @@ const isDragging = ref(false)
 const dropError = ref('')
 let dropErrorTimer: ReturnType<typeof setTimeout> | null = null
 
-// Counter prevents false dragleave events when cursor moves over child elements
 let dragCounter = 0
 
 function showDropError(msg: string) {
@@ -190,8 +183,6 @@ function onDrop(e: DragEvent) {
 </script>
 
 <style scoped>
-/* Hotspot badge — opacity dip at 75% creates a single confirmation "blink" on entry,
-   signalling mode activation without a distracting looping animation. */
 .badge-confirm-enter-active { animation: badge-confirm 200ms ease-out forwards; }
 .badge-confirm-leave-active { transition: opacity 150ms ease, transform 150ms ease; }
 .badge-confirm-leave-to     { opacity: 0; transform: translateY(-4px); }

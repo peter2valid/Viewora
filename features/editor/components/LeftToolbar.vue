@@ -2,7 +2,7 @@
   <Transition name="editor-panel--left">
     <aside
       v-if="visible"
-      class="editor-glass fixed left-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto"
+      class="editor-glass fixed left-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto w-16"
     >
       <div
         v-for="tool in tools"
@@ -17,7 +17,7 @@
           class="flex items-center justify-center w-11 h-11 rounded-xl hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
           :class="[
             store.mode === tool.mode
-              ? 'bg-blue-600 text-white shadow-[0_0_0_1px_rgba(59,130,246,0.5)]'
+              ? 'bg-blue-600 text-white'
               : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.08]',
             flashedMode === tool.mode ? 'tool-flash' : ''
           ]"

@@ -1,248 +1,52 @@
 <template>
-  <div class="editor-shell editor-root">
+  <div class="editor-shell">
 
-    <!-- ── Floating UI overlay (pointer-events: none at root, auto per panel) ── -->
-    <div class="editor-overlay">
-      <TopBar
-        :space-name="space?.title || 'Edit Tour'"
-        :is-published="Boolean(space?.is_published)"
-        :slug="space?.slug"
-        :scene-count="sceneChips.length"
-        :hotspot-count="hotspotCount"
-        :publishing="publishing"
-        :has-processing-media="hasProcessingMedia"
-        :is-processing-stuck="isProcessingStuck"
-        :processing-elapsed-seconds="processingElapsedSeconds"
-        @toggle-publish="handleTogglePublish"
-      />
-      <LeftToolbar />
-    </div>
+    <!-- Hidden file input — triggered by ViewerCanvas "Choose File" (empty state) -->
+    <input
+      ref="canvasFileInput"
+      type="file"
+      accept="image/*"
+      class="hidden"
+      @change="handlePanoramaUpload"
+    />
 
-    <!-- ── Sidebar ─────────────────────────────────────────── -->
-    <aside class="editor-sidebar">
+    <!-- ── Full-viewport viewer ── -->
+    <ViewerCanvas
+      :active-scene="activeViewerScene"
+      :space-type="space?.space_type"
+      :hotspots="activeSceneHotspots"
+      @error="showToast($event.message, 'error')"
+      @add-hotspot="handleViewerAddHotspot"
+      @hotspot-click="handleHotspotClick"
+      @request-upload="handleViewerCanvasUpload"
+    />
 
-      <!-- Hotspot editor (context-aware: fills sidebar when editing) -->
-      <Transition name="panel-slide">
-        <div v-if="editingHotspotId" class="sidebar-panel">
-          <div class="sidebar-panel__header">
-            <p class="sidebar-panel__title">Edit Hotspot</p>
-            <button class="sidebar-panel__close" @click="closeHotspotEditor">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
+    <!-- ── Floating panels (position:fixed, above viewer) ── -->
+    <TopBar
+      :space-name="space?.title || 'Edit Tour'"
+      :is-published="Boolean(space?.is_published)"
+      :slug="space?.slug"
+      :scene-count="sceneChips.length"
+      :hotspot-count="hotspotCount"
+      :publishing="publishing"
+      :has-processing-media="hasProcessingMedia"
+      :is-processing-stuck="isProcessingStuck"
+      :processing-elapsed-seconds="processingElapsedSeconds"
+      @toggle-publish="handleTogglePublish"
+    />
 
-          <div class="sidebar-panel__body">
-            <div class="sidebar-field">
-              <label class="sidebar-label">Label</label>
-              <input v-model="hotspotEditForm.title" type="text" class="sidebar-input" placeholder="Spot name" />
-            </div>
-            <div class="sidebar-field">
-              <label class="sidebar-label">Type</label>
-              <select v-model="hotspotEditForm.type" class="sidebar-input">
-                <option value="info">Information</option>
-                <option value="scene_link">Portal</option>
-                <option value="url">External Link</option>
-              </select>
-            </div>
-            <div class="sidebar-field">
-              <label class="sidebar-label">Description</label>
-              <textarea v-model="hotspotEditForm.description" rows="3" class="sidebar-input sidebar-input--textarea" placeholder="Describe this point…"></textarea>
-            </div>
-            <div v-if="hotspotEditForm.type === 'scene_link'" class="sidebar-field">
-              <label class="sidebar-label">Destination</label>
-              <select v-model="hotspotEditForm.targetSceneId" class="sidebar-input">
-                <option value="">Next Sequential</option>
-                <option v-for="scene in sceneChips" :key="scene.id" :value="scene.id">{{ scene.label }}</option>
-              </select>
-            </div>
-            <div v-if="hotspotEditForm.type === 'url'" class="sidebar-field">
-              <label class="sidebar-label">URL</label>
-              <input v-model="hotspotEditForm.link" type="url" class="sidebar-input" placeholder="https://" />
-            </div>
-          </div>
+    <LeftToolbar />
 
-          <div class="sidebar-panel__footer">
-            <button class="sidebar-btn sidebar-btn--primary" @click="saveHotspotEdits">Save</button>
-            <button class="sidebar-btn sidebar-btn--danger" @click="deleteEditingHotspot">Delete</button>
-          </div>
-        </div>
-      </Transition>
+    <SceneDock
+      :scenes="sceneChips"
+      :active-scene-id="selectedSceneId"
+      :has-panorama="hasPanorama"
+      :add-scene-pending="addScenePending"
+      @select-scene="selectScene"
+      @add-scene="handleAddScene"
+    />
 
-      <!-- Scene list (shown when not editing a hotspot) -->
-      <div v-if="!editingHotspotId" class="sidebar-scenes">
-        <div class="sidebar-section-header">
-          <span class="sidebar-section-label">Scenes</span>
-          <label class="sidebar-upload-btn" title="Upload new panorama">
-            <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Upload
-          </label>
-        </div>
-
-        <!-- Empty state when no panorama yet -->
-        <div v-if="!hasPanorama && !panoramaLocalUploads.length" class="sidebar-empty">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="sidebar-empty__icon"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-          <p class="sidebar-empty__text">Upload a 360° image to get started</p>
-        </div>
-
-        <!-- Scene chips (vertical list) -->
-        <div v-if="sceneChips.length" class="sidebar-scene-list">
-          <button
-            v-for="scene in sceneChips"
-            :key="scene.id"
-            class="sidebar-scene-item"
-            :class="{
-              'sidebar-scene-item--active': selectedSceneId === scene.id,
-              'sidebar-scene-item--pending': !scene.ready
-            }"
-            @click="selectScene(scene.id)"
-          >
-            <div class="sidebar-scene-item__dot"></div>
-            <span class="sidebar-scene-item__label">{{ scene.label }}</span>
-            <span v-if="!scene.ready" class="sidebar-scene-item__badge">Processing</span>
-          </button>
-        </div>
-
-        <!-- Upload progress rows -->
-        <div v-if="panoramaLocalUploads.length" class="sidebar-uploads">
-          <div v-for="item in panoramaLocalUploads" :key="item.id" class="sidebar-upload-item">
-            <div class="sidebar-upload-item__name">{{ item.fileName }}</div>
-            <div class="sidebar-upload-item__state">{{ localStateLabel(item.state) }}</div>
-            <div class="sidebar-upload-item__bar">
-              <div
-                class="sidebar-upload-item__bar-fill"
-                :class="item.state === 'failed' ? 'sidebar-upload-item__bar-fill--error' : 'sidebar-upload-item__bar-fill--progress'"
-              ></div>
-            </div>
-            <p v-if="item.error" class="sidebar-upload-item__error">{{ item.error }}</p>
-          </div>
-        </div>
-
-        <!-- Processing failure + retry -->
-        <div v-if="panorama?.processing_status === 'failed'" class="sidebar-error-row">
-          <span class="sidebar-error-row__text">Processing failed</span>
-          <button
-            class="sidebar-error-row__btn"
-            :disabled="Boolean(retryingMediaMap[panorama.id])"
-            @click="handleRetryMedia(panorama.id)"
-          >
-            {{ retryingMediaMap[panorama.id] ? 'Retrying…' : 'Retry' }}
-          </button>
-        </div>
-      </div>
-    </aside>
-
-    <!-- ── Canvas ──────────────────────────────────────────── -->
-    <main class="editor-canvas">
-
-      <!-- Hidden file input — triggered when ViewerCanvas "Choose File" emits request-upload with no file -->
-      <input
-        ref="canvasFileInput"
-        type="file"
-        accept="image/*"
-        class="hidden"
-        @change="handlePanoramaUpload"
-      />
-
-      <!-- ViewerCanvas owns: PSV wrapper, drag & drop, empty state, hotspot badge -->
-      <ViewerCanvas
-        :active-scene="activeViewerScene"
-        :space-type="space?.space_type"
-        :hotspots="activeSceneHotspots"
-        @error="showToast($event.message, 'error')"
-        @add-hotspot="handleViewerAddHotspot"
-        @hotspot-click="handleHotspotClick"
-        @request-upload="handleViewerCanvasUpload"
-      />
-
-      <!-- Processing status badge — EditorShell-specific, rendered above ViewerCanvas -->
-      <div
-        v-if="panorama"
-        class="canvas-badge canvas-badge--tl"
-        :class="statusBadgeClass(panorama.processing_status)"
-      >
-        {{ panoramaStatusLabel }}
-      </div>
-
-      <!-- Completion FX badge -->
-      <div
-        v-if="panorama && completionFxMap[panorama.id]"
-        class="canvas-badge canvas-badge--tr canvas-badge--success success-pulse"
-        :class="completionFxMap[panorama.id] === 'exit' ? 'opacity-0' : 'opacity-100'"
-        style="transition: opacity 500ms;"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-
-      <!-- Remove panorama button — only when panorama record exists (not just local preview) -->
-      <div v-if="panorama" class="canvas-remove-wrap">
-        <button
-          class="canvas-remove-btn"
-          :disabled="Boolean(deletingMedia[panorama!.id])"
-          @click.stop="confirmDeleteMedia(panorama!.id)"
-        >
-          {{ deletingMedia[panorama!.id] ? 'Removing…' : 'Remove Panorama' }}
-        </button>
-      </div>
-    </main>
-
-    <!-- ── BottomToolbar ───────────────────────────────────── -->
-    <footer class="editor-bottom">
-
-      <!-- Left: current scene name -->
-      <div class="bottom-left">
-        <span class="bottom-scene-name">{{ activeScene?.name || (hasPanorama ? 'Untitled Scene' : 'No scene') }}</span>
-      </div>
-
-      <!-- Center: hotspot tools -->
-      <div class="bottom-center">
-        <div class="bottom-cluster">
-        <!-- Edit mode toggle -->
-        <button
-          class="bottom-tool-btn"
-          :class="{ 'bottom-tool-btn--active': inlineEditMode }"
-          :title="inlineEditMode ? 'Exit hotspot placement' : 'Place hotspots'"
-          @click="inlineEditMode = !inlineEditMode"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>{{ inlineEditMode ? 'Placing…' : 'Add Hotspot' }}</span>
-        </button>
-
-        <!-- Hotspot type selector (only shown when edit mode active) -->
-        <Transition name="fade-quick">
-          <div v-if="inlineEditMode" class="bottom-type-picker">
-            <button
-              v-for="t in hotspotTypes"
-              :key="t.value"
-              class="bottom-type-btn"
-              :class="{ 'bottom-type-btn--active': hotspotDraftType === t.value }"
-              @click="hotspotDraftType = t.value"
-            >
-              {{ t.label }}
-            </button>
-          </div>
-        </Transition>
-        </div>
-        <span v-if="inlineEditMode" class="bottom-inline-hint">Click the panorama to place a {{ hotspotDraftType }} hotspot</span>
-      </div>
-
-      <!-- Right: scene + panorama actions -->
-      <div class="bottom-right">
-        <button
-          class="bottom-action-btn"
-          :disabled="!hasPanorama || addScenePending"
-          @click="handleAddScene"
-        >
-          {{ addScenePending ? '…' : '+ Scene' }}
-        </button>
-        <label class="bottom-action-btn bottom-action-btn--upload">
-          <input type="file" accept="image/*" class="hidden" @change="handlePanoramaUpload" />
-          Swap Panorama
-        </label>
-      </div>
-    </footer>
-
-    <!-- Toast -->
+    <!-- Toast + Share modal teleported to body -->
     <Teleport to="body">
       <Transition name="fade-smooth">
         <div
@@ -255,11 +59,9 @@
         </div>
       </Transition>
 
-      <!-- Share modal — shown after first publish -->
       <Transition name="share-modal">
         <div v-if="showShareModal" class="share-overlay" @click.self="showShareModal = false">
           <div class="share-modal" role="dialog" aria-modal="true" aria-label="Share your tour">
-            <!-- Header -->
             <div class="share-modal__header">
               <div class="share-modal__icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -273,7 +75,6 @@
               </button>
             </div>
 
-            <!-- URL row -->
             <div class="share-modal__url-row">
               <span class="share-modal__url">{{ publicUrl }}</span>
               <button class="share-modal__copy" @click="copyPublicUrl">
@@ -288,7 +89,6 @@
               </button>
             </div>
 
-            <!-- Actions -->
             <div class="share-modal__actions">
               <a
                 :href="`https://wa.me/?text=${encodeURIComponent('Check out my virtual tour: ' + publicUrl)}`"
@@ -299,9 +99,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
                 Share on WhatsApp
               </a>
-              <button class="share-modal__done" @click="showShareModal = false">
-                Keep editing
-              </button>
+              <button class="share-modal__done" @click="showShareModal = false">Keep editing</button>
             </div>
           </div>
         </div>
@@ -316,12 +114,12 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useSupabaseClient } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { Hotspot } from '~/domain/hotspot'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
+import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
-import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
+import SceneDock from '~/features/editor/components/SceneDock.vue'
 
 const editorStore = useEditorStore()
 
@@ -350,27 +148,11 @@ const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
 const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
 const deletingMedia = ref<Record<string, boolean>>({})
-// Writable computed bridges the bottom-bar toggle and LeftToolbar keyboard shortcuts
-// through the same store state — no separate ref needed.
-const inlineEditMode = computed({
-  get: () => editorStore.mode === 'hotspot',
-  set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
-})
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
-const editingHotspotId = ref<string | null>(null)
-const editingHotspotSceneId = ref<string | null>(null)
-const hotspotEditForm = ref({
-  type: 'info' as 'info' | 'scene_link' | 'url',
-  title: '',
-  description: '',
-  link: '',
-  targetSceneId: '',
-})
 const sceneRealtimeChannels = ref<any[]>([])
 let sceneRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
-// ── Realtime sync guards ──────────────────────────────────────
 let isMounted = false
 let fetchScenesVersion = 0
 let fetchScenesController: AbortController | null = null
@@ -389,10 +171,16 @@ const pollFailureCount = ref(0)
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 const showShareModal = ref(false)
-// Keep keyboard-shortcut modal guard in sync with the share modal state.
 watch(showShareModal, (open) => open ? editorStore.openModal() : editorStore.closeModal())
 const urlCopied = ref(false)
-const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+
+// Bridges editorStore mode ↔ ViewerCanvas isEditing prop
+const inlineEditMode = computed({
+  get: () => editorStore.mode === 'hotspot',
+  set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
+})
+
+function showToast(message: string, type: 'success' | 'error' = 'success') {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { message, type }
   toastTimer = setTimeout(() => { toast.value = null }, 3200)
@@ -408,19 +196,12 @@ async function copyPublicUrl() {
   }
 }
 
-const hotspotTypes = [
-  { value: 'info' as const, label: 'Info' },
-  { value: 'scene_link' as const, label: 'Portal' },
-  { value: 'url' as const, label: 'Link' },
-]
-
 const publicUrl = computed(() => {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
   return `${base}/p/${space.value?.slug || space.value?.id}`
 })
 
 const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
-const panoramaLocalUploads = computed(() => localUploads.value.filter((u) => u.mediaType === 'panorama'))
 const hasPanorama = computed(() => Boolean(panorama.value || localPanoramaPreviewUrl.value))
 const activeScene = computed(() => scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null)
 const activeSceneHotspots = computed(() => {
@@ -434,7 +215,6 @@ const activePanoramaSrc = computed(() => {
   return placeholderPanoramaUrl
 })
 
-// TourScene shape expected by ViewerShell / PsvViewer
 const activeViewerScene = computed(() => {
   const url = activePanoramaSrc.value
   if (!url || url === placeholderPanoramaUrl) return null
@@ -452,14 +232,9 @@ const activeViewerScene = computed(() => {
   }
 })
 
-const panoramaStatusLabel = computed(() => {
-  if (!panorama.value) return localPanoramaPreviewUrl.value ? 'Preview' : 'Placeholder'
-  return statusLabel(panorama.value.processing_status)
-})
-
-const hotspotCount = computed(() => {
-  return Object.values(hotspotsByScene.value).reduce((sum, items) => sum + items.length, 0)
-})
+const hotspotCount = computed(() =>
+  Object.values(hotspotsByScene.value).reduce((sum, items) => sum + items.length, 0)
+)
 
 const sceneChips = computed(() => {
   if (!hasPanorama.value || !scenes.value.length) return []
@@ -470,37 +245,36 @@ const sceneChips = computed(() => {
       if (orderDiff !== 0) return orderDiff
       return String(a.id || '').localeCompare(String(b.id || ''))
     })
-    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'ready' }))
+    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'ready', imageUrl: (s as any).raw_image_url || null }))
 })
 
-const hasProcessingMedia = computed(() => media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing'))
-const processingElapsedSeconds = computed(() => processingStartedAt.value ? Math.floor((nowTick.value - processingStartedAt.value) / 1000) : 0)
+const hasProcessingMedia = computed(() =>
+  media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing')
+)
+const processingElapsedSeconds = computed(() =>
+  processingStartedAt.value ? Math.floor((nowTick.value - processingStartedAt.value) / 1000) : 0
+)
 const isProcessingStuck = computed(() => hasProcessingMedia.value && processingElapsedSeconds.value > 45)
+const isUploading = computed(() =>
+  localUploads.value.some((u) => u.mediaType === 'panorama' && u.state !== 'failed')
+)
 
 function unwrapApiData<T = any>(value: any): T {
-  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) {
-    return value.data as T
-  }
-  if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) {
-    return value.result as T
-  }
+  if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) return value.data as T
+  if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) return value.result as T
   return value as T
 }
 
 function toArrayPayload<T = any>(value: any, key: string): T[] {
   if (Array.isArray(value)) return value as T[]
-  if (value && typeof value === 'object' && Array.isArray((value as any)[key])) {
-    return (value as any)[key] as T[]
-  }
+  if (value && typeof value === 'object' && Array.isArray((value as any)[key])) return (value as any)[key] as T[]
   return []
 }
 
 watch(hasProcessingMedia, (isProcessing) => {
   if (isProcessing) {
     startPolling()
-    if (!processingStartedAt.value) {
-      processingStartedAt.value = Date.now()
-    }
+    if (!processingStartedAt.value) processingStartedAt.value = Date.now()
   } else {
     stopPolling()
     processingStartedAt.value = null
@@ -511,9 +285,7 @@ onMounted(async () => {
   isMounted = true
   await fetchSpace(true)
   startSceneRealtime()
-  heartbeatTimer.value = setInterval(() => {
-    nowTick.value = Date.now()
-  }, 1000)
+  heartbeatTimer.value = setInterval(() => { nowTick.value = Date.now() }, 1000)
 })
 
 onBeforeUnmount(() => {
@@ -523,14 +295,8 @@ onBeforeUnmount(() => {
   stopPolling()
   stopSceneRealtime()
   clearPanoramaPreview()
-  if (heartbeatTimer.value) {
-    clearInterval(heartbeatTimer.value)
-    heartbeatTimer.value = null
-  }
-  if (toastTimer) {
-    clearTimeout(toastTimer)
-    toastTimer = null
-  }
+  if (heartbeatTimer.value) { clearInterval(heartbeatTimer.value); heartbeatTimer.value = null }
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
 })
 
 function setPanoramaPreview(file: File) {
@@ -547,14 +313,12 @@ function clearPanoramaPreview() {
 
 async function fetchScenes() {
   const version = ++fetchScenesVersion
-
   fetchScenesController?.abort()
   fetchScenesController = new AbortController()
   const { signal } = fetchScenesController
 
   try {
     const result = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, { signal })
-
     if (version !== fetchScenesVersion) return
 
     const loadedScenes = toArrayPayload<any>(unwrapApiData<any>(result), 'scenes')
@@ -602,9 +366,7 @@ function isAbortError(err: any): boolean {
 
 function refreshSceneGraphSoon() {
   if (!isMounted) return
-  if (sceneRealtimeRefreshTimer) {
-    clearTimeout(sceneRealtimeRefreshTimer)
-  }
+  if (sceneRealtimeRefreshTimer) clearTimeout(sceneRealtimeRefreshTimer)
   sceneRealtimeRefreshTimer = setTimeout(() => {
     if (!isMounted) return
     void fetchSpace(true, false)
@@ -619,21 +381,15 @@ function startSceneRealtime() {
 }
 
 function stopSceneRealtime() {
-  for (const channel of sceneRealtimeChannels.value) {
-    void supabase.removeChannel(channel)
-  }
+  for (const channel of sceneRealtimeChannels.value) void supabase.removeChannel(channel)
   sceneRealtimeChannels.value = []
-  if (sceneRealtimeRefreshTimer) {
-    clearTimeout(sceneRealtimeRefreshTimer)
-    sceneRealtimeRefreshTimer = null
-  }
+  if (sceneRealtimeRefreshTimer) { clearTimeout(sceneRealtimeRefreshTimer); sceneRealtimeRefreshTimer = null }
 }
 
 async function fetchHotspots(sceneId: string) {
   try {
     const result = await apiFetch<any>(`/scenes/${sceneId}/hotspots`)
     const list = mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(result), 'hotspots'))
-    // Preserve pending optimistic entries when merging fetched hotspots
     const pending = (hotspotsByScene.value[sceneId] ?? []).filter((h) => h._pending === true)
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: pending.length ? [...list, ...pending] : list }
   } catch {
@@ -644,9 +400,7 @@ async function fetchHotspots(sceneId: string) {
 async function selectScene(sceneId: string) {
   if (sceneId === selectedSceneId.value) return
   selectedSceneId.value = sceneId
-  if (!hotspotsByScene.value[sceneId]) {
-    await fetchHotspots(sceneId)
-  }
+  if (!hotspotsByScene.value[sceneId]) await fetchHotspots(sceneId)
 }
 
 const ensureSceneForEditing = (() => {
@@ -655,9 +409,7 @@ const ensureSceneForEditing = (() => {
   return async (): Promise<string | null> => {
     if (selectedSceneId.value) return selectedSceneId.value
     if (!panorama.value?.public_url) return null
-
     if (addScenePending.value) return null
-
     if (ensureScenePromise) return ensureScenePromise
 
     ensureScenePromise = (async () => {
@@ -689,9 +441,7 @@ const ensureSceneForEditing = (() => {
 })()
 
 function resolveTargetSceneId(currentSceneId: string) {
-  if (hotspotTargetSceneId.value && hotspotTargetSceneId.value !== currentSceneId) {
-    return hotspotTargetSceneId.value
-  }
+  if (hotspotTargetSceneId.value && hotspotTargetSceneId.value !== currentSceneId) return hotspotTargetSceneId.value
   const ordered = sceneChips.value.map((s: any) => s.id)
   if (ordered.length < 2) return null
   const idx = ordered.findIndex((id: string) => id === currentSceneId)
@@ -750,24 +500,15 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
   }
 
   try {
-    const response = await apiFetch<any>(`/scenes/${sceneId}/hotspots`, {
-      method: 'POST',
-      body: payload,
-    })
+    const response = await apiFetch<any>(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload })
     const created = unwrapApiData<any>(response)?.hotspot || response?.hotspot
     if (created) {
       const mappedCreated = mapDbHotspot(created)
       hotspotsByScene.value = {
         ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? [])
-          .filter((h) => h.id !== tempId)
-          .concat([mappedCreated]),
+        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== tempId).concat([mappedCreated]),
       }
-      if (beforeCount === 0) {
-        showToast('Your tour is now interactive')
-      } else {
-        showToast(hotspotDraftType.value === 'scene_link' ? 'Scene link hotspot added' : 'Hotspot added')
-      }
+      showToast(beforeCount === 0 ? 'Your tour is now interactive' : hotspotDraftType.value === 'scene_link' ? 'Scene link hotspot added' : 'Hotspot added')
     }
   } catch (e: any) {
     hotspotsByScene.value = {
@@ -783,10 +524,6 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
 function handleHotspotClick(id: string) {
   const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
   if (!hotspot) return
-  if (inlineEditMode.value) {
-    openHotspotEditor(hotspot, selectedSceneId.value)
-    return
-  }
   if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
     selectScene(hotspot.targetSceneId)
     showToast('Moved to linked scene')
@@ -799,85 +536,22 @@ function handleHotspotClick(id: string) {
   showToast(hotspot.label || 'Hotspot selected')
 }
 
-function openHotspotEditor(hotspot: EditorHotspot, sceneId: string) {
-  editingHotspotId.value = hotspot.id
-  editingHotspotSceneId.value = sceneId
-  hotspotEditForm.value = {
-    type: hotspot.type || 'info',
-    title: hotspot.label || '',
-    description: hotspot.description || '',
-    link: hotspot.url || '',
-    targetSceneId: hotspot.targetSceneId || '',
-  }
-}
-
-function closeHotspotEditor() {
-  editingHotspotId.value = null
-  editingHotspotSceneId.value = null
-}
-
-async function saveHotspotEdits() {
-  if (!editingHotspotId.value || !editingHotspotSceneId.value) return
-  try {
-    const payload: any = {
-      type: hotspotEditForm.value.type,
-      label: hotspotEditForm.value.title || null,
-      content: hotspotEditForm.value.type === 'url'
-        ? { url: hotspotEditForm.value.link, button_label: 'Open link', text: hotspotEditForm.value.description }
-        : { text: hotspotEditForm.value.description },
-      target_scene_id: hotspotEditForm.value.type === 'scene_link'
-        ? (hotspotEditForm.value.targetSceneId || null)
-        : null,
-    }
-    await apiFetch(`/hotspots/${editingHotspotId.value}`, {
-      method: 'PATCH',
-      body: payload,
-    })
-    const sceneId = editingHotspotSceneId.value
-    await fetchHotspots(sceneId)
-    showToast('Hotspot updated')
-    closeHotspotEditor()
-  } catch (e: any) {
-    showToast(e?.data?.statusMessage || 'Failed to update hotspot', 'error')
-  }
-}
-
-async function deleteEditingHotspot() {
-  if (!editingHotspotId.value || !editingHotspotSceneId.value) return
-  const deletedId = editingHotspotId.value
-  const sceneId = editingHotspotSceneId.value
-  // Optimistically remove from UI
-  const previousHotspots = hotspotsByScene.value[sceneId] || []
-  hotspotsByScene.value[sceneId] = previousHotspots.filter((h) => h.id !== deletedId)
-  try {
-    await apiFetch(`/hotspots/${deletedId}`, { method: 'DELETE' })
-    showToast('Hotspot deleted')
-    closeHotspotEditor()
-  } catch (e: any) {
-    // Restore on error
-    hotspotsByScene.value[sceneId] = previousHotspots
-    showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
-  }
-}
-
 async function handleAddScene() {
   if (!panorama.value?.public_url) {
     showToast('Upload a panorama first to create Scene 1.', 'error')
     return
   }
-
   addScenePending.value = true
   try {
     const sceneNumber = (scenes.value?.length || 0) + 1
-    const payload = {
-      name: `Scene ${sceneNumber}`,
-      raw_image_url: panorama.value.public_url,
-      initial_yaw: 0,
-      initial_pitch: 0,
-    }
     const response = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, {
       method: 'POST',
-      body: payload,
+      body: {
+        name: `Scene ${sceneNumber}`,
+        raw_image_url: panorama.value.public_url,
+        initial_yaw: 0,
+        initial_pitch: 0,
+      },
     })
     const createdScene = unwrapApiData<any>(response)?.scene || response?.scene
     if (createdScene) {
@@ -894,14 +568,6 @@ async function handleAddScene() {
   } finally {
     addScenePending.value = false
   }
-}
-
-function localStateLabel(state: LocalUploadState) {
-  if (state === 'local_select') return 'Selected'
-  if (state === 'signing') return 'Signing…'
-  if (state === 'uploading') return 'Uploading…'
-  if (state === 'registering') return 'Saving…'
-  return 'Failed'
 }
 
 function statusLabel(status?: string) {
@@ -922,26 +588,16 @@ function statusBadgeClass(status?: string) {
 function startPolling() {
   if (pollingTimer.value) return
   pollFailureCount.value = 0
-  pollingTimer.value = setInterval(async () => {
-    await fetchSpace(true, true)
-  }, 3000)
+  pollingTimer.value = setInterval(async () => { await fetchSpace(true, true) }, 3000)
 }
 
 function stopPolling() {
-  if (pollingTimer.value) {
-    clearInterval(pollingTimer.value)
-    pollingTimer.value = null
-  }
+  if (pollingTimer.value) { clearInterval(pollingTimer.value); pollingTimer.value = null }
 }
 
 function createLocalUpload(file: File, mediaType: string): string {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  localUploads.value.push({
-    id,
-    mediaType,
-    fileName: file.name,
-    state: 'local_select',
-  })
+  localUploads.value.push({ id, mediaType, fileName: file.name, state: 'local_select' })
   return id
 }
 
@@ -958,22 +614,11 @@ function removeLocalUpload(id: string) {
 function extractUploadErrorMessage(err: any, fileName: string) {
   const message = String(err?.data?.message || err?.data?.statusMessage || err?.message || '').toLowerCase()
   const status = Number(err?.statusCode || err?.status || err?.response?.status || 0)
-
-  if (status === 413 || message.includes('file too large')) {
-    return `Upload failed for ${fileName}. File is too large for your plan.`
-  }
-  if (status === 429 || message.includes('rate')) {
-    return `Too many upload requests. Please wait a few seconds and try again.`
-  }
-  if (message.includes('storage limit')) {
-    return 'Upload failed. Storage limit reached. Please free up space or upgrade your plan.'
-  }
-  if (message.includes('network') || message.includes('fetch') || message.includes('failed to fetch')) {
-    return `Network issue while uploading ${fileName}. Check your connection and retry.`
-  }
-  if (message.includes('unauthorized')) {
-    return 'Upload failed due to permission mismatch. Refresh and try again.'
-  }
+  if (status === 413 || message.includes('file too large')) return `Upload failed for ${fileName}. File is too large for your plan.`
+  if (status === 429 || message.includes('rate')) return 'Too many upload requests. Please wait a few seconds and try again.'
+  if (message.includes('storage limit')) return 'Upload failed. Storage limit reached. Please free up space or upgrade your plan.'
+  if (message.includes('network') || message.includes('fetch') || message.includes('failed to fetch')) return `Network issue while uploading ${fileName}. Check your connection and retry.`
+  if (message.includes('unauthorized')) return 'Upload failed due to permission mismatch. Refresh and try again.'
   return `Upload failed for ${fileName}. Try again.`
 }
 
@@ -991,25 +636,17 @@ function markRecentlyCompleted(mediaId: string) {
   }, 150)
 }
 
-// polling=true → only refresh media statuses, skip scene refetch
 async function fetchSpace(silent = false, polling = false) {
-  if (!planStore.plan) {
-    await planStore.fetchSubscriptionStatus()
-  }
-
+  if (!planStore.plan) await planStore.fetchSubscriptionStatus()
   try {
     const previousStatusById = new Map(media.value.map((m: any) => [m.id, m.processing_status]))
     const data = await apiFetch<any>(`/spaces/${props.spaceId}`)
     space.value = data
     media.value = data.property_media || []
 
-    if (!polling) {
-      await fetchScenes()
-    }
+    if (!polling) await fetchScenes()
 
-    if (!selectedSceneId.value && scenes.value.length) {
-      selectedSceneId.value = scenes.value[0].id
-    }
+    if (!selectedSceneId.value && scenes.value.length) selectedSceneId.value = scenes.value[0].id
 
     for (const item of media.value) {
       const prev = previousStatusById.get(item.id)
@@ -1017,7 +654,6 @@ async function fetchSpace(silent = false, polling = false) {
         markRecentlyCompleted(item.id)
       }
     }
-
     pollFailureCount.value = 0
   } catch (e: any) {
     if (polling) {
@@ -1027,9 +663,7 @@ async function fetchSpace(silent = false, polling = false) {
         showToast('Background refresh stopped after repeated errors. Reload to resume.', 'error')
       }
     }
-    if (!silent) {
-      showToast('Failed to load space data', 'error')
-    }
+    if (!silent) showToast('Failed to load space data', 'error')
   }
 }
 
@@ -1043,15 +677,12 @@ async function handleTogglePublish() {
         publish: !isLive,
         slug: space.value?.slug,
         lead_form_enabled: space.value.lead_form_enabled,
-        branding_enabled: space.value.branding_enabled
-      }
+        branding_enabled: space.value.branding_enabled,
+      },
     })
     space.value = updated
-    if (!isLive) {
-      showShareModal.value = true
-    } else {
-      showToast('Tour unpublished')
-    }
+    if (!isLive) showShareModal.value = true
+    else showToast('Tour unpublished')
   } catch (e: any) {
     showToast(e.data?.statusMessage || 'Publishing failed', 'error')
   } finally {
@@ -1066,64 +697,38 @@ async function handlePanoramaUpload(e: any) {
   await uploadFile(file, 'panorama')
 }
 
-// Hidden file input used by ViewerCanvas's "Choose File" button (drag-drop canvas)
 const canvasFileInput = ref<HTMLInputElement | null>(null)
 
 async function handleViewerCanvasUpload(file?: File) {
-  if (file) {
-    setPanoramaPreview(file)
-    await uploadFile(file, 'panorama')
-  } else {
-    canvasFileInput.value?.click()
-  }
+  if (file) { setPanoramaPreview(file); await uploadFile(file, 'panorama') }
+  else { canvasFileInput.value?.click() }
 }
 
 async function uploadFile(file: File, type: string) {
   const localId = createLocalUpload(file, type)
   try {
     updateLocalUpload(localId, { state: 'signing' })
-
     const signedPayload = unwrapApiData<any>(await apiFetch<any>('/uploads/create-signed-url', {
       method: 'POST',
-      body: {
-        spaceId: props.spaceId,
-        mediaType: type,
-        fileName: file.name,
-        contentType: file.type,
-        fileSize: file.size
-      }
+      body: { spaceId: props.spaceId, mediaType: type, fileName: file.name, contentType: file.type, fileSize: file.size },
     }))
 
     const signedUrl = signedPayload?.signedUrl
     const objectKey = signedPayload?.objectKey
-    const publicUrl = signedPayload?.publicUrl
+    const publicUrlVal = signedPayload?.publicUrl
 
     if (!signedUrl || typeof signedUrl !== 'string' || !signedUrl.startsWith('http')) {
       throw new Error('Upload signing failed: invalid signed URL returned by server')
     }
-    if (!objectKey || !publicUrl) {
-      throw new Error('Upload signing failed: missing upload metadata from server')
-    }
+    if (!objectKey || !publicUrlVal) throw new Error('Upload signing failed: missing upload metadata from server')
 
     updateLocalUpload(localId, { state: 'uploading' })
-
-    await $fetch(signedUrl, {
-      method: 'PUT',
-      body: file,
-      headers: { 'Content-Type': file.type }
-    })
-
+    await $fetch(signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
     updateLocalUpload(localId, { state: 'registering' })
 
     const record = unwrapApiData<any>(await apiFetch<any>('/uploads/complete', {
       method: 'POST',
-      body: {
-        spaceId: props.spaceId,
-        mediaType: type,
-        objectKey,
-        publicUrl,
-        fileSize: file.size
-      }
+      body: { spaceId: props.spaceId, mediaType: type, objectKey, publicUrl: publicUrlVal, fileSize: file.size },
     }))
 
     media.value.push(record)
@@ -1143,9 +748,7 @@ async function uploadFile(file: File, type: string) {
   } catch (err: any) {
     const humanError = extractUploadErrorMessage(err, file.name)
     updateLocalUpload(localId, { state: 'failed', error: humanError })
-    if (localPanoramaPreviewUrl.value) {
-      clearPanoramaPreview()
-    }
+    if (localPanoramaPreviewUrl.value) clearPanoramaPreview()
     showToast(humanError, 'error')
   }
 }
@@ -1171,12 +774,7 @@ async function confirmDeleteMedia(mediaId: string) {
   try {
     await apiFetch(`/uploads/${mediaId}`, { method: 'DELETE' })
     media.value = media.value.filter((m: any) => m.id !== mediaId)
-    if (wasPanorama) {
-      scenes.value = []
-      selectedSceneId.value = ''
-      hotspotsByScene.value = {}
-      await fetchScenes()
-    }
+    if (wasPanorama) { scenes.value = []; selectedSceneId.value = ''; hotspotsByScene.value = {}; await fetchScenes() }
     showToast('Media deleted')
   } catch (err: any) {
     showToast(`Failed to delete media: ${err.data?.statusMessage || err.message}`, 'error')
@@ -1184,776 +782,50 @@ async function confirmDeleteMedia(mediaId: string) {
     deletingMedia.value = { ...deletingMedia.value, [mediaId]: false }
   }
 }
+
+// Expose for new UI components that need to read/drive editor state
+defineExpose({
+  space,
+  media,
+  panorama,
+  hasPanorama,
+  scenes,
+  sceneChips,
+  selectedSceneId,
+  activeScene,
+  activeSceneHotspots,
+  hotspotCount,
+  hasProcessingMedia,
+  isProcessingStuck,
+  processingElapsedSeconds,
+  publishing,
+  inlineEditMode,
+  hotspotDraftType,
+  localUploads,
+  completionFxMap,
+  selectScene,
+  handleAddScene,
+  handleTogglePublish,
+  handleRetryMedia,
+  confirmDeleteMedia,
+  showToast,
+  statusLabel,
+  statusBadgeClass,
+})
 </script>
 
 <style scoped>
-/* ── Shell ──────────────────────────────────────────────────── */
 .editor-shell {
-  --panel-bg: linear-gradient(180deg, rgba(15, 16, 21, 0.94) 0%, rgba(11, 12, 16, 0.94) 100%);
-  --panel-edge: rgba(255, 255, 255, 0.08);
-  position: absolute;
+  position: fixed;
   inset: 0;
-  isolation: isolate;
-  background:
-    radial-gradient(1200px 420px at 72% -10%, rgba(56, 189, 248, 0.09), transparent 55%),
-    radial-gradient(900px 420px at 10% -20%, rgba(16, 185, 129, 0.07), transparent 52%),
-    #08090d;
   overflow: hidden;
+  background: #0A0A0A;
 }
 
-/* ── TopBar ─────────────────────────────────────────────────── */
-.editor-topbar {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 60px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: var(--panel-bg);
-  border-bottom: 1px solid var(--panel-edge);
-  backdrop-filter: blur(16px);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.02);
-}
-.editor-topbar__left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
-}
-.editor-topbar__right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.topbar-back {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  color: rgba(255,255,255,0.4);
-  transition: background 120ms, color 120ms;
-  flex-shrink: 0;
-}
-.topbar-back:hover { background: rgba(255,255,255,0.07); color: #fff; }
-
-.topbar-divider {
-  width: 1px;
-  height: 16px;
-  background: rgba(255,255,255,0.1);
-  flex-shrink: 0;
-}
-
-.topbar-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(248, 250, 252, 0.96);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 240px;
-}
-
-.topbar-live-badge {
-  flex-shrink: 0;
-  padding: 2px 7px;
-  border-radius: 4px;
-  background: #10b981;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.topbar-stats {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 2px;
-}
-
-.topbar-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: rgba(15, 23, 42, 0.38);
-  color: rgba(203, 213, 225, 0.8);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.topbar-stat strong {
-  color: #e2e8f0;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.topbar-processing {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: rgba(14, 165, 233, 0.1);
-  border: 1px solid rgba(14, 165, 233, 0.2);
-  color: #7dd3fc;
-  font-size: 11px;
-  font-weight: 500;
-}
-.topbar-processing--stuck {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.2);
-  color: #fcd34d;
-}
-.topbar-processing__spinner {
-  width: 10px;
-  height: 10px;
-  border: 1.5px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-.topbar-processing__elapsed {
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
-}
-
-.topbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background 120ms, opacity 120ms, border-color 120ms, transform 120ms;
-}
-.topbar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.topbar-btn--secondary {
-  background: rgba(15, 23, 42, 0.48);
-  color: rgba(226,232,240,0.9);
-  border-color: rgba(148,163,184,0.26);
-}
-.topbar-btn--secondary:hover:not(:disabled) {
-  background: rgba(30, 41, 59, 0.68);
-  border-color: rgba(148,163,184,0.45);
-  transform: translateY(-1px);
-}
-.topbar-btn--primary {
-  background: linear-gradient(135deg, #e2e8f0 0%, #f8fafc 48%, #cbd5e1 100%);
-  color: #0f172a;
-  border-color: rgba(226, 232, 240, 0.72);
-}
-.topbar-btn--primary:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.03); }
-
-.topbar-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(0,0,0,0.2);
-  border-top-color: #0a0a0b;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-/* ── Sidebar ────────────────────────────────────────────────── */
-.editor-sidebar {
-  position: fixed;
-  top: 0; left: 0; bottom: 60px;
-  width: 240px;
-  z-index: 40;
-  background: var(--panel-bg);
-  border-right: 1px solid var(--panel-edge);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  backdrop-filter: blur(14px);
-}
-.editor-sidebar::-webkit-scrollbar { width: 3px; }
-.editor-sidebar::-webkit-scrollbar-track { background: transparent; }
-.editor-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-
-/* Hotspot panel */
-.sidebar-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.sidebar-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.sidebar-panel__title {
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.sidebar-panel__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: transparent;
-  color: rgba(255,255,255,0.3);
-  border: none;
-  cursor: pointer;
-  transition: background 120ms, color 120ms;
-}
-.sidebar-panel__close:hover { background: rgba(255,255,255,0.07); color: #fff; }
-
-.sidebar-panel__body {
-  flex: 1;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-}
-.sidebar-panel__footer {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  display: flex;
-  gap: 8px;
-}
-
-.sidebar-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.sidebar-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.sidebar-input {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.9);
-  font-size: 12px;
-  font-weight: 500;
-  outline: none;
-  transition: border-color 120ms, background 120ms;
-}
-.sidebar-input:focus { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07); }
-.sidebar-input--textarea { resize: none; line-height: 1.5; }
-
-.sidebar-btn {
-  flex: 1;
-  height: 32px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: background 120ms;
-}
-.sidebar-btn--primary { background: #fff; color: #0a0a0b; }
-.sidebar-btn--primary:hover { background: #e5e5e5; }
-.sidebar-btn--danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
-.sidebar-btn--danger:hover { background: rgba(239,68,68,0.2); }
-
-/* Scene list */
-.sidebar-scenes {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.sidebar-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.sidebar-section-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.sidebar-upload-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.6);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 120ms, color 120ms;
-  border: 1px solid rgba(255,255,255,0.08);
-}
-.sidebar-upload-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
-
-.sidebar-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 32px 20px;
-  text-align: center;
-}
-.sidebar-empty__icon { color: rgba(255,255,255,0.15); }
-.sidebar-empty__text {
-  font-size: 11px;
-  color: rgba(255,255,255,0.25);
-  line-height: 1.5;
-}
-
-.sidebar-scene-list {
-  padding: 8px 8px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.sidebar-scene-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 8px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  transition: background 120ms;
-  color: rgba(255,255,255,0.6);
-}
-.sidebar-scene-item:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.9); }
-.sidebar-scene-item--active { background: rgba(255,255,255,0.08); color: #fff; }
-.sidebar-scene-item--pending { opacity: 0.5; }
-
-.sidebar-scene-item__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-  opacity: 0.5;
-}
-.sidebar-scene-item--active .sidebar-scene-item__dot { opacity: 1; background: #10b981; }
-
-.sidebar-scene-item__label {
-  font-size: 12px;
-  font-weight: 500;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sidebar-scene-item__badge {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #fbbf24;
-  flex-shrink: 0;
-}
-
-/* Upload progress */
-.sidebar-uploads {
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid rgba(255,255,255,0.04);
-  margin-top: 4px;
-}
-.sidebar-upload-item {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-}
-.sidebar-upload-item__name {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.7);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 3px;
-}
-.sidebar-upload-item__state {
-  font-size: 10px;
-  color: rgba(255,255,255,0.35);
-  margin-bottom: 6px;
-}
-.sidebar-upload-item__bar {
-  height: 2px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 1px;
-  overflow: hidden;
-}
-.sidebar-upload-item__bar-fill {
-  height: 100%;
-  border-radius: 1px;
-}
-.sidebar-upload-item__bar-fill--progress {
-  width: 50%;
-  background: #60a5fa;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-.sidebar-upload-item__bar-fill--error { width: 100%; background: #f87171; }
-.sidebar-upload-item__error { font-size: 10px; color: #f87171; margin-top: 4px; }
-
-.sidebar-error-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-top: 1px solid rgba(255,255,255,0.04);
-}
-.sidebar-error-row__text { font-size: 11px; color: #f87171; }
-.sidebar-error-row__btn {
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 6px;
-  background: rgba(245,158,11,0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(245,158,11,0.2);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 120ms;
-}
-.sidebar-error-row__btn:hover:not(:disabled) { background: rgba(245,158,11,0.25); }
-.sidebar-error-row__btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* ── Canvas ─────────────────────────────────────────────────── */
-.editor-canvas {
-  position: fixed;
-  top: 0;
-  left: 240px;
-  right: 0;
-  bottom: 60px;
-  background:
-    radial-gradient(700px 300px at 85% -5%, rgba(14, 165, 233, 0.08), transparent 60%),
-    #08090d;
-  overflow: hidden;
-}
-
-/* Canvas overlays */
-.canvas-badge {
-  position: absolute;
-  z-index: 10;
-  padding: 4px 8px;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border: 1px solid transparent;
-}
-.canvas-badge--tl { top: 12px; left: 12px; }
-.canvas-badge--tr {
-  top: 12px; right: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border-radius: 50%;
-}
-.canvas-badge--amber { background: rgba(245,158,11,0.15); color: #fbbf24; border-color: rgba(245,158,11,0.25); }
-.canvas-badge--sky   { background: rgba(14,165,233,0.15);  color: #7dd3fc; border-color: rgba(14,165,233,0.25); }
-.canvas-badge--rose  { background: rgba(239,68,68,0.15);   color: #fca5a5; border-color: rgba(239,68,68,0.25); }
-.canvas-badge--emerald { background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.25); }
-.canvas-badge--success { background: #10b981; color: #fff; border-color: transparent; }
-
-.canvas-remove-wrap {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-}
-.canvas-remove-btn {
-  height: 34px;
-  padding: 0 16px;
-  border-radius: 8px;
-  background: rgba(15,15,16,0.7);
-  color: rgba(255,255,255,0.7);
-  border: 1px solid rgba(255,255,255,0.12);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  transition: background 120ms, color 120ms, border-color 120ms;
-}
-.canvas-remove-btn:hover { background: rgba(239,68,68,0.8); color: #fff; border-color: transparent; }
-
-.canvas-guide {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-}
-.canvas-guide__card {
-  max-width: 340px;
-  padding: 24px;
-  border-radius: 14px;
-  background: rgba(0,0,0,0.55);
-  border: 1px solid rgba(255,255,255,0.1);
-  backdrop-filter: blur(16px);
-  text-align: center;
-}
-.canvas-guide__title {
-  font-size: 15px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.95);
-  margin-bottom: 8px;
-}
-.canvas-guide__sub {
-  font-size: 12px;
-  color: rgba(255,255,255,0.5);
-  line-height: 1.6;
-  margin-bottom: 18px;
-}
-.canvas-guide__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  padding: 0 20px;
-  border-radius: 9px;
-  background: #fff;
-  color: #0a0a0b;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 120ms;
-}
-.canvas-guide__btn:hover { background: #e5e5e5; }
-
-/* ── BottomToolbar ───────────────────────────────────────────── */
-.editor-bottom {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 60px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  background: var(--panel-bg);
-  border-top: 1px solid var(--panel-edge);
-  gap: 12px;
-  backdrop-filter: blur(16px);
-}
-.bottom-left {
-  flex: 0 0 240px;
-  display: flex;
-  align-items: center;
-  padding-right: 12px;
-  overflow: hidden;
-}
-.bottom-scene-name {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255,255,255,0.4);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bottom-center {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.bottom-cluster {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.35);
-}
-.bottom-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.bottom-tool-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: rgba(15, 23, 42, 0.4);
-  color: rgba(226,232,240,0.72);
-  transition: background 120ms, color 120ms, border-color 120ms;
-}
-.bottom-tool-btn:hover { background: rgba(30, 41, 59, 0.7); color: #fff; border-color: rgba(148,163,184,0.42); }
-.bottom-tool-btn--active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(16, 185, 129, 0.18));
-  color: #f8fafc;
-  border-color: rgba(125, 211, 252, 0.5);
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2) inset;
-}
-
-.bottom-type-picker {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 9px;
-  background: rgba(15, 23, 42, 0.45);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-}
-.bottom-type-btn {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: rgba(203,213,225,0.55);
-  transition: background 100ms, color 100ms;
-}
-.bottom-type-btn:hover { color: rgba(248,250,252,0.92); }
-.bottom-type-btn--active { background: rgba(56, 189, 248, 0.2); color: #e0f2fe; }
-
-.bottom-inline-hint {
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(125, 211, 252, 0.9);
-}
-
-.bottom-action-btn {
-  display: inline-flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: rgba(15, 23, 42, 0.42);
-  color: rgba(226,232,240,0.76);
-  transition: background 120ms, color 120ms;
-  white-space: nowrap;
-}
-.bottom-action-btn:hover:not(:disabled) { background: rgba(30, 41, 59, 0.7); color: #fff; }
-.bottom-action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.bottom-action-btn--upload { cursor: pointer; }
-
-@media (max-width: 1080px) {
-  .editor-sidebar {
-    width: 208px;
-  }
-  .editor-canvas {
-    left: 208px;
-  }
-  .bottom-left {
-    flex-basis: 208px;
-  }
-  .topbar-stats {
-    display: none;
-  }
-}
-
-@media (max-width: 780px) {
-  .editor-sidebar {
-    top: 0;
-    width: 100%;
-    bottom: auto;
-    height: 168px;
-    border-right: none;
-    border-bottom: 1px solid var(--panel-edge);
-  }
-  .editor-canvas {
-    top: 168px;
-    left: 0;
-    bottom: 68px;
-  }
-  .editor-bottom {
-    height: 68px;
-    padding: 0 10px;
-    gap: 8px;
-  }
-  .bottom-left {
-    display: none;
-  }
-  .bottom-center {
-    justify-content: flex-start;
-    gap: 8px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .bottom-center::-webkit-scrollbar {
-    display: none;
-  }
-  .bottom-inline-hint {
-    display: none;
-  }
-  .bottom-right {
-    margin-left: auto;
-    gap: 6px;
-  }
-  .topbar-title {
-    max-width: 120px;
-  }
-}
-
-/* ── Toast ───────────────────────────────────────────────────── */
+/* ── Toast ─────────────────────────────────────────────────── */
 .editor-toast {
   position: fixed;
-  bottom: 80px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1961,9 +833,8 @@ async function confirmDeleteMedia(mediaId: string) {
   gap: 10px;
   padding: 12px 20px;
   border-radius: 10px;
-  background: #1a1a1c;
-  border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  background: rgba(10,12,20,0.92);
+  border: 1px solid rgba(255,255,255,0.08);
   z-index: 400;
   white-space: nowrap;
 }
@@ -1973,88 +844,53 @@ async function confirmDeleteMedia(mediaId: string) {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.editor-toast--success .editor-toast__dot { background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.6); }
-.editor-toast--error .editor-toast__dot { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+.editor-toast--success .editor-toast__dot { background: #3B82F6; }
+.editor-toast--error .editor-toast__dot { background: #ef4444; }
 .editor-toast__msg { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.9); }
 
-/* ── Animations ─────────────────────────────────────────────── */
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-.fade-quick-enter-active, .fade-quick-leave-active { transition: opacity 150ms ease; }
-.fade-quick-enter-from, .fade-quick-leave-to { opacity: 0; }
-
+/* ── Animations ────────────────────────────────────────────── */
 .fade-smooth-enter-active, .fade-smooth-leave-active { transition: all 0.25s ease; }
 .fade-smooth-enter-from, .fade-smooth-leave-to { opacity: 0; transform: translateY(6px); }
 
-.panel-slide-enter-active, .panel-slide-leave-active { transition: all 0.2s ease; }
-.panel-slide-enter-from { opacity: 0; transform: translateX(-8px); }
-.panel-slide-leave-to { opacity: 0; transform: translateX(-8px); }
-
-.success-pulse { animation: successPulse 600ms ease-out; }
-@keyframes successPulse {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}
-
-/* ── Share modal ────────────────────────────────────────────── */
+/* ── Share modal ───────────────────────────────────────────── */
 .share-overlay {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0,0,0,0.72);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
 }
-
 .share-modal {
   width: 100%;
   max-width: 440px;
-  background: linear-gradient(160deg, #13151c 0%, #0e1018 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10,12,20,0.96);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 20px;
   padding: 28px;
-  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
 }
-
 .share-modal__header {
   display: flex;
   align-items: flex-start;
   gap: 14px;
   margin-bottom: 22px;
 }
-
 .share-modal__icon {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: #10b981;
+  background: #3B82F6;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
 }
-
-.share-modal__title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #f8fafc;
-  line-height: 1.2;
-  margin-bottom: 3px;
-}
-
-.share-modal__sub {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
-  font-weight: 500;
-}
-
+.share-modal__title { font-size: 18px; font-weight: 800; color: #f8fafc; line-height: 1.2; margin-bottom: 3px; }
+.share-modal__sub { font-size: 12px; color: rgba(255,255,255,0.45); font-weight: 500; }
 .share-modal__close {
   margin-left: auto;
   width: 28px;
@@ -2062,7 +898,7 @@ async function confirmDeleteMedia(mediaId: string) {
   border-radius: 8px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255,255,255,0.3);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2071,29 +907,26 @@ async function confirmDeleteMedia(mediaId: string) {
   flex-shrink: 0;
 }
 .share-modal__close:hover { background: rgba(255,255,255,0.07); color: #fff; }
-
 .share-modal__url-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   padding: 10px 12px;
   margin-bottom: 16px;
 }
-
 .share-modal__url {
   flex: 1;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255,255,255,0.7);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: monospace;
 }
-
 .share-modal__copy {
   display: inline-flex;
   align-items: center;
@@ -2101,9 +934,9 @@ async function confirmDeleteMedia(mediaId: string) {
   height: 28px;
   padding: 0 10px;
   border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.8);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -2112,13 +945,7 @@ async function confirmDeleteMedia(mediaId: string) {
   flex-shrink: 0;
 }
 .share-modal__copy:hover { background: rgba(255,255,255,0.12); color: #fff; }
-
-.share-modal__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
+.share-modal__actions { display: flex; flex-direction: column; gap: 10px; }
 .share-modal__whatsapp {
   display: flex;
   align-items: center;
@@ -2126,21 +953,21 @@ async function confirmDeleteMedia(mediaId: string) {
   gap: 9px;
   height: 48px;
   border-radius: 12px;
-  background: #25D366;
-  color: #fff;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.8);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
-  transition: filter 120ms, transform 120ms;
+  transition: background 120ms, color 120ms;
 }
-.share-modal__whatsapp:hover { filter: brightness(1.08); transform: translateY(-1px); }
-
+.share-modal__whatsapp:hover { background: rgba(255,255,255,0.10); color: #fff; }
 .share-modal__done {
   height: 40px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255,255,255,0.08);
   background: transparent;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255,255,255,0.4);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

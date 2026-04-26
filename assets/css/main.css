@@ -3306,30 +3306,17 @@ header.nav {
 }
 
 /* ============================================================
-   EDITOR — Overlay layer
-   Wraps all floating panels (TopBar, LeftToolbar, future panels).
-   pointer-events: none at this level — each panel sets auto.
-   ============================================================ */
-.editor-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  /* No z-index — avoids creating a stacking context that would trap
-     position:fixed panel z-indexes behind the canvas element. */
-}
-
-/* ============================================================
    EDITOR — Glass system (single source of truth)
    All floating editor panels (TopBar, LeftToolbar, RightPanel,
    SceneDock) must use .editor-glass. No variations allowed.
    ============================================================ */
 
 .editor-glass {
-  background: rgba(10, 12, 20, 0.82);
+  background: rgba(10, 12, 20, 0.88);
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.40);
 }
 
 /* Contrast safety for text-dense areas inside panels.
