@@ -159,11 +159,13 @@ let rafId: number | null = null
 
 const scales = ref<number[]>([])
 const lifts = ref<number[]>([])
+const shifts = ref<number[]>([])
 
 function ensureArrays() {
   const n = props.items.length
   if (scales.value.length !== n) scales.value = Array.from({ length: n }, () => 1)
   if (lifts.value.length !== n) lifts.value = Array.from({ length: n }, () => 0)
+  if (shifts.value.length !== n) shifts.value = Array.from({ length: n }, () => 0)
 }
 
 function scheduleRecalc() {
@@ -180,6 +182,7 @@ function recalc() {
     for (let i = 0; i < props.items.length; i++) {
       scales.value[i] = 1
       lifts.value[i] = 0
+      shifts.value[i] = 0
     }
     return
   }
@@ -190,14 +193,30 @@ function recalc() {
     for (let i = 0; i < props.items.length; i++) {
       scales.value[i] = 1
       lifts.value[i] = 0
+      shifts.value[i] = 0
     }
     return
   }
 
+  const strip = dock.querySelector<HTMLElement>('.glass-dock__strip')
   const buttons = dock.querySelectorAll<HTMLButtonElement>('.glass-dock__item[data-dock-item="true"]')
+  if (!strip || buttons.length !== props.items.length) {
+    for (let i = 0; i < props.items.length; i++) {
+      scales.value[i] = 1
+      lifts.value[i] = 0
+      shifts.value[i] = 0
+    }
+    return
+  }
   const sigma = Math.max(24, props.sigmaPx)
   const twoSigma2 = 2 * sigma * sigma
   const amp = Math.max(0, props.maxScale - 1)
+  const gap = 10 // must match CSS gap in .glass-dock__strip
+
+  const baseW: number[] = []
+  const baseCenter: number[] = []
+  const targetW: number[] = []
+  const desiredCenter: number[] = []
 
   buttons.forEach((btn, idx) => {
     const r = btn.getBoundingClientRect()
@@ -206,9 +225,28 @@ function recalc() {
     const g = Math.exp(-(d * d) / twoSigma2)
     const s = 1 + amp * g
     scales.value[idx] = s
-    const t = -props.liftPx * (s - 1) / amp
+    const t = amp > 0 ? (-props.liftPx * (s - 1) / amp) : 0
     lifts.value[idx] = Number.isFinite(t) ? t : 0
+
+    const w = btn.offsetWidth
+    baseW[idx] = w
+    // offsetLeft is layout position within strip; unaffected by transforms.
+    baseCenter[idx] = btn.offsetLeft + w / 2
+    targetW[idx] = w * s
   })
+
+  // Compute where the centers *should* be if items physically expanded.
+  // This creates the “push-apart” dock effect without drift/misalignment.
+  const start = buttons[0].offsetLeft
+  desiredCenter[0] = start + targetW[0] / 2
+  for (let i = 1; i < targetW.length; i++) {
+    desiredCenter[i] = desiredCenter[i - 1] + (targetW[i - 1] / 2) + gap + (targetW[i] / 2)
+  }
+
+  for (let i = 0; i < props.items.length; i++) {
+    const dx = desiredCenter[i] - baseCenter[i]
+    shifts.value[i] = Number.isFinite(dx) ? dx : 0
+  }
 }
 
 function onPointerMove(e: PointerEvent) {
@@ -224,7 +262,7 @@ function onPointerLeave() {
 function itemStyle(idx: number) {
   ensureArrays()
   return {
-    transform: `translate3d(0, ${lifts.value[idx] ?? 0}px, 0) scale(${scales.value[idx] ?? 1})`,
+    transform: `translate3d(${shifts.value[idx] ?? 0}px, ${lifts.value[idx] ?? 0}px, 0) scale(${scales.value[idx] ?? 1})`,
   }
 }
 

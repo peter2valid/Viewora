@@ -11,6 +11,8 @@ import type { Hotspot } from '~/domain/hotspot'
 export interface PsvViewerHandle {
   viewer: any
   markers: any
+  /** Optional cleanup for DOM-level listeners (e.g. WebGL context loss) */
+  cleanup?: () => void
 }
 
 export interface PsvClickPayload {
@@ -52,6 +54,9 @@ export async function initViewer(
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
+    // Mobile UX: don’t hijack scroll unless user uses two fingers.
+    // (Prevents “stuck rotating” when trying to scroll the page.)
+    touchmoveTwoFingers: true,
     plugins: [[MarkersPlugin, {}]],
   })
 
@@ -64,7 +69,35 @@ export async function initViewer(
   viewer.addEventListener('panorama-error', (e: any) => {
     const err = e.error instanceof Error ? e.error : new Error('Panorama load failed')
     onError?.(err)
-  }, { once: true })
+  })
+
+  // WebGL context loss can happen on some GPUs / drivers.
+  // We listen on the underlying canvas element (when available) and surface an actionable error.
+  const cleanupFns: Array<() => void> = []
+  const bindWebglContextHandlers = () => {
+    try {
+      const canvas = container.querySelector('canvas')
+      if (!canvas) return
+      const onLost = (ev: Event) => {
+        ev.preventDefault?.()
+        onError?.(new Error('WebGL context lost. Try reloading the page or using a smaller panorama.'))
+      }
+      const onRestored = () => {
+        // PSV should recover internally; if it doesn’t, the UI error message guides the user.
+      }
+      canvas.addEventListener('webglcontextlost', onLost, false)
+      canvas.addEventListener('webglcontextrestored', onRestored, false)
+      cleanupFns.push(() => {
+        canvas.removeEventListener('webglcontextlost', onLost, false)
+        canvas.removeEventListener('webglcontextrestored', onRestored, false)
+      })
+    } catch {
+      // ignore
+    }
+  }
+  // Try immediately and also after ready (canvas can be created lazily).
+  bindWebglContextHandlers()
+  viewer.addEventListener('ready', () => bindWebglContextHandlers(), { once: true })
 
   // Viewer click — used in editor mode to place hotspots
   viewer.addEventListener('click', (e: any) => {
@@ -77,7 +110,7 @@ export async function initViewer(
     onMarkerClick?.(e.marker.id)
   })
 
-  return { viewer, markers }
+  return { viewer, markers, cleanup: () => { for (const fn of cleanupFns) fn() } }
 }
 
 /**
@@ -95,6 +128,29 @@ export async function loadScene(
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
   })
+}
+
+/**
+ * Some PSV versions occasionally fail to draw markers until the camera moves.
+ * This forces a “no-op” micro-animate to trigger a render, if supported.
+ */
+export async function nudgeRender(handle: PsvViewerHandle | null): Promise<void> {
+  const viewer = handle?.viewer
+  if (!viewer) return
+  try {
+    const pos = viewer.getPosition?.()
+    const yaw = pos?.yaw ?? 0
+    const pitch = pos?.pitch ?? 0
+    if (typeof viewer.animate === 'function') {
+      await viewer.animate({ yaw: yaw + 0.0001, pitch }, 1)
+      await viewer.animate({ yaw, pitch }, 1)
+    } else if (typeof viewer.rotate === 'function') {
+      viewer.rotate({ yaw: yaw + 0.0001, pitch })
+      viewer.rotate({ yaw, pitch })
+    }
+  } catch {
+    // ignore
+  }
 }
 
 /** Adds a single hotspot marker. */
@@ -130,5 +186,6 @@ export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[]
 /** Destroys the viewer and releases all DOM listeners. Call in onUnmounted. */
 export function destroy(handle: PsvViewerHandle | null): void {
   if (!handle?.viewer) return
+  try { handle.cleanup?.() } catch { /* noop */ }
   try { handle.viewer.destroy() } catch { /* already destroyed */ }
 }

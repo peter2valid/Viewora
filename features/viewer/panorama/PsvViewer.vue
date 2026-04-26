@@ -41,6 +41,7 @@ import type { Hotspot } from '~/domain/hotspot'
 import {
   initViewer,
   loadScene,
+  nudgeRender,
   syncHotspots,
   destroy,
   type PsvViewerHandle,
@@ -83,6 +84,7 @@ async function initWithScene(scene: TourScene) {
         emit('loaded')
         if (props.hotspots?.length) {
           syncHotspots(handle.value, props.hotspots)
+          void nudgeRender(handle.value)
         }
       },
       (err) => {
@@ -106,7 +108,7 @@ async function initWithScene(scene: TourScene) {
 onMounted(async () => {
   if (containerEl.value && typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
-      if (state.value === 'ready') resizeViewer()
+      resizeViewer()
     })
     resizeObserver.observe(containerEl.value)
   }
@@ -119,7 +121,8 @@ onMounted(async () => {
   await initWithScene(props.scene)
 })
 
-// Scene change → destroy old + load new
+    // Scene change → keep current panorama visible and switch smoothly.
+    // PSV can load the next panorama without showing a blocking loader.
 watch(
   () => props.scene,
   async (next, prev) => {
@@ -129,10 +132,12 @@ watch(
       return
     }
     if (next.id === prev?.id) return
-    state.value = 'loading'
     try {
       await loadScene(handle.value, next)
       state.value = 'ready'
+      // Scene changed: re-sync hotspots for this scene (if any) and force a render.
+      syncHotspots(handle.value, props.hotspots ?? [])
+      void nudgeRender(handle.value)
     } catch (err: any) {
       state.value = 'error'
       errorMessage.value = err?.message || 'Failed to switch scene'
@@ -186,7 +191,8 @@ onUnmounted(() => {
   justify-content: center;
   gap: 10px;
   pointer-events: none;
-  background: #0a0a0a;
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(10px);
   z-index: 10;
 }
 
