@@ -1,6 +1,6 @@
 <template>
   <GlassDock
-    v-if="visible && hasPanorama"
+    v-if="visible"
     :items="dockItems"
     :active-id="activeSceneId"
     :show-add="true"
@@ -25,7 +25,6 @@ import GlassDock from '~/components/ui/GlassDock.vue'
 const props = defineProps<{
   scenes: { id: string; label: string; ready: boolean; imageUrl: string | null }[]
   activeSceneId: string
-  hasPanorama: boolean
   addScenePending: boolean
 }>()
 

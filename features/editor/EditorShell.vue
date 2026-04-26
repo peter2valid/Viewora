@@ -49,7 +49,6 @@
     <SceneDock
       :scenes="sceneChips"
       :active-scene-id="selectedSceneId"
-      :has-panorama="hasPanorama"
       :add-scene-pending="addScenePending"
       @select-scene="selectScene"
       @add-scene="handleAddScene"
@@ -159,6 +158,7 @@ const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
 const deletingMedia = ref<Record<string, boolean>>({})
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url'>('info')
 const hotspotTargetSceneId = ref('')
+const pendingScenePreviewById = ref<Record<string, string>>({})
 const sceneRealtimeChannels = ref<any[]>([])
 let sceneRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -218,8 +218,8 @@ const activeSceneHotspots = computed(() => {
   return hotspotsByScene.value[selectedSceneId.value] || []
 })
 const activePanoramaSrc = computed(() => {
-  if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (localPanoramaPreviewUrl.value) return localPanoramaPreviewUrl.value
+  if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (panorama.value?.public_url) return panorama.value.public_url
   return placeholderPanoramaUrl
 })
@@ -254,7 +254,12 @@ const sceneChips = computed(() => {
       if (orderDiff !== 0) return orderDiff
       return String(a.id || '').localeCompare(String(b.id || ''))
     })
-    .map((s, idx) => ({ id: s.id, label: s.name || `Scene ${idx + 1}`, ready: s.status === 'ready', imageUrl: (s as any).raw_image_url || null }))
+    .map((s, idx) => ({
+      id: s.id,
+      label: s.name || `Scene ${idx + 1}`,
+      ready: s.status === 'ready',
+      imageUrl: (s as any).thumbnail_url || (s as any).raw_image_url || pendingScenePreviewById.value[s.id] || null,
+    }))
 })
 
 const hasProcessingMedia = computed(() =>
@@ -287,6 +292,9 @@ watch(hasProcessingMedia, (isProcessing) => {
   } else {
     stopPolling()
     processingStartedAt.value = null
+    if (localPanoramaPreviewUrl.value && !isUploading.value) {
+      clearPanoramaPreview()
+    }
   }
 }, { immediate: true })
 
@@ -703,6 +711,12 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string) {
     scenes.value = [...scenes.value, createdScene]
     selectedSceneId.value = createdScene.id
     hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
+    if (localPanoramaPreviewUrl.value) {
+      pendingScenePreviewById.value = {
+        ...pendingScenePreviewById.value,
+        [createdScene.id]: localPanoramaPreviewUrl.value,
+      }
+    }
   }
   return createdScene || null
 }
@@ -766,7 +780,6 @@ async function uploadFile(
         const sceneName = deriveSceneName(file.name, sceneCountBeforeUpload + 1)
         createdScene = await createSceneWithPanorama(record.public_url, sceneName)
       }
-      clearPanoramaPreview()
       inlineEditMode.value = true
       await fetchScenes()
       if (sceneCountBeforeUpload === 0) {
