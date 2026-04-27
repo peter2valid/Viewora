@@ -421,9 +421,16 @@ watch([scenes, sceneUploadStateById, selectedSceneId], () => {
 }, { deep: true })
 
 function backendSceneStatusToUploadState(status?: string | null): SceneUploadState {
-  if (status === 'ready') return 'ready'
-  if (status === 'failed') return 'failed'
-  if (status === 'queued' || status === 'pending' || status === 'processing') return 'processing'
+  if (status === 'ready' || status === 'complete') return 'ready'
+  if (status === 'failed' || status === 'error') return 'failed'
+  if (
+    status === 'queued'
+    || status === 'pending'
+    || status === 'processing'
+    || status === 'signing'
+    || status === 'uploading'
+    || status === 'registering'
+  ) return 'processing'
   return 'processing'
 }
 
@@ -715,7 +722,7 @@ const sceneChips = computed(() => {
       return String(a.id || '').localeCompare(String(b.id || ''))
     })
     .map((s, idx) => {
-      const state: SceneUploadState = sceneUploadStateById.value[s.id] || (s.status === 'ready' ? 'ready' : 'processing')
+      const state: SceneUploadState = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
       const badge: 'loading' | 'failed' | null = state === 'failed' ? 'failed' : state === 'ready' ? null : 'loading'
       return {
         id: s.id,
@@ -957,7 +964,7 @@ async function fetchScenes() {
     const hotspotTasks = loadedScenes.map(async (scene: any) => {
       // Keep local preview until backend thumbnail is available.
       // Raw panorama URLs are often large and can be slow as dock thumbnails.
-      if (scene?.thumbnail_url) {
+      if (scene?.thumbnail_url && backendSceneStatusToUploadState(scene.status) === 'ready') {
         delete pendingPreviewNext[scene.id]
       }
 
@@ -1023,7 +1030,8 @@ async function fetchScenes() {
     }
   } catch (err: any) {
     if (isAbortError(err)) return
-    scenes.value = []
+    fetchScenesController = null
+    // Keep existing scenes/previews on transient backend errors.
   }
 }
 
