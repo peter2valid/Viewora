@@ -1,6 +1,6 @@
 <template>
   <div class="psv-root">
-    <div ref="containerEl" class="psv-canvas" />
+    <div ref="containerEl" :class="['psv-canvas', { 'psv-canvas--ready': state === 'ready' }]" />
 
     <!-- Error -->
     <div v-if="state === 'error'" class="psv-overlay psv-overlay--error">
@@ -188,6 +188,15 @@ onUnmounted(() => {
 .psv-canvas :deep(.psv-container) {
   width: 100% !important;
   height: 100% !important;
+}
+
+.psv-canvas--ready {
+  animation: psv-intro 0.9s ease forwards;
+}
+
+@keyframes psv-intro {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .psv-overlay {

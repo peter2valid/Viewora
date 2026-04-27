@@ -11,12 +11,12 @@
       >
         <button
           :ref="(el) => { buttonRefs[tool.mode] = el as HTMLButtonElement }"
-          @click="store.setMode(tool.mode)"
+          @click="handleToolClick(tool.mode)"
           :aria-label="tool.label"
-          :aria-pressed="store.mode === tool.mode"
+          :aria-pressed="isToolActive(tool.mode)"
           class="flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
           :class="[
-            store.mode === tool.mode
+            isToolActive(tool.mode)
               ? 'bg-blue-600 text-white'
               : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.08]',
             flashedMode === tool.mode ? 'tool-flash' : ''
@@ -49,18 +49,18 @@
 
         <!-- Active indicator -->
         <span
-          v-if="store.mode === tool.mode"
-          class="absolute -right-[5px] top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-blue-400 pointer-events-none"
+          v-if="isToolActive(tool.mode)"
+          class="absolute -right-[5px] top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-blue-400 pointer-events-none sm:block hidden"
         ></span>
 
-        <!-- Tooltip (right side, desktop only — hidden on touch devices via CSS) -->
+        <!-- Tooltip (right side, desktop only) -->
         <div class="tooltip" role="tooltip">
           <span class="tooltip__label">{{ tool.label }}</span>
           <kbd class="tooltip__key">{{ tool.key }}</kbd>
         </div>
       </div>
 
-      <!-- Screen reader announcement region: announces mode changes from keyboard shortcuts -->
+      <!-- Screen reader announcement region -->
       <div aria-live="polite" aria-atomic="true" class="sr-only">{{ modeAnnouncement }}</div>
     </aside>
   </Transition>
@@ -89,26 +89,45 @@ const modeLabels: Record<EditorMode, string> = {
   view:     'View mode',
   hotspot:  'Hotspot placement mode',
   settings: 'Settings',
+  preview:  'Preview mode',
 }
 
 const keyMap: Record<string, EditorMode> = { v: 'view', h: 'hotspot', s: 'settings' }
 let flashTimer: ReturnType<typeof setTimeout> | null = null
 
-// Announce mode changes to screen readers (keyboard and click alike).
+function isToolActive(mode: EditorMode): boolean {
+  if (mode === 'hotspot') {
+    return store.mode === 'hotspot' || store.activePanel === 'hotspots'
+  }
+  return store.mode === mode
+}
+
+function handleToolClick(next: EditorMode) {
+  if (next === 'hotspot') {
+    if (store.activePanel === 'hotspots') {
+      store.setPanel(null)
+      store.setMode('view')
+    } else {
+      store.setPanel('hotspots')
+      store.setMode('hotspot')
+    }
+    return
+  }
+  
+  store.setMode(next)
+  if (next !== 'hotspot') store.setPanel(null)
+}
+
+// Announce mode changes
 watch(() => store.mode, (mode) => {
   modeAnnouncement.value = modeLabels[mode]
 })
 
 function onKeydown(e: KeyboardEvent) {
-  // Tab visibility — shortcuts must not fire when the page is hidden
   if (document.visibilityState !== 'visible') return
-  // Route scope — only active on the editor page (Nuxt file-based name: app-spaces-id)
   if (route.name !== 'app-spaces-id') return
-  // Modal guard — reactive, no DOM query
   if (store.isModalOpen) return
-  // Modifier keys — do not intercept OS/browser shortcuts
   if (e.metaKey || e.ctrlKey || e.altKey) return
-  // Text input guard — tagName + contenteditable covers all editable contexts
   const target = e.target as HTMLElement
   if (
     target.tagName === 'INPUT' ||
@@ -116,9 +135,13 @@ function onKeydown(e: KeyboardEvent) {
     target.tagName === 'SELECT' ||
     target.isContentEditable
   ) return
-  const next = keyMap[e.key.toLowerCase()]
+  
+  const key = e.key.toLowerCase()
+  const next = keyMap[key]
   if (!next) return
-  store.setMode(next)
+  
+  handleToolClick(next)
+  
   if (flashTimer) clearTimeout(flashTimer)
   flashedMode.value = next
   flashTimer = setTimeout(() => { flashedMode.value = null }, 120)
@@ -137,14 +160,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Unified panel mount — left toolbar also floats up, not in from the side */
 .editor-panel--left-enter-active  { transition: opacity 180ms ease, transform 180ms ease; }
-/* Preserve -translate-y-1/2 centering while floating up 6px */
 .editor-panel--left-enter-from    { opacity: 0; transform: translateY(calc(-50% + 6px)); }
 .editor-panel--left-leave-active  { transition: opacity 140ms ease, transform 140ms ease; }
 .editor-panel--left-leave-to      { opacity: 0; transform: translateY(calc(-50% + 6px)); }
 
-/* Keyboard shortcut flash — micro press effect */
 .tool-flash {
   animation: tool-flash 120ms ease forwards;
 }
@@ -155,7 +175,6 @@ onBeforeUnmount(() => {
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* Tooltip — right side of pill */
 .tooltip {
   position: absolute;
   z-index: 40;
@@ -181,7 +200,6 @@ onBeforeUnmount(() => {
   transform: translateY(-50%) translateX(0);
 }
 
-/* Hide tooltip on touch devices — no hover available */
 @media (hover: none) {
   .tooltip { display: none; }
 }

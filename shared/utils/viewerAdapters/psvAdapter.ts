@@ -143,9 +143,12 @@ export async function loadScene(
   handle.markerSignatures.clear()
   await handle.viewer.setPanorama(scene.imageUrl, {
     showLoader: false,
-    transition: 700,
-    defaultYaw: scene.settings.yaw_default,
-    defaultPitch: scene.settings.pitch_default,
+    position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
+    transition: {
+      speed: 1000,
+      rotation: true,
+      effect: 'black',
+    },
   })
 }
 

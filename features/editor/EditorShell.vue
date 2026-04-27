@@ -45,6 +45,21 @@
       @preview="editorStore.setMode('preview')"
     />
 
+    <HotspotPanel
+      :visible="editorStore.activePanel === 'hotspots' && !isPreviewMode"
+      :hotspots="activeSceneHotspots"
+      :selected-id="editorStore.selectedHotspotId"
+      :draft="editDraft"
+      :other-scenes="editableOtherScenes"
+      :saving="savingHotspot"
+      :deleting="deletingHotspot"
+      @close="closeHotspotPanel"
+      @select="selectHotspot"
+      @update-draft="patchHotspotDraft"
+      @save="saveHotspotEdit"
+      @delete="confirmDeleteHotspot"
+    />
+
     <LeftToolbar v-if="editorStore.mode !== 'preview'" />
 
     <SceneDock
@@ -94,76 +109,6 @@
         >
           <div class="editor-toast__dot"></div>
           <span class="editor-toast__msg">{{ toast.message }}</span>
-        </div>
-      </Transition>
-
-      <Transition name="fade-smooth">
-        <div
-          v-if="deleteCandidate"
-          class="hs-edit-panel"
-          role="dialog"
-          aria-label="Edit hotspot"
-        >
-          <div class="hs-edit-panel__header">
-            <span class="hs-edit-panel__dot" :class="`hs-edit-panel__dot--${editDraft.type}`"></span>
-            <span class="hs-edit-panel__title">Edit hotspot</span>
-            <button class="hs-edit-panel__close" @click="deleteCandidate = null">✕</button>
-          </div>
-
-          <div class="hs-edit-panel__type-tabs">
-            <button class="hs-edit-panel__type-tab" :class="editDraft.type === 'info' ? 'hs-edit-panel__type-tab--active' : ''" @click="editDraft.type = 'info'">Info</button>
-            <button class="hs-edit-panel__type-tab" :class="editDraft.type === 'url' ? 'hs-edit-panel__type-tab--active' : ''" @click="editDraft.type = 'url'">URL</button>
-            <button class="hs-edit-panel__type-tab" :class="editDraft.type === 'scene_link' ? 'hs-edit-panel__type-tab--active' : ''" @click="editDraft.type = 'scene_link'">Link</button>
-          </div>
-
-          <div class="hs-edit-panel__fields">
-            <label class="hs-edit-panel__field">
-              <span class="hs-edit-panel__label-text">Label</span>
-              <input
-                v-model="editDraft.label"
-                class="hs-edit-panel__input"
-                type="text"
-                placeholder="Hotspot label"
-                maxlength="80"
-              />
-            </label>
-
-            <label v-if="editDraft.type === 'info'" class="hs-edit-panel__field">
-              <span class="hs-edit-panel__label-text">Description</span>
-              <input
-                v-model="editDraft.description"
-                class="hs-edit-panel__input"
-                type="text"
-                placeholder="Short description"
-                maxlength="200"
-              />
-            </label>
-
-            <label v-if="editDraft.type === 'url'" class="hs-edit-panel__field">
-              <span class="hs-edit-panel__label-text">URL</span>
-              <input
-                v-model="editDraft.url"
-                class="hs-edit-panel__input"
-                type="url"
-                placeholder="https://..."
-              />
-            </label>
-
-            <label v-if="editDraft.type === 'scene_link'" class="hs-edit-panel__field">
-              <span class="hs-edit-panel__label-text">Go to scene</span>
-              <select v-model="editDraft.targetSceneId" class="hs-edit-panel__input hs-edit-panel__select">
-                <option v-for="s in editableOtherScenes" :key="s.id" :value="s.id">{{ s.label }}</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="hs-edit-panel__actions">
-            <button class="hs-edit-panel__save" :disabled="savingHotspot" @click="saveHotspotEdit">
-              <span v-if="savingHotspot" class="hs-edit-panel__spin" />
-              <template v-else>Save</template>
-            </button>
-            <button class="hs-edit-panel__del" :disabled="deletingHotspot" @click="confirmDeleteHotspot">Delete</button>
-          </div>
         </div>
       </Transition>
 
@@ -342,6 +287,7 @@ import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
 import SceneDock from '~/features/editor/components/SceneDock.vue'
+import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 
 const editorStore = useEditorStore()
 
@@ -1425,31 +1371,64 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
 function handleHotspotClick(id: string) {
   const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
   if (!hotspot) return
-  if (inlineEditMode.value) {
-    deleteCandidate.value = { ...hotspot, sceneId: selectedSceneId.value }
+  
+  if (isPreviewMode.value) {
+    if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
+      selectScene(hotspot.targetSceneId)
+      showToast('Moved to linked scene')
+    } else if (hotspot.type === 'url' && hotspot.url) {
+      window.open(hotspot.url, '_blank', 'noopener,noreferrer')
+    }
     return
   }
-  if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
-    selectScene(hotspot.targetSceneId)
-    showToast('Moved to linked scene')
-    return
+
+  // Always open side panel and select hotspot on click in editor mode
+  editorStore.setPanel('hotspots')
+  editorStore.setMode('hotspot')
+  selectHotspot(id)
+}
+
+function selectHotspot(id: string | null) {
+  editorStore.selectHotspot(id)
+  if (!id) return
+
+  const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
+  if (hotspot) {
+    editDraft.value = {
+      label: hotspot.label || '',
+      description: hotspot.description || '',
+      url: hotspot.url || '',
+      targetSceneId: hotspot.targetSceneId || '',
+      type: (hotspot.type as any) || 'info'
+    }
   }
-  if (hotspot.type === 'url' && hotspot.url) {
-    window.open(hotspot.url, '_blank', 'noopener,noreferrer')
-    return
-  }
-  showToast(hotspot.label || 'Hotspot selected')
+}
+
+function patchHotspotDraft(patch: Partial<typeof editDraft.value>) {
+  editDraft.value = { ...editDraft.value, ...patch }
+}
+
+function closeHotspotPanel() {
+  editorStore.setPanel(null)
+  editorStore.setMode('view')
+  editorStore.selectHotspot(null)
 }
 
 async function confirmDeleteHotspot() {
-  if (!deleteCandidate.value || deletingHotspot.value) return
-  const { id, sceneId } = deleteCandidate.value
+  const id = editorStore.selectedHotspotId
+  if (!id || deletingHotspot.value) return
+  
+  const sceneId = selectedSceneId.value
   deletingHotspot.value = true
-  deleteCandidate.value = null
+  
+  // Optimistic update
   hotspotsByScene.value = {
     ...hotspotsByScene.value,
     [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== id),
   }
+  
+  editorStore.selectHotspot(null)
+  
   try {
     await apiFetch(`/hotspots/${id}`, { method: 'DELETE' })
     showToast('Hotspot deleted')
@@ -1462,14 +1441,17 @@ async function confirmDeleteHotspot() {
 }
 
 async function saveHotspotEdit() {
-  if (!deleteCandidate.value || savingHotspot.value) return
+  const id = editorStore.selectedHotspotId
+  if (!id || savingHotspot.value) return
+  
   savingHotspot.value = true
-  const { id, sceneId } = deleteCandidate.value
+  const sceneId = selectedSceneId.value
   const newType = editDraft.value.type
   const patch: any = {}
+  
   const trimmedLabel = editDraft.value.label.trim()
-  if (trimmedLabel) patch.label = trimmedLabel
-  if (newType !== deleteCandidate.value.type) patch.type = newType
+  patch.label = trimmedLabel || (newType === 'scene_link' ? 'Go to next room' : 'Info hotspot')
+  
   if (newType === 'info') {
     patch.content = { text: editDraft.value.description.trim() || 'Point of interest' }
   } else if (newType === 'url') {
@@ -1477,6 +1459,9 @@ async function saveHotspotEdit() {
   } else if (newType === 'scene_link') {
     if (editDraft.value.targetSceneId) patch.target_scene_id = editDraft.value.targetSceneId
   }
+  
+  patch.type = newType
+
   // Optimistic update
   hotspotsByScene.value = {
     ...hotspotsByScene.value,
@@ -1484,14 +1469,14 @@ async function saveHotspotEdit() {
       h.id !== id ? h : {
         ...h,
         type: newType,
-        label: patch.label ?? h.label,
-        description: patch.content?.text ?? h.description,
-        url: patch.content?.url ?? h.url,
-        targetSceneId: patch.target_scene_id ?? h.targetSceneId,
+        label: patch.label,
+        description: patch.content?.text,
+        url: patch.content?.url,
+        targetSceneId: patch.target_scene_id,
       }
     ),
   }
-  deleteCandidate.value = null
+
   try {
     const res = await apiFetch<any>(`/hotspots/${id}`, { method: 'PATCH', body: patch })
     const updated = unwrapApiData<any>(res)?.hotspot || res?.hotspot
