@@ -107,6 +107,13 @@ const editorStore = useEditorStore()
 const publicUrl = computed(() => {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
   const identifier = props.slug || props.spaceId || (route.params.id as string)
+  
+  // If not published, use the authenticated preview route
+  if (!props.isPublished) {
+    const id = props.spaceId || (route.params.id as string)
+    return `${base}/p/preview/${id}`
+  }
+  
   return `${base}/p/${identifier}`
 })
 
