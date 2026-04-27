@@ -494,8 +494,8 @@ const pollFailureCount = ref(0)
 type DeleteCandidate = EditorHotspot & { sceneId: string }
 const deleteCandidate = ref<DeleteCandidate | null>(null)
 const deletingHotspot = ref(false)
-const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' }>({
-  label: '', description: '', url: '', targetSceneId: '', type: 'info',
+const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link'; icon: string }>({
+  label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '',
 })
 const savingHotspot = ref(false)
 const renameCandidate = ref<{ id: string; name: string } | null>(null)
@@ -906,6 +906,7 @@ watch(deleteCandidate, (candidate) => {
     url: candidate.url || '',
     targetSceneId: validTargetId,
     type: (candidate.type as 'info' | 'url' | 'scene_link') || 'info',
+    icon: candidate.icon || '',
   }
 })
 
@@ -1399,7 +1400,8 @@ function selectHotspot(id: string | null) {
       description: hotspot.description || '',
       url: hotspot.url || '',
       targetSceneId: hotspot.targetSceneId || '',
-      type: (hotspot.type as any) || 'info'
+      type: (hotspot.type as any) || 'info',
+      icon: hotspot.icon || '',
     }
   }
 }
@@ -1459,7 +1461,11 @@ async function saveHotspotEdit() {
   } else if (newType === 'scene_link') {
     if (editDraft.value.targetSceneId) patch.target_scene_id = editDraft.value.targetSceneId
   }
-  
+
+  if (editDraft.value.icon) {
+    patch.content = { ...(patch.content ?? {}), icon: editDraft.value.icon }
+  }
+
   patch.type = newType
 
   // Optimistic update
@@ -1473,6 +1479,7 @@ async function saveHotspotEdit() {
         description: patch.content?.text,
         url: patch.content?.url,
         targetSceneId: patch.target_scene_id,
+        icon: editDraft.value.icon || undefined,
       }
     ),
   }

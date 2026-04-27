@@ -136,6 +136,26 @@
               class="w-full h-10 px-4 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-xs font-bold focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.08] transition-all"
             />
           </div>
+
+          <!-- Icon Picker -->
+          <div class="space-y-2">
+            <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">Icon</span>
+            <div class="grid grid-cols-4 gap-1">
+              <button
+                v-for="iconDef in HOTSPOT_ICON_DEFS"
+                :key="iconDef.key"
+                :title="iconDef.label"
+                @click="updateDraft({ icon: iconDef.key })"
+                class="flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all"
+                :class="effectiveIcon === iconDef.key
+                  ? 'bg-white/15 ring-1 ring-white/25'
+                  : 'hover:bg-white/[0.06]'"
+              >
+                <span class="w-6 h-6 flex items-center justify-center text-white [&_svg]:w-full [&_svg]:h-full" v-html="iconDef.svg" />
+                <span class="text-[8px] font-bold text-white/40 uppercase tracking-wider leading-none">{{ iconDef.label }}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Actions -->
@@ -169,18 +189,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue'
 import type { EditorHotspot } from '../mappers'
+import { HOTSPOT_ICON_DEFS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
 
 const props = defineProps<{
   visible: boolean
   hotspots: EditorHotspot[]
   selectedId: string | null
-  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' }
+  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link'; icon: string }
   otherScenes: { id: string; label: string }[]
   saving: boolean
   deleting: boolean
 }>()
+
+const effectiveIcon = computed(() =>
+  props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info'
+)
 
 const emit = defineEmits<{
   (e: 'close'): void

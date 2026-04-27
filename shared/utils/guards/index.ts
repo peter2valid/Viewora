@@ -61,6 +61,7 @@ function normalizeHotspot(h: any): Hotspot {
     targetSceneId: h.targetSceneId ?? h.target_scene_id ?? undefined,
     // DB stores description in content.text
     description: h.description ?? h.content?.text ?? undefined,
+    icon: h.icon ?? h.content?.icon ?? undefined,
   }
 }
 

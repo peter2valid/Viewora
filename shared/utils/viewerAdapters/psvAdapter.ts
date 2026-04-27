@@ -3,6 +3,7 @@
 
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
+import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
 
 // Internal viewer and plugin instances typed as `any` — the Viewer class
 // has protected internal methods (init, __setSize) that cause TS assignment
@@ -41,6 +42,7 @@ function hotspotSignature(hs: Hotspot): string {
     hs.url ?? '',
     hs.targetSceneId ?? '',
     hs.description ?? '',
+    hs.icon ?? '',
   ].join('|')
 }
 
@@ -49,25 +51,9 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 }
 
-// Per-type inline SVG icons — all hardcoded, no user input.
-const ICONS: Record<Hotspot['type'], string> = {
-  info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10"/>
-    <path d="M12 16v-4M12 8h.01"/>
-  </svg>`,
-  url: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-    <polyline points="15 3 21 3 21 9"/>
-    <line x1="10" y1="14" x2="21" y2="3"/>
-  </svg>`,
-  scene_link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M5 12h14M12 5l7 7-7 7"/>
-  </svg>`,
-}
-
 function buildMarkerHtml(hotspot: Hotspot): string {
-  const icon = ICONS[hotspot.type] ?? ICONS.info
-  // scene_link gets an animated pulse ring to visually indicate it's navigable
+  const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info'
+  const icon = HOTSPOT_ICONS_BY_KEY[iconKey] ?? HOTSPOT_ICONS_BY_KEY['info']
   const pulse = hotspot.type === 'scene_link' ? '<span class="psv-hs-pulse" aria-hidden="true"></span>' : ''
   return `<div class="psv-hs-marker psv-hs-marker--${hotspot.type}" aria-label="${esc(hotspot.label ?? hotspot.type)}">${pulse}${icon}</div>`
 }
