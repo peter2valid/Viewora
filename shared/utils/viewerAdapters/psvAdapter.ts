@@ -105,16 +105,11 @@ export async function initViewer(
       interpolation: true,
     }] : undefined,
     panorama: useTiles ? {
-      width: 12288, // Use max supported width for tiles
-      cols: 16,
+      width: scene.width || 12288,
+      cols: 16, // Default columns for our tiling setup
       rows: 8,
       baseUrl: scene.imageUrl,
-      tileUrl: (col: number, row: number) => {
-        // Deep Zoom (dz) format: level/col_row
-        // PSV expects a specific mapping if not using a manifest.
-        // But our backend generates DZI. PSV supports DZI manifests.
-        return scene.tileManifestUrl!
-      },
+      tileUrl: (col: number, row: number) => scene.tileManifestUrl!,
     } : scene.imageUrl,
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -123,7 +118,7 @@ export async function initViewer(
     fisheye: !isEditing,
     plugins: [
       [MarkersPlugin, { clickEventOnMarker: false }],
-      [CompassPlugin, { size: '120px', position: 'top left', navigation: true }],
+      [CompassPlugin, { size: '120px', position: 'bottom left', navigation: true }],
       [GyroscopePlugin, { touchmove: true, absolutePosition: true }],
     ],
   })
@@ -202,7 +197,17 @@ export async function loadScene(
   if (!handle?.viewer || !scene.imageUrl) return
   handle.markers.clearMarkers()
   handle.markerSignatures.clear()
-  await handle.viewer.setPanorama(scene.imageUrl, {
+
+  const useTiles = !!scene.tileManifestUrl
+  const panorama = useTiles ? {
+    width: scene.width || 12288,
+    cols: 16,
+    rows: 8,
+    baseUrl: scene.imageUrl,
+    tileUrl: (col: number, row: number) => scene.tileManifestUrl!,
+  } : scene.imageUrl
+
+  await handle.viewer.setPanorama(panorama, {
     showLoader: false,
     position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
     transition: {

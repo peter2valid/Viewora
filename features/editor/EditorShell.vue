@@ -806,6 +806,9 @@ const activePanoramaSrc = computed(() => {
   if (activeScene.value?.id && pendingScenePreviewById.value[activeScene.value.id]) {
     return pendingScenePreviewById.value[activeScene.value.id]
   }
+  // Use thumbnail as baseUrl for the viewer to ensure fast initial load
+  // while tiled manifest handles the high resolution.
+  if (activeScene.value?.thumbnail_url) return activeScene.value.thumbnail_url
   if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (panorama.value?.public_url) return panorama.value.public_url
   return placeholderPanoramaUrl
@@ -819,6 +822,8 @@ const activeViewerScene = computed(() => {
     id: activeScene.value?.id ?? 'editor-scene',
     imageUrl: url,
     tileManifestUrl: activeScene.value?.tile_manifest_url,
+    width: activeScene.value?.width,
+    height: activeScene.value?.height,
     hotspots: activeSceneHotspots.value ?? [],
     settings: {
       hfov_default: s?.hfov_default ?? 90,

@@ -3,7 +3,7 @@
     <aside
       v-if="visible"
       class="editor-glass fixed z-20 flex gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto overflow-visible transition-all duration-300
-             left-1/2 -translate-x-1/2 bottom-24 flex-row w-auto
+             left-1/2 -translate-x-1/2 bottom-40 flex-row w-auto
              sm:left-5 sm:top-1/2 sm:-translate-y-1/2 sm:translate-x-0 sm:flex-col sm:w-16"
     >
       <div

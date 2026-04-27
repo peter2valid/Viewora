@@ -373,14 +373,16 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  margin: 12px;
+  margin-left: 12px;
+  margin-bottom: 220px; /* High enough to clear SceneDock and LeftToolbar on mobile */
   width: 80px !important;
   height: 80px !important;
 }
 
 @media (min-width: 640px) {
   .psv-canvas :deep(.psv-compass) {
-    margin: 20px;
+    margin-left: 20px;
+    margin-bottom: 20px; /* Bottom left corner for desktop */
     width: 120px !important;
     height: 120px !important;
   }

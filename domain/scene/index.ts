@@ -39,6 +39,8 @@ export interface TourScene {
   id: string
   imageUrl: string
   tileManifestUrl?: string
+  width?: number
+  height?: number
   title?: string
   hotspots: Hotspot360[]
   settings: Pick<Settings360, 'hfov_default' | 'pitch_default' | 'yaw_default' | 'auto_rotate_enabled'>
