@@ -32,6 +32,19 @@
         </div>
 
         <div class="flex items-center gap-2 flex-shrink-0">
+          <a
+            :href="publicUrl"
+            target="_blank"
+            class="flex-shrink-0 flex items-center justify-center gap-2 h-8 px-2 sm:px-3 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/[0.08] transition-colors"
+            title="Preview tour"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span class="hidden md:inline text-[12px] font-semibold">Preview</span>
+          </a>
+
           <button
             @click="$emit('toggle-settings')"
             class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/[0.08] transition-colors"
@@ -71,13 +84,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from '#imports'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 
-defineProps<{
+const props = defineProps<{
   spaceName: string
   isPublished: boolean
   publishing: boolean
+  spaceId?: string
+  slug?: string
 }>()
 
 defineEmits<{
@@ -85,7 +101,14 @@ defineEmits<{
   (e: 'toggle-settings'): void
 }>()
 
+const route = useRoute()
 const editorStore = useEditorStore()
+
+const publicUrl = computed(() => {
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  const identifier = props.slug || props.spaceId || (route.params.id as string)
+  return `${base}/p/${identifier}`
+})
 
 const visible = ref(false)
 onMounted(() => { visible.value = true })

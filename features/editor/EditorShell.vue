@@ -37,6 +37,8 @@
       :space-name="space?.title || 'Edit Tour'"
       :is-published="Boolean(space?.is_published)"
       :publishing="publishing"
+      :space-id="space?.id"
+      :slug="space?.slug"
       @toggle-publish="handleTogglePublish"
       @toggle-settings="showSettingsPanel = !showSettingsPanel"
     />
