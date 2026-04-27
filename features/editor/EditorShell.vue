@@ -48,21 +48,33 @@
     <LeftToolbar v-if="editorStore.mode !== 'preview'" />
 
     <SceneDock
-      v-if="editorStore.mode !== 'preview'"
+      v-if="!isPreviewMode || scenes.length > 1"
       :scenes="sceneChips"
       :active-scene-id="selectedSceneId"
       :add-scene-pending="false"
+      :show-add="!isPreviewMode"
       @select-scene="selectScene"
       @add-scene="handleAddScene"
       @reorder-scenes="handleReorderScenes"
       @rename-scene="handleRenameScene"
     />
 
+    <!-- Preview Mode Overlays -->
+    <Transition name="fade-smooth">
+      <div
+        v-if="isPreviewMode"
+        class="fixed top-5 left-5 z-30 flex flex-col gap-1 pointer-events-none"
+      >
+        <h1 class="text-white text-lg font-black tracking-tight drop-shadow-lg uppercase">{{ space?.title || 'Tour Preview' }}</h1>
+        <p v-if="space?.location_text" class="text-white/60 text-[10px] font-bold tracking-[0.2em] drop-shadow-md uppercase">{{ space.location_text }}</p>
+      </div>
+    </Transition>
+
     <!-- Preview exit button -->
     <Transition name="fade-smooth">
       <button
-        v-if="editorStore.mode === 'preview'"
-        class="fixed top-5 right-5 z-[100] flex items-center gap-2 px-4 h-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur-md text-white text-[12px] font-bold transition-all shadow-2xl"
+        v-if="isPreviewMode"
+        class="fixed top-5 right-5 z-[100] flex items-center gap-2 px-4 h-10 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 backdrop-blur-md text-white text-[12px] font-bold transition-all shadow-2xl pointer-events-auto"
         @click="editorStore.setMode('view')"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -575,6 +587,8 @@ const inlineEditMode = computed({
   get: () => editorStore.mode === 'hotspot',
   set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
 })
+
+const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
   if (toastTimer) clearTimeout(toastTimer)

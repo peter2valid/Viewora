@@ -3,7 +3,7 @@
     v-if="visible"
     :items="dockItems"
     :active-id="activeSceneId"
-    :show-add="true"
+    :show-add="showAdd"
     :add-disabled="addScenePending"
     glass-class="dock-glass"
     :bottom-px="20"
@@ -24,11 +24,14 @@
 import { computed, onMounted, ref } from 'vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   scenes: { id: string; label: string; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | null }[]
   activeSceneId: string
   addScenePending: boolean
-}>()
+  showAdd?: boolean
+}>(), {
+  showAdd: true
+})
 
 defineEmits<{
   (e: 'select-scene', id: string): void
