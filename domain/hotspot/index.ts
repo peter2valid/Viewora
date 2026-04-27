@@ -8,6 +8,8 @@ export interface Hotspot {
   targetSceneId?: string
   description?: string
   icon?: string
+  scale?: number
+  hoverScale?: number
 }
 
 export interface HotspotCreatePayload {

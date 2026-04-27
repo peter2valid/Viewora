@@ -120,6 +120,33 @@
             </select>
           </div>
 
+          <!-- Customization Sliders -->
+          <div class="space-y-4 pt-2">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between ml-1">
+                <span class="text-[10px] font-black uppercase tracking-widest text-white/30">Size</span>
+                <span class="text-[10px] font-bold text-blue-400/80">{{ Math.round(draft.scale * 100) }}%</span>
+              </div>
+              <input 
+                v-model.number="draft.scale" 
+                type="range" min="0.5" max="2.5" step="0.1" 
+                class="w-full h-1.5 rounded-lg appearance-none bg-white/10 cursor-pointer accent-blue-500"
+              />
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center justify-between ml-1">
+                <span class="text-[10px] font-black uppercase tracking-widest text-white/30">Hover Zoom</span>
+                <span class="text-[10px] font-bold text-blue-400/80">{{ draft.hoverScale }}x</span>
+              </div>
+              <input 
+                v-model.number="draft.hoverScale" 
+                type="range" min="1" max="2.5" step="0.1" 
+                class="w-full h-1.5 rounded-lg appearance-none bg-white/10 cursor-pointer accent-blue-500"
+              />
+            </div>
+          </div>
+
           <!-- URL (URL, Video, YouTube) -->
           <div v-if="['url', 'video', 'youtube'].includes(draft.type)" class="space-y-2">
             <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
@@ -142,13 +169,20 @@
                 :key="iconDef.key"
                 :title="iconDef.label"
                 @click="updateDraft({ icon: iconDef.key })"
-                class="flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all"
+                class="flex flex-col items-center gap-2 py-3 px-1 rounded-2xl transition-all"
                 :class="effectiveIcon === iconDef.key
-                  ? 'bg-white/15 ring-1 ring-white/25'
-                  : 'hover:bg-white/[0.06]'"
+                  ? 'bg-white/10 ring-1 ring-white/20'
+                  : 'hover:bg-white/[0.04]'"
               >
-                <span class="w-6 h-6 flex items-center justify-center text-white [&_svg]:w-full [&_svg]:h-full" v-html="iconDef.svg" />
-                <span class="text-[8px] font-bold text-white/40 uppercase tracking-wider leading-none">{{ iconDef.label }}</span>
+                <div 
+                  class="w-10 h-10 rounded-full flex items-center justify-center border transition-all"
+                  :class="effectiveIcon === iconDef.key 
+                    ? 'bg-blue-600 border-white/40 shadow-[0_0_15px_rgba(37,99,235,0.4)]' 
+                    : 'bg-white/5 border-white/10'"
+                >
+                  <span class="w-5 h-5 flex items-center justify-center text-white [&_svg]:w-full [&_svg]:h-full" v-html="iconDef.svg" />
+                </div>
+                <span class="text-[8px] font-bold text-white/30 uppercase tracking-wider leading-none">{{ iconDef.label }}</span>
               </button>
             </div>
           </div>
@@ -193,7 +227,7 @@ const props = defineProps<{
   visible: boolean
   hotspots: EditorHotspot[]
   selectedId: string | null
-  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string }
+  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number }
   otherScenes: { id: string; label: string }[]
   saving: boolean
   deleting: boolean

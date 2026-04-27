@@ -259,39 +259,68 @@ onUnmounted(() => {
 /* ── Hotspot marker base ─────────────────────────── */
 :global(.psv-hs-marker) {
   position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(6px);
-  transition: box-shadow 0.2s ease;
+}
+
+:global(.psv-hs-icon-wrapper) {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: #fff;
+}
+
+:global(.psv-hs-marker:hover .psv-hs-icon-wrapper) {
+  transform: scale(1.15);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 30px currentColor;
 }
 
 :global(.psv-hs-marker svg) {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   color: #fff;
   flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
 
-/* ── Per-type colours ────────────────────────────── */
-:global(.psv-hs-marker--info) {
-  background: rgba(20, 184, 166, 0.88);
-  box-shadow: 0 4px 18px rgba(20, 184, 166, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+/* ── Per-type colours (Applied to the icon wrapper) ── */
+:global(.psv-hs-marker--info .psv-hs-icon-wrapper) {
+  background: rgba(20, 184, 166, 0.85);
+  color: rgba(20, 184, 166, 0.6); /* Used for the box-shadow glow */
+  box-shadow: 0 4px 18px rgba(20, 184, 166, 0.45);
 }
 
-:global(.psv-hs-marker--url) {
-  background: rgba(59, 130, 246, 0.88);
-  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+:global(.psv-hs-marker--url .psv-hs-icon-wrapper) {
+  background: rgba(59, 130, 246, 0.85);
+  color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.45);
 }
 
-:global(.psv-hs-marker--scene_link) {
-  background: rgba(99, 102, 241, 0.88);
-  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+:global(.psv-hs-marker--scene_link .psv-hs-icon-wrapper) {
+  background: rgba(99, 102, 241, 0.85);
+  color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.45);
+}
+
+:global(.psv-hs-marker--video .psv-hs-icon-wrapper) {
+  background: rgba(168, 85, 247, 0.85);
+  color: rgba(168, 85, 247, 0.6);
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.45);
+}
+
+:global(.psv-hs-marker--youtube .psv-hs-icon-wrapper) {
+  background: rgba(225, 29, 72, 0.85);
+  color: rgba(225, 29, 72, 0.6);
+  box-shadow: 0 4px 18px rgba(225, 29, 72, 0.45);
 }
 
 /* ── Pulse ring (scene_link only) ────────────────── */

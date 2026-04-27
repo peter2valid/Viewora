@@ -43,6 +43,8 @@ function hotspotSignature(hs: Hotspot): string {
     hs.targetSceneId ?? '',
     hs.description ?? '',
     hs.icon ?? '',
+    hs.scale ?? 1,
+    hs.hoverScale ?? 1.3,
   ].join('|')
 }
 
@@ -54,8 +56,14 @@ function esc(s: string): string {
 function buildMarkerHtml(hotspot: Hotspot): string {
   const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info'
   const icon = HOTSPOT_ICONS_BY_KEY[iconKey] ?? HOTSPOT_ICONS_BY_KEY['info']
+  
+  // No more forced circle container. The icon IS the hotspot.
+  // We wrap it in a minimal div just for positioning and pulse effects.
   const pulse = hotspot.type === 'scene_link' ? '<span class="psv-hs-pulse" aria-hidden="true"></span>' : ''
-  return `<div class="psv-hs-marker psv-hs-marker--${hotspot.type}" aria-label="${esc(hotspot.label ?? hotspot.type)}">${pulse}${icon}</div>`
+  return `<div class="psv-hs-marker psv-hs-marker--${hotspot.type}" aria-label="${esc(hotspot.label ?? hotspot.type)}">
+    ${pulse}
+    <div class="psv-hs-icon-wrapper">${icon}</div>
+  </div>`
 }
 
 // Builds the HTML shown inside PSV's side panel for info hotspots (public viewer only).
@@ -254,31 +262,40 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       ? buildInfoContent(hotspot)
       : undefined
 
+    const baseSize = (hotspot.scale ?? 1) * 44
+    const hoverAmount = hotspot.hoverScale ?? 1.3
+
     handle.markers.addMarker({
       id: hotspot.id,
       position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
       html: buildMarkerHtml(hotspot),
-      size: { width: 44, height: 44 },
+      size: { width: baseSize, height: baseSize },
       anchor: 'center center',
       tooltip: tooltipConfig,
       ...(contentHtml ? { content: contentHtml } : {}),
       scale: { zoom: [0.7, 1.2] },
-      hoverScale: { amount: 1.3, duration: 150, easing: 'ease-out' },
+      hoverScale: { amount: hoverAmount, duration: 150, easing: 'ease-out' },
     })
     return
   }
 
   // Spatial / 3D Layer Markers (Video, YouTube)
   if (hotspot.type === 'video' && hotspot.url) {
+    const baseSize = (hotspot.scale ?? 1) * 640
+    const ratio = 360 / 640
+    
     handle.markers.addMarker({
       id: hotspot.id,
       videoLayer: hotspot.url,
       position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-      size: { width: 640, height: 360 },
+      size: { width: baseSize, height: baseSize * ratio },
       anchor: 'center center',
       autoplay: true,
       muted: true,
       loop: true,
+      // In editor mode, add an HTML overlay so it's clickable/selectable
+      html: handle.isEditing ? buildMarkerHtml(hotspot) : undefined,
+      tooltip: handle.isEditing ? { content: hotspot.label || 'Video Hotspot', position: 'top center', trigger: 'hover' } : undefined,
     })
     return
   }
@@ -289,12 +306,27 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       ? hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/)![1]
       : hotspot.url
 
+    const baseSize = (hotspot.scale ?? 1) * 640
+    const ratio = 360 / 640
+
+    // Create iframe element for cleaner embedding
+    const iframe = document.createElement('iframe')
+    iframe.width = '100%'
+    iframe.height = '100%'
+    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1`
+    iframe.frameBorder = '0'
+    iframe.allow = 'autoplay; encrypted-media'
+    iframe.style.pointerEvents = handle.isEditing ? 'none' : 'auto' // Prevent iframe from stealing clicks in editor
+
     handle.markers.addMarker({
       id: hotspot.id,
-      elementLayer: `<iframe width="640" height="360" src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`,
+      elementLayer: iframe,
       position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-      size: { width: 640, height: 360 },
+      size: { width: baseSize, height: baseSize * ratio },
       anchor: 'center center',
+      // In editor mode, add an HTML overlay so it's clickable/selectable
+      html: handle.isEditing ? buildMarkerHtml(hotspot) : undefined,
+      tooltip: handle.isEditing ? { content: hotspot.label || 'YouTube Hotspot', position: 'top center', trigger: 'hover' } : undefined,
     })
     return
   }

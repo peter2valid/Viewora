@@ -16,6 +16,8 @@ export function mapDbHotspot(h: any): EditorHotspot {
     targetSceneId: h?.target_scene_id ?? undefined,
     description: h?.content?.text ?? undefined,
     icon: h?.content?.icon ?? undefined,
+    scale: h?.content?.scale ?? undefined,
+    hoverScale: h?.content?.hoverScale ?? undefined,
   }
 }
 

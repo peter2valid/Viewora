@@ -62,6 +62,8 @@ function normalizeHotspot(h: any): Hotspot {
     // DB stores description in content.text
     description: h.description ?? h.content?.text ?? undefined,
     icon: h.icon ?? h.content?.icon ?? undefined,
+    scale: h.scale ?? h.content?.scale ?? undefined,
+    hoverScale: h.hoverScale ?? h.content?.hoverScale ?? undefined,
   }
 }
 

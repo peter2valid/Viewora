@@ -494,8 +494,8 @@ const pollFailureCount = ref(0)
 type DeleteCandidate = EditorHotspot & { sceneId: string }
 const deleteCandidate = ref<DeleteCandidate | null>(null)
 const deletingHotspot = ref(false)
-const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string }>({
-  label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '',
+const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number }>({
+  label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', scale: 1, hoverScale: 1.3,
 })
 const savingHotspot = ref(false)
 const renameCandidate = ref<{ id: string; name: string } | null>(null)
@@ -1408,6 +1408,8 @@ function selectHotspot(id: string | null) {
       targetSceneId: hotspot.targetSceneId || '',
       type: (hotspot.type as any) || 'info',
       icon: hotspot.icon || '',
+      scale: hotspot.scale || 1,
+      hoverScale: hotspot.hoverScale || 1.3,
     }
   }
 }
@@ -1473,6 +1475,14 @@ async function saveHotspotEdit() {
   if (editDraft.value.icon) {
     patch.content = { ...(patch.content ?? {}), icon: editDraft.value.icon }
   }
+  
+  if (editDraft.value.scale !== 1) {
+    patch.content = { ...(patch.content ?? {}), scale: editDraft.value.scale }
+  }
+
+  if (editDraft.value.hoverScale !== 1.3) {
+    patch.content = { ...(patch.content ?? {}), hoverScale: editDraft.value.hoverScale }
+  }
 
   patch.type = newType
 
@@ -1488,6 +1498,8 @@ async function saveHotspotEdit() {
         url: patch.content?.url,
         targetSceneId: patch.target_scene_id,
         icon: editDraft.value.icon || undefined,
+        scale: editDraft.value.scale,
+        hoverScale: editDraft.value.hoverScale,
       }
     ),
   }
