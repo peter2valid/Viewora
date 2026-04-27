@@ -373,7 +373,17 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  margin: 20px;
+  margin: 12px;
+  width: 80px !important;
+  height: 80px !important;
+}
+
+@media (min-width: 640px) {
+  .psv-canvas :deep(.psv-compass) {
+    margin: 20px;
+    width: 120px !important;
+    height: 120px !important;
+  }
 }
 
 

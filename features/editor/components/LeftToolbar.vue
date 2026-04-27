@@ -2,7 +2,9 @@
   <Transition name="editor-panel--left">
     <aside
       v-if="visible"
-      class="editor-glass fixed right-3 sm:right-auto sm:left-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto w-12 sm:w-16 overflow-visible"
+      class="editor-glass fixed z-20 flex gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto overflow-visible transition-all duration-300
+             left-1/2 -translate-x-1/2 bottom-24 flex-row w-auto
+             sm:left-5 sm:top-1/2 sm:-translate-y-1/2 sm:translate-x-0 sm:flex-col sm:w-16"
     >
       <div
         v-for="tool in tools"
@@ -161,9 +163,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .editor-panel--left-enter-active  { transition: opacity 180ms ease, transform 180ms ease; }
-.editor-panel--left-enter-from    { opacity: 0; transform: translateY(calc(-50% + 6px)); }
+.editor-panel--left-enter-from    { opacity: 0; transform: translate(-50%, 6px); }
 .editor-panel--left-leave-active  { transition: opacity 140ms ease, transform 140ms ease; }
-.editor-panel--left-leave-to      { opacity: 0; transform: translateY(calc(-50% + 6px)); }
+.editor-panel--left-leave-to      { opacity: 0; transform: translate(-50%, 6px); }
+
+@media (min-width: 640px) {
+  .editor-panel--left-enter-from    { opacity: 0; transform: translateY(calc(-50% + 6px)); }
+  .editor-panel--left-leave-to      { opacity: 0; transform: translateY(calc(-50% + 6px)); }
+}
 
 .tool-flash {
   animation: tool-flash 120ms ease forwards;

@@ -2,7 +2,9 @@
   <Transition name="panel-slide">
     <aside
       v-if="visible"
-      class="editor-glass fixed right-5 top-1/2 -translate-y-1/2 z-40 w-80 max-h-[80vh] flex flex-col p-4 rounded-3xl pointer-events-auto overflow-hidden shadow-2xl"
+      class="editor-glass fixed z-40 flex flex-col p-4 pointer-events-auto overflow-hidden shadow-2xl transition-all duration-300
+             inset-x-4 bottom-24 max-h-[60vh] rounded-[2rem]
+             sm:inset-auto sm:right-5 sm:top-1/2 sm:-translate-y-1/2 sm:w-80 sm:max-h-[80vh] sm:rounded-3xl"
     >
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
@@ -215,10 +217,18 @@ function updateDraft(patch: Partial<typeof props.draft>) {
 </script>
 
 <style scoped>
-.panel-slide-enter-active { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.panel-slide-leave-active { transition: all 0.2s ease-in; }
-.panel-slide-enter-from    { opacity: 0; transform: translate(20px, -50%); }
-.panel-slide-leave-to      { opacity: 0; transform: translate(20px, -50%); }
+.panel-slide-enter-active { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.panel-slide-leave-active { transition: all 0.25s ease-in; }
+
+/* Mobile: slide up from bottom */
+.panel-slide-enter-from { opacity: 0; transform: translateY(20px); }
+.panel-slide-leave-to   { opacity: 0; transform: translateY(20px); }
+
+/* Desktop: slide from right */
+@media (min-width: 640px) {
+  .panel-slide-enter-from { opacity: 0; transform: translate(20px, -50%); }
+  .panel-slide-leave-to   { opacity: 0; transform: translate(20px, -50%); }
+}
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

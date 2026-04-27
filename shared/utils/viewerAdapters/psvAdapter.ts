@@ -79,10 +79,11 @@ export async function initViewer(
   onMarkerClick?: (id: string) => void,
   isEditing = false,
 ): Promise<PsvViewerHandle> {
-  const [{ Viewer }, { MarkersPlugin }, { CompassPlugin }] = await Promise.all([
+  const [{ Viewer }, { MarkersPlugin }, { CompassPlugin }, { GyroscopePlugin }] = await Promise.all([
     import('@photo-sphere-viewer/core'),
     import('@photo-sphere-viewer/markers-plugin'),
     import('@photo-sphere-viewer/compass-plugin'),
+    import('@photo-sphere-viewer/gyroscope-plugin'),
   ])
 
   // Cast to any: Viewer's protected methods (init, __setSize) prevent direct type
@@ -94,7 +95,7 @@ export async function initViewer(
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
-    touchmoveTwoFingers: true,
+    touchmoveTwoFingers: false,
     fisheye: !isEditing, // Start with fisheye for little planet intro in viewer mode
     plugins: [
       [MarkersPlugin, {
@@ -104,6 +105,10 @@ export async function initViewer(
         size: '120px',
         position: 'top left',
         navigation: true,
+      }],
+      [GyroscopePlugin, {
+        touchmove: true,
+        absolutePosition: true,
       }],
     ],
   })

@@ -41,6 +41,7 @@
     "posthog-js": "^1.371.1"
   },
   "overrides": {
+    "three": "0.179.1",
     "@photo-sphere-viewer/core": "5.14.1",
     "@photo-sphere-viewer/markers-plugin": "5.14.1"
   }
