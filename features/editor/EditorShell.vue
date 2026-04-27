@@ -1418,7 +1418,7 @@ async function confirmDeleteHotspot() {
     [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== id),
   }
   try {
-    await apiFetch(`/scenes/${sceneId}/hotspots/${id}`, { method: 'DELETE' })
+    await apiFetch(`/hotspots/${id}`, { method: 'DELETE' })
     showToast('Hotspot deleted')
   } catch (e: any) {
     await fetchHotspots(sceneId)
@@ -1460,7 +1460,7 @@ async function saveHotspotEdit() {
   }
   deleteCandidate.value = null
   try {
-    const res = await apiFetch<any>(`/scenes/${sceneId}/hotspots/${id}`, { method: 'PATCH', body: patch })
+    const res = await apiFetch<any>(`/hotspots/${id}`, { method: 'PATCH', body: patch })
     const updated = unwrapApiData<any>(res)?.hotspot || res?.hotspot
     if (updated) {
       const mapped = mapDbHotspot(updated)
