@@ -26,10 +26,13 @@
       :active-scene="activeViewerScene"
       :space-type="space?.space_type"
       :hotspots="activeSceneHotspots"
+      :is-tracing="isTracing"
+      :trace-points="tracePoints"
       @error="showToast($event.message, 'error')"
       @add-hotspot="handleViewerAddHotspot"
       @hotspot-click="handleHotspotClick"
       @request-upload="handleViewerCanvasUpload"
+      @update-trace="handleUpdateTrace"
     />
 
     <!-- ── Floating panels (position:fixed, above viewer) ── -->
@@ -58,6 +61,7 @@
       @update-draft="patchHotspotDraft"
       @save="saveHotspotEdit"
       @delete="confirmDeleteHotspot"
+      @start-tracing="startTracing"
     />
 
     <LeftToolbar v-if="editorStore.mode !== 'preview'" />
@@ -494,7 +498,7 @@ const pollFailureCount = ref(0)
 type DeleteCandidate = EditorHotspot & { sceneId: string }
 const deleteCandidate = ref<DeleteCandidate | null>(null)
 const deletingHotspot = ref(false)
-const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number }>({
+const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number; corners?: Array<{ yaw: number; pitch: number }> }>({
   label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', scale: 1, hoverScale: 1.3,
 })
 const savingHotspot = ref(false)
@@ -503,6 +507,34 @@ const renameDraft = ref('')
 const renameSaving = ref(false)
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const showSettingsPanel = ref(false)
+const isTracing = ref(false)
+const tracePoints = ref<Array<{ yaw: number; pitch: number }>>([])
+
+function startTracing() {
+  isTracing.value = true
+  tracePoints.value = []
+  showToast('Click 4 corners in the room to pin video', 'success')
+}
+
+watch(isTracing, (val) => {
+  if (val) editorStore.openModal() // Block other UI
+  else editorStore.closeModal()
+})
+function handleUpdateTrace(payload: { yaw: number; pitch: number }) {
+  if (!isTracing.value) return
+  
+  tracePoints.value.push(payload)
+  
+  if (tracePoints.value.length === 4) {
+    editDraft.value.corners = [...tracePoints.value]
+    isTracing.value = false
+    tracePoints.value = []
+    showToast('Spatial mapping complete', 'success')
+  } else {
+    showToast(`Point ${tracePoints.value.length}/4 captured`, 'success')
+  }
+}
+
 const settingsDraft = ref({ hfov: 90, yaw: 0, pitch: 0, autoRotate: false })
 const settingsSaving = ref(false)
 const sceneDeleteConfirm = ref<string | null>(null)
@@ -1410,6 +1442,7 @@ function selectHotspot(id: string | null) {
       icon: hotspot.icon || '',
       scale: hotspot.scale || 1,
       hoverScale: hotspot.hoverScale || 1.3,
+      corners: hotspot.corners,
     }
   }
 }

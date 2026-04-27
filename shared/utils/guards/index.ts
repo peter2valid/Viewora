@@ -64,6 +64,7 @@ function normalizeHotspot(h: any): Hotspot {
     icon: h.icon ?? h.content?.icon ?? undefined,
     scale: h.scale ?? h.content?.scale ?? undefined,
     hoverScale: h.hoverScale ?? h.content?.hoverScale ?? undefined,
+    corners: h.corners ?? h.content?.corners ?? undefined,
   }
 }
 

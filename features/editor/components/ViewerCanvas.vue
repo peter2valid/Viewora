@@ -19,10 +19,13 @@
       :space-type="spaceType"
       :hotspots="hotspots"
       :is-editing="isHotspotMode"
+      :is-tracing="isTracing"
+      :trace-points="tracePoints"
       @loaded="$emit('loaded')"
       @error="$emit('error', $event)"
       @add-hotspot="$emit('add-hotspot', $event)"
       @hotspot-click="$emit('hotspot-click', $event)"
+      @update-trace="$emit('update-trace', $event)"
     />
 
     <!-- Hotspot mode badge -->
@@ -131,6 +134,8 @@ const props = defineProps<{
   activeScene: TourScene | null
   spaceType?: string
   hotspots?: Hotspot[]
+  isTracing?: boolean
+  tracePoints?: Array<{ yaw: number; pitch: number }>
 }>()
 
 const editorStore = useEditorStore()
@@ -141,6 +146,7 @@ const emit = defineEmits<{
   (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
   (e: 'hotspot-click', id: string): void
   (e: 'request-upload', file?: File): void
+  (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()
 
 const hasScene = computed(() => Boolean(props.activeScene?.imageUrl))

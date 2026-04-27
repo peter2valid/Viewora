@@ -148,16 +148,50 @@
           </div>
 
           <!-- URL (URL, Video, YouTube) -->
-          <div v-if="['url', 'video', 'youtube'].includes(draft.type)" class="space-y-2">
-            <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
-              {{ draft.type === 'youtube' ? 'YouTube URL or ID' : 'Web Address / Video URL' }}
-            </span>
-            <input
-              v-model="draft.url"
-              type="url"
-              :placeholder="draft.type === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'"
-              class="w-full h-10 px-4 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-xs font-bold focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.08] transition-all"
-            />
+          <div v-if="['url', 'video', 'youtube'].includes(draft.type)" class="space-y-4">
+            <div class="space-y-2">
+              <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                {{ draft.type === 'youtube' ? 'YouTube URL or ID' : 'Web Address / Video URL' }}
+              </span>
+              <input
+                v-model="draft.url"
+                type="url"
+                :placeholder="draft.type === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'"
+                class="w-full h-10 px-4 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-xs font-bold focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.08] transition-all"
+              />
+            </div>
+
+            <!-- Tracing UI (Video/YouTube only) -->
+            <div v-if="['video', 'youtube'].includes(draft.type)" class="space-y-2">
+              <div class="flex items-center justify-between ml-1">
+                <span class="text-[10px] font-black uppercase tracking-widest text-white/30">Spatial Mapping</span>
+                <span v-if="draft.corners?.length === 4" class="text-[9px] font-black uppercase text-emerald-400">Mapped</span>
+                <span v-else class="text-[9px] font-black uppercase text-white/20">Floating</span>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  @click="$emit('start-tracing')"
+                  class="flex-1 h-9 rounded-xl border border-dashed border-white/20 hover:border-blue-500/50 hover:bg-blue-500/5 text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-blue-400 transition-all"
+                >
+                  {{ draft.corners?.length === 4 ? 'Re-Trace Area' : 'Trace Area on Wall' }}
+                </button>
+                <button
+                  v-if="draft.corners?.length === 4"
+                  @click="updateDraft({ corners: undefined })"
+                  class="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                  title="Clear Mapping"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <p class="text-[9px] text-white/30 italic leading-tight ml-1">
+                {{ draft.corners?.length === 4 
+                   ? 'Video is pinned to the wall. Re-trace to adjust.' 
+                   : 'Click Trace to pin the video to a specific surface (4 clicks).' }}
+              </p>
+            </div>
           </div>
 
           <!-- Icon Picker -->
@@ -227,7 +261,7 @@ const props = defineProps<{
   visible: boolean
   hotspots: EditorHotspot[]
   selectedId: string | null
-  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number }
+  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number; corners?: Array<{ yaw: number; pitch: number }> }
   otherScenes: { id: string; label: string }[]
   saving: boolean
   deleting: boolean
@@ -243,6 +277,7 @@ const emit = defineEmits<{
   (e: 'update-draft', patch: Partial<typeof props.draft>): void
   (e: 'save'): void
   (e: 'delete'): void
+  (e: 'start-tracing'): void
 }>()
 
 function updateDraft(patch: Partial<typeof props.draft>) {

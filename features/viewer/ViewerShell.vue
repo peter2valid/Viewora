@@ -7,10 +7,13 @@
           :scene="activeScene"
           :hotspots="safeHotspots(hotspots ?? [])"
           :is-editing="isEditing"
+          :is-tracing="isTracing"
+          :trace-points="tracePoints"
           @loaded="emit('loaded')"
           @error="emit('error', $event)"
           @add-hotspot="emit('add-hotspot', $event)"
           @hotspot-click="emit('hotspot-click', $event)"
+          @update-trace="emit('update-trace', $event)"
         />
       </div>
 
@@ -44,6 +47,8 @@ const props = defineProps<{
   hotspots?: Hotspot[]
   // True when the editor is placing hotspots
   isEditing?: boolean
+  isTracing?: boolean
+  tracePoints?: Array<{ yaw: number; pitch: number }>
 }>()
 
 const emit = defineEmits<{
@@ -51,6 +56,7 @@ const emit = defineEmits<{
   (e: 'error', err: Error): void
   (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
   (e: 'hotspot-click', id: string): void
+  (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()
 
 // Route to the right viewer based on space type

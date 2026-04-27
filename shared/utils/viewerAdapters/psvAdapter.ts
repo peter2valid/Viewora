@@ -55,10 +55,9 @@ function esc(s: string): string {
 
 function buildMarkerHtml(hotspot: Hotspot): string {
   const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info'
-  const icon = HOTSPOT_ICONS_BY_KEY[iconKey] ?? HOTSPOT_ICONS_BY_KEY['info']
+  const icon = HOTSPOT_ICONS_BY_KEY[iconKey] || HOTSPOT_ICONS_BY_KEY['info'] || ''
   
   // No more forced circle container. The icon IS the hotspot.
-  // We wrap it in a minimal div just for positioning and pulse effects.
   const pulse = hotspot.type === 'scene_link' ? '<span class="psv-hs-pulse" aria-hidden="true"></span>' : ''
   return `<div class="psv-hs-marker psv-hs-marker--${hotspot.type}" aria-label="${esc(hotspot.label ?? hotspot.type)}">
     ${pulse}
@@ -262,8 +261,10 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       ? buildInfoContent(hotspot)
       : undefined
 
-    const baseSize = (hotspot.scale ?? 1) * 44
-    const hoverAmount = hotspot.hoverScale ?? 1.3
+    // Explicitly cast to Number to prevent 'NaN' or string-concat bugs
+    const scale = Number(hotspot.scale || 1)
+    const baseSize = scale * 44
+    const hoverAmount = Number(hotspot.hoverScale || 1.3)
 
     handle.markers.addMarker({
       id: hotspot.id,
@@ -274,21 +275,22 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       tooltip: tooltipConfig,
       ...(contentHtml ? { content: contentHtml } : {}),
       scale: { zoom: [0.7, 1.2] },
-      hoverScale: { amount: hoverAmount, duration: 150, easing: 'ease-out' },
+      hoverScale: hoverAmount,
     })
     return
   }
 
   // Spatial / 3D Layer Markers (Video, YouTube)
   if (hotspot.type === 'video' && hotspot.url) {
+    const hasCorners = hotspot.corners && hotspot.corners.length === 4
     const baseSize = (hotspot.scale ?? 1) * 640
     const ratio = 360 / 640
     
     handle.markers.addMarker({
       id: hotspot.id,
       videoLayer: hotspot.url,
-      position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-      size: { width: baseSize, height: baseSize * ratio },
+      position: hasCorners ? hotspot.corners : { yaw: hotspot.yaw, pitch: hotspot.pitch },
+      size: hasCorners ? undefined : { width: baseSize, height: baseSize * ratio },
       anchor: 'center center',
       autoplay: true,
       muted: true,
@@ -301,6 +303,8 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
   }
 
   if (hotspot.type === 'youtube' && hotspot.url) {
+    const hasCorners = hotspot.corners && hotspot.corners.length === 4
+    
     // Extract video ID if full URL was provided, otherwise assume it's the ID
     const videoId = hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/) 
       ? hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/)![1]
@@ -316,15 +320,14 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1`
     iframe.frameBorder = '0'
     iframe.allow = 'autoplay; encrypted-media'
-    iframe.style.pointerEvents = handle.isEditing ? 'none' : 'auto' // Prevent iframe from stealing clicks in editor
+    iframe.style.pointerEvents = handle.isEditing ? 'none' : 'auto'
 
     handle.markers.addMarker({
       id: hotspot.id,
       elementLayer: iframe,
-      position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-      size: { width: baseSize, height: baseSize * ratio },
+      position: hasCorners ? hotspot.corners : { yaw: hotspot.yaw, pitch: hotspot.pitch },
+      size: hasCorners ? undefined : { width: baseSize, height: baseSize * ratio },
       anchor: 'center center',
-      // In editor mode, add an HTML overlay so it's clickable/selectable
       html: handle.isEditing ? buildMarkerHtml(hotspot) : undefined,
       tooltip: handle.isEditing ? { content: hotspot.label || 'YouTube Hotspot', position: 'top center', trigger: 'hover' } : undefined,
     })
@@ -337,6 +340,35 @@ export function removeHotspot(handle: PsvViewerHandle | null, id: string): void 
   if (!handle?.markers) return
   try { handle.markers.removeMarker(id) } catch { /* already gone */ }
   handle.markerSignatures?.delete(id)
+}
+
+/** Draws a temporary dot for tracing corners. */
+export function addTracePoint(handle: PsvViewerHandle | null, id: string, pos: { yaw: number; pitch: number }): void {
+  if (!handle?.markers) return
+  handle.markers.addMarker({
+    id,
+    position: pos,
+    html: '<div class="psv-hs-trace-dot"></div>',
+    anchor: 'center center',
+  })
+}
+
+/** Draws a temporary polygon representing the traced area. */
+export function updateTracePolygon(handle: PsvViewerHandle | null, points: Array<{ yaw: number; pitch: number }>): void {
+  if (!handle?.markers) return
+  try { handle.markers.removeMarker('trace-poly') } catch { /* noop */ }
+  
+  if (points.length < 3) return
+
+  handle.markers.addMarker({
+    id: 'trace-poly',
+    polyline: points,
+    svgStyle: {
+      fill: 'rgba(59, 130, 246, 0.3)',
+      stroke: 'rgba(59, 130, 246, 0.8)',
+      strokeWidth: '2px',
+    },
+  })
 }
 
 /** Diff-sync marker set to avoid full rebuild on every state update. */

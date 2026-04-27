@@ -10,6 +10,7 @@ export interface Hotspot {
   icon?: string
   scale?: number
   hoverScale?: number
+  corners?: Array<{ yaw: number; pitch: number }>
 }
 
 export interface HotspotCreatePayload {

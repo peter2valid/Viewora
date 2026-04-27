@@ -38,6 +38,8 @@ import {
   nudgeRender,
   syncHotspots,
   destroy,
+  addTracePoint,
+  updateTracePolygon,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 
@@ -45,6 +47,8 @@ const props = defineProps<{
   scene: TourScene | null
   hotspots?: Hotspot[]
   isEditing?: boolean
+  isTracing?: boolean
+  tracePoints?: Array<{ yaw: number; pitch: number }>
 }>()
 
 const emit = defineEmits<{
@@ -52,6 +56,7 @@ const emit = defineEmits<{
   (e: 'error', err: Error): void
   (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
   (e: 'hotspot-click', id: string): void
+  (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()
 
 type State = 'loading' | 'ready' | 'error' | 'empty'
@@ -101,7 +106,11 @@ async function initWithScene(scene: TourScene) {
         emit('error', err)
       },
       (payload) => {
-        if (props.isEditing) emit('add-hotspot', payload)
+        if (props.isTracing) {
+          emit('update-trace', payload)
+        } else if (props.isEditing) {
+          emit('add-hotspot', payload)
+        }
       },
       (id) => emit('hotspot-click', id),
       props.isEditing ?? false,
@@ -162,6 +171,34 @@ watch(
   (next) => {
     if (state.value !== 'ready') return
     syncHotspots(handle.value, next ?? [])
+  },
+  { deep: true }
+)
+
+// Tracing visualization
+watch(
+  [() => props.isTracing, () => props.tracePoints],
+  ([isTracing, points]) => {
+    if (!handle.value?.markers) return
+    
+    // Clear old trace markers if tracing is off or starting over
+    if (!isTracing || points?.length === 0) {
+      handle.value.markers.removeMarker('trace-poly')
+      for (let i = 0; i < 4; i++) {
+        try { handle.value.markers.removeMarker(`trace-dot-${i}`) } catch { /* noop */ }
+      }
+      return
+    }
+
+    // Draw points
+    points.forEach((p, i) => {
+      addTracePoint(handle.value, `trace-dot-${i}`, p)
+    })
+
+    // Draw polygon
+    if (points.length >= 3) {
+      updateTracePolygon(handle.value, points)
+    }
   },
   { deep: true }
 )
@@ -418,4 +455,13 @@ onUnmounted(() => {
 }
 
 
+/* ── Tracing styles ──────────────────────────────── */
+:global(.psv-hs-trace-dot) {
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+}
 </style>

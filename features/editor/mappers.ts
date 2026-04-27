@@ -18,6 +18,7 @@ export function mapDbHotspot(h: any): EditorHotspot {
     icon: h?.content?.icon ?? undefined,
     scale: h?.content?.scale ?? undefined,
     hoverScale: h?.content?.hoverScale ?? undefined,
+    corners: h?.content?.corners ?? undefined,
   }
 }
 
