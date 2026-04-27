@@ -67,9 +67,8 @@ export async function initViewer(
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
-    // Mobile UX: don’t hijack scroll unless user uses two fingers.
-    // (Prevents “stuck rotating” when trying to scroll the page.)
-    touchmoveTwoFingers: true,
+    // Mobile UX: allow single-finger navigation for better accessibility.
+    touchmoveTwoFingers: false,
     plugins: [[MarkersPlugin, {}]],
   })
 

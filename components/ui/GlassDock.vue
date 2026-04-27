@@ -7,7 +7,7 @@
       :class="[glassClass, paddedClass, isSoloAdd ? 'glass-dock--solo' : '']"
       :style="{
         bottom: `${bottomPx}px`,
-        maxWidth: `calc(100vw - ${edgeInsetPx * 2}px)`,
+        maxWidth: `calc(100vw - ${edgeInsetPx}px)`,
       }"
       role="navigation"
       aria-label="Scene navigation"
@@ -266,36 +266,54 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 
 .glass-dock--padded {
-  padding: 14px;
+  padding: 8px;
+}
+
+@media (min-width: 640px) {
+  .glass-dock--padded {
+    padding: 14px;
+  }
 }
 
 .glass-dock--solo {
-  padding: 12px;
+  padding: 10px;
   border-radius: 18px;
+}
+
+@media (min-width: 640px) {
+  .glass-dock--solo {
+    padding: 12px;
+  }
 }
 
 .glass-dock__strip {
   display: flex;
   align-items: stretch;
-  gap: 14px;
+  gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+}
+
+@media (min-width: 640px) {
+  .glass-dock__strip {
+    gap: 14px;
+  }
 }
 .glass-dock__strip::-webkit-scrollbar { display: none; }
 
 .glass-dock__item {
-  --thumb-w: 108px;
-  --thumb-h: 58px;
-  width: 132px;
-  min-width: 132px;
-  max-width: 132px;
+  --thumb-w: 80px;
+  --thumb-h: 44px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 10px 10px 12px;
-  border-radius: 16px;
+  gap: 8px;
+  padding: 8px 8px 10px;
+  border-radius: 14px;
   background: transparent;
   border: 1px solid rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.82);
@@ -304,6 +322,19 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   transform-origin: 50% 100%;
   will-change: auto;
   transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease;
+}
+
+@media (min-width: 640px) {
+  .glass-dock__item {
+    --thumb-w: 108px;
+    --thumb-h: 58px;
+    width: 132px;
+    min-width: 132px;
+    max-width: 132px;
+    gap: 10px;
+    padding: 10px 10px 12px;
+    border-radius: 16px;
+  }
 }
 
 .glass-dock__item:hover {
@@ -389,8 +420,8 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 
 .glass-dock__label {
-  max-width: 120px;
-  font-size: 10px;
+  max-width: 100%;
+  font-size: 9px;
   line-height: 1;
   font-weight: 800;
   letter-spacing: 0.09em;
@@ -399,6 +430,13 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (min-width: 640px) {
+  .glass-dock__label {
+    font-size: 10px;
+    max-width: 120px;
+  }
 }
 
 .glass-dock__item--active .glass-dock__label {

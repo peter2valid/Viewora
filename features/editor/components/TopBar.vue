@@ -2,10 +2,10 @@
   <Transition name="editor-panel--top">
     <header
       v-if="visible"
-      class="editor-glass fixed top-5 left-1/2 -translate-x-1/2 z-30 flex items-center h-12 px-3 rounded-2xl w-[calc(100vw-40px)] max-w-[1000px] pointer-events-auto"
+      class="editor-glass fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 z-30 flex items-center h-12 px-2 sm:px-3 rounded-2xl w-[calc(100vw-24px)] sm:w-[calc(100vw-40px)] max-w-[1000px] pointer-events-auto"
     >
-      <div class="flex items-center justify-between w-full gap-3">
-        <div class="flex items-center gap-2 min-w-0">
+      <div class="flex items-center justify-between w-full gap-2 sm:gap-3">
+        <div class="flex items-center gap-1 sm:gap-2 min-w-0">
           <NuxtLink
             to="/app/spaces"
             class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/[0.08] transition-colors"
@@ -18,8 +18,8 @@
 
           <div class="topbar-tour-pill" :title="spaceName">
             <span class="topbar-tour-pill__label">{{ spaceName || 'MY TOUR' }}</span>
-            <span class="topbar-tour-pill__dot">•</span>
-            <span class="topbar-tour-pill__mode">360°</span>
+            <span class="topbar-tour-pill__dot hidden sm:inline">•</span>
+            <span class="topbar-tour-pill__mode hidden sm:inline">360°</span>
           </div>
 
           <Transition name="dot-pop">
@@ -50,7 +50,7 @@
           <button
             @click="$emit('toggle-publish')"
             :disabled="publishing || editorStore.isSaving"
-            class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold transition-all duration-[160ms] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            class="inline-flex items-center justify-center gap-2 h-8 px-3 sm:px-4 rounded-lg text-[11px] sm:text-[12px] font-semibold transition-all duration-[160ms] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             :class="isPublished
               ? 'bg-white/[0.08] text-gray-200 border border-white/[0.15] hover:bg-white/[0.12]'
               : 'bg-blue-600 text-white hover:bg-blue-500'"
@@ -60,7 +60,8 @@
               class="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin"
             ></span>
             <template v-else>
-              {{ isPublished ? 'Unpublish' : 'Publish Tour' }}
+              <span class="sm:hidden">{{ isPublished ? 'Unpub' : 'Publish' }}</span>
+              <span class="hidden sm:inline">{{ isPublished ? 'Unpublish' : 'Publish Tour' }}</span>
             </template>
           </button>
         </div>

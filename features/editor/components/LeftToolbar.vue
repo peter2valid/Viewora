@@ -2,7 +2,7 @@
   <Transition name="editor-panel--left">
     <aside
       v-if="visible"
-      class="editor-glass fixed left-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl pointer-events-auto w-16 overflow-visible"
+      class="editor-glass fixed right-3 sm:right-auto sm:left-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto w-12 sm:w-16 overflow-visible"
     >
       <div
         v-for="tool in tools"
@@ -14,7 +14,7 @@
           @click="store.setMode(tool.mode)"
           :aria-label="tool.label"
           :aria-pressed="store.mode === tool.mode"
-          class="flex items-center justify-center w-11 h-11 rounded-xl hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+          class="flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
           :class="[
             store.mode === tool.mode
               ? 'bg-blue-600 text-white'
