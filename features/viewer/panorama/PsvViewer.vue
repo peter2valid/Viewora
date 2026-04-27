@@ -313,6 +313,16 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   color: #fff;
+  position: relative;
+  z-index: 2;
+}
+
+:global(.psv-hs-icon-content) {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 :global(.psv-hs-marker:hover .psv-hs-icon-wrapper) {
@@ -322,11 +332,41 @@ onUnmounted(() => {
 }
 
 :global(.psv-hs-marker svg) {
-  width: 22px;
-  height: 22px;
+  width: 100%;
+  height: 100%;
   color: #fff;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* ── 3D Spatial Containers ──────────────────────── */
+:global(.psv-hs-spatial-container) {
+  transition: transform 0.2s;
+}
+
+:global(.psv-hs-spatial-overlay) {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Let container handle clicks */
+  transition: all 0.3s ease;
+}
+
+:global(.psv-hs-spatial--editable) {
+  cursor: pointer !important;
+  border: 2px solid transparent;
+}
+
+:global(.psv-hs-spatial--editable:hover) {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+:global(.psv-hs-spatial-overlay--mapped) {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
 }
 
 /* ── Per-type colours (Applied to the icon wrapper) ── */

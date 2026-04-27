@@ -31,11 +31,31 @@
     <!-- Hotspot mode badge -->
     <Transition name="badge-confirm">
       <div
-        v-if="isHotspotMode && hasScene"
+        v-if="isHotspotMode && hasScene && !isTracing"
         class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/[0.1] border border-blue-500/20 backdrop-blur-sm pointer-events-none select-none"
       >
         <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
         Hotspot Mode — click to place
+      </div>
+    </Transition>
+
+    <!-- Tracing Overlay -->
+    <Transition name="badge-confirm">
+      <div
+        v-if="isTracing"
+        class="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3 w-[calc(100%-40px)] max-w-sm pointer-events-none"
+      >
+        <div class="px-4 py-3 rounded-2xl bg-blue-600/90 backdrop-blur-xl border border-white/20 shadow-2xl flex items-center gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+               <span class="text-xs font-black text-white">{{ tracePoints?.length || 0 }}/4</span>
+            </div>
+            <div>
+              <p class="text-[11px] font-black uppercase tracking-widest text-white">Spatial Mapping</p>
+              <p class="text-[10px] text-white/70">Click 4 corners in the room</p>
+            </div>
+          </div>
+        </div>
       </div>
     </Transition>
 

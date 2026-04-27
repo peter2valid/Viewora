@@ -517,8 +517,7 @@ function startTracing() {
 }
 
 watch(isTracing, (val) => {
-  if (val) editorStore.openModal() // Block other UI
-  else editorStore.closeModal()
+  // We no longer block modal state here so the panel stays visible
 })
 function handleUpdateTrace(payload: { yaw: number; pitch: number }) {
   if (!isTracing.value) return
@@ -1510,11 +1509,15 @@ async function saveHotspotEdit() {
   }
   
   if (editDraft.value.scale !== 1) {
-    patch.content = { ...(patch.content ?? {}), scale: editDraft.value.scale }
+    patch.content = { ...(patch.content ?? {}), scale: Number(editDraft.value.scale) }
   }
 
   if (editDraft.value.hoverScale !== 1.3) {
-    patch.content = { ...(patch.content ?? {}), hoverScale: editDraft.value.hoverScale }
+    patch.content = { ...(patch.content ?? {}), hoverScale: Number(editDraft.value.hoverScale) }
+  }
+
+  if (editDraft.value.corners) {
+    patch.content = { ...(patch.content ?? {}), corners: editDraft.value.corners }
   }
 
   patch.type = newType
@@ -1531,8 +1534,9 @@ async function saveHotspotEdit() {
         url: patch.content?.url,
         targetSceneId: patch.target_scene_id,
         icon: editDraft.value.icon || undefined,
-        scale: editDraft.value.scale,
-        hoverScale: editDraft.value.hoverScale,
+        scale: Number(editDraft.value.scale),
+        hoverScale: Number(editDraft.value.hoverScale),
+        corners: editDraft.value.corners,
       }
     ),
   }
