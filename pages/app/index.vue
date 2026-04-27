@@ -18,135 +18,28 @@
 
     <section v-else class="flex flex-col gap-8">
       
-      <!-- EMPTY STATE / ONBOARDING (If 0 spaces) -->
-      <div v-if="!hasSpaces">
-        <h2 class="text-base font-bold text-main mb-5">Try things out</h2>
+      <!-- EMPTY STATE (If 0 spaces) -->
+      <div v-if="!hasSpaces" class="flex flex-col items-center justify-center py-16 gap-8">
+        <!-- Dominant CTA -->
+        <button
+          @click="navigateTo(`/app/create?type=${dashSelectedType}`)"
+          class="btn btn-primary !px-10 !py-4 text-base shadow-xl"
+        >
+          + Create Tour
+        </button>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-          <!-- Card 1: Define -->
-          <div class="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
-            <!-- Illustration -->
-            <div class="h-44 bg-surface-alt dark:bg-zinc-900 relative overflow-hidden flex items-center justify-center">
-              <svg width="220" height="140" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="16" y="16" width="86" height="50" rx="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="118" y="16" width="86" height="50" rx="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="16" y="74" width="86" height="50" rx="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="118" y="74" width="86" height="50" rx="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="24" y="24" width="20" height="20" rx="5" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="126" y="24" width="20" height="20" rx="5" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="24" y="82" width="20" height="20" rx="5" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="126" y="82" width="20" height="20" rx="5" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="52" y="28" width="42" height="6" rx="3" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="52" y="38" width="28" height="4" rx="2" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="154" y="28" width="42" height="6" rx="3" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="154" y="38" width="28" height="4" rx="2" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="52" y="86" width="42" height="6" rx="3" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="52" y="96" width="28" height="4" rx="2" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="154" y="86" width="42" height="6" rx="3" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="154" y="96" width="28" height="4" rx="2" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-              </svg>
-            </div>
-            <!-- Body -->
-            <div class="p-5 flex flex-col flex-1">
-              <div class="flex items-center gap-1.5 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-500"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span class="text-xs font-bold tracking-widest uppercase text-orange-500">01 Define</span>
-              </div>
-              <h3 class="text-base font-bold text-main mb-2">Define your space</h3>
-              <p class="text-sm text-dim leading-relaxed flex-1">Pick the type of venue you want to showcase — a property, vehicle, business, or more — then give it a name. That's all it takes to get started.</p>
-              <div class="mt-5">
-                <button @click="navigateTo('/app/spaces')" class="text-sm font-semibold text-dim hover:text-main transition-colors flex items-center gap-1">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-              </div>
-            </div>
+        <!-- Compact type selector -->
+        <div class="flex flex-col items-center gap-3">
+          <span class="text-xs font-semibold text-dim uppercase tracking-widest">Choose type</span>
+          <div class="flex items-center gap-2 flex-wrap justify-center">
+            <button
+              v-for="opt in dashTypeOptions"
+              :key="opt.id"
+              class="px-4 py-1.5 rounded-lg text-sm font-semibold border transition-all"
+              :class="dashSelectedType === opt.id ? 'bg-main text-bg border-main' : 'bg-surface-alt border-border text-dim hover:text-main hover:border-main/40'"
+              @click="dashSelectedType = opt.id"
+            >{{ opt.label }}</button>
           </div>
-
-          <!-- Card 2: Upload -->
-          <div class="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
-            <!-- Illustration -->
-            <div class="h-44 bg-surface-alt dark:bg-zinc-900 relative overflow-hidden flex items-center justify-center">
-              <svg width="220" height="140" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="30" y="20" width="160" height="100" rx="12" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="42" y="32" width="136" height="76" rx="8" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <!-- panorama lines -->
-                <ellipse cx="110" cy="70" rx="48" ry="28" stroke="currentColor" stroke-width="2" class="text-zinc-400 dark:text-zinc-500" fill="none"/>
-                <line x1="110" y1="42" x2="110" y2="98" stroke="currentColor" stroke-width="1.5" class="text-zinc-400 dark:text-zinc-500"/>
-                <line x1="62" y1="70" x2="158" y2="70" stroke="currentColor" stroke-width="1.5" class="text-zinc-400 dark:text-zinc-500"/>
-                <!-- upload arrow -->
-                <circle cx="110" cy="70" r="12" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <polyline points="106,72 110,66 114,72" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-500 dark:text-zinc-400" fill="none"/>
-                <line x1="110" y1="66" x2="110" y2="76" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="text-zinc-500 dark:text-zinc-400"/>
-              </svg>
-            </div>
-            <!-- Body -->
-            <div class="p-5 flex flex-col flex-1">
-              <div class="flex items-center gap-1.5 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-                <span class="text-xs font-bold tracking-widest uppercase text-indigo-500">02 Upload</span>
-              </div>
-              <h3 class="text-base font-bold text-main mb-2">Upload your 360° visuals</h3>
-              <p class="text-sm text-dim leading-relaxed flex-1">Open your tour's editor and drop in your 360° images. Arrange scenes, fine-tune settings, and build the immersive walkthrough your clients will love.</p>
-              <div class="mt-5">
-                <button @click="navigateTo('/app/spaces')" class="text-sm font-semibold text-dim hover:text-main transition-colors flex items-center gap-1">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Card 3: Share -->
-          <div class="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
-            <!-- Illustration -->
-            <div class="h-44 bg-surface-alt dark:bg-zinc-900 relative overflow-hidden flex items-center justify-center">
-              <svg width="220" height="140" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- center node -->
-                <circle cx="110" cy="70" r="16" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <circle cx="110" cy="70" r="8" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <!-- branches -->
-                <line x1="110" y1="54" x2="110" y2="34" stroke="currentColor" stroke-width="2" class="text-zinc-300 dark:text-zinc-600"/>
-                <line x1="97" y1="58" x2="68" y2="42" stroke="currentColor" stroke-width="2" class="text-zinc-300 dark:text-zinc-600"/>
-                <line x1="123" y1="58" x2="152" y2="42" stroke="currentColor" stroke-width="2" class="text-zinc-300 dark:text-zinc-600"/>
-                <line x1="97" y1="82" x2="68" y2="98" stroke="currentColor" stroke-width="2" class="text-zinc-300 dark:text-zinc-600"/>
-                <line x1="123" y1="82" x2="152" y2="98" stroke="currentColor" stroke-width="2" class="text-zinc-300 dark:text-zinc-600"/>
-                <!-- outer nodes -->
-                <circle cx="110" cy="28" r="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <circle cx="60" cy="36" r="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <circle cx="160" cy="36" r="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <circle cx="60" cy="104" r="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <circle cx="160" cy="104" r="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <!-- link bar -->
-                <rect x="46" y="114" width="128" height="14" rx="7" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="52" y="117" width="80" height="8" rx="4" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="148" y="116" width="20" height="10" rx="5" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-              </svg>
-            </div>
-            <!-- Body -->
-            <div class="p-5 flex flex-col flex-1">
-              <div class="flex items-center gap-1.5 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                <span class="text-xs font-bold tracking-widest uppercase text-emerald-500">03 Share</span>
-              </div>
-              <h3 class="text-base font-bold text-main mb-2">Share everywhere</h3>
-              <p class="text-sm text-dim leading-relaxed flex-1">Publish your tour and get a shareable link instantly. Send it to clients, embed it on your website, or post to social media — your tour, your audience.</p>
-              <div class="mt-5">
-                <button @click="navigateTo('/app/spaces')" class="text-sm font-semibold text-dim hover:text-main transition-colors flex items-center gap-1">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="mt-6 flex justify-center">
-          <button @click="navigateTo('/app/spaces')" class="btn btn-primary px-8 py-3 text-sm">
-            Get Started →
-          </button>
         </div>
       </div>
 
@@ -257,6 +150,14 @@ const recentLeadsCount = ref(0)
 
 const hasSpaces = computed(() => spaces.value.length > 0)
 const recentSpaces = computed(() => spaces.value.slice(0, 4))
+
+const dashSelectedType = ref('residential')
+const dashTypeOptions = [
+  { id: 'residential', label: 'Property' },
+  { id: 'automotive',  label: 'Vehicle'  },
+  { id: 'commercial',  label: 'Business' },
+  { id: 'other',       label: 'Multiple' },
+]
 
 onMounted(async () => {
   try {
