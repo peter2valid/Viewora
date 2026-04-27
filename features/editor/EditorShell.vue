@@ -162,7 +162,11 @@
               <button class="rename-popover__del-abort" @click="sceneDeleteConfirm = null">Cancel</button>
             </template>
             <template v-else>
-              <button class="rename-popover__del" :disabled="scenes.length <= 1" @click="sceneDeleteConfirm = renameCandidate.id">Delete scene</button>
+              <button
+                class="rename-popover__del"
+                :disabled="!isLocalSceneId(renameCandidate.id) && scenes.filter(s => !isLocalSceneId(s.id)).length <= 1"
+                @click="sceneDeleteConfirm = renameCandidate.id"
+              >Delete scene</button>
             </template>
           </div>
         </div>
@@ -377,12 +381,30 @@ function readEditorRecoverySnapshot(): EditorRecoverySnapshot | null {
         safePreviewById[sceneId] = preview
       }
     }
+    const validUploadStates = new Set<string>(['queued', 'signing', 'uploading', 'registering', 'processing', 'ready', 'failed'])
+    const safeLocalScenes: PersistedLocalScene[] = []
+    if (Array.isArray(parsed.localScenes)) {
+      for (const item of parsed.localScenes) {
+        if (!item || typeof item !== 'object') continue
+        if (!isLocalSceneId(item.id)) continue
+        if (item._local !== true) continue
+        if (item.status !== 'processing') continue
+        if (typeof item.order_index !== 'number') continue
+        safeLocalScenes.push(item as PersistedLocalScene)
+      }
+    }
+    const safeUploadState: Record<string, SceneUploadState> = {}
+    if (parsed.sceneUploadStateById && typeof parsed.sceneUploadStateById === 'object') {
+      for (const [id, state] of Object.entries(parsed.sceneUploadStateById as Record<string, unknown>)) {
+        if (!isLocalSceneId(id)) continue
+        if (typeof state !== 'string' || !validUploadStates.has(state)) continue
+        safeUploadState[id] = state as SceneUploadState
+      }
+    }
     return {
       selectedSceneId: typeof parsed.selectedSceneId === 'string' ? parsed.selectedSceneId : '',
-      localScenes: Array.isArray(parsed.localScenes) ? parsed.localScenes as PersistedLocalScene[] : [],
-      sceneUploadStateById: parsed.sceneUploadStateById && typeof parsed.sceneUploadStateById === 'object'
-        ? parsed.sceneUploadStateById as Record<string, SceneUploadState>
-        : {},
+      localScenes: safeLocalScenes,
+      sceneUploadStateById: safeUploadState,
       scenePreviewById: safePreviewById,
     }
   } catch {
@@ -455,8 +477,13 @@ function hydrateEditorRecoverySnapshot() {
   }
 }
 
+let recoverySnapshotDebounceTimer: ReturnType<typeof setTimeout> | null = null
 watch([scenes, sceneUploadStateById, selectedSceneId, pendingScenePreviewById], () => {
-  writeEditorRecoverySnapshot()
+  if (recoverySnapshotDebounceTimer) clearTimeout(recoverySnapshotDebounceTimer)
+  recoverySnapshotDebounceTimer = setTimeout(() => {
+    recoverySnapshotDebounceTimer = null
+    writeEditorRecoverySnapshot()
+  }, 300)
 }, { deep: true })
 
 function backendSceneStatusToUploadState(status?: string | null): SceneUploadState {
@@ -889,11 +916,16 @@ watch(inlineEditMode, (editing) => {
 
 watch(deleteCandidate, (candidate) => {
   if (!candidate) return
+  const validTargetId = sceneChips.value.some(
+    (s) => s.id === candidate.targetSceneId && s.id !== candidate.sceneId,
+  )
+    ? candidate.targetSceneId
+    : sceneChips.value.find((s) => s.id !== candidate.sceneId)?.id || ''
   editDraft.value = {
     label: candidate.label || '',
     description: candidate.description || '',
     url: candidate.url || '',
-    targetSceneId: candidate.targetSceneId || sceneChips.value.find((s) => s.id !== candidate.sceneId)?.id || '',
+    targetSceneId: validTargetId,
     type: (candidate.type as 'info' | 'url' | 'scene_link') || 'info',
   }
 })
@@ -962,6 +994,12 @@ async function saveSettings() {
 
 async function confirmDeleteScene(id: string) {
   if (deletingScene.value) return
+  if (!isLocalSceneId(id) && scenes.value.filter((s) => !isLocalSceneId(s.id)).length <= 1) {
+    showToast('Cannot delete the last scene.', 'error')
+    renameCandidate.value = null
+    sceneDeleteConfirm.value = null
+    return
+  }
   deletingScene.value = true
   const prevScenes = scenes.value.slice()
   const prevHotspots = { ...hotspotsByScene.value }
@@ -1004,9 +1042,17 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 async function handleReorderScenes(orderedIds: string[]) {
+  if (orderedIds.some(isLocalSceneId)) {
+    showToast('Wait for all scenes to finish uploading before reordering.', 'error')
+    return
+  }
   const prevScenes = scenes.value.slice()
   const idToScene = new Map(scenes.value.map((s) => [s.id, s]))
-  scenes.value = orderedIds.map((id) => idToScene.get(id)).filter(Boolean) as any[]
+  const reordered = orderedIds.map((id) => idToScene.get(id)).filter(Boolean) as any[]
+  // Preserve any scenes not present in orderedIds (e.g. added by a concurrent realtime update).
+  const orderedSet = new Set(orderedIds)
+  const extra = scenes.value.filter((s) => !orderedSet.has(s.id))
+  scenes.value = [...reordered, ...extra]
   try {
     await Promise.all(
       orderedIds.map((id, idx) =>
@@ -1036,6 +1082,7 @@ onBeforeUnmount(() => {
   stopSceneRealtime()
   replacePendingScenePreviewMap({})
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
+  if (recoverySnapshotDebounceTimer) { clearTimeout(recoverySnapshotDebounceTimer); recoverySnapshotDebounceTimer = null }
 })
 
 async function fetchScenes() {
@@ -1045,10 +1092,12 @@ async function fetchScenes() {
   const { signal } = fetchScenesController
 
   try {
-    const optimisticLocalScenes = scenes.value.filter((s) => isLocalSceneId(s?.id))
     const result = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, { signal })
     if (version !== fetchScenesVersion) return
 
+    // Re-read local scenes AFTER the fetch resolves so any scenes removed by a
+    // concurrent upload-failure handler are not re-inserted here.
+    const optimisticLocalScenes = scenes.value.filter((s) => isLocalSceneId(s?.id))
     const loadedScenes = toArrayPayload<any>(unwrapApiData<any>(result), 'scenes')
     const mergedScenes = [...loadedScenes]
     for (const localScene of optimisticLocalScenes) {
@@ -1064,6 +1113,12 @@ async function fetchScenes() {
       const mapped = backendSceneStatusToUploadState(scene.status)
       if (mapped === 'ready') {
         delete nextSceneUploadState[scene.id]
+      } else if (mapped === 'processing' && scene.thumbnail_url) {
+        // Status field is missing or stale but thumbnail confirms processing is done.
+        // Store 'ready' explicitly so sceneChips and hasProcessingScenes see the
+        // correct state — deleting the entry would cause them to fall back to the
+        // raw status string which still says 'processing'.
+        nextSceneUploadState[scene.id] = 'ready'
       } else {
         nextSceneUploadState[scene.id] = mapped
       }
@@ -1529,10 +1584,25 @@ async function handleTogglePublish() {
   try {
     const isLive = space.value.is_published
     if (!isLive) {
-      if (!scenes.value.some(sceneHasRenderableImage)) {
-        showToast('Upload at least one scene before publishing.', 'error')
+      const hasReadyBackendScene = scenes.value.some(
+        (s: any) => !isLocalSceneId(s.id) && (
+          sceneUploadStateById.value[s.id] === 'ready'
+          || backendSceneStatusToUploadState(s.status) === 'ready'
+        ),
+      )
+      if (!hasReadyBackendScene) {
+        showToast('At least one scene must finish processing before publishing.', 'error')
         return
       }
+      // Eagerly load hotspots for any backend scene the user never visited so the
+      // broken-link scan covers the full tour, not just what is in memory.
+      const unloadedScenes = scenes.value.filter(
+        (s: any) => !isLocalSceneId(s.id) && hotspotsByScene.value[s.id] === undefined,
+      )
+      if (unloadedScenes.length) {
+        await Promise.all(unloadedScenes.map((s: any) => fetchHotspots(s.id)))
+      }
+
       const sceneIds = new Set(scenes.value.map((s: any) => s.id))
       let brokenCount = 0
       for (const hotspots of Object.values(hotspotsByScene.value)) {
@@ -1691,13 +1761,30 @@ async function uploadFile(
       body: { spaceId: props.spaceId, mediaType: type, objectKey, publicUrl: publicUrlVal, fileSize: file.size },
     }))
 
+    if (!record || typeof record !== 'object') {
+      throw new Error('Upload registration returned an invalid response. Please try again.')
+    }
+    if (type === 'panorama' && !record.public_url) {
+      throw new Error('Upload registration returned no public URL. Please try again.')
+    }
+
     media.value.push(record)
     if (type === 'panorama') {
       const shouldCreateScene = options?.createSceneAfterUpload ?? sceneCountBeforeUpload === 0
       let createdScene: any = null
       if (shouldCreateScene && record?.public_url) {
         const sceneName = deriveSceneName(file.name, sceneCountBeforeUpload + 1)
-        createdScene = await createSceneWithPanorama(record.public_url, sceneName, options?.localSceneId)
+        try {
+          createdScene = await createSceneWithPanorama(record.public_url, sceneName, options?.localSceneId)
+        } catch {
+          // File is stored successfully but scene creation failed (e.g. DB error).
+          // Mark the local placeholder as failed so it doesn't spin forever, but
+          // do NOT remove it — the user can see it failed and refresh to recover.
+          if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'failed')
+          removeLocalUpload(localId)
+          showToast(`${file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
+          return
+        }
       }
       inlineEditMode.value = true
       await fetchScenes()

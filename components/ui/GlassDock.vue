@@ -31,7 +31,7 @@
           @dragstart="onDragStart(item.id, $event)"
           @dragenter.prevent="onDragEnter(item.id)"
           @dragover.prevent
-          @dragleave="onDragLeave(item.id)"
+          @dragleave="onDragLeave(item.id, $event)"
           @drop.prevent="onDrop(item.id)"
           @dragend="onDragEnd"
         >
@@ -141,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 type DockItem = {
   id: string
@@ -194,6 +194,12 @@ const dragOverId = ref<string | null>(null)
 const loadedThumbUrls = reactive(new Set<string>())
 const failedThumbUrls = reactive(new Set<string>())
 
+watch(() => props.items, (items) => {
+  const live = new Set(items.map((i) => i.imageUrl).filter(Boolean) as string[])
+  for (const url of loadedThumbUrls) { if (!live.has(url)) loadedThumbUrls.delete(url) }
+  for (const url of failedThumbUrls) { if (!live.has(url)) failedThumbUrls.delete(url) }
+})
+
 function onThumbLoad(url: string | null | undefined) {
   if (!url) return
   loadedThumbUrls.add(url)
@@ -215,7 +221,10 @@ function onDragEnter(id: string) {
   dragOverId.value = id
 }
 
-function onDragLeave(id: string) {
+function onDragLeave(id: string, e: DragEvent) {
+  // Ignore leave events when the cursor moves to a child element within the same button.
+  const related = e.relatedTarget as Node | null
+  if (related && (e.currentTarget as HTMLElement | null)?.contains(related)) return
   if (dragOverId.value === id) dragOverId.value = null
 }
 
