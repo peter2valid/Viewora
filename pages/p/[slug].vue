@@ -4,10 +4,15 @@
 
     <!-- Loading state — blurred scene image while viewer initialises -->
     <div v-if="state === 'loading'" class="tour-page-loading" aria-label="Loading tour">
-      <div
+      <NuxtImg
         v-if="blurCover"
-        class="tour-page-loading-bg"
-        :style="{ backgroundImage: `url(${blurCover})` }"
+        :src="blurCover"
+        class="tour-page-loading-bg object-cover"
+        width="100"
+        height="50"
+        format="webp"
+        quality="30"
+        loading="eager"
         aria-hidden="true"
       />
       <div class="tour-page-loading-scrim" aria-hidden="true" />

@@ -191,11 +191,17 @@
         >
           <!-- Thumbnail -->
           <div class="h-[180px] w-full bg-surface-alt relative overflow-hidden">
-            <div 
+            <NuxtImg 
               v-if="space.cover_image_url"
-              class="w-full h-full bg-cover bg-center group-hover:scale-110 transition-transform duration-1000"
-              :style="{ backgroundImage: `url(${space.cover_image_url})` }"
-            ></div>
+              :src="space.cover_image_url"
+              :alt="space.title"
+              class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+              width="400"
+              height="225"
+              format="webp"
+              quality="80"
+              loading="lazy"
+            />
             <div v-else class="w-full h-full flex items-center justify-center bg-surface-alt group-hover:bg-surface transition-colors duration-500 text-dim/20">
                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
             </div>
@@ -258,7 +264,16 @@
         >
           <!-- Premium Compact Thumb -->
           <div class="w-14 h-14 rounded-2xl bg-surface-alt border border-border/40 overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-700">
-             <div v-if="space.cover_image_url" class="w-full h-full bg-cover bg-center" :style="{ backgroundImage: `url(${space.cover_image_url})` }"></div>
+             <NuxtImg 
+               v-if="space.cover_image_url" 
+               :src="space.cover_image_url" 
+               class="w-full h-full object-cover" 
+               width="56"
+               height="56"
+               format="webp"
+               quality="80"
+               loading="lazy"
+             />
              <div v-else class="w-full h-full flex items-center justify-center text-dim/10">
                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
              </div>

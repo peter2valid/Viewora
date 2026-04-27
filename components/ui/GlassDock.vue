@@ -41,11 +41,15 @@
                 <path d="M3 11.5 21 3l-8.5 18-1.8-7.7z" />
               </svg>
             </span>
-            <img
+            <NuxtImg
               v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl)"
               :src="item.imageUrl"
               :alt="item.label"
               class="glass-dock__thumbImg"
+              width="108"
+              height="58"
+              format="webp"
+              quality="80"
               loading="lazy"
               decoding="async"
               crossorigin="anonymous"

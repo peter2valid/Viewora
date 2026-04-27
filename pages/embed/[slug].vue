@@ -19,9 +19,17 @@
 
       <!-- Gallery Fallback if no 360 scenes -->
       <div v-else class="embed-gallery">
-        <img v-if="space.cover_image_url" :src="space.cover_image_url" class="embed-img" />
-        <div class="embed-overlay">
-          <h1 class="embed-title">{{ space.title }}</h1>
+        <NuxtImg 
+          v-if="space.cover_image_url" 
+          :src="space.cover_image_url" 
+          class="embed-img" 
+          width="800"
+          height="450"
+          format="webp"
+          quality="80"
+          loading="lazy"
+        />
+        <div class="embed-overlay">          <h1 class="embed-title">{{ space.title }}</h1>
           <a :href="`/p/${space.slug}`" target="_blank" class="embed-link">View Full Tour</a>
         </div>
       </div>
