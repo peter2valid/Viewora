@@ -79,37 +79,52 @@ export async function initViewer(
   onMarkerClick?: (id: string) => void,
   isEditing = false,
 ): Promise<PsvViewerHandle> {
-  const [{ Viewer }, { MarkersPlugin }, { CompassPlugin }, { GyroscopePlugin }] = await Promise.all([
+  const [
+    { Viewer },
+    { MarkersPlugin },
+    { CompassPlugin },
+    { GyroscopePlugin },
+    { EquirectangularTilesAdapter },
+  ] = await Promise.all([
     import('@photo-sphere-viewer/core'),
     import('@photo-sphere-viewer/markers-plugin'),
     import('@photo-sphere-viewer/compass-plugin'),
     import('@photo-sphere-viewer/gyroscope-plugin'),
+    import('@photo-sphere-viewer/equirectangular-tiles-adapter'),
   ])
+
+  const useTiles = !!scene.tileManifestUrl
 
   // Cast to any: Viewer's protected methods (init, __setSize) prevent direct type
   // assignment, and getPlugin's generic constraint doesn't accept PluginConstructor
   // for dynamically-imported classes. The handle is any-typed by design.
   const viewer: any = new Viewer({
     container,
-    panorama: scene.imageUrl,
+    adapter: useTiles ? [EquirectangularTilesAdapter, {
+      showQueue: false,
+      interpolation: true,
+    }] : undefined,
+    panorama: useTiles ? {
+      width: 12288, // Use max supported width for tiles
+      cols: 16,
+      rows: 8,
+      baseUrl: scene.imageUrl,
+      tileUrl: (col: number, row: number) => {
+        // Deep Zoom (dz) format: level/col_row
+        // PSV expects a specific mapping if not using a manifest.
+        // But our backend generates DZI. PSV supports DZI manifests.
+        return scene.tileManifestUrl!
+      },
+    } : scene.imageUrl,
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
     touchmoveTwoFingers: false,
-    fisheye: !isEditing, // Start with fisheye for little planet intro in viewer mode
+    fisheye: !isEditing,
     plugins: [
-      [MarkersPlugin, {
-        clickEventOnMarker: false,
-      }],
-      [CompassPlugin, {
-        size: '120px',
-        position: 'top left',
-        navigation: true,
-      }],
-      [GyroscopePlugin, {
-        touchmove: true,
-        absolutePosition: true,
-      }],
+      [MarkersPlugin, { clickEventOnMarker: false }],
+      [CompassPlugin, { size: '120px', position: 'top left', navigation: true }],
+      [GyroscopePlugin, { touchmove: true, absolutePosition: true }],
     ],
   })
 

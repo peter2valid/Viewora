@@ -75,8 +75,8 @@ function mapRawScene(s: any, tour: any): TourScene {
   const settings360 = tour?.space?.property_360_settings?.[0]
   return {
     id: s.id,
-    // Prefer tiled manifest for quality; fall back to raw upload
-    imageUrl: s.tile_manifest_url || s.raw_image_url || '',
+    imageUrl: s.raw_image_url || '',
+    tileManifestUrl: s.tile_manifest_url || undefined,
     title: s.name,
     hotspots: [],
     settings: {

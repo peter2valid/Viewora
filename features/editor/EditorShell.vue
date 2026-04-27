@@ -818,6 +818,7 @@ const activeViewerScene = computed(() => {
   return {
     id: activeScene.value?.id ?? 'editor-scene',
     imageUrl: url,
+    tileManifestUrl: activeScene.value?.tile_manifest_url,
     hotspots: activeSceneHotspots.value ?? [],
     settings: {
       hfov_default: s?.hfov_default ?? 90,
