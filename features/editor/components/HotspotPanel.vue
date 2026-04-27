@@ -39,18 +39,10 @@
           class="w-full group flex items-center gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all text-left"
         >
           <div
-            class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
+            class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-lg text-white [&_svg]:w-3.5 [&_svg]:h-3.5"
             :class="hs.type === 'scene_link' ? 'bg-blue-600' : 'bg-white/10'"
+            v-html="HOTSPOT_ICONS_BY_KEY[hs.icon || TYPE_DEFAULT_ICON[hs.type] || 'info']"
           >
-            <svg v-if="hs.type === 'scene_link'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M3 11.5 21 3l-8.5 18-1.8-7.7z"/>
-            </svg>
-            <svg v-else-if="hs.type === 'url'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>
-            </svg>
-            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
-            </svg>
           </div>
           <div class="min-w-0 flex-1">
             <p class="text-white text-[11px] font-bold truncate leading-tight">{{ hs.label || 'Unnamed Hotspot' }}</p>
@@ -80,12 +72,12 @@
           <!-- Type Toggle -->
           <div class="space-y-2">
             <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">Type</span>
-            <div class="flex gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+            <div class="flex flex-wrap gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
               <button
-                v-for="t in (['info', 'scene_link', 'url'] as const)"
+                v-for="t in (['info', 'scene_link', 'url', 'video', 'youtube'] as const)"
                 :key="t"
                 @click="updateDraft({ type: t })"
-                class="flex-1 h-7 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all"
+                class="flex-1 min-w-[30%] h-7 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all"
                 :class="draft.type === t ? 'bg-white/10 text-white shadow-sm' : 'text-white/30 hover:text-white/60'"
               >
                 {{ t === 'scene_link' ? 'Link' : t }}
@@ -126,13 +118,15 @@
             </select>
           </div>
 
-          <!-- URL (URL only) -->
-          <div v-if="draft.type === 'url'" class="space-y-2">
-            <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">Web Address</span>
+          <!-- URL (URL, Video, YouTube) -->
+          <div v-if="['url', 'video', 'youtube'].includes(draft.type)" class="space-y-2">
+            <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+              {{ draft.type === 'youtube' ? 'YouTube URL or ID' : 'Web Address / Video URL' }}
+            </span>
             <input
               v-model="draft.url"
               type="url"
-              placeholder="https://..."
+              :placeholder="draft.type === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'"
               class="w-full h-10 px-4 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-xs font-bold focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.08] transition-all"
             />
           </div>
@@ -191,13 +185,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { EditorHotspot } from '../mappers'
-import { HOTSPOT_ICON_DEFS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
+import { HOTSPOT_ICON_DEFS, TYPE_DEFAULT_ICON, HOTSPOT_ICONS_BY_KEY } from '~/shared/utils/hotspotIcons'
 
 const props = defineProps<{
   visible: boolean
   hotspots: EditorHotspot[]
   selectedId: string | null
-  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link'; icon: string }
+  draft: { label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string }
   otherScenes: { id: string; label: string }[]
   saving: boolean
   deleting: boolean

@@ -79,9 +79,10 @@ export async function initViewer(
   onMarkerClick?: (id: string) => void,
   isEditing = false,
 ): Promise<PsvViewerHandle> {
-  const [{ Viewer }, { MarkersPlugin }] = await Promise.all([
+  const [{ Viewer }, { MarkersPlugin }, { CompassPlugin }] = await Promise.all([
     import('@photo-sphere-viewer/core'),
     import('@photo-sphere-viewer/markers-plugin'),
+    import('@photo-sphere-viewer/compass-plugin'),
   ])
 
   // Cast to any: Viewer's protected methods (init, __setSize) prevent direct type
@@ -94,17 +95,37 @@ export async function initViewer(
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
     touchmoveTwoFingers: true,
-    plugins: [[MarkersPlugin, {
-      // In viewer mode, show content panel on click; in editor mode suppress it
-      // so the editor panel can take over.
-      clickEventOnMarker: false,
-    }]],
+    fisheye: !isEditing, // Start with fisheye for little planet intro in viewer mode
+    plugins: [
+      [MarkersPlugin, {
+        clickEventOnMarker: false,
+      }],
+      [CompassPlugin, {
+        size: '120px',
+        position: 'top left',
+        navigation: true,
+      }],
+    ],
   })
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
 
   // PSV v5: 'ready' fires once the first panorama has loaded
-  viewer.addEventListener('ready', () => onReady?.(), { once: true })
+  viewer.addEventListener('ready', () => {
+    onReady?.()
+    
+    // Intro animation: Little Planet to normal view
+    if (!isEditing) {
+      viewer.animate({
+        yaw: scene.settings.yaw_default,
+        pitch: scene.settings.pitch_default,
+        zoom: 50,
+        fisheye: 0,
+      }, 2000)
+    }
+  }, { once: true })
+
+  // ... rest of the setup
 
   // PSV v5: 'panorama-error' fires when a panorama fails to load
   viewer.addEventListener('panorama-error', (e: any) => {
@@ -197,33 +218,61 @@ export async function nudgeRender(handle: PsvViewerHandle | null): Promise<void>
 export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): void {
   if (!handle?.markers) return
 
-  // Tooltip — always plain text to prevent stored XSS.
-  // scene_link gets a directional prefix to signal navigability.
-  const labelText = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
-  const tooltipConfig = labelText
-    ? { content: labelText, position: 'top center' as const, trigger: 'hover' as const }
-    : undefined
+  // Standard 2D Markers (Info, Link, URL)
+  if (hotspot.type === 'info' || hotspot.type === 'scene_link' || hotspot.type === 'url') {
+    const labelText = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
+    const tooltipConfig = labelText
+      ? { content: labelText, position: 'top center' as const, trigger: 'hover' as const }
+      : undefined
 
-  // PSV content panel — shown for info hotspots in public viewer (not editor).
-  // Editor suppresses this so its own panel can take over.
-  const contentHtml = !handle.isEditing && hotspot.type === 'info'
-    ? buildInfoContent(hotspot)
-    : undefined
+    const contentHtml = !handle.isEditing && hotspot.type === 'info'
+      ? buildInfoContent(hotspot)
+      : undefined
 
-  handle.markers.addMarker({
-    id: hotspot.id,
-    position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-    html: buildMarkerHtml(hotspot),
-    size: { width: 44, height: 44 },
-    anchor: 'center center',
-    tooltip: tooltipConfig,
-    // content triggers PSV's built-in side panel — only set in viewer (not editor) for info type
-    ...(contentHtml ? { content: contentHtml } : {}),
-    // Scale marker with zoom level: slightly smaller when zoomed out, larger when zoomed in
-    scale: { zoom: [0.7, 1.2] },
-    // Smooth hover scale animation
-    hoverScale: { amount: 1.3, duration: 150, easing: 'ease-out' },
-  })
+    handle.markers.addMarker({
+      id: hotspot.id,
+      position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
+      html: buildMarkerHtml(hotspot),
+      size: { width: 44, height: 44 },
+      anchor: 'center center',
+      tooltip: tooltipConfig,
+      ...(contentHtml ? { content: contentHtml } : {}),
+      scale: { zoom: [0.7, 1.2] },
+      hoverScale: { amount: 1.3, duration: 150, easing: 'ease-out' },
+    })
+    return
+  }
+
+  // Spatial / 3D Layer Markers (Video, YouTube)
+  if (hotspot.type === 'video' && hotspot.url) {
+    handle.markers.addMarker({
+      id: hotspot.id,
+      videoLayer: hotspot.url,
+      position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
+      size: { width: 640, height: 360 },
+      anchor: 'center center',
+      autoplay: true,
+      muted: true,
+      loop: true,
+    })
+    return
+  }
+
+  if (hotspot.type === 'youtube' && hotspot.url) {
+    // Extract video ID if full URL was provided, otherwise assume it's the ID
+    const videoId = hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/) 
+      ? hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/)![1]
+      : hotspot.url
+
+    handle.markers.addMarker({
+      id: hotspot.id,
+      elementLayer: `<iframe width="640" height="360" src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`,
+      position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
+      size: { width: 640, height: 360 },
+      anchor: 'center center',
+    })
+    return
+  }
 }
 
 /** Removes a marker by id. Safe to call for non-existent ids. */

@@ -69,10 +69,11 @@ import { useApiFetch } from '~/composables/useApiFetch'
 
 interface Hotspot {
   id: string
-  type: 'info' | 'scene_link' | 'url'
+  type: 'info' | 'scene_link' | 'url' | 'video' | 'youtube'
   yaw: number
   pitch: number
   label?: string | null
+  icon?: string | null
   target_scene_id?: string | null
   content?: Record<string, string> | null
 }

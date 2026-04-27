@@ -494,7 +494,7 @@ const pollFailureCount = ref(0)
 type DeleteCandidate = EditorHotspot & { sceneId: string }
 const deleteCandidate = ref<DeleteCandidate | null>(null)
 const deletingHotspot = ref(false)
-const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link'; icon: string }>({
+const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string }>({
   label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '',
 })
 const savingHotspot = ref(false)
@@ -1458,6 +1458,8 @@ async function saveHotspotEdit() {
     patch.content = { text: editDraft.value.description.trim() || 'Point of interest' }
   } else if (newType === 'url') {
     patch.content = { url: editDraft.value.url.trim(), button_label: 'Open link' }
+  } else if (newType === 'video' || newType === 'youtube') {
+    patch.content = { url: editDraft.value.url.trim() }
   } else if (newType === 'scene_link') {
     if (editDraft.value.targetSceneId) patch.target_scene_id = editDraft.value.targetSceneId
   }

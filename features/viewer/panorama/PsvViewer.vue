@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import '@photo-sphere-viewer/compass-plugin/index.css'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
 import {
@@ -84,10 +85,15 @@ async function initWithScene(scene: TourScene) {
       () => {
         state.value = 'ready'
         emit('loaded')
-        if (props.hotspots?.length) {
-          syncHotspots(handle.value, props.hotspots)
-          void nudgeRender(handle.value)
-        }
+        
+        // Delay hotspot sync if intro animation is playing
+        const delay = props.isEditing ? 0 : 2000
+        setTimeout(() => {
+          if (props.hotspots?.length) {
+            syncHotspots(handle.value, props.hotspots)
+            void nudgeRender(handle.value)
+          }
+        }, delay)
       },
       (err) => {
         state.value = 'error'
@@ -338,19 +344,37 @@ onUnmounted(() => {
 
 /* ── PSV tooltip overrides ───────────────────────── */
 .psv-canvas :deep(.psv-tooltip) {
-  background: rgba(10, 12, 20, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
-  border-radius: 8px;
-  padding: 6px 12px;
+  background: rgba(10, 12, 20, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+  padding: 8px 16px;
   font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  animation: tooltip-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .psv-canvas :deep(.psv-tooltip-arrow) {
-  border-top-color: rgba(10, 12, 20, 0.9);
+  border-top-color: rgba(255, 255, 255, 0.12);
 }
+
+/* ── Compass overrides ───────────────────────────── */
+.psv-canvas :deep(.psv-compass) {
+  background: rgba(10, 12, 20, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  margin: 20px;
+}
+
 
 </style>
