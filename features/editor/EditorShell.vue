@@ -350,6 +350,7 @@ type EditorRecoverySnapshot = {
   selectedSceneId: string
   localScenes: PersistedLocalScene[]
   sceneUploadStateById: Record<string, SceneUploadState>
+  scenePreviewById: Record<string, string>
 }
 
 function getEditorRecoveryStorageKey() {
@@ -366,12 +367,23 @@ function readEditorRecoverySnapshot(): EditorRecoverySnapshot | null {
     const raw = window.sessionStorage.getItem(getEditorRecoveryStorageKey())
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<EditorRecoverySnapshot>
+    const safePreviewById: Record<string, string> = {}
+    if (parsed.scenePreviewById && typeof parsed.scenePreviewById === 'object') {
+      for (const [sceneId, preview] of Object.entries(parsed.scenePreviewById as Record<string, unknown>)) {
+        if (!isLocalSceneId(sceneId)) continue
+        if (typeof preview !== 'string') continue
+        if (!preview.startsWith('data:image/')) continue
+        if (preview.length > 600_000) continue
+        safePreviewById[sceneId] = preview
+      }
+    }
     return {
       selectedSceneId: typeof parsed.selectedSceneId === 'string' ? parsed.selectedSceneId : '',
       localScenes: Array.isArray(parsed.localScenes) ? parsed.localScenes as PersistedLocalScene[] : [],
       sceneUploadStateById: parsed.sceneUploadStateById && typeof parsed.sceneUploadStateById === 'object'
         ? parsed.sceneUploadStateById as Record<string, SceneUploadState>
         : {},
+      scenePreviewById: safePreviewById,
     }
   } catch {
     return null
@@ -382,11 +394,14 @@ function writeEditorRecoverySnapshot() {
   if (typeof window === 'undefined') return
   const localScenes = getLocalScenes()
   const activeLocalState: Record<string, SceneUploadState> = {}
+  const activeLocalPreviews: Record<string, string> = {}
   for (const scene of localScenes) {
     const state = sceneUploadStateById.value[scene.id]
     if (state) activeLocalState[scene.id] = state
+    const preview = pendingScenePreviewById.value[scene.id]
+    if (preview && !isBlobPreviewUrl(preview)) activeLocalPreviews[scene.id] = preview
   }
-  if (!localScenes.length && !Object.keys(activeLocalState).length) {
+  if (!localScenes.length && !Object.keys(activeLocalState).length && !Object.keys(activeLocalPreviews).length) {
     window.sessionStorage.removeItem(getEditorRecoveryStorageKey())
     return
   }
@@ -394,8 +409,26 @@ function writeEditorRecoverySnapshot() {
     selectedSceneId: isLocalSceneId(selectedSceneId.value) ? selectedSceneId.value : '',
     localScenes,
     sceneUploadStateById: activeLocalState,
+    scenePreviewById: activeLocalPreviews,
   }
-  window.sessionStorage.setItem(getEditorRecoveryStorageKey(), JSON.stringify(snapshot))
+  try {
+    window.sessionStorage.setItem(getEditorRecoveryStorageKey(), JSON.stringify(snapshot))
+  } catch {
+    // If storage quota is exceeded, persist minimal recovery state instead of crashing the watcher.
+    try {
+      window.sessionStorage.setItem(
+        getEditorRecoveryStorageKey(),
+        JSON.stringify({
+          selectedSceneId: snapshot.selectedSceneId,
+          localScenes: snapshot.localScenes,
+          sceneUploadStateById: snapshot.sceneUploadStateById,
+          scenePreviewById: {},
+        } satisfies EditorRecoverySnapshot),
+      )
+    } catch {
+      window.sessionStorage.removeItem(getEditorRecoveryStorageKey())
+    }
+  }
 }
 
 function hydrateEditorRecoverySnapshot() {
@@ -411,12 +444,18 @@ function hydrateEditorRecoverySnapshot() {
     ...sceneUploadStateById.value,
     ...snapshot.sceneUploadStateById,
   }
+  if (snapshot.scenePreviewById && Object.keys(snapshot.scenePreviewById).length) {
+    replacePendingScenePreviewMap({
+      ...pendingScenePreviewById.value,
+      ...snapshot.scenePreviewById,
+    })
+  }
   if (snapshot.selectedSceneId && isLocalSceneId(snapshot.selectedSceneId)) {
     selectedSceneId.value = snapshot.selectedSceneId
   }
 }
 
-watch([scenes, sceneUploadStateById, selectedSceneId], () => {
+watch([scenes, sceneUploadStateById, selectedSceneId, pendingScenePreviewById], () => {
   writeEditorRecoverySnapshot()
 }, { deep: true })
 
@@ -532,6 +571,86 @@ function isLocalSceneId(id: string | null | undefined): boolean {
   return typeof id === 'string' && id.startsWith('local_scene_')
 }
 
+function isBlobPreviewUrl(url: string | null | undefined): url is string {
+  return typeof url === 'string' && url.startsWith('blob:')
+}
+
+function releasePreviewUrl(url: string | null | undefined) {
+  if (typeof window === 'undefined') return
+  if (!isBlobPreviewUrl(url)) return
+  try {
+    window.URL.revokeObjectURL(url)
+  } catch {
+    // Best effort cleanup only.
+  }
+}
+
+function replacePendingScenePreviewMap(next: Record<string, string>) {
+  const nextUrls = new Set(Object.values(next))
+  for (const url of Object.values(pendingScenePreviewById.value)) {
+    if (!nextUrls.has(url)) releasePreviewUrl(url)
+  }
+  pendingScenePreviewById.value = next
+}
+
+function setPendingScenePreview(sceneId: string, url: string) {
+  const next = {
+    ...pendingScenePreviewById.value,
+    [sceneId]: url,
+  }
+  replacePendingScenePreviewMap(next)
+}
+
+function deletePendingScenePreview(sceneId: string) {
+  if (!(sceneId in pendingScenePreviewById.value)) return
+  const next = { ...pendingScenePreviewById.value }
+  delete next[sceneId]
+  replacePendingScenePreviewMap(next)
+}
+
+function movePendingScenePreview(fromSceneId: string, toSceneId: string) {
+  const preview = pendingScenePreviewById.value[fromSceneId]
+  if (!preview) return
+  const next = {
+    ...pendingScenePreviewById.value,
+    [toSceneId]: preview,
+  }
+  delete next[fromSceneId]
+  replacePendingScenePreviewMap(next)
+}
+
+async function createPersistedScenePreview(file: File): Promise<string | null> {
+  if (typeof window === 'undefined') return null
+  const sourceUrl = window.URL.createObjectURL(file)
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('preview_load_failed'))
+      img.src = sourceUrl
+    })
+
+    const maxWidth = 360
+    const maxHeight = 220
+    const width = image.naturalWidth || image.width || maxWidth
+    const height = image.naturalHeight || image.height || maxHeight
+    const scale = Math.min(1, maxWidth / width, maxHeight / height)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(width * scale))
+    canvas.height = Math.max(1, Math.round(height * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL('image/jpeg', 0.78)
+  } catch {
+    return null
+  } finally {
+    window.URL.revokeObjectURL(sourceUrl)
+  }
+}
+
 function mapSceneLinkTargets(fromSceneId: string, toSceneId: string) {
   const next: Record<string, EditorHotspot[]> = {}
   for (const [sceneId, list] of Object.entries(hotspotsByScene.value)) {
@@ -579,23 +698,20 @@ function createOptimisticLocalScene(file: File, previewUrl?: string, options?: {
     ...hotspotsByScene.value,
     [id]: hotspotsByScene.value[id] ?? [],
   }
-  if (previewUrl) {
-    pendingScenePreviewById.value = {
-      ...pendingScenePreviewById.value,
-      [id]: previewUrl,
-    }
-  }
+  if (previewUrl) setPendingScenePreview(id, previewUrl)
   return id
 }
 
 async function enqueuePanoramaFiles(files: File[]) {
   if (!files.length) return
   const shouldSelectFirst = !selectedSceneId.value && scenes.value.length === 0
-  const queued = files.map((file, idx) => {
+  const queued = await Promise.all(files.map(async (file, idx) => {
     const previewUrl = URL.createObjectURL(file)
     const localSceneId = createOptimisticLocalScene(file, previewUrl, { select: shouldSelectFirst && idx === 0 })
+    const persistedPreview = await createPersistedScenePreview(file)
+    if (persistedPreview) setPendingScenePreview(localSceneId, persistedPreview)
     return { file, localSceneId }
-  })
+  }))
 
   for (const item of queued) {
     await uploadFile(item.file, 'panorama', { createSceneAfterUpload: true, localSceneId: item.localSceneId })
@@ -645,9 +761,7 @@ function removeOptimisticLocalScene(localSceneId: string) {
   const nextHotspots = { ...hotspotsByScene.value }
   delete nextHotspots[localSceneId]
   hotspotsByScene.value = nextHotspots
-  const nextPreview = { ...pendingScenePreviewById.value }
-  delete nextPreview[localSceneId]
-  pendingScenePreviewById.value = nextPreview
+  deletePendingScenePreview(localSceneId)
   removeSceneUploadState(localSceneId)
   if (selectedSceneId.value === localSceneId) {
     selectedSceneId.value = scenes.value[0]?.id || ''
@@ -920,6 +1034,7 @@ onBeforeUnmount(() => {
   fetchScenesController = null
   stopPolling()
   stopSceneRealtime()
+  replacePendingScenePreviewMap({})
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
 })
 
@@ -1018,7 +1133,7 @@ async function fetchScenes() {
     }
 
     hotspotsByScene.value = newMap
-    pendingScenePreviewById.value = pendingPreviewNext
+    replacePendingScenePreviewMap(pendingPreviewNext)
     fetchScenesController = null
 
     if (mergedScenes.length) {
@@ -1509,17 +1624,7 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string, local
       }
 
       mapSceneLinkTargets(localSceneId, createdScene.id)
-
-      const preview = pendingScenePreviewById.value[localSceneId]
-      if (preview) {
-        pendingScenePreviewById.value = {
-          ...pendingScenePreviewById.value,
-          [createdScene.id]: preview,
-        }
-      }
-      const nextPreview = { ...pendingScenePreviewById.value }
-      delete nextPreview[localSceneId]
-      pendingScenePreviewById.value = nextPreview
+      movePendingScenePreview(localSceneId, createdScene.id)
 
       await syncPendingHotspotsForScene(createdScene.id)
     } else {
