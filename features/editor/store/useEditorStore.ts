@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, readonly } from 'vue'
 
-export type EditorMode = 'view' | 'hotspot' | 'settings'
+export type EditorMode = 'view' | 'hotspot' | 'settings' | 'preview'
 export type EditorPanel = 'scenes' | 'hotspots' | 'settings' | 'share' | null
 
 // UI-only state for the editor. No domain data lives here — that belongs in useTourStore.

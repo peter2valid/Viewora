@@ -32,9 +32,8 @@
         </div>
 
         <div class="flex items-center gap-2 flex-shrink-0">
-          <a
-            :href="publicUrl"
-            target="_blank"
+          <button
+            @click="$emit('preview')"
             class="flex-shrink-0 flex items-center justify-center gap-2 h-8 px-2 sm:px-3 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/[0.08] transition-colors"
             title="Preview tour"
           >
@@ -43,7 +42,7 @@
               <circle cx="12" cy="12" r="3"/>
             </svg>
             <span class="hidden md:inline text-[12px] font-semibold">Preview</span>
-          </a>
+          </button>
 
           <button
             @click="$emit('toggle-settings')"
@@ -84,11 +83,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from '#imports'
+import { ref, onMounted } from 'vue'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 
-const props = defineProps<{
+defineProps<{
   spaceName: string
   isPublished: boolean
   publishing: boolean
@@ -99,23 +97,10 @@ const props = defineProps<{
 defineEmits<{
   (e: 'toggle-publish'): void
   (e: 'toggle-settings'): void
+  (e: 'preview'): void
 }>()
 
-const route = useRoute()
 const editorStore = useEditorStore()
-
-const publicUrl = computed(() => {
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
-  const identifier = props.slug || props.spaceId || (route.params.id as string)
-  
-  // If not published, use the authenticated preview route
-  if (!props.isPublished) {
-    const id = props.spaceId || (route.params.id as string)
-    return `${base}/p/preview/${id}`
-  }
-  
-  return `${base}/p/${identifier}`
-})
 
 const visible = ref(false)
 onMounted(() => { visible.value = true })

@@ -34,6 +34,7 @@
 
     <!-- ── Floating panels (position:fixed, above viewer) ── -->
     <TopBar
+      v-if="editorStore.mode !== 'preview'"
       :space-name="space?.title || 'Edit Tour'"
       :is-published="Boolean(space?.is_published)"
       :publishing="publishing"
@@ -41,11 +42,13 @@
       :slug="space?.slug"
       @toggle-publish="handleTogglePublish"
       @toggle-settings="showSettingsPanel = !showSettingsPanel"
+      @preview="editorStore.setMode('preview')"
     />
 
-    <LeftToolbar />
+    <LeftToolbar v-if="editorStore.mode !== 'preview'" />
 
     <SceneDock
+      v-if="editorStore.mode !== 'preview'"
       :scenes="sceneChips"
       :active-scene-id="selectedSceneId"
       :add-scene-pending="false"
@@ -54,6 +57,20 @@
       @reorder-scenes="handleReorderScenes"
       @rename-scene="handleRenameScene"
     />
+
+    <!-- Preview exit button -->
+    <Transition name="fade-smooth">
+      <button
+        v-if="editorStore.mode === 'preview'"
+        class="fixed top-5 right-5 z-[100] flex items-center gap-2 px-4 h-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur-md text-white text-[12px] font-bold transition-all shadow-2xl"
+        @click="editorStore.setMode('view')"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+        Exit Preview
+      </button>
+    </Transition>
 
     <!-- Toast + Share modal teleported to body -->
     <Teleport to="body">
