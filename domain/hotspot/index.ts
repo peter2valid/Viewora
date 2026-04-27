@@ -6,6 +6,7 @@ export interface Hotspot {
   label?: string
   url?: string
   targetSceneId?: string
+  description?: string
 }
 
 export interface HotspotCreatePayload {

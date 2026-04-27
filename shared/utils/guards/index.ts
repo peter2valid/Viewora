@@ -47,7 +47,24 @@ export function isWithinDimensionLimits(width: number, height: number): boolean 
   return width <= IMAGE_LIMITS.MAX_WIDTH_PX && height <= IMAGE_LIMITS.MAX_HEIGHT_PX
 }
 
-/** Safe array filter: removes any hotspot entries that fail shape validation. */
+/** Normalises a raw DB hotspot (snake_case) to the domain Hotspot shape. */
+function normalizeHotspot(h: any): Hotspot {
+  return {
+    id: h.id,
+    yaw: h.yaw,
+    pitch: h.pitch,
+    type: h.type,
+    label: h.label ?? undefined,
+    // DB stores URL in content.url; domain type uses top-level url
+    url: h.url ?? h.content?.url ?? undefined,
+    // DB uses snake_case; domain uses camelCase
+    targetSceneId: h.targetSceneId ?? h.target_scene_id ?? undefined,
+    // DB stores description in content.text
+    description: h.description ?? h.content?.text ?? undefined,
+  }
+}
+
+/** Safe array filter + normalise: removes invalid entries and maps DB shape to domain shape. */
 export function safeHotspots(raw: unknown[]): Hotspot[] {
-  return raw.filter(isValidHotspot)
+  return raw.filter(isValidHotspot).map(normalizeHotspot)
 }

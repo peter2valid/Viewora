@@ -13,6 +13,8 @@ export interface PsvViewerHandle {
   markers: any
   /** Hotspot signature cache for diff-sync updates */
   markerSignatures: Map<string, string>
+  /** When true, hotspot clicks open the editor panel rather than the content panel */
+  isEditing: boolean
   /** Optional cleanup for DOM-level listeners (e.g. WebGL context loss) */
   cleanup?: () => void
 }
@@ -38,7 +40,44 @@ function hotspotSignature(hs: Hotspot): string {
     hs.label ?? '',
     hs.url ?? '',
     hs.targetSceneId ?? '',
+    hs.description ?? '',
   ].join('|')
+}
+
+// Escape user-provided strings before embedding in HTML (used for PSV content panel only).
+function esc(s: string): string {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+}
+
+// Per-type inline SVG icons — all hardcoded, no user input.
+const ICONS: Record<Hotspot['type'], string> = {
+  info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M12 16v-4M12 8h.01"/>
+  </svg>`,
+  url: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+    <polyline points="15 3 21 3 21 9"/>
+    <line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>`,
+  scene_link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 12h14M12 5l7 7-7 7"/>
+  </svg>`,
+}
+
+function buildMarkerHtml(hotspot: Hotspot): string {
+  const icon = ICONS[hotspot.type] ?? ICONS.info
+  // scene_link gets an animated pulse ring to visually indicate it's navigable
+  const pulse = hotspot.type === 'scene_link' ? '<span class="psv-hs-pulse" aria-hidden="true"></span>' : ''
+  return `<div class="psv-hs-marker psv-hs-marker--${hotspot.type}" aria-label="${esc(hotspot.label ?? hotspot.type)}">${pulse}${icon}</div>`
+}
+
+// Builds the HTML shown inside PSV's side panel for info hotspots (public viewer only).
+function buildInfoContent(hotspot: Hotspot): string {
+  const title = hotspot.label ? `<p class="psv-hs-panel-title">${esc(hotspot.label)}</p>` : ''
+  const desc = hotspot.description ? `<p class="psv-hs-panel-desc">${esc(hotspot.description)}</p>` : ''
+  if (!title && !desc) return ''
+  return `<div class="psv-hs-panel">${title}${desc}</div>`
 }
 
 /**
@@ -52,6 +91,7 @@ export async function initViewer(
   onError?: (err: Error) => void,
   onClick?: (payload: PsvClickPayload) => void,
   onMarkerClick?: (id: string) => void,
+  isEditing = false,
 ): Promise<PsvViewerHandle> {
   const [{ Viewer }, { MarkersPlugin }] = await Promise.all([
     import('@photo-sphere-viewer/core'),
@@ -67,9 +107,12 @@ export async function initViewer(
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
-    // Mobile UX: allow single-finger navigation for better accessibility.
-    touchmoveTwoFingers: false,
-    plugins: [[MarkersPlugin, {}]],
+    touchmoveTwoFingers: true,
+    plugins: [[MarkersPlugin, {
+      // In viewer mode, show content panel on click; in editor mode suppress it
+      // so the editor panel can take over.
+      clickEventOnMarker: false,
+    }]],
   })
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
@@ -83,8 +126,7 @@ export async function initViewer(
     onError?.(err)
   })
 
-  // WebGL context loss can happen on some GPUs / drivers.
-  // We listen on the underlying canvas element (when available) and surface an actionable error.
+  // WebGL context loss — surface an actionable error
   const cleanupFns: Array<() => void> = []
   const bindWebglContextHandlers = () => {
     try {
@@ -94,20 +136,11 @@ export async function initViewer(
         ev.preventDefault?.()
         onError?.(new Error('WebGL context lost. Try reloading the page or using a smaller panorama.'))
       }
-      const onRestored = () => {
-        // PSV should recover internally; if it doesn’t, the UI error message guides the user.
-      }
       canvas.addEventListener('webglcontextlost', onLost, false)
-      canvas.addEventListener('webglcontextrestored', onRestored, false)
-      cleanupFns.push(() => {
-        canvas.removeEventListener('webglcontextlost', onLost, false)
-        canvas.removeEventListener('webglcontextrestored', onRestored, false)
-      })
-    } catch {
-      // ignore
-    }
+      canvas.addEventListener('webglcontextrestored', () => {}, false)
+      cleanupFns.push(() => canvas.removeEventListener('webglcontextlost', onLost, false))
+    } catch { /* ignore */ }
   }
-  // Try immediately and also after ready (canvas can be created lazily).
   bindWebglContextHandlers()
   viewer.addEventListener('ready', () => bindWebglContextHandlers(), { once: true })
 
@@ -117,7 +150,7 @@ export async function initViewer(
     onClick?.({ yaw: e.data.yaw, pitch: e.data.pitch })
   })
 
-  // Marker click
+  // Marker click — always emit id; parent decides what to do
   markers.addEventListener('select-marker', (e: any) => {
     onMarkerClick?.(e.marker.id)
   })
@@ -126,6 +159,7 @@ export async function initViewer(
     viewer,
     markers,
     markerSignatures: new Map<string, string>(),
+    isEditing,
     cleanup: () => { for (const fn of cleanupFns) fn() },
   }
 }
@@ -154,7 +188,7 @@ export async function loadScene(
 
 /**
  * Some PSV versions occasionally fail to draw markers until the camera moves.
- * This forces a “no-op” micro-animate to trigger a render, if supported.
+ * This forces a "no-op" micro-animate to trigger a render, if supported.
  */
 export async function nudgeRender(handle: PsvViewerHandle | null): Promise<void> {
   const viewer = handle?.viewer
@@ -170,25 +204,39 @@ export async function nudgeRender(handle: PsvViewerHandle | null): Promise<void>
       viewer.rotate({ yaw: yaw + 0.0001, pitch })
       viewer.rotate({ yaw, pitch })
     }
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 }
 
-/** Adds a single hotspot marker. */
+/** Adds a single hotspot marker with rich icon, hover animation, and (for info type) side-panel content. */
 export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): void {
   if (!handle?.markers) return
-  // Use tooltip.content as plain text (not HTML) to prevent stored XSS via hotspot labels.
-  // PSV treats { content } as a plain-text tooltip; the string-form `tooltip` is rendered as HTML.
-  const tooltipConfig = hotspot.label
-    ? { content: hotspot.label, className: 'psv-tooltip--plain' }
+
+  // Tooltip — always plain text to prevent stored XSS.
+  // scene_link gets a directional prefix to signal navigability.
+  const labelText = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
+  const tooltipConfig = labelText
+    ? { content: labelText, position: 'top center' as const, trigger: 'hover' as const }
     : undefined
+
+  // PSV content panel — shown for info hotspots in public viewer (not editor).
+  // Editor suppresses this so its own panel can take over.
+  const contentHtml = !handle.isEditing && hotspot.type === 'info'
+    ? buildInfoContent(hotspot)
+    : undefined
+
   handle.markers.addMarker({
     id: hotspot.id,
     position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
+    html: buildMarkerHtml(hotspot),
+    size: { width: 44, height: 44 },
+    anchor: 'center center',
     tooltip: tooltipConfig,
-    className: `psv-hs psv-hs--${hotspot.type}`,
-    html: '<div class="psv-hotspot-pin"></div>',
+    // content triggers PSV's built-in side panel — only set in viewer (not editor) for info type
+    ...(contentHtml ? { content: contentHtml } : {}),
+    // Scale marker with zoom level: slightly smaller when zoomed out, larger when zoomed in
+    scale: { zoom: [0.7, 1.2] },
+    // Smooth hover scale animation
+    hoverScale: { amount: 1.3, duration: 150, easing: 'ease-out' },
   })
 }
 

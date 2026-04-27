@@ -98,6 +98,7 @@ async function initWithScene(scene: TourScene) {
         if (props.isEditing) emit('add-hotspot', payload)
       },
       (id) => emit('hotspot-click', id),
+      props.isEditing ?? false,
     )
     scheduleResize()
   } catch (err: any) {
@@ -249,29 +250,107 @@ onUnmounted(() => {
   z-index: 20;
 }
 
-/* Hotspot marker styles */
-:global(.psv-hs) {
-  width: 24px;
-  height: 24px;
+/* ── Hotspot marker base ─────────────────────────── */
+:global(.psv-hs-marker) {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(6px);
+  transition: box-shadow 0.2s ease;
 }
 
-:global(.psv-hotspot-pin) {
+:global(.psv-hs-marker svg) {
   width: 18px;
   height: 18px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ── Per-type colours ────────────────────────────── */
+:global(.psv-hs-marker--info) {
+  background: rgba(20, 184, 166, 0.88);
+  box-shadow: 0 4px 18px rgba(20, 184, 166, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+:global(.psv-hs-marker--url) {
+  background: rgba(59, 130, 246, 0.88);
+  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+:global(.psv-hs-marker--scene_link) {
+  background: rgba(99, 102, 241, 0.88);
+  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Pulse ring (scene_link only) ────────────────── */
+:global(.psv-hs-pulse) {
+  position: absolute;
+  inset: -7px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(0, 0, 0, 0.4);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s ease;
+  border: 2px solid rgba(99, 102, 241, 0.55);
+  animation: psv-hs-pulse 2.2s ease-out infinite;
+  pointer-events: none;
 }
 
-:global(.psv-hs:hover .psv-hotspot-pin) {
-  transform: scale(1.25);
+@keyframes psv-hs-pulse {
+  0%   { transform: scale(1);    opacity: 0.7; }
+  100% { transform: scale(1.65); opacity: 0;   }
 }
 
-:global(.psv-hs--info .psv-hotspot-pin) { background: #fff; }
-:global(.psv-hs--url .psv-hotspot-pin) { background: #3B82F6; }
-:global(.psv-hs--scene_link .psv-hotspot-pin) { background: #3B82F6; }
+/* ── PSV side-panel overrides (info content panel) ── */
+.psv-canvas :deep(.psv-panel) {
+  background: rgba(10, 12, 20, 0.82);
+  backdrop-filter: blur(16px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.psv-canvas :deep(.psv-panel-content) {
+  padding: 24px 20px;
+}
+
+:global(.psv-hs-panel) {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+:global(.psv-hs-panel-title) {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.3;
+  margin: 0;
+}
+
+:global(.psv-hs-panel-desc) {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* ── PSV tooltip overrides ───────────────────────── */
+.psv-canvas :deep(.psv-tooltip) {
+  background: rgba(10, 12, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.02em;
+}
+
+.psv-canvas :deep(.psv-tooltip-arrow) {
+  border-top-color: rgba(10, 12, 20, 0.9);
+}
 
 </style>

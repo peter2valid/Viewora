@@ -131,7 +131,7 @@ function goToSceneById(sceneId: string) {
 }
 
 function handleHotspotClick(hotspotId: string) {
-  // Find in the raw scene hotspots so we have access to target_scene_id
+  // Find in the raw scene hotspots so we have access to target_scene_id / content.url
   const rawHotspot = props.tour?.scenes?.[activeSceneIndex.value]?.hotspots?.find(
     (h: any) => h.id === hotspotId
   )
@@ -139,7 +139,11 @@ function handleHotspotClick(hotspotId: string) {
     goToSceneById(rawHotspot.target_scene_id)
     return
   }
-  // Propagate other hotspot clicks to parent for custom handling
+  if (rawHotspot?.type === 'url') {
+    const url = rawHotspot.url ?? rawHotspot.content?.url
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    return
+  }
   emit('hotspot-click', hotspotId)
 }
 </script>
