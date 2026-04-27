@@ -338,6 +338,95 @@ const sceneUploadStateById = ref<Record<string, SceneUploadState>>({})
 const sceneRealtimeChannels = ref<any[]>([])
 let sceneRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
+type PersistedLocalScene = {
+  id: string
+  name: string
+  order_index: number
+  status: 'processing'
+  _local: true
+}
+
+type EditorRecoverySnapshot = {
+  selectedSceneId: string
+  localScenes: PersistedLocalScene[]
+  sceneUploadStateById: Record<string, SceneUploadState>
+}
+
+function getEditorRecoveryStorageKey() {
+  return `viewora:editor-recovery:${props.spaceId}`
+}
+
+function getLocalScenes() {
+  return scenes.value.filter((scene) => isLocalSceneId(scene?.id)) as PersistedLocalScene[]
+}
+
+function readEditorRecoverySnapshot(): EditorRecoverySnapshot | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(getEditorRecoveryStorageKey())
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<EditorRecoverySnapshot>
+    return {
+      selectedSceneId: typeof parsed.selectedSceneId === 'string' ? parsed.selectedSceneId : '',
+      localScenes: Array.isArray(parsed.localScenes) ? parsed.localScenes as PersistedLocalScene[] : [],
+      sceneUploadStateById: parsed.sceneUploadStateById && typeof parsed.sceneUploadStateById === 'object'
+        ? parsed.sceneUploadStateById as Record<string, SceneUploadState>
+        : {},
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeEditorRecoverySnapshot() {
+  if (typeof window === 'undefined') return
+  const localScenes = getLocalScenes()
+  const activeLocalState: Record<string, SceneUploadState> = {}
+  for (const scene of localScenes) {
+    const state = sceneUploadStateById.value[scene.id]
+    if (state) activeLocalState[scene.id] = state
+  }
+  if (!localScenes.length && !Object.keys(activeLocalState).length) {
+    window.sessionStorage.removeItem(getEditorRecoveryStorageKey())
+    return
+  }
+  const snapshot: EditorRecoverySnapshot = {
+    selectedSceneId: isLocalSceneId(selectedSceneId.value) ? selectedSceneId.value : '',
+    localScenes,
+    sceneUploadStateById: activeLocalState,
+  }
+  window.sessionStorage.setItem(getEditorRecoveryStorageKey(), JSON.stringify(snapshot))
+}
+
+function hydrateEditorRecoverySnapshot() {
+  const snapshot = readEditorRecoverySnapshot()
+  if (!snapshot) return
+  if (snapshot.localScenes.length) {
+    const existingIds = new Set(scenes.value.map((scene) => scene.id))
+    for (const scene of snapshot.localScenes) {
+      if (!existingIds.has(scene.id)) scenes.value.push(scene)
+    }
+  }
+  sceneUploadStateById.value = {
+    ...sceneUploadStateById.value,
+    ...snapshot.sceneUploadStateById,
+  }
+  if (snapshot.selectedSceneId && isLocalSceneId(snapshot.selectedSceneId)) {
+    selectedSceneId.value = snapshot.selectedSceneId
+  }
+}
+
+watch([scenes, sceneUploadStateById, selectedSceneId], () => {
+  writeEditorRecoverySnapshot()
+}, { deep: true })
+
+function backendSceneStatusToUploadState(status?: string | null): SceneUploadState {
+  if (status === 'ready') return 'ready'
+  if (status === 'failed') return 'failed'
+  if (status === 'queued' || status === 'pending' || status === 'processing') return 'processing'
+  return 'processing'
+}
+
 let isMounted = false
 let fetchScenesVersion = 0
 let fetchScenesController: AbortController | null = null
@@ -646,6 +735,13 @@ const hasProcessingMedia = computed(() =>
   media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing')
 )
 
+const hasProcessingScenes = computed(() =>
+  scenes.value.some((s: any) => {
+    const state = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
+    return state !== 'ready' && state !== 'failed'
+  })
+)
+
 function unwrapApiData<T = any>(value: any): T {
   if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) return value.data as T
   if (value && typeof value === 'object' && 'result' in value && value.result !== undefined) return value.result as T
@@ -658,8 +754,8 @@ function toArrayPayload<T = any>(value: any, key: string): T[] {
   return []
 }
 
-watch(hasProcessingMedia, (isProcessing) => {
-  if (isProcessing) {
+watch([hasProcessingMedia, hasProcessingScenes], ([mediaProcessing, sceneProcessing]) => {
+  if (mediaProcessing || sceneProcessing) {
     startPolling()
   } else {
     stopPolling()
@@ -805,6 +901,7 @@ async function handleReorderScenes(orderedIds: string[]) {
 onMounted(async () => {
   isMounted = true
   window.addEventListener('keydown', handleKeydown)
+  hydrateEditorRecoverySnapshot()
   await fetchSpace(true)
   startSceneRealtime()
 })
@@ -842,12 +939,11 @@ async function fetchScenes() {
     const nextSceneUploadState = { ...sceneUploadStateById.value }
     const mergedSceneIds = new Set(mergedScenes.map((s: any) => s.id))
     for (const scene of loadedScenes) {
-      if (scene.status === 'ready') {
+      const mapped = backendSceneStatusToUploadState(scene.status)
+      if (mapped === 'ready') {
         delete nextSceneUploadState[scene.id]
-      } else if (scene.status === 'failed') {
-        nextSceneUploadState[scene.id] = 'failed'
       } else {
-        nextSceneUploadState[scene.id] = 'processing'
+        nextSceneUploadState[scene.id] = mapped
       }
     }
     for (const id of Object.keys(nextSceneUploadState)) {
@@ -1388,7 +1484,7 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string, local
       if (selectedSceneId.value === localSceneId) selectedSceneId.value = createdScene.id
       const currentState = sceneUploadStateById.value[localSceneId]
       if (currentState) {
-        setSceneUploadState(createdScene.id, createdScene.status === 'ready' ? 'ready' : 'processing')
+        setSceneUploadState(createdScene.id, backendSceneStatusToUploadState(createdScene.status))
         removeSceneUploadState(localSceneId)
       }
 
@@ -1421,7 +1517,7 @@ async function createSceneWithPanorama(rawImageUrl: string, name?: string, local
     } else {
       scenes.value = [...scenes.value, createdScene]
       hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
-      setSceneUploadState(createdScene.id, createdScene.status === 'ready' ? 'ready' : 'processing')
+      setSceneUploadState(createdScene.id, backendSceneStatusToUploadState(createdScene.status))
     }
 
     if (shouldSelectCreatedScene) selectedSceneId.value = createdScene.id
