@@ -1,13 +1,17 @@
 <template>
   <NuxtLink
     :to="to"
-    class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 group"
-    :class="isActive
-      ? 'bg-main text-bg shadow-lg'
-      : 'text-dim hover:text-main hover:bg-main/5 dark:text-zinc-400 dark:hover:text-zinc-50 dark:hover:bg-zinc-800/60'"
+    :title="collapsed ? label : undefined"
+    class="flex items-center py-2.5 rounded-xl text-sm font-bold transition-all duration-150 group"
+    :class="[
+      isActive
+        ? 'bg-main text-bg shadow-lg dark:bg-white/10 dark:text-white dark:shadow-none'
+        : 'text-dim hover:text-main hover:bg-main/5 dark:text-zinc-400 dark:hover:text-zinc-50 dark:hover:bg-zinc-800/60',
+      collapsed ? 'justify-center px-0' : 'gap-3 px-3.5'
+    ]"
   >
-    <div v-html="iconSvg" class="flex items-center justify-center transition-colors" :class="isActive ? 'text-bg' : 'text-dim group-hover:text-main'"></div>
-    <span class="tracking-tight">{{ label }}</span>
+    <div v-html="iconSvg" class="flex items-center justify-center flex-shrink-0 transition-colors" :class="isActive ? 'text-bg' : 'text-dim group-hover:text-main'"></div>
+    <span v-if="!collapsed" class="tracking-tight">{{ label }}</span>
   </NuxtLink>
 </template>
 
@@ -18,6 +22,7 @@ const props = defineProps<{
   label: string
   icon: 'dashboard' | 'spaces' | 'leads' | 'analytics' | 'billing' | 'settings' | 'capture'
   isActive?: boolean
+  collapsed?: boolean
 }>()
 
 const iconSvg = computed(() => {
