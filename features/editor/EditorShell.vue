@@ -25,7 +25,7 @@
     <ViewerCanvas
       :active-scene="activeViewerScene"
       :space-type="space?.space_type"
-      :hotspots="activeSceneHotspots"
+      :hotspots="activeSceneHotspotsWithPreview"
       :is-tracing="isTracing"
       :trace-points="tracePoints"
       @error="showToast($event.message, 'error')"
@@ -836,6 +836,30 @@ const activeScene = computed(() => selectedScene.value)
 const activeSceneHotspots = computed(() => {
   if (!selectedSceneId.value) return []
   return hotspotsByScene.value[selectedSceneId.value] || []
+})
+
+// Merges the live edit draft into the selected hotspot so the viewer reflects
+// every style/content change immediately without requiring a save.
+const activeSceneHotspotsWithPreview = computed(() => {
+  const hotspots = activeSceneHotspots.value
+  const selectedId = editorStore.selectedHotspotId
+  if (!selectedId) return hotspots
+  return hotspots.map(h => {
+    if (h.id !== selectedId) return h
+    const d = editDraft.value
+    return {
+      ...h,
+      label: d.label,
+      description: d.description,
+      url: d.url,
+      targetSceneId: d.targetSceneId,
+      type: d.type as any,
+      icon: d.icon,
+      scale: d.scale,
+      hoverScale: d.hoverScale,
+      corners: d.corners,
+    }
+  })
 })
 const activePanoramaSrc = computed(() => {
   if (activeScene.value?.id && pendingScenePreviewById.value[activeScene.value.id]) {
