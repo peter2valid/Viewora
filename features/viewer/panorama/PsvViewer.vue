@@ -56,8 +56,9 @@ import {
   updateTracePolygon,
   getHotspotScreenPos,
   type PsvViewerHandle,
+  type InitViewerOptions,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
-import HotspotActionMenu from '~/features/editor/components/HotspotActionMenu.vue'
+import HotspotActionMenu from '~/features/viewer/panorama/HotspotActionMenu.vue'
 
 const props = defineProps<{
   scene: TourScene | null
@@ -92,6 +93,7 @@ const menu = reactive({ visible: false, locked: false, hotspotId: null as string
 let menuRaf: number | null = null
 let menuCloseTimer: ReturnType<typeof setTimeout> | null = null
 let menuHovered = false
+let hotspotSyncTimer: ReturnType<typeof setTimeout> | null = null
 
 function trackMenuPosition() {
   if (!menu.visible || !menu.hotspotId || !handle.value) return
@@ -185,10 +187,9 @@ async function initWithScene(scene: TourScene) {
   if (!containerEl.value) return
   state.value = 'loading'
   try {
-    handle.value = await initViewer(
-      containerEl.value,
-      scene,
-      () => {
+    const viewerOptions: InitViewerOptions = {
+      isEditing: props.isEditing ?? false,
+      onReady: () => {
         state.value = 'ready'
         emit('loaded')
         const delay = props.isEditing ? 0 : 2000
@@ -199,12 +200,12 @@ async function initWithScene(scene: TourScene) {
           }
         }, delay)
       },
-      (err) => {
+      onError: (err) => {
         state.value = 'error'
         errorMessage.value = err.message || 'Failed to load panorama'
         emit('error', err)
       },
-      (payload) => {
+      onClick: (payload) => {
         // Canvas click: close locked menu, then handle add/trace
         if (menu.locked) { closeMenu(); return }
         if (props.isTracing) {
@@ -213,7 +214,7 @@ async function initWithScene(scene: TourScene) {
           emit('add-hotspot', payload)
         }
       },
-      (id) => {
+      onMarkerClick: (id) => {
         if (props.isEditing) {
           // Lock the radial menu on hotspot click in editor mode
           openMenu(id)
@@ -222,10 +223,10 @@ async function initWithScene(scene: TourScene) {
           emit('hotspot-click', id)
         }
       },
-      props.isEditing ?? false,
-      onMarkerEnterCb,
-      onMarkerLeaveCb,
-    )
+      onMarkerEnter: onMarkerEnterCb,
+      onMarkerLeave: onMarkerLeaveCb,
+    }
+    handle.value = await initViewer(containerEl.value, scene, viewerOptions)
     scheduleResize()
   } catch (err: any) {
     state.value = 'error'
@@ -277,12 +278,15 @@ watch(
   }
 )
 
-// Hotspot sync whenever the list changes
+// Hotspot sync whenever the list changes — debounced to prevent flicker on fast keystrokes
 watch(
   () => props.hotspots,
   (next) => {
     if (state.value !== 'ready') return
-    syncHotspots(handle.value, next ?? [])
+    if (hotspotSyncTimer) clearTimeout(hotspotSyncTimer)
+    hotspotSyncTimer = setTimeout(() => {
+      syncHotspots(handle.value, next ?? [])
+    }, 150)
   },
   { deep: true }
 )
@@ -319,6 +323,7 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
   if (resizeRaf != null) { window.cancelAnimationFrame(resizeRaf); resizeRaf = null }
+  if (hotspotSyncTimer) { clearTimeout(hotspotSyncTimer); hotspotSyncTimer = null }
   closeMenu()
   destroy(handle.value)
   handle.value = null
@@ -344,7 +349,6 @@ onUnmounted(() => {
   inset: 0;
   pointer-events: none;
   z-index: 50;
-  overflow: hidden;
 }
 
 .psv-canvas :deep(.psv-container) {
@@ -434,7 +438,6 @@ onUnmounted(() => {
 
 :global(.psv-hs-marker:hover .psv-hs-icon-img) {
   filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6));
-  transform: scale(1.1);
 }
 
 /* ── 3D Spatial Containers ──────────────────────── */

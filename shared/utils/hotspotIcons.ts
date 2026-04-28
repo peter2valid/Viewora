@@ -43,11 +43,11 @@ export const HOTSPOT_ICONS_BY_KEY: Record<string, string> = Object.fromEntries(
 )
 
 export const TYPE_DEFAULT_ICON: Record<string, string> = {
-  info:       'info-solid',
+  info:       'info-3d-light',
   scene_link: 'nav-up',
-  url:        'info-outline',
-  video:      'video-solid',
-  youtube:    'video-solid',
+  url:        'info-3d-light',
+  video:      'video-3d-light',
+  youtube:    'video-3d-light',
 }
 
 export const ICON_GROUPS: Array<{ label: string; key: HotspotIconDef['group'] }> = [

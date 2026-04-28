@@ -32,7 +32,7 @@
       @add-hotspot="handleViewerAddHotspot"
       @hotspot-click="handleHotspotClick"
       @hotspot-edit="handleHotspotEdit"
-      @hotspot-delete="handleHotspotDeleteById"
+      @hotspot-delete="deleteHotspot"
       @hotspot-reposition="handleHotspotReposition"
       @request-upload="handleViewerCanvasUpload"
       @update-trace="handleUpdateTrace"
@@ -1430,10 +1430,10 @@ function handleHotspotClick(id: string) {
 function handleHotspotEdit(id: string) {
   selectHotspot(id)
   editorStore.setPanel('hotspots')
-  editorStore.setMode('hotspot')
+  editorStore.setMode('view')
 }
 
-async function handleHotspotDeleteById(id: string) {
+async function deleteHotspot(id: string) {
   if (!id || deletingHotspot.value) return
   const sceneId = selectedSceneId.value
   deletingHotspot.value = true
@@ -1506,30 +1506,9 @@ function closeHotspotPanel() {
   editorStore.selectHotspot(null)
 }
 
-async function confirmDeleteHotspot() {
+function confirmDeleteHotspot() {
   const id = editorStore.selectedHotspotId
-  if (!id || deletingHotspot.value) return
-  
-  const sceneId = selectedSceneId.value
-  deletingHotspot.value = true
-  
-  // Optimistic update
-  hotspotsByScene.value = {
-    ...hotspotsByScene.value,
-    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== id),
-  }
-  
-  editorStore.selectHotspot(null)
-  
-  try {
-    await apiFetch(`/hotspots/${id}`, { method: 'DELETE' })
-    showToast('Hotspot deleted')
-  } catch (e: any) {
-    await fetchHotspots(sceneId)
-    showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
-  } finally {
-    deletingHotspot.value = false
-  }
+  if (id) deleteHotspot(id)
 }
 
 async function saveHotspotEdit() {

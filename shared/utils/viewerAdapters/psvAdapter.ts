@@ -72,17 +72,22 @@ export function getHotspotScreenPos(
   }
 }
 
+export interface InitViewerOptions {
+  onReady?: () => void
+  onError?: (err: Error) => void
+  onClick?: (payload: PsvClickPayload) => void
+  onMarkerClick?: (id: string) => void
+  isEditing?: boolean
+  onMarkerEnter?: (id: string) => void
+  onMarkerLeave?: (id: string) => void
+}
+
 export async function initViewer(
   container: HTMLElement,
   scene: TourScene,
-  onReady?: () => void,
-  onError?: (err: Error) => void,
-  onClick?: (payload: PsvClickPayload) => void,
-  onMarkerClick?: (id: string) => void,
-  isEditing = false,
-  onMarkerEnter?: (id: string) => void,
-  onMarkerLeave?: (id: string) => void,
+  options: InitViewerOptions = {},
 ): Promise<PsvViewerHandle> {
+  const { onReady, onError, onClick, onMarkerClick, isEditing = false, onMarkerEnter, onMarkerLeave } = options
   const [
     { Viewer },
     { MarkersPlugin },

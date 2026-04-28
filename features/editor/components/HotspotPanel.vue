@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { EditorHotspot } from '../mappers'
 import { HOTSPOT_ICON_DEFS, HOTSPOT_ICONS_BY_KEY, ICON_GROUPS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
 
@@ -14,6 +14,15 @@ const props = defineProps<{
 }>()
 
 const activeTab = ref<'content' | 'style' | 'spatial'>('content')
+
+// Reset to content tab whenever a different hotspot is selected
+watch(() => props.selectedId, () => { activeTab.value = 'content' })
+
+const availableTabs = computed(() => {
+  const tabs: Array<'content' | 'style' | 'spatial'> = ['content', 'style']
+  if (props.draft.type === 'video' || props.draft.type === 'youtube') tabs.push('spatial')
+  return tabs
+})
 
 const effectiveIcon = computed(() =>
   props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info-solid'
@@ -108,7 +117,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
 
           <div class="flex p-1 rounded-xl bg-black/20 border border-white/5">
             <button
-              v-for="tab in (['content', 'style', 'spatial'] as const)"
+              v-for="tab in availableTabs"
               :key="tab"
               @click="activeTab = tab"
               class="flex-1 h-8 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
