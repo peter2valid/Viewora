@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- Page Header -->
-    <header class="mb-8 flex items-center justify-between">
+    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-main">Welcome to Viewora!</h1>
         <p class="text-sm text-dim mt-1">Bring your venues to life with immersive 360° experiences.</p>
@@ -21,6 +21,8 @@
           <div class="h-2 w-16 bg-surface-alt rounded"></div>
         </div>
       </div>
+      <!-- Draft nudge placeholder -->
+      <div class="h-11 bg-surface-alt rounded-xl animate-pulse"></div>
       <!-- Chart + Recent Tours -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 bg-card rounded-2xl p-6 animate-pulse">
@@ -91,9 +93,9 @@
       </div>
 
       <!-- Draft Nudge -->
-      <div v-if="draftCount > 0" class="flex items-center justify-between px-4 py-3 bg-amber-500/10 rounded-xl text-sm">
-        <span class="font-semibold text-amber-600 dark:text-amber-400">{{ draftCount }} tour{{ draftCount > 1 ? 's' : '' }} still in draft — publish to start getting views</span>
-        <NuxtLink to="/app/spaces" class="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline shrink-0 ml-4">Go to Tours →</NuxtLink>
+      <div v-if="draftCount > 0" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-surface-alt rounded-xl border-l-2 border-main text-sm">
+        <span class="font-semibold text-main">{{ draftCount }} tour{{ draftCount > 1 ? 's' : '' }} still in draft — publish to start getting views</span>
+        <NuxtLink to="/app/spaces" class="text-xs font-bold text-dim hover:text-main transition-colors shrink-0 ml-4">Go to Tours →</NuxtLink>
       </div>
 
       <!-- Chart + Recent Tours -->

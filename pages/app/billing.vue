@@ -19,7 +19,7 @@
     <div v-else class="space-y-6">
 
       <!-- ① CURRENT PLAN ──────────────────────────────────────────────────── -->
-      <section class="card-glass p-6 md:p-8">
+      <section class="bg-card rounded-2xl border border-border dark:border-transparent p-6 md:p-8">
         <div class="flex flex-col md:flex-row md:items-start justify-between gap-6 overflow-hidden">
 
           <!-- Plan identity -->
@@ -55,7 +55,7 @@
               <span class="text-[10px] font-bold uppercase tracking-tight text-dim">Active Tours Capacity</span>
               <span class="text-xs font-bold tabular-nums" :class="spaceUsagePct >= 80 ? 'text-amber-500' : 'text-main'">{{ spaceUsagePct }}%</span>
             </div>
-            <div class="h-1.5 bg-surface-alt rounded-full overflow-hidden border border-border">
+            <div class="h-1.5 bg-surface-alt rounded-full overflow-hidden">
               <div class="h-full rounded-full transition-all duration-1000" :class="spaceUsagePct >= 80 ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-main'" :style="{ width: spaceUsagePct + '%' }"></div>
             </div>
           </div>
@@ -64,7 +64,7 @@
               <span class="text-[10px] font-bold uppercase tracking-tight text-dim">Cloud Storage</span>
               <span class="text-xs font-bold tabular-nums" :class="storageUsagePct >= 80 ? 'text-amber-500' : 'text-main'">{{ storageUsagePct }}%</span>
             </div>
-            <div class="h-1.5 bg-surface-alt rounded-full overflow-hidden border border-border">
+            <div class="h-1.5 bg-surface-alt rounded-full overflow-hidden">
               <div class="h-full rounded-full transition-all duration-1000" :class="storageUsagePct >= 80 ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-main'" :style="{ width: storageUsagePct + '%' }"></div>
             </div>
           </div>
@@ -72,13 +72,13 @@
       </section>
 
       <!-- ② UPGRADE TRIGGER ──────────────────────────────────────────────── -->
-      <div v-if="isNearLimit && recommendedPlan" class="flex items-start gap-4 p-6 card-glass border-amber-500/20 bg-amber-500/5 shadow-xl animate-in fade-in slide-in-from-bottom-5">
+      <div v-if="isNearLimit && recommendedPlan" class="flex flex-wrap items-start gap-4 p-6 bg-amber-500/5 rounded-2xl border border-amber-500/20 shadow-xl animate-in fade-in slide-in-from-bottom-5">
         <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0 border border-amber-500/20 text-amber-500">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
         <div class="flex-1">
           <p class="text-sm font-black text-amber-500 uppercase tracking-widest">Quota Threshold Notice</p>
-          <p class="text-xs text-amber-200/60 mt-1 font-bold leading-relaxed">{{ limitMessage }}</p>
+          <p class="text-xs text-amber-700/80 dark:text-amber-200/60 mt-1 font-bold leading-relaxed">{{ limitMessage }}</p>
         </div>
         <button @click="scrollToPlans" class="btn btn-secondary !px-5 !py-2.5 !rounded-xl !text-amber-500 !border-amber-500/20 hover:!bg-amber-500 hover:!text-bg text-xs">Upgrade Fleet</button>
       </div>
@@ -87,10 +87,10 @@
 
       <!-- ④ MONTHLY / YEARLY TOGGLE + ALL PLANS ───────────────────────────── -->
       <section ref="plansSection">
-        <div class="flex items-center justify-between mb-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
           <h3 class="text-base font-semibold text-main">All plans</h3>
           <!-- Toggle -->
-          <div class="flex items-center gap-3 p-1 bg-surface-alt rounded-xl border border-border">
+          <div class="flex items-center gap-3 p-1 bg-surface-alt rounded-xl">
             <button
               @click="billingCycle = 'monthly'"
               class="px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all duration-300"
@@ -108,19 +108,19 @@
         </div>
 
         <!-- Plans grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
           <div
             v-for="p in availablePlans"
             :key="p.id"
-            class="relative p-6 flex flex-col transition-all duration-300 card-glass"
+            class="relative p-6 flex flex-col transition-all duration-300 rounded-2xl border"
             :class="[
               p.id === plan?.id
-                ? 'border-main ring-1 ring-main shadow-xl'
-                : 'border-border'
+                ? 'bg-main/[0.04] dark:bg-main/[0.06] border-2 border-main shadow-xl'
+                : 'bg-card border-border dark:border-transparent'
             ]"
           >
             <!-- Badges -->
-            <div class="absolute -top-3 left-4 flex gap-1.5">
+            <div class="absolute -top-4 left-4 flex gap-1.5 z-10">
               <span v-if="p.id === plan?.id" class="px-2.5 py-1 bg-main text-bg text-[10px] font-bold rounded-lg shadow-lg border border-border">Current Plan</span>
               <span v-if="p.id === recommendedPlan?.id && p.id !== plan?.id" class="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-lg shadow-lg border border-emerald-500">Recommended</span>
               <span v-if="planHighlight[p.name]" class="px-2.5 py-1 bg-surface-alt text-main text-[10px] font-bold rounded-lg shadow-lg border border-border">{{ planHighlight[p.name] }}</span>
@@ -180,15 +180,15 @@
               <div v-if="subscribing === p.id" class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin mr-2 inline-block align-middle"></div>
               <span>{{ subscribing === p.id ? 'Redirecting...' : 'Get ' + p.name }}</span>
             </button>
-            <div v-else-if="p.id === plan?.id" class="w-full py-2 text-center text-xs font-semibold text-dim border border-border rounded-lg">
-              Your current plan
+            <div v-else-if="p.id === plan?.id" class="w-full py-2.5 text-center text-xs font-bold text-main bg-main/10 rounded-lg">
+              Active Plan
             </div>
           </div>
         </div>
       </section>
 
       <!-- ⑤ BILLING CLARITY ───────────────────────────────────────────────── -->
-      <section class="p-5 bg-surface-alt rounded-2xl border border-border">
+      <section class="p-5 bg-surface-alt rounded-2xl">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
           <div>
             <p class="font-semibold text-muted mb-1">Prorated billing</p>
@@ -294,9 +294,9 @@ const limitMessage = computed(() =>
 
 const statusBadgeClass = computed(() => {
   const s = subscription.value?.status
-  if (s === 'active' || s === 'trialing') return 'bg-zinc-700/15 text-emerald-400 border-emerald-500/20'
-  if (s === 'past_due') return 'bg-amber-500/15 text-amber-400 border-amber-500/20'
-  return 'bg-zinc-700/50 text-zinc-400 border-zinc-600'
+  if (s === 'active' || s === 'trialing') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+  if (s === 'past_due') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+  return 'bg-zinc-200/80 dark:bg-zinc-700/50 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-600'
 })
 const statusLabel = computed(() => {
   const s = subscription.value?.status
