@@ -10,7 +10,7 @@
       <!-- Filters & Actions -->
       <div class="flex flex-col md:flex-row md:items-center gap-4">
         <!-- View Toggle: Panoee-style Sliding Segmented Control -->
-        <div v-if="spaces.length > 0 || search" class="relative flex items-center p-1 bg-surface-alt border border-border rounded-xl w-24 h-10 overflow-hidden">
+        <div v-if="spaces.length > 0 || search" class="relative flex items-center p-1 bg-surface-alt rounded-xl w-24 h-10 overflow-hidden">
           <!-- Sliding Backdrop -->
           <div 
             class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-main rounded-lg shadow-sm transition-all duration-300 ease-out"
@@ -47,7 +47,7 @@
     </header>
 
     <!-- Toolbar (Only if we have spaces) -->
-    <div v-if="spaces.length > 0 || search" @click="searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-1 !rounded-2xl border border-border shadow-sm mb-12 cursor-pointer group/search hover:border-main/20 transition-colors">
+    <div v-if="spaces.length > 0 || search" @click="searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card border border-border dark:border-transparent p-1 !rounded-2xl shadow-sm mb-12 cursor-pointer group/search transition-colors">
       <div class="relative w-full sm:w-80 group h-12 flex items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="absolute left-4 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input 
@@ -58,12 +58,12 @@
           placeholder="Search your property domain..." 
         />
       </div>
-      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-border h-12 sm:pl-3">
+      <div class="flex items-center gap-3 w-full sm:w-auto sm:border-l border-black/[0.08] dark:border-white/20 h-12 sm:pl-3" @click.stop>
         <div class="relative w-full sm:w-auto">
-          <select v-model="sortBy" class="w-full sm:w-auto pl-4 pr-10 py-2 bg-transparent border-transparent text-[11px] font-black uppercase tracking-[0.1em] outline-none appearance-none cursor-pointer text-main hover:opacity-70 transition-all">
-            <option value="newest" class="bg-surface text-main">Chronological</option>
-            <option value="oldest" class="bg-surface text-main">Legacy Records</option>
-            <option value="name" class="bg-surface text-main">Alphabetical</option>
+          <select v-model="sortBy" class="w-full sm:w-auto pl-4 pr-7 py-2 bg-transparent border-transparent text-[11px] font-black uppercase tracking-normal outline-none appearance-none cursor-pointer text-main hover:opacity-70 transition-all">
+            <option value="newest" class="bg-surface text-main">Newest</option>
+            <option value="oldest" class="bg-surface text-main">Oldest</option>
+            <option value="name" class="bg-surface text-main">A–Z</option>
           </select>
           <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dim/60">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
@@ -73,13 +73,30 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="pending" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <div v-for="n in 4" :key="n" class="h-64 card-glass overflow-hidden animate-pulse">
-         <div class="h-2/3 bg-surface-alt"></div>
-         <div class="p-4 space-y-3">
-            <div class="h-4 bg-surface-alt rounded-lg w-3/4"></div>
-            <div class="h-3 bg-surface-alt rounded-lg w-1/2"></div>
-         </div>
+    <div v-if="pending" class="flex flex-col animate-pulse">
+      <!-- Toolbar skeleton -->
+      <div class="bg-card rounded-2xl mb-12 h-14 flex items-center px-4 gap-4">
+        <div class="w-4 h-4 bg-surface-alt rounded-full shrink-0"></div>
+        <div class="h-3 w-48 bg-surface-alt rounded flex-1 max-w-xs"></div>
+        <div class="w-px h-6 bg-white/20 shrink-0 ml-auto"></div>
+        <div class="h-3 w-16 bg-surface-alt rounded"></div>
+        <div class="w-3 h-3 bg-surface-alt rounded shrink-0"></div>
+      </div>
+      <!-- Cards grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div v-for="n in 4" :key="n" class="h-[300px] bg-card rounded-2xl overflow-hidden flex flex-col">
+          <div class="h-[180px] w-full bg-surface-alt shrink-0"></div>
+          <div class="flex-1 p-5 flex flex-col justify-between">
+            <div>
+              <div class="h-3 w-3/4 bg-surface-alt rounded mb-2"></div>
+              <div class="h-2 w-1/3 bg-surface-alt/60 rounded"></div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="w-7 h-7 bg-surface-alt rounded-lg"></div>
+              <div class="w-7 h-7 bg-surface-alt rounded-lg"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -253,7 +270,7 @@
         <div
           v-for="space in filteredSpaces"
           :key="space.id" 
-          class="group relative flex flex-col h-[300px] bg-card rounded-2xl border border-border overflow-hidden hover:border-main/50 hover:shadow-2xl transition-all duration-500 cursor-pointer"
+          class="group relative flex flex-col h-[300px] bg-card rounded-2xl border border-border dark:border-transparent overflow-hidden hover:shadow-2xl transition-all duration-500 cursor-pointer"
           @click="navigateTo(`/app/spaces/${space.id}`)"
         >
           <!-- Thumbnail -->
@@ -275,7 +292,10 @@
             
             <!-- Badges -->
             <div class="absolute top-4 left-4 flex gap-2">
-              <span :class="['px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-2xl border backdrop-blur-md transition-all', space.is_published ? 'bg-emerald-500 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
+              <span
+                class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-sm transition-all"
+                :class="space.is_published ? 'bg-emerald-600/80 text-white' : 'bg-zinc-600/90 text-zinc-100'"
+              >
                 {{ space.is_published ? 'Published' : 'Draft' }}
               </span>
             </div>
@@ -326,7 +346,7 @@
         <div
           v-for="space in filteredSpaces"
           :key="space.id"
-          class="group px-6 py-4 flex items-center gap-6 bg-surface-alt/10 hover:bg-surface-alt/40 border border-border/20 hover:border-main/20 rounded-[1.25rem] transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:-translate-y-0.5"
+          class="group px-6 py-4 flex items-center gap-6 bg-card hover:bg-card/80 rounded-[1.25rem] transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:-translate-y-0.5"
           @click="navigateTo(`/app/spaces/${space.id}`)"
         >
           <!-- Premium Compact Thumb -->
