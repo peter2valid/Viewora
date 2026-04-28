@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- Page header -->
-    <header class="mb-8 flex items-center justify-between">
+    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-main">Tours</h1>
         <p class="text-sm text-dim mt-1">Manage and organize your virtual tours.</p>
