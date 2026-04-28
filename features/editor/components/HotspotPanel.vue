@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { EditorHotspot } from '../mappers'
-import { HOTSPOT_ICON_DEFS, TYPE_DEFAULT_ICON, HOTSPOT_ICONS_BY_KEY } from '~/shared/utils/hotspotIcons'
+import { HOTSPOT_ICON_DEFS, HOTSPOT_ICONS_BY_KEY, ICON_GROUPS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
 
 const props = defineProps<{
   visible: boolean
@@ -16,7 +16,7 @@ const props = defineProps<{
 const activeTab = ref<'content' | 'style' | 'spatial'>('content')
 
 const effectiveIcon = computed(() =>
-  props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info'
+  props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info-solid'
 )
 
 const emit = defineEmits<{
@@ -75,11 +75,14 @@ function updateDraft(patch: Partial<typeof props.draft>) {
           @click="$emit('select', hs.id)"
           class="w-full group flex items-center gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all text-left"
         >
-          <div
-            class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-lg text-white [&_svg]:w-3.5 [&_svg]:h-3.5"
-            :class="hs.type === 'scene_link' ? 'bg-blue-600' : hs.type === 'video' || hs.type === 'youtube' ? 'bg-purple-600' : 'bg-white/10'"
-            v-html="HOTSPOT_ICONS_BY_KEY[hs.icon || TYPE_DEFAULT_ICON[hs.type] || 'info']"
-          />
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-white/10 p-1">
+            <img
+              :src="HOTSPOT_ICONS_BY_KEY[hs.icon || TYPE_DEFAULT_ICON[hs.type] || 'info-solid']"
+              class="w-full h-full object-contain"
+              draggable="false"
+              alt=""
+            />
+          </div>
           <div class="min-w-0 flex-1">
             <p class="text-white text-[11px] font-bold truncate leading-tight">{{ hs.label || 'Unnamed Hotspot' }}</p>
             <p class="text-white/40 text-[9px] font-bold uppercase tracking-wider mt-0.5 truncate">
@@ -179,21 +182,29 @@ function updateDraft(patch: Partial<typeof props.draft>) {
               <input v-model.number="draft.hoverScale" type="range" min="1" max="2.5" step="0.1" class="editor-range" />
             </div>
 
-            <div class="space-y-3">
+            <div class="space-y-4">
               <span class="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">Icon Style</span>
-              <div class="grid grid-cols-4 gap-2">
-                <button
-                  v-for="iconDef in HOTSPOT_ICON_DEFS"
-                  :key="iconDef.key"
-                  @click="updateDraft({ icon: iconDef.key })"
-                  class="flex flex-col items-center gap-2 py-3 rounded-2xl transition-all"
-                  :class="effectiveIcon === iconDef.key ? 'bg-white/10 ring-1 ring-white/20 shadow-lg shadow-blue-900/10' : 'bg-black/10 hover:bg-white/[0.04]'"
-                >
-                  <div class="w-8 h-8 rounded-full flex items-center justify-center border border-white/5" :class="effectiveIcon === iconDef.key ? 'bg-blue-600 border-white/20' : 'bg-white/5'">
-                    <span class="w-4 h-4 text-white [&_svg]:w-full [&_svg]:h-full" v-html="iconDef.svg" />
-                  </div>
-                  <span class="text-[8px] font-bold text-white/30 uppercase tracking-tight">{{ iconDef.label }}</span>
-                </button>
+              <div v-for="group in ICON_GROUPS" :key="group.key" class="space-y-1.5">
+                <span class="text-[9px] font-bold uppercase tracking-widest text-white/20 ml-1">{{ group.label }}</span>
+                <div class="grid grid-cols-5 gap-1.5">
+                  <button
+                    v-for="iconDef in HOTSPOT_ICON_DEFS.filter(d => d.group === group.key)"
+                    :key="iconDef.key"
+                    @click="updateDraft({ icon: iconDef.key })"
+                    :title="iconDef.label"
+                    class="flex items-center justify-center aspect-square rounded-xl p-1.5 transition-all"
+                    :class="effectiveIcon === iconDef.key
+                      ? 'bg-white/15 ring-1 ring-blue-400/60 shadow-lg'
+                      : 'bg-white/[0.03] hover:bg-white/[0.08]'"
+                  >
+                    <img
+                      :src="iconDef.url"
+                      class="w-full h-full object-contain"
+                      draggable="false"
+                      :alt="iconDef.label"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

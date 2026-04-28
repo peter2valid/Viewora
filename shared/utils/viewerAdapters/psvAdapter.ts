@@ -41,23 +41,12 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 }
 
-/** Master Renderer: Constructs the 'Naked Icon' look with premium interaction layers */
+/** Renders the hotspot as a plain PNG/SVG image — the icon IS the marker */
 function buildMarkerHtml(hotspot: Hotspot): string {
-  const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info'
-  const icon = HOTSPOT_ICONS_BY_KEY[iconKey] || HOTSPOT_ICONS_BY_KEY['info'] || ''
-  
+  const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info-solid'
+  const iconUrl = HOTSPOT_ICONS_BY_KEY[iconKey] || HOTSPOT_ICONS_BY_KEY['info-solid'] || ''
   const pulse = hotspot.type === 'scene_link' ? '<span class="psv-hs-pulse" aria-hidden="true"></span>' : ''
-  
-  // The 'Icon Wrapper' holds the glow and background
-  // The 'Icon Content' holds the SVG
-  return `
-    <div class="psv-hs-marker psv-hs-marker--${hotspot.type}" aria-label="${esc(hotspot.label ?? hotspot.type)}">
-      ${pulse}
-      <div class="psv-hs-icon-wrapper">
-        <div class="psv-hs-icon-content">${icon}</div>
-      </div>
-    </div>
-  `.trim()
+  return `<div class="psv-hs-marker" aria-label="${esc(hotspot.label ?? hotspot.type)}">${pulse}<img src="${iconUrl}" class="psv-hs-icon-img" draggable="false" alt=""></div>`
 }
 
 function buildInfoContent(hotspot: Hotspot): string {
@@ -70,6 +59,19 @@ function buildInfoContent(hotspot: Hotspot): string {
 /** 
  * MASTER INIT: Multi-resolution, Plugin-rich, and Hardware-accelerated.
  */
+export function getHotspotScreenPos(
+  handle: PsvViewerHandle | null,
+  yaw: number,
+  pitch: number,
+): { x: number; y: number } | null {
+  if (!handle?.viewer) return null
+  try {
+    return handle.viewer.dataHelper.sphericalCoordsToViewerCoords({ yaw, pitch })
+  } catch {
+    return null
+  }
+}
+
 export async function initViewer(
   container: HTMLElement,
   scene: TourScene,
@@ -78,6 +80,8 @@ export async function initViewer(
   onClick?: (payload: PsvClickPayload) => void,
   onMarkerClick?: (id: string) => void,
   isEditing = false,
+  onMarkerEnter?: (id: string) => void,
+  onMarkerLeave?: (id: string) => void,
 ): Promise<PsvViewerHandle> {
   const [
     { Viewer },
@@ -152,6 +156,18 @@ export async function initViewer(
   const handleMarkerSelect = (e: any) => onMarkerClick?.(e.marker.id)
   markers.addEventListener('select-marker', handleMarkerSelect)
   cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
+
+  if (onMarkerEnter) {
+    const handleEnter = (e: any) => onMarkerEnter(e.marker.id)
+    markers.addEventListener('enter-marker', handleEnter)
+    cleanupFns.push(() => markers.removeEventListener('enter-marker', handleEnter))
+  }
+
+  if (onMarkerLeave) {
+    const handleLeave = (e: any) => onMarkerLeave(e.marker.id)
+    markers.addEventListener('leave-marker', handleLeave)
+    cleanupFns.push(() => markers.removeEventListener('leave-marker', handleLeave))
+  }
 
   return {
     viewer,

@@ -21,14 +21,28 @@
     </div>
 
     <!-- Edit mode cursor hint -->
-    <div v-if="isEditing && state === 'ready'" class="psv-edit-hint">
+    <div v-if="isEditing && state === 'ready' && !menu.visible" class="psv-edit-hint">
       Click to place hotspot
+    </div>
+
+    <!-- Hotspot action menu (editor only) -->
+    <div v-if="isEditing" class="psv-menu-layer" aria-hidden="true">
+      <HotspotActionMenu
+        :visible="menu.visible"
+        :x="menu.x"
+        :y="menu.y"
+        @edit="onMenuEdit"
+        @delete="onMenuDelete"
+        @reposition="onMenuReposition"
+        @menu-enter="onMenuEnter"
+        @menu-leave="onMenuLeave"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import '@photo-sphere-viewer/compass-plugin/index.css'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
@@ -40,8 +54,10 @@ import {
   destroy,
   addTracePoint,
   updateTracePolygon,
+  getHotspotScreenPos,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
+import HotspotActionMenu from '~/features/editor/components/HotspotActionMenu.vue'
 
 const props = defineProps<{
   scene: TourScene | null
@@ -56,6 +72,9 @@ const emit = defineEmits<{
   (e: 'error', err: Error): void
   (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
   (e: 'hotspot-click', id: string): void
+  (e: 'hotspot-edit', id: string): void
+  (e: 'hotspot-delete', id: string): void
+  (e: 'hotspot-reposition', id: string): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()
 
@@ -67,6 +86,88 @@ const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')
 let resizeObserver: ResizeObserver | null = null
 let resizeRaf: number | null = null
+
+// ── Hotspot action menu ────────────────────────────────────
+const menu = reactive({ visible: false, locked: false, hotspotId: null as string | null, x: 0, y: 0 })
+let menuRaf: number | null = null
+let menuCloseTimer: ReturnType<typeof setTimeout> | null = null
+let menuHovered = false
+
+function trackMenuPosition() {
+  if (!menu.visible || !menu.hotspotId || !handle.value) return
+  const hs = props.hotspots?.find(h => h.id === menu.hotspotId)
+  if (hs) {
+    const pos = getHotspotScreenPos(handle.value, hs.yaw, hs.pitch)
+    if (pos) { menu.x = pos.x; menu.y = pos.y }
+  }
+  menuRaf = requestAnimationFrame(trackMenuPosition)
+}
+
+function openMenu(id: string) {
+  const hs = props.hotspots?.find(h => h.id === id)
+  if (!hs) return
+  if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
+  const pos = getHotspotScreenPos(handle.value, hs.yaw, hs.pitch)
+  menu.hotspotId = id
+  menu.x = pos?.x ?? menu.x
+  menu.y = pos?.y ?? menu.y
+  menu.visible = true
+  menuRaf = requestAnimationFrame(trackMenuPosition)
+}
+
+function closeMenu() {
+  if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
+  if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
+  menu.visible = false
+  menu.locked = false
+  menu.hotspotId = null
+  menuHovered = false
+}
+
+function onMarkerEnterCb(id: string) {
+  if (!props.isEditing) return
+  if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
+  if (menu.locked && menu.hotspotId !== id) return
+  openMenu(id)
+}
+
+function onMarkerLeaveCb(id: string) {
+  if (!props.isEditing || menu.locked) return
+  if (menu.hotspotId !== id) return
+  menuCloseTimer = setTimeout(() => {
+    if (!menuHovered) closeMenu()
+  }, 260)
+}
+
+function onMenuEnter() {
+  menuHovered = true
+  if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
+}
+
+function onMenuLeave() {
+  menuHovered = false
+  if (!menu.locked) {
+    menuCloseTimer = setTimeout(() => closeMenu(), 150)
+  }
+}
+
+function onMenuEdit() {
+  const id = menu.hotspotId
+  closeMenu()
+  if (id) emit('hotspot-edit', id)
+}
+
+function onMenuDelete() {
+  const id = menu.hotspotId
+  closeMenu()
+  if (id) emit('hotspot-delete', id)
+}
+
+function onMenuReposition() {
+  const id = menu.hotspotId
+  closeMenu()
+  if (id) emit('hotspot-reposition', id)
+}
 
 function resizeViewer() {
   handle.value?.viewer?.resize?.()
@@ -90,8 +191,6 @@ async function initWithScene(scene: TourScene) {
       () => {
         state.value = 'ready'
         emit('loaded')
-        
-        // Delay hotspot sync if intro animation is playing
         const delay = props.isEditing ? 0 : 2000
         setTimeout(() => {
           if (props.hotspots?.length) {
@@ -106,14 +205,26 @@ async function initWithScene(scene: TourScene) {
         emit('error', err)
       },
       (payload) => {
+        // Canvas click: close locked menu, then handle add/trace
+        if (menu.locked) { closeMenu(); return }
         if (props.isTracing) {
           emit('update-trace', payload)
         } else if (props.isEditing) {
           emit('add-hotspot', payload)
         }
       },
-      (id) => emit('hotspot-click', id),
+      (id) => {
+        if (props.isEditing) {
+          // Lock the radial menu on hotspot click in editor mode
+          openMenu(id)
+          menu.locked = true
+        } else {
+          emit('hotspot-click', id)
+        }
+      },
       props.isEditing ?? false,
+      onMarkerEnterCb,
+      onMarkerLeaveCb,
     )
     scheduleResize()
   } catch (err: any) {
@@ -153,6 +264,7 @@ watch(
       return
     }
     if (next.id === prev?.id) return
+    closeMenu()
     try {
       await loadScene(handle.value, next)
       state.value = 'ready'
@@ -206,10 +318,8 @@ watch(
 onUnmounted(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
-  if (resizeRaf != null) {
-    window.cancelAnimationFrame(resizeRaf)
-    resizeRaf = null
-  }
+  if (resizeRaf != null) { window.cancelAnimationFrame(resizeRaf); resizeRaf = null }
+  closeMenu()
   destroy(handle.value)
   handle.value = null
 })
@@ -227,6 +337,14 @@ onUnmounted(() => {
 .psv-canvas {
   position: absolute;
   inset: 0;
+}
+
+.psv-menu-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
 }
 
 .psv-canvas :deep(.psv-container) {
@@ -302,41 +420,21 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-:global(.psv-hs-icon-wrapper) {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(8px);
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: #fff;
-  position: relative;
-  z-index: 2;
-}
-
-:global(.psv-hs-icon-content) {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-:global(.psv-hs-marker:hover .psv-hs-icon-wrapper) {
-  transform: scale(1.15);
-  border-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 0 30px currentColor;
-}
-
-:global(.psv-hs-marker svg) {
+:global(.psv-hs-icon-img) {
   width: 100%;
   height: 100%;
-  color: #fff;
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+  transition: filter 0.18s ease, transform 0.18s ease;
+}
+
+:global(.psv-hs-marker:hover .psv-hs-icon-img) {
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6));
+  transform: scale(1.1);
 }
 
 /* ── 3D Spatial Containers ──────────────────────── */
@@ -369,36 +467,6 @@ onUnmounted(() => {
   background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
 }
 
-/* ── Per-type colours (Applied to the icon wrapper) ── */
-:global(.psv-hs-marker--info .psv-hs-icon-wrapper) {
-  background: rgba(20, 184, 166, 0.85);
-  color: rgba(20, 184, 166, 0.6); /* Used for the box-shadow glow */
-  box-shadow: 0 4px 18px rgba(20, 184, 166, 0.45);
-}
-
-:global(.psv-hs-marker--url .psv-hs-icon-wrapper) {
-  background: rgba(59, 130, 246, 0.85);
-  color: rgba(59, 130, 246, 0.6);
-  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.45);
-}
-
-:global(.psv-hs-marker--scene_link .psv-hs-icon-wrapper) {
-  background: rgba(99, 102, 241, 0.85);
-  color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.45);
-}
-
-:global(.psv-hs-marker--video .psv-hs-icon-wrapper) {
-  background: rgba(168, 85, 247, 0.85);
-  color: rgba(168, 85, 247, 0.6);
-  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.45);
-}
-
-:global(.psv-hs-marker--youtube .psv-hs-icon-wrapper) {
-  background: rgba(225, 29, 72, 0.85);
-  color: rgba(225, 29, 72, 0.6);
-  box-shadow: 0 4px 18px rgba(225, 29, 72, 0.45);
-}
 
 /* ── Pulse ring (scene_link only) ────────────────── */
 :global(.psv-hs-pulse) {

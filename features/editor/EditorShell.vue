@@ -31,6 +31,9 @@
       @error="showToast($event.message, 'error')"
       @add-hotspot="handleViewerAddHotspot"
       @hotspot-click="handleHotspotClick"
+      @hotspot-edit="handleHotspotEdit"
+      @hotspot-delete="handleHotspotDeleteById"
+      @hotspot-reposition="handleHotspotReposition"
       @request-upload="handleViewerCanvasUpload"
       @update-trace="handleUpdateTrace"
     />
@@ -498,6 +501,7 @@ const pollFailureCount = ref(0)
 type DeleteCandidate = EditorHotspot & { sceneId: string }
 const deleteCandidate = ref<DeleteCandidate | null>(null)
 const deletingHotspot = ref(false)
+const repositioningHotspotId = ref<string | null>(null)
 const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number; corners?: Array<{ yaw: number; pitch: number }> }>({
   label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', scale: 1, hoverScale: 1.3,
 })
@@ -1330,6 +1334,10 @@ function resolveTargetSceneId(currentSceneId: string) {
 }
 
 async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: number }) {
+  if (repositioningHotspotId.value) {
+    await repositionHotspot(repositioningHotspotId.value, yaw, pitch)
+    return
+  }
   if (addingHotspot.value) return
   addingHotspot.value = true
 
@@ -1407,23 +1415,65 @@ async function handleViewerAddHotspot({ yaw, pitch }: { yaw: number; pitch: numb
 }
 
 function handleHotspotClick(id: string) {
+  // In editor mode the radial menu handles clicks — only preview mode needs this
+  if (!isPreviewMode.value) return
   const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
   if (!hotspot) return
-  
-  if (isPreviewMode.value) {
-    if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
-      selectScene(hotspot.targetSceneId)
-      showToast('Moved to linked scene')
-    } else if (hotspot.type === 'url' && hotspot.url) {
-      window.open(hotspot.url, '_blank', 'noopener,noreferrer')
-    }
-    return
+  if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
+    selectScene(hotspot.targetSceneId)
+    showToast('Moved to linked scene')
+  } else if (hotspot.type === 'url' && hotspot.url) {
+    window.open(hotspot.url, '_blank', 'noopener,noreferrer')
   }
+}
 
-  // Always open side panel and select hotspot on click in editor mode
+function handleHotspotEdit(id: string) {
+  selectHotspot(id)
   editorStore.setPanel('hotspots')
   editorStore.setMode('hotspot')
-  selectHotspot(id)
+}
+
+async function handleHotspotDeleteById(id: string) {
+  if (!id || deletingHotspot.value) return
+  const sceneId = selectedSceneId.value
+  deletingHotspot.value = true
+  hotspotsByScene.value = {
+    ...hotspotsByScene.value,
+    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== id),
+  }
+  editorStore.selectHotspot(null)
+  try {
+    await apiFetch(`/hotspots/${id}`, { method: 'DELETE' })
+    showToast('Hotspot deleted')
+  } catch (e: any) {
+    await fetchHotspots(sceneId)
+    showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
+  } finally {
+    deletingHotspot.value = false
+  }
+}
+
+function handleHotspotReposition(id: string) {
+  repositioningHotspotId.value = id
+  editorStore.setMode('hotspot')
+  showToast('Click anywhere to reposition the hotspot')
+}
+
+async function repositionHotspot(id: string, yaw: number, pitch: number) {
+  const sceneId = selectedSceneId.value
+  repositioningHotspotId.value = null
+  editorStore.setMode('view')
+  hotspotsByScene.value = {
+    ...hotspotsByScene.value,
+    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, yaw, pitch } : h),
+  }
+  try {
+    await apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch } })
+    showToast('Hotspot repositioned')
+  } catch (e: any) {
+    await fetchHotspots(sceneId)
+    showToast(e?.data?.statusMessage || 'Failed to reposition hotspot', 'error')
+  }
 }
 
 function selectHotspot(id: string | null) {

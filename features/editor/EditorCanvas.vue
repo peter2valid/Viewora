@@ -12,6 +12,9 @@
       @error="emit('error', $event)"
       @add-hotspot="emit('add-hotspot', $event)"
       @hotspot-click="emit('hotspot-click', $event)"
+      @hotspot-edit="emit('hotspot-edit', $event)"
+      @hotspot-delete="emit('hotspot-delete', $event)"
+      @hotspot-reposition="emit('hotspot-reposition', $event)"
       @update-trace="emit('update-trace', $event)"
     />
   </div>
@@ -37,6 +40,9 @@ const emit = defineEmits<{
   (e: 'error', err: Error): void
   (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
   (e: 'hotspot-click', id: string): void
+  (e: 'hotspot-edit', id: string): void
+  (e: 'hotspot-delete', id: string): void
+  (e: 'hotspot-reposition', id: string): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()
 </script>
