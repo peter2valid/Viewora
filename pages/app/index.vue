@@ -13,12 +13,31 @@
 
     <!-- Loading Skeleton -->
     <section v-if="pending" class="flex flex-col gap-6">
+      <!-- Stat cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div v-for="n in 4" :key="n" class="h-24 bg-surface-alt/50 rounded-2xl animate-pulse border border-border/50"></div>
+        <div v-for="n in 4" :key="n" class="bg-card rounded-2xl p-5 animate-pulse">
+          <div class="h-2.5 w-20 bg-surface-alt rounded mb-3"></div>
+          <div class="h-8 w-12 bg-surface-alt rounded mb-2"></div>
+          <div class="h-2 w-16 bg-surface-alt rounded"></div>
+        </div>
       </div>
+      <!-- Chart + Recent Tours -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 h-64 bg-surface-alt/50 rounded-2xl animate-pulse border border-border/50"></div>
-        <div class="h-64 bg-surface-alt/50 rounded-2xl animate-pulse border border-border/50"></div>
+        <div class="lg:col-span-2 bg-card rounded-2xl p-6 animate-pulse">
+          <div class="h-3 w-32 bg-surface-alt rounded mb-2"></div>
+          <div class="h-2 w-20 bg-surface-alt rounded mb-6"></div>
+          <div class="h-[200px] bg-surface-alt/50 rounded-xl"></div>
+        </div>
+        <div class="flex flex-col gap-4 animate-pulse">
+          <div class="h-4 w-28 bg-surface-alt rounded"></div>
+          <div v-for="n in 2" :key="n" class="bg-card rounded-xl overflow-hidden">
+            <div class="aspect-[16/9] w-full bg-surface-alt"></div>
+            <div class="px-3 py-2.5">
+              <div class="h-3 w-24 bg-surface-alt rounded mb-1.5"></div>
+              <div class="h-2 w-16 bg-surface-alt/50 rounded"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -49,22 +68,22 @@
 
       <!-- Stat Cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-card border border-border rounded-2xl p-5">
+        <div class="bg-card rounded-2xl border border-border dark:border-transparent p-5">
           <p class="text-xs font-bold text-dim uppercase tracking-wider mb-3">Total Views</p>
           <p class="text-3xl font-black text-main leading-none">{{ totalViews }}</p>
           <p class="text-xs text-dim mt-2">{{ viewsToday }} today</p>
         </div>
-        <div class="bg-card border border-border rounded-2xl p-5">
+        <div class="bg-card rounded-2xl border border-border dark:border-transparent p-5">
           <p class="text-xs font-bold text-dim uppercase tracking-wider mb-3">Leads Captured</p>
           <p class="text-3xl font-black text-main leading-none">{{ totalLeads }}</p>
           <p class="text-xs text-dim mt-2">{{ conversionRate }} conversion</p>
         </div>
-        <div class="bg-card border border-border rounded-2xl p-5">
+        <div class="bg-card rounded-2xl border border-border dark:border-transparent p-5">
           <p class="text-xs font-bold text-dim uppercase tracking-wider mb-3">Active Tours</p>
           <p class="text-3xl font-black text-main leading-none">{{ usage?.active_spaces_count || 0 }}</p>
           <p class="text-xs text-dim mt-2">Published &amp; live</p>
         </div>
-        <div class="bg-card border border-border rounded-2xl p-5">
+        <div class="bg-card rounded-2xl border border-border dark:border-transparent p-5">
           <p class="text-xs font-bold text-dim uppercase tracking-wider mb-3">Top Tour</p>
           <p class="text-base font-black text-main leading-snug truncate">{{ topTourName }}</p>
           <p class="text-xs text-dim mt-2">{{ topTourViews }} views</p>
@@ -72,7 +91,7 @@
       </div>
 
       <!-- Draft Nudge -->
-      <div v-if="draftCount > 0" class="flex items-center justify-between px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm">
+      <div v-if="draftCount > 0" class="flex items-center justify-between px-4 py-3 bg-amber-500/10 rounded-xl text-sm">
         <span class="font-semibold text-amber-600 dark:text-amber-400">{{ draftCount }} tour{{ draftCount > 1 ? 's' : '' }} still in draft — publish to start getting views</span>
         <NuxtLink to="/app/spaces" class="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline shrink-0 ml-4">Go to Tours →</NuxtLink>
       </div>
@@ -81,7 +100,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <!-- Views Chart -->
-        <div class="lg:col-span-2 bg-card border border-border rounded-2xl p-6 flex flex-col gap-6">
+        <div class="lg:col-span-2 bg-card rounded-2xl border border-border dark:border-transparent p-6 flex flex-col gap-6">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-base font-bold text-main tracking-tight">Views Over Time</h3>
@@ -129,12 +148,15 @@
             <div
               v-for="space in recentSpaces"
               :key="space.id"
-              class="bg-card border border-border rounded-xl overflow-hidden cursor-pointer hover:border-main/40 transition-all duration-200 group"
+              class="bg-card rounded-xl border border-border dark:border-transparent overflow-hidden cursor-pointer transition-all duration-200 group"
               @click="navigateTo(`/app/spaces/${space.id}`)"
             >
               <div class="aspect-[16/9] w-full bg-surface-alt relative overflow-hidden">
                 <div v-if="space.cover_image_url" class="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-500" :style="{ backgroundImage: `url(${space.cover_image_url})` }"></div>
-                <span class="absolute top-2 left-2 px-1.5 py-0.5 bg-bg/80 backdrop-blur-sm rounded text-[10px] font-bold uppercase tracking-wide text-main border border-border">
+                <span
+                  class="absolute top-2 left-2 px-1.5 py-0.5 backdrop-blur-sm rounded text-[10px] font-bold uppercase tracking-wide"
+                  :class="space.is_published ? 'bg-emerald-600/80 text-white' : 'bg-zinc-600/90 text-zinc-100'"
+                >
                   {{ space.is_published ? 'Live' : 'Draft' }}
                 </span>
               </div>
@@ -169,7 +191,7 @@ const rawStats = ref<any[]>([])
 const totalLeads = ref(0)
 
 const hasSpaces = computed(() => spaces.value.length > 0)
-const recentSpaces = computed(() => spaces.value.slice(0, 3))
+const recentSpaces = computed(() => spaces.value.slice(0, 2))
 
 // Empty state type selector
 const dashSelectedType = ref('residential')

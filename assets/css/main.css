@@ -17,7 +17,7 @@
   --bg: #ffffff;
   --surface: #fafafa;
   --surface-alt: #f4f4f5;
-  --card: #ffffff;
+  --card: #f8f8fa;
   
   /* Text */
   --text-main: #0a0a0a;
@@ -45,26 +45,26 @@
 }
 
 .dark {
-  /* Ultra Dark OLED Aesthetic */
-  --bg: #000000;
-  --surface: #0a0a0a;
-  --surface-alt: #111111;
-  --card: #0a0a0a;
-  
+  /* Layered Dark — 3-tier depth system */
+  --bg: #111114;          /* deepest layer — page background */
+  --surface: #17171b;     /* mid layer — panels, sidebar */
+  --surface-alt: #353539; /* elevated layer — inputs, toolbars, hover */
+  --card: #1e1e22;        /* cards — elevated above bg, toned below sidebar active highlight */
+
   /* High Contrast Text */
   --text-main: #ffffff;
   --text-muted: #a1a1aa;
   --text-dim: #71717a;
-  
+
   /* Brand */
   --accent: #ffffff;
   --accent-foreground: #000000;
-  
-  /* Borders - Minimal but visible */
-  --border: #222222;
-  --border-muted: #111111;
 
-  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.05);
+  /* Borders — visible but not distracting */
+  --border: #3c3c41;
+  --border-muted: #252529;
+
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 /* ── Typography Aliases ── */
@@ -74,6 +74,7 @@
 .bg-bg { background-color: var(--bg); }
 .bg-surface { background-color: var(--surface); }
 .bg-surface-alt { background-color: var(--surface-alt); }
+.bg-card { background-color: var(--card); }
 .border-main { border-color: var(--border); }
 
 /* ── Reset ── */
