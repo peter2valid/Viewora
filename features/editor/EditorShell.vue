@@ -1329,6 +1329,7 @@ function stopSceneRealtime() {
 }
 
 async function fetchHotspots(sceneId: string) {
+  if (isLocalSceneId(sceneId)) return
   try {
     const result = await apiFetch<any>(`/scenes/${sceneId}/hotspots`)
     const list = mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(result), 'hotspots'))
