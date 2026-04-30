@@ -6,7 +6,8 @@ export default defineNuxtPlugin(() => {
 
   if (key) {
     posthog.init(key, {
-      api_host: 'https://app.posthog.com',
+      api_host: '/ingest',
+      ui_host: 'https://us.posthog.com',
       capture_pageview: false,
       capture_pageleave: true,
       loaded: (ph) => {
