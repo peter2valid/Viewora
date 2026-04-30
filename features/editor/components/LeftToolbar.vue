@@ -76,6 +76,11 @@ import type { EditorMode } from '~/features/editor/store/useEditorStore'
 
 const route = useRoute()
 const store = useEditorStore()
+
+const emit = defineEmits<{
+  (e: 'open-type-picker'): void
+  (e: 'cancel-placement'): void
+}>()
 const visible = ref(false)
 const flashedMode = ref<EditorMode | null>(null)
 const buttonRefs: Record<string, HTMLButtonElement | null> = {}
@@ -109,15 +114,17 @@ function handleToolClick(next: EditorMode) {
     if (store.activePanel === 'hotspots') {
       store.setPanel(null)
       store.setMode('view')
+    } else if (store.mode === 'hotspot') {
+      store.setMode('view')
+      emit('cancel-placement')
     } else {
-      store.setPanel('hotspots')
-      store.setMode('hotspot')
+      emit('open-type-picker')
     }
     return
   }
-  
+
   store.setMode(next)
-  if (next !== 'hotspot') store.setPanel(null)
+  store.setPanel(null)
 }
 
 // Announce mode changes

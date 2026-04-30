@@ -18,6 +18,8 @@ export interface PsvViewerHandle {
 export interface PsvClickPayload {
   yaw: number
   pitch: number
+  screenX: number
+  screenY: number
 }
 
 /** Centralized Signature: Every visual property must be represented here */
@@ -152,7 +154,13 @@ export async function initViewer(
   // Click Handlers
   const handleClick = (e: any) => {
     if (e.data?.rightclick) return
-    onClick?.({ yaw: e.data.yaw, pitch: e.data.pitch })
+    let screenX = 0
+    let screenY = 0
+    try {
+      const pos = viewer.dataHelper.sphericalCoordsToViewerCoords({ yaw: e.data.yaw, pitch: e.data.pitch })
+      if (pos) { screenX = pos.x; screenY = pos.y }
+    } catch { /* noop */ }
+    onClick?.({ yaw: e.data.yaw, pitch: e.data.pitch, screenX, screenY })
   }
   viewer.addEventListener('click', handleClick)
   cleanupFns.push(() => viewer.removeEventListener('click', handleClick))

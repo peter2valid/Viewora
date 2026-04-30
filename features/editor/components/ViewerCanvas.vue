@@ -35,10 +35,19 @@
     <Transition name="badge-confirm">
       <div
         v-if="isHotspotMode && hasScene && !isTracing"
-        class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/[0.1] border border-blue-500/20 backdrop-blur-sm pointer-events-none select-none"
+        class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/[0.1] border border-blue-500/20 backdrop-blur-sm select-none pointer-events-auto"
       >
         <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-        Hotspot Mode — click to place
+        Click to place hotspot
+        <button
+          class="ml-1 -mr-0.5 w-4 h-4 flex items-center justify-center rounded opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
+          @click="$emit('cancel-placement')"
+          aria-label="Cancel placement"
+        >
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
     </Transition>
 
@@ -166,7 +175,8 @@ const editorStore = useEditorStore()
 const emit = defineEmits<{
   (e: 'loaded'): void
   (e: 'error', err: Error): void
-  (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
+  (e: 'add-hotspot', payload: { yaw: number; pitch: number; screenX: number; screenY: number }): void
+  (e: 'cancel-placement'): void
   (e: 'hotspot-click', id: string): void
   (e: 'hotspot-edit', id: string): void
   (e: 'hotspot-delete', id: string): void

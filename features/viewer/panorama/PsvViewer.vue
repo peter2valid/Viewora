@@ -71,7 +71,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'loaded'): void
   (e: 'error', err: Error): void
-  (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
+  (e: 'add-hotspot', payload: { yaw: number; pitch: number; screenX: number; screenY: number }): void
   (e: 'hotspot-click', id: string): void
   (e: 'hotspot-edit', id: string): void
   (e: 'hotspot-delete', id: string): void
