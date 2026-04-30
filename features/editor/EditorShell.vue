@@ -858,8 +858,7 @@ function removeOptimisticLocalScene(localSceneId: string) {
   }
 }
 
-const panorama = computed(() => media.value.find(m => m.media_type === 'panorama'))
-const hasPanorama = computed(() => Boolean(panorama.value || scenes.value.length || Object.keys(pendingScenePreviewById.value).length))
+const hasPanorama = computed(() => Boolean(scenes.value.length || Object.keys(pendingScenePreviewById.value).length))
 
 function sceneHasRenderableImage(scene: any): boolean {
   if (!scene) return false
@@ -1172,7 +1171,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
   fetchScenesController?.abort()
   fetchScenesController = null
-  stopPolling()
   stopSceneRealtime()
   replacePendingScenePreviewMap({})
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
