@@ -36,7 +36,7 @@ export interface Subscription {
   id: string
   user_id: string
   plan_id: string
-  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid'
+  status: 'active' | 'trialing' | 'past_due' | 'grace_period' | 'expired' | 'canceled' | 'unpaid' | 'pending_payment'
   billing_cycle: string
   current_period_start: string | null
   current_period_end: string | null
