@@ -318,6 +318,7 @@ import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
 import SceneDock from '~/features/editor/components/SceneDock.vue'
+import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 import HotspotTypePicker from '~/features/editor/components/HotspotTypePicker.vue'
 import HotspotQuickEditor from '~/features/editor/components/HotspotQuickEditor.vue'
@@ -332,18 +333,17 @@ const { apiFetch } = useApiFetch()
 const supabase = useSupabaseClient()
 const planStore = usePlanStore()
 
+const {
+  localUploads,
+  uploadFile,
+} = useSceneUpload(props.spaceId)
+
 const space = ref<any>(null)
-const media = ref<any[]>([])
-const publishing = ref(false)
-const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
-const retryingMediaMap = ref<Record<string, boolean>>({})
-const completionFxMap = ref<Record<string, 'enter' | 'exit'>>({})
 const placeholderPanoramaUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23111627"/><stop offset="55%" stop-color="%231f2a44"/><stop offset="100%" stop-color="%232a4365"/></linearGradient></defs><rect width="1600" height="800" fill="url(%23g)"/><circle cx="1220" cy="230" r="180" fill="rgba(255,255,255,0.08)"/><circle cx="360" cy="600" r="260" fill="rgba(255,255,255,0.06)"/><g fill="none" stroke="rgba(255,255,255,0.35)"><path d="M0 540h1600"/><path d="M0 480h1600"/></g><text x="120" y="170" fill="rgba(255,255,255,0.88)" font-family="Arial" font-size="48" font-weight="700">Viewora 360 Tour Preview</text><text x="120" y="235" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="28">Upload your panorama to replace this placeholder instantly.</text></svg>'
 const addingHotspot = ref(false)
 const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
 const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
-const deletingMedia = ref<Record<string, boolean>>({})
 const hotspotDraftType = ref<'info' | 'scene_link' | 'url' | 'video' | 'youtube'>('info')
 const showTypePicker = ref(false)
 const quickEditHotspotId = ref<string | null>(null)
@@ -518,16 +518,6 @@ let isMounted = false
 let fetchScenesVersion = 0
 let fetchScenesController: AbortController | null = null
 
-type LocalUploadState = 'local_select' | 'signing' | 'uploading' | 'registering' | 'failed'
-type LocalUploadItem = {
-  id: string
-  mediaType: string
-  fileName: string
-  state: LocalUploadState
-  error?: string
-}
-const localUploads = ref<LocalUploadItem[]>([])
-const pollFailureCount = ref(0)
 type DeleteCandidate = EditorHotspot & { sceneId: string }
 const deleteCandidate = ref<DeleteCandidate | null>(null)
 const deletingHotspot = ref(false)
@@ -775,6 +765,7 @@ function createOptimisticLocalScene(file: File, previewUrl?: string, options?: {
 
 async function enqueuePanoramaFiles(files: File[]) {
   if (!files.length) return
+  const sceneCountBeforeUpload = scenes.value.length
   const shouldSelectFirst = !selectedSceneId.value && scenes.value.length === 0
   const queued = await Promise.all(files.map(async (file, idx) => {
     const previewUrl = URL.createObjectURL(file)
@@ -784,8 +775,35 @@ async function enqueuePanoramaFiles(files: File[]) {
     return { file, localSceneId }
   }))
 
-  for (const item of queued) {
-    await uploadFile(item.file, 'panorama', { createSceneAfterUpload: true, localSceneId: item.localSceneId })
+  for (let idx = 0; idx < queued.length; idx++) {
+    const item = queued[idx]
+    setSceneUploadState(item.localSceneId, 'signing')
+    uploadFile(item.file, 'panorama', {
+      onRegister: async (record: any) => {
+        setSceneUploadState(item.localSceneId, 'registering')
+        const sceneName = deriveSceneName(item.file.name, sceneCountBeforeUpload + idx + 1)
+        try {
+          const createdScene = await createSceneWithPanorama(record.public_url, sceneName, item.localSceneId)
+          if (createdScene) {
+            inlineEditMode.value = true
+            await fetchScenes()
+            if (sceneCountBeforeUpload === 0 && idx === 0) {
+              showToast('Scene ready. Click anywhere in the viewer to add your first hotspot')
+            } else {
+              showToast(`${createdScene.name || 'Scene'} added`)
+            }
+          }
+        } catch {
+          setSceneUploadState(item.localSceneId, 'failed')
+          showToast(`${item.file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
+        }
+      },
+      onError: (err: any, humanError: string) => {
+        setSceneUploadState(item.localSceneId, 'failed')
+        removeOptimisticLocalScene(item.localSceneId)
+        showToast(humanError, 'error')
+      }
+    })
   }
 }
 
@@ -958,15 +976,11 @@ const otherScenesForHotspot = computed(() =>
     .map(s => ({ id: s.id, label: s.label }))
 )
 
-const hasProcessingMedia = computed(() =>
-  media.value.some((m) => m.processing_status === 'pending' || m.processing_status === 'processing')
-)
-
 const hasProcessingScenes = computed(() =>
   scenes.value.some((s: any) => {
     const state = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
     return state !== 'ready' && state !== 'failed'
-  })
+  }) || localUploads.value.length > 0
 )
 
 function unwrapApiData<T = any>(value: any): T {
@@ -981,11 +995,12 @@ function toArrayPayload<T = any>(value: any, key: string): T[] {
   return []
 }
 
-watch([hasProcessingMedia, hasProcessingScenes], ([mediaProcessing, sceneProcessing]) => {
-  if (mediaProcessing || sceneProcessing) {
-    startPolling()
+// Track processing completion
+watch(hasProcessingScenes, (sceneProcessing) => {
+  if (sceneProcessing) {
+    window.onbeforeunload = () => 'Uploads are still processing. Are you sure you want to leave?'
   } else {
-    stopPolling()
+    window.onbeforeunload = null
   }
 }, { immediate: true })
 
@@ -1793,94 +1808,15 @@ function statusBadgeClass(status?: string) {
   return 'canvas-badge--emerald'
 }
 
-const MAX_POLL_CYCLES = 40 // 40 × 3 s = 2-minute hard cap
-let pollCycles = 0
-
-function startPolling() {
-  if (pollingTimer.value) return
-  pollFailureCount.value = 0
-  pollCycles = 0
-  pollingTimer.value = setInterval(async () => {
-    pollCycles++
-    if (pollCycles > MAX_POLL_CYCLES) {
-      stopPolling()
-      return
-    }
-    await fetchSpace(true, true)
-  }, 3000)
-}
-
-function stopPolling() {
-  if (pollingTimer.value) { clearInterval(pollingTimer.value); pollingTimer.value = null }
-}
-
-function createLocalUpload(file: File, mediaType: string): string {
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  localUploads.value.push({ id, mediaType, fileName: file.name, state: 'local_select' })
-  return id
-}
-
-function updateLocalUpload(id: string, patch: Partial<LocalUploadItem>) {
-  const idx = localUploads.value.findIndex((u) => u.id === id)
-  if (idx === -1) return
-  localUploads.value[idx] = { ...localUploads.value[idx], ...patch }
-}
-
-function removeLocalUpload(id: string) {
-  localUploads.value = localUploads.value.filter((u) => u.id !== id)
-}
-
-function extractUploadErrorMessage(err: any, fileName: string) {
-  const message = String(err?.data?.message || err?.data?.statusMessage || err?.message || '').toLowerCase()
-  const status = Number(err?.statusCode || err?.status || err?.response?.status || 0)
-  if (status === 413 || message.includes('file too large')) return `Upload failed for ${fileName}. File is too large for your plan.`
-  if (status === 429 || message.includes('rate')) return 'Too many upload requests. Please wait a few seconds and try again.'
-  if (message.includes('storage limit')) return 'Upload failed. Storage limit reached. Please free up space or upgrade your plan.'
-  if (message.includes('network') || message.includes('fetch') || message.includes('failed to fetch')) return `Network issue while uploading ${fileName}. Check your connection and retry.`
-  if (message.includes('unauthorized')) return 'Upload failed due to permission mismatch. Refresh and try again.'
-  return `Upload failed for ${fileName}. Try again.`
-}
-
-function markRecentlyCompleted(mediaId: string) {
-  setTimeout(() => {
-    completionFxMap.value = { ...completionFxMap.value, [mediaId]: 'enter' }
-    setTimeout(() => {
-      completionFxMap.value = { ...completionFxMap.value, [mediaId]: 'exit' }
-      setTimeout(() => {
-        const next = { ...completionFxMap.value }
-        delete next[mediaId]
-        completionFxMap.value = next
-      }, 500)
-    }, 1700)
-  }, 150)
-}
-
-async function fetchSpace(silent = false, polling = false) {
+async function fetchSpace(silent = false) {
   try {
-    const previousStatusById = new Map(media.value.map((m: any) => [m.id, m.processing_status]))
     const data = await apiFetch<any>(`/spaces/${props.spaceId}`)
     space.value = data
-    media.value = data.property_media || []
 
-    if (!polling) await fetchScenes()
+    await fetchScenes()
 
     if (!selectedSceneId.value && scenes.value.length) selectedSceneId.value = scenes.value[0].id
-
-    for (const item of media.value) {
-      const prev = previousStatusById.get(item.id)
-      if ((prev === 'pending' || prev === 'processing') && item.processing_status === 'complete') {
-        markRecentlyCompleted(item.id)
-      }
-    }
-    pollFailureCount.value = 0
   } catch (e: any) {
-    if (polling) {
-      pollFailureCount.value += 1
-      if (pollFailureCount.value >= 3) {
-        stopPolling()
-        showToast('Background refresh stopped after repeated errors. Reload to resume.', 'error')
-      }
-    }
     if (!silent) showToast('Failed to load space data', 'error')
   }
 }
@@ -2104,153 +2040,24 @@ async function handleAddSceneFileChange(e: Event) {
   await enqueuePanoramaFiles(files)
 }
 
-async function uploadFile(
-  file: File,
-  type: string,
-  options?: { createSceneAfterUpload?: boolean; localSceneId?: string }
-) {
-  const localId = createLocalUpload(file, type)
-  if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'signing')
-  const sceneCountBeforeUpload = scenes.value.length
-  try {
-    updateLocalUpload(localId, { state: 'signing' })
-    const signedPayload = unwrapApiData<any>(await apiFetch<any>('/uploads/create-signed-url', {
-      method: 'POST',
-      body: { spaceId: props.spaceId, mediaType: type, fileName: file.name, contentType: file.type, fileSize: file.size },
-    }))
 
-    const signedUrl = signedPayload?.signedUrl
-    const objectKey = signedPayload?.objectKey
-    const publicUrlVal = signedPayload?.publicUrl
-
-    if (!signedUrl || typeof signedUrl !== 'string' || !signedUrl.startsWith('http')) {
-      throw new Error('Upload signing failed: invalid signed URL returned by server')
-    }
-    if (!objectKey || !publicUrlVal) throw new Error('Upload signing failed: missing upload metadata from server')
-
-    updateLocalUpload(localId, { state: 'uploading' })
-  if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'uploading')
-    await $fetch(signedUrl, { 
-      method: 'PUT', 
-      body: file, 
-      headers: { 
-        'Content-Type': file.type,
-        'Cache-Control': 'public, max-age=31536000, immutable'
-      } 
-    })
-    updateLocalUpload(localId, { state: 'registering' })
-  if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'registering')
-
-    const record = unwrapApiData<any>(await apiFetch<any>('/uploads/complete', {
-      method: 'POST',
-      body: { spaceId: props.spaceId, mediaType: type, objectKey, publicUrl: publicUrlVal, fileSize: file.size },
-    }))
-
-    if (!record || typeof record !== 'object') {
-      throw new Error('Upload registration returned an invalid response. Please try again.')
-    }
-    if (type === 'panorama' && !record.public_url) {
-      throw new Error('Upload registration returned no public URL. Please try again.')
-    }
-
-    media.value.push(record)
-    if (type === 'panorama') {
-      const shouldCreateScene = options?.createSceneAfterUpload ?? sceneCountBeforeUpload === 0
-      let createdScene: any = null
-      if (shouldCreateScene && record?.public_url) {
-        const sceneName = deriveSceneName(file.name, sceneCountBeforeUpload + 1)
-        try {
-          createdScene = await createSceneWithPanorama(record.public_url, sceneName, options?.localSceneId)
-        } catch {
-          // File is stored successfully but scene creation failed (e.g. DB error).
-          // Mark the local placeholder as failed so it doesn't spin forever, but
-          // do NOT remove it — the user can see it failed and refresh to recover.
-          if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'failed')
-          removeLocalUpload(localId)
-          showToast(`${file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
-          return
-        }
-      }
-      inlineEditMode.value = true
-      await fetchScenes()
-      if (sceneCountBeforeUpload === 0) {
-        showToast('Scene ready. Click anywhere in the viewer to add your first hotspot')
-      } else if (createdScene) {
-        showToast(`${createdScene.name || 'Scene'} added`)
-      }
-    }
-    removeLocalUpload(localId)
-    if (options?.localSceneId && sceneUploadStateById.value[options.localSceneId]) {
-      setSceneUploadState(options.localSceneId, 'processing')
-    }
-    if (record.processing_status === 'pending' || record.processing_status === 'processing') {
-      startPolling()
-    } else if (record.processing_status === 'complete') {
-      markRecentlyCompleted(record.id)
-      showToast(`Upload complete: ${file.name}`)
-    }
-  } catch (err: any) {
-    const humanError = extractUploadErrorMessage(err, file.name)
-    updateLocalUpload(localId, { state: 'failed', error: humanError })
-    if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'failed')
-    if (options?.localSceneId) removeOptimisticLocalScene(options.localSceneId)
-    showToast(humanError, 'error')
-  }
-}
-
-async function handleRetryMedia(mediaId: string) {
-  retryingMediaMap.value = { ...retryingMediaMap.value, [mediaId]: true }
-  try {
-    await apiFetch(`/uploads/${mediaId}/retry-processing`, { method: 'POST' })
-    media.value = media.value.map((m) => m.id === mediaId ? { ...m, processing_status: 'pending' } : m)
-    startPolling()
-    showToast('Retry queued')
-  } catch (err: any) {
-    showToast(`Retry failed. ${extractUploadErrorMessage(err, 'media')}`, 'error')
-  } finally {
-    retryingMediaMap.value = { ...retryingMediaMap.value, [mediaId]: false }
-  }
-}
-
-async function confirmDeleteMedia(mediaId: string) {
-  if (deletingMedia.value[mediaId]) return
-  deletingMedia.value = { ...deletingMedia.value, [mediaId]: true }
-  const wasPanorama = media.value.find((m: any) => m.id === mediaId)?.media_type === 'panorama'
-  try {
-    await apiFetch(`/uploads/${mediaId}`, { method: 'DELETE' })
-    media.value = media.value.filter((m: any) => m.id !== mediaId)
-    if (wasPanorama) { scenes.value = []; selectedSceneId.value = ''; hotspotsByScene.value = {}; await fetchScenes() }
-    showToast('Media deleted')
-  } catch (err: any) {
-    showToast(`Failed to delete media: ${err.data?.statusMessage || err.message}`, 'error')
-  } finally {
-    deletingMedia.value = { ...deletingMedia.value, [mediaId]: false }
-  }
-}
 
 // Expose for new UI components that need to read/drive editor state
 defineExpose({
   space,
-  media,
-  panorama,
-  hasPanorama,
   scenes,
   sceneChips,
   selectedSceneId,
   activeScene,
   activeSceneHotspots,
   hotspotCount,
-  hasProcessingMedia,
   publishing,
   inlineEditMode,
   hotspotDraftType,
   localUploads,
-  completionFxMap,
   selectScene,
   handleAddScene,
   handleTogglePublish,
-  handleRetryMedia,
-  confirmDeleteMedia,
   showToast,
   statusLabel,
   statusBadgeClass,
