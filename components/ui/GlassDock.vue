@@ -52,7 +52,6 @@
               quality="80"
               loading="lazy"
               decoding="async"
-              crossorigin="anonymous"
               draggable="false"
               @load="onThumbLoad(item.imageUrl)"
               @error="onThumbError(item.imageUrl)"

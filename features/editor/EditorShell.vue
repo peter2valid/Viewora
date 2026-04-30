@@ -899,7 +899,6 @@ const activePanoramaSrc = computed(() => {
   // does not natively support Deep Zoom pyramids without custom coordinate mapping.
   if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (activeScene.value?.thumbnail_url) return activeScene.value.thumbnail_url
-  if (panorama.value?.public_url) return panorama.value.public_url
   return placeholderPanoramaUrl
 })
 
