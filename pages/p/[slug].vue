@@ -51,7 +51,23 @@
       <ViewerPsvViewer
         :tour="tour"
         :share-url="shareUrl"
+        @touchstart="showGyroHint = false"
       />
+
+      <!-- Mobile Gyro Hint -->
+      <Transition name="fade-smooth">
+        <div v-if="showGyroHint" class="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
+          <div class="flex flex-col items-center gap-5">
+            <div class="gyro-icon-container">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-main">
+                <rect x="5" y="2" width="14" height="20" rx="3" ry="3"/>
+                <path d="M12 18h.01"/>
+              </svg>
+            </div>
+            <p class="text-[10px] font-black uppercase tracking-[0.25em] text-main drop-shadow-xl bg-zinc-950/40 px-6 py-2.5 rounded-full backdrop-blur-md border border-main/20">Tilt to explore</p>
+          </div>
+        </div>
+      </Transition>
 
       <!-- WhatsApp share button — top right, always visible -->
       <a

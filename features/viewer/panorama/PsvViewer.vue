@@ -1,6 +1,6 @@
 <template>
   <div class="psv-root">
-    <div ref="containerEl" :class="['psv-canvas', { 'psv-canvas--ready': state === 'ready' }]" />
+    <div ref="containerEl" :class="['psv-canvas', { 'psv-canvas--ready': state === 'ready', 'psv-canvas--focused': isFocusing }]" />
 
     <!-- Error -->
     <div v-if="state === 'error'" class="psv-overlay psv-overlay--error">
@@ -24,6 +24,9 @@
     <div v-if="isEditing && state === 'ready' && !menu.visible" class="psv-edit-hint">
       Click to place hotspot
     </div>
+
+    <!-- Cinematic Vignette -->
+    <div :class="['psv-vignette', { 'psv-vignette--active': isFocusing }]" />
 
     <!-- Hotspot action menu (editor only) -->
     <div v-if="isEditing" class="psv-menu-layer" aria-hidden="true">
@@ -55,6 +58,7 @@ import {
   addTracePoint,
   updateTracePolygon,
   getHotspotScreenPos,
+  focusHotspot,
   type PsvViewerHandle,
   type InitViewerOptions,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
@@ -85,6 +89,7 @@ const containerEl = ref<HTMLElement | null>(null)
 const handle = ref<PsvViewerHandle | null>(null)
 const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')
+const isFocusing = ref(false)
 let resizeObserver: ResizeObserver | null = null
 let resizeRaf: number | null = null
 
@@ -208,18 +213,25 @@ async function initWithScene(scene: TourScene) {
       onClick: (payload) => {
         // Canvas click: close locked menu, then handle add/trace
         if (menu.locked) { closeMenu(); return }
+        isFocusing.value = false
         if (props.isTracing) {
           emit('update-trace', payload)
         } else if (props.isEditing) {
           emit('add-hotspot', payload)
         }
       },
-      onMarkerClick: (id) => {
+      onMarkerClick: async (id) => {
         if (props.isEditing) {
           // Lock the radial menu on hotspot click in editor mode
           openMenu(id)
           menu.locked = true
         } else {
+          const hs = props.hotspots?.find(h => h.id === id)
+          // For info hotspots, we trigger cinematic focus
+          if (hs?.type === 'info' || hs?.type === 'url' || hs?.type === 'video' || hs?.type === 'youtube') {
+            isFocusing.value = true
+            await focusHotspot(handle.value, id)
+          }
           emit('hotspot-click', id)
         }
       },
@@ -266,6 +278,7 @@ watch(
     }
     if (next.id === prev?.id) return
     closeMenu()
+    isFocusing.value = false
     try {
       await loadScene(handle.value, next)
       state.value = 'ready'
@@ -342,6 +355,25 @@ onUnmounted(() => {
 .psv-canvas {
   position: absolute;
   inset: 0;
+  transition: filter 0.5s ease;
+}
+
+.psv-canvas--focused {
+  filter: blur(3px) brightness(0.7);
+}
+
+.psv-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  z-index: 5;
+}
+
+.psv-vignette--active {
+  opacity: 1;
 }
 
 .psv-menu-layer {

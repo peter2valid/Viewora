@@ -220,7 +220,10 @@ async function handleLogoUpload(e: any) {
     await $fetch(signedUrl, {
       method: 'PUT',
       body: file,
-      headers: { 'Content-Type': file.type }
+      headers: { 
+        'Content-Type': file.type,
+        'Cache-Control': 'public, max-age=31536000, immutable'
+      }
     })
 
     profileForm.value.agencyLogoUrl = publicUrl

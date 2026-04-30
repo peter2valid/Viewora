@@ -377,6 +377,20 @@ export function updateTracePolygon(handle: PsvViewerHandle | null, points: Array
   })
 }
 
+export async function focusHotspot(handle: PsvViewerHandle | null, id: string): Promise<void> {
+  if (!handle?.viewer || !handle?.markers) return
+  const marker = handle.markers.getMarker(id)
+  if (!marker) return
+
+  // Cinematic Camera Easing
+  await handle.viewer.animate({
+    yaw: marker.config.position.yaw,
+    pitch: marker.config.position.pitch,
+    zoom: 70, // Subtle focus zoom
+    speed: '4rpm', // Controlled, smooth rotation
+  })
+}
+
 export function nudgeRender(handle: PsvViewerHandle | null): void {
   const v = handle?.viewer
   if (!v) return

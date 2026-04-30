@@ -1892,23 +1892,93 @@ async function fetchSpace(silent = false, polling = false) {
   }
 }
 
+function validateTourHealth() {
+  const issues: { type: 'error' | 'warning'; message: string; sceneId?: string }[] = []
+  
+  if (scenes.value.length === 0) {
+    issues.push({ type: 'error', message: 'Your tour has no scenes. Add at least one scene first.' })
+    return issues
+  }
+
+  // 1. Check for ready state — All scenes must be ready in a DaVinci-grade tour
+  const notReady = scenes.value.filter(s => {
+    const state = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
+    return state !== 'ready'
+  })
+  if (notReady.length > 0) {
+    issues.push({ 
+      type: 'error', 
+      message: `${notReady.length} scene${notReady.length > 1 ? 's are' : ' is'} still processing. Wait for them to finish.` 
+    })
+  }
+
+  // 2. Broken Links
+  const sceneIds = new Set(scenes.value.map(s => s.id))
+  let brokenCount = 0
+  for (const hotspots of Object.values(hotspotsByScene.value)) {
+    for (const h of hotspots as EditorHotspot[]) {
+      if (h.type === 'scene_link' && h.targetSceneId && !sceneIds.has(h.targetSceneId)) {
+        brokenCount++
+      }
+    }
+  }
+  if (brokenCount > 0) {
+    issues.push({ type: 'error', message: `${brokenCount} scene link${brokenCount > 1 ? 's' : ''} point to deleted rooms. Fix them first.` })
+  }
+
+  // 3. Connectivity (Unreachable Scenes)
+  const sortedScenes = [...scenes.value].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+  const rootId = sortedScenes[0]?.id
+  if (rootId) {
+    const reachable = new Set<string>([rootId])
+    const queue = [rootId]
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!
+      const hotspots = hotspotsByScene.value[currentId] || []
+      for (const h of hotspots) {
+        if (h.type === 'scene_link' && h.targetSceneId && sceneIds.has(h.targetSceneId)) {
+          if (!reachable.has(h.targetSceneId)) {
+            reachable.add(h.targetSceneId)
+            queue.push(h.targetSceneId)
+          }
+        }
+      }
+    }
+    
+    const unreachable = scenes.value.filter(s => !reachable.has(s.id))
+    if (unreachable.length > 0) {
+      issues.push({ 
+        type: 'warning', 
+        message: `${unreachable.length} room${unreachable.length > 1 ? 's are' : ' is'} unreachable from the start. Add links to them.` 
+      })
+    }
+  }
+
+  // 4. Dead Ends
+  if (scenes.value.length > 1) {
+    const deadEnds = scenes.value.filter(s => {
+      const hotspots = hotspotsByScene.value[s.id] || []
+      return !hotspots.some(h => h.type === 'scene_link')
+    })
+    if (deadEnds.length > 0) {
+      issues.push({ 
+        type: 'warning', 
+        message: `${deadEnds.length} room${deadEnds.length > 1 ? 's have' : ' has'} no way to leave. Add an arrow back or to another room.` 
+      })
+    }
+  }
+
+  return issues
+}
+
 async function handleTogglePublish() {
   publishing.value = true
   try {
     const isLive = space.value.is_published
     if (!isLive) {
-      const hasReadyBackendScene = scenes.value.some(
-        (s: any) => !isLocalSceneId(s.id) && (
-          sceneUploadStateById.value[s.id] === 'ready'
-          || backendSceneStatusToUploadState(s.status) === 'ready'
-        ),
-      )
-      if (!hasReadyBackendScene) {
-        showToast('At least one scene must finish processing before publishing.', 'error')
-        return
-      }
       // Eagerly load hotspots for any backend scene the user never visited so the
-      // broken-link scan covers the full tour, not just what is in memory.
+      // broken-link and connectivity scan covers the full tour, not just what is in memory.
       const unloadedScenes = scenes.value.filter(
         (s: any) => !isLocalSceneId(s.id) && hotspotsByScene.value[s.id] === undefined,
       )
@@ -1916,17 +1986,19 @@ async function handleTogglePublish() {
         await Promise.all(unloadedScenes.map((s: any) => fetchHotspots(s.id)))
       }
 
-      const sceneIds = new Set(scenes.value.map((s: any) => s.id))
-      let brokenCount = 0
-      for (const hotspots of Object.values(hotspotsByScene.value)) {
-        for (const h of hotspots as EditorHotspot[]) {
-          if (h.type === 'scene_link' && h.targetSceneId && !sceneIds.has(h.targetSceneId)) {
-            brokenCount++
-          }
-        }
+      const issues = validateTourHealth()
+      const errors = issues.filter(i => i.type === 'error')
+      const warnings = issues.filter(i => i.type === 'warning')
+
+      if (errors.length > 0) {
+        showToast(errors[0].message, 'error')
+        return
       }
-      if (brokenCount > 0) {
-        showToast(`${brokenCount} scene link${brokenCount > 1 ? 's' : ''} point to deleted scenes. Fix them first.`, 'error')
+
+      if (warnings.length > 0) {
+        // For warnings, we show them as errors for now to enforce quality,
+        // but we could make this a "Publish anyway" choice later.
+        showToast(warnings[0].message, 'error')
         return
       }
     }
@@ -2065,7 +2137,14 @@ async function uploadFile(
 
     updateLocalUpload(localId, { state: 'uploading' })
   if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'uploading')
-    await $fetch(signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+    await $fetch(signedUrl, { 
+      method: 'PUT', 
+      body: file, 
+      headers: { 
+        'Content-Type': file.type,
+        'Cache-Control': 'public, max-age=31536000, immutable'
+      } 
+    })
     updateLocalUpload(localId, { state: 'registering' })
   if (options?.localSceneId) setSceneUploadState(options.localSceneId, 'registering')
 
