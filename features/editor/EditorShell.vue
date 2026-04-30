@@ -911,9 +911,12 @@ const activeSceneHotspotsWithPreview = computed(() => {
   })
 })
 const activePanoramaSrc = computed(() => {
-  if (activeScene.value?.id && pendingScenePreviewById.value[activeScene.value.id]) {
-    return pendingScenePreviewById.value[activeScene.value.id]
-  }
+  // pendingScenePreviewById may contain blob: or data: URLs created in-browser for dock thumbnails.
+  // PSV uses fetch() internally which CANNOT load blob: or data: URLs.
+  // Only forward real HTTPS URLs from the CDN to the 360 viewer.
+  const pending = activeScene.value?.id ? pendingScenePreviewById.value[activeScene.value.id] : null
+  if (pending && pending.startsWith('https://')) return pending
+
   // Use raw_image_url as the main texture since EquirectangularTilesAdapter
   // does not natively support Deep Zoom pyramids without custom coordinate mapping.
   if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
@@ -1223,9 +1226,14 @@ async function fetchScenes() {
     const pendingPreviewNext = { ...pendingScenePreviewById.value }
 
     const hotspotTasks = loadedScenes.map(async (scene: any) => {
-      // Keep local preview until backend thumbnail is available.
-      // Raw panorama URLs are often large and can be slow as dock thumbnails.
-      if (scene?.thumbnail_url && backendSceneStatusToUploadState(scene.status) === 'ready') {
+      // Clear local blob:/data: previews as soon as the backend has a real HTTPS URL.
+      // Both blob: (URL.createObjectURL) and data: (canvas toDataURL) URLs cannot be
+      // fetched by the PSV viewer — only https:// URLs work for panorama loading.
+      const localPreview = pendingPreviewNext[scene.id]
+      const isLocalPreview = localPreview?.startsWith('blob:') || localPreview?.startsWith('data:')
+      if (isLocalPreview && (scene?.raw_image_url || scene?.thumbnail_url)) {
+        delete pendingPreviewNext[scene.id]
+      } else if (!isLocalPreview && scene?.thumbnail_url && backendSceneStatusToUploadState(scene.status) === 'ready') {
         delete pendingPreviewNext[scene.id]
       }
 
