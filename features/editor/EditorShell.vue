@@ -1497,6 +1497,20 @@ function buildHotspotPayload(d: typeof editDraft.value, hs: EditorHotspot) {
   } else if (d.type === 'scene_link') {
     payload.target_scene_id = d.targetSceneId
   }
+
+  if (d.icon) {
+    payload.content = { ...(payload.content ?? {}), icon: d.icon }
+  }
+  if (d.scale !== 1) {
+    payload.content = { ...(payload.content ?? {}), scale: Number(d.scale) }
+  }
+  if (d.hoverScale !== 1.3) {
+    payload.content = { ...(payload.content ?? {}), hoverScale: Number(d.hoverScale) }
+  }
+  if (d.corners && d.corners.length === 4) {
+    payload.content = { ...(payload.content ?? {}), corners: d.corners }
+  }
+
   return payload
 }
 
