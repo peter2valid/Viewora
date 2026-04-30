@@ -1,8 +1,8 @@
 <template>
-  <!-- Full-screen tour page. No app chrome. -->
+  <!-- Full-screen tour preview page — no app chrome -->
   <div class="tour-page">
 
-    <!-- Loading state — blurred scene image while viewer initialises -->
+    <!-- Loading state -->
     <div v-if="state === 'loading'" class="tour-page-loading" aria-label="Loading tour">
       <NuxtImg
         v-if="blurCover"
@@ -17,51 +17,113 @@
       />
       <div class="tour-page-loading-scrim" aria-hidden="true" />
       <div class="tour-page-loading-center">
-        <div class="w-1.5 h-1.5 bg-main rounded-full animate-pulse shadow-[0_0_15px_rgba(var(--main-rgb),0.8)] mb-4"></div>
-        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-main/60 animate-in fade-in slide-in-from-bottom-2 duration-1000">Synchronizing Atmosphere</p>
+        <div class="loading-orb" />
+        <p class="loading-label">Loading Preview</p>
       </div>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="state === 'error'" class="tour-page-error p-6" role="main">
-      <div class="max-w-md w-full card-glass p-10 text-center shadow-2xl animate-in zoom-in-95 duration-500">
-        <div class="w-16 h-16 bg-surface-alt text-main/30 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-border">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-8 h-8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+    <div v-else-if="state === 'error'" class="tour-page-center p-6" role="main">
+      <div class="state-card">
+        <div class="state-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
         </div>
-        <h1 class="text-xl font-black text-main tracking-tight mb-2">Preview Interrupted</h1>
-        <p class="text-sm text-dim font-bold leading-relaxed mb-8">{{ errorMessage }}</p>
-        <NuxtLink to="/app/spaces" class="btn btn-secondary !px-8 !py-3 !rounded-xl text-[11px] font-black uppercase tracking-widest">Return to Dashboard</NuxtLink>
+        <h1 class="state-card__title">Preview Unavailable</h1>
+        <p class="state-card__body">{{ errorMessage }}</p>
+        <NuxtLink to="/app/spaces" class="state-card__btn">Back to Dashboard</NuxtLink>
       </div>
     </div>
 
     <!-- No scenes state -->
-    <div v-else-if="state === 'empty'" class="tour-page-error p-6" role="main">
-      <div class="max-w-md w-full card-glass p-10 text-center shadow-2xl animate-in zoom-in-95 duration-500">
-        <div class="w-16 h-16 bg-surface-alt text-main/30 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-border">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-8 h-8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    <div v-else-if="state === 'empty'" class="tour-page-center p-6" role="main">
+      <div class="state-card">
+        <div class="state-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7">
+            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
         </div>
-        <h1 class="text-xl font-black text-main tracking-tight mb-2">Architectural Draft</h1>
-        <p class="text-sm text-dim font-bold leading-relaxed mb-4">This spatial experience is currently being staged.</p>
-        <span class="text-[10px] font-black uppercase tracking-widest text-main/40">Owner Preview Mode</span>
+        <h1 class="state-card__title">No Scenes Yet</h1>
+        <p class="state-card__body">Upload your first 360° image to preview the tour.</p>
+        <NuxtLink to="/app/spaces" class="state-card__btn">Back to Editor</NuxtLink>
       </div>
     </div>
 
-    <!-- Main viewer -->
+    <!-- ── Main Viewer ──────────────────────────────────── -->
     <template v-else-if="state === 'ready' && tour">
-      <div class="fixed top-4 left-4 z-[60] pointer-events-none">
-        <div class="px-3 py-1.5 rounded-full bg-blue-600/90 text-white text-[9px] font-black uppercase tracking-widest backdrop-blur-md shadow-xl border border-white/20">
-          Private Preview Mode
-        </div>
-      </div>
 
+      <!-- 360 Viewer — fills the screen -->
       <ViewerPsvViewer
         :tour="tour"
         :share-url="shareUrl"
       />
 
-      <!-- WhatsApp share button disabled in preview -->
-    </template>
+      <!-- ── Top Bar Overlay ──────────────────────────── -->
+      <div class="preview-topbar">
+        <!-- Left: Space title + scene info -->
+        <div class="preview-topbar__left">
+          <div class="preview-logo">
+            <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4" stroke="currentColor" stroke-width="2">
+              <circle cx="10" cy="10" r="8"/>
+              <path d="M10 2a8 8 0 0 1 0 16M10 2a8 8 0 0 0 0 16M2 10h16"/>
+            </svg>
+          </div>
+          <div class="preview-topbar__meta">
+            <span class="preview-topbar__title">{{ tour.space.title }}</span>
+            <span class="preview-topbar__scene">
+              {{ tour.scenes.length }} scene{{ tour.scenes.length !== 1 ? 's' : '' }}
+            </span>
+          </div>
+        </div>
 
+        <!-- Center: Preview mode badge -->
+        <div class="preview-badge">
+          <span class="preview-badge__dot" />
+          Preview Mode
+        </div>
+
+        <!-- Right: Exit button -->
+        <div class="preview-topbar__right">
+          <NuxtLink
+            :to="`/app/spaces/${id}?tab=360`"
+            class="preview-exit-btn"
+            aria-label="Exit preview and return to editor"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5">
+              <path d="M4 4l8 8M12 4l-8 8"/>
+            </svg>
+            Exit Preview
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- ── Bottom Bar: Scene name + Viewora brand ───── -->
+      <div class="preview-bottombar">
+        <div class="preview-bottombar__inner">
+          <!-- Scene order hint -->
+          <div class="preview-scene-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3 opacity-60">
+              <circle cx="8" cy="8" r="6"/>
+              <path d="M8 4v4l2.5 2.5"/>
+            </svg>
+            Use hotspots or scene dock to navigate
+          </div>
+
+          <!-- Viewora watermark -->
+          <a
+            href="https://viewora.software"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="preview-watermark"
+            aria-label="Powered by Viewora"
+          >
+            Powered by <strong>Viewora</strong>
+          </a>
+        </div>
+      </div>
+
+    </template>
   </div>
 </template>
 
@@ -110,7 +172,7 @@ interface TourData {
   scenes: Scene[]
 }
 
-// ── No app layout — this page is full-screen ──────────────────
+// ── Page meta ──────────────────────────────────────────────────
 definePageMeta({ layout: false, middleware: 'auth' })
 
 // ── Setup ──────────────────────────────────────────────────────
@@ -132,7 +194,7 @@ const { data: _tourPayload, error: _tourError } = await useAsyncData(
 
 if (_tourError.value) {
   const msg = (_tourError.value as any)?.data?.statusMessage ?? _tourError.value?.message ?? ''
-  errorMessage.value = msg.includes('404') 
+  errorMessage.value = msg.includes('404')
     ? "This tour doesn't exist or you don't have permission to preview it."
     : 'Something went wrong loading this preview.'
   state.value = 'error'
@@ -148,7 +210,6 @@ const shareUrl = computed(() => {
   return `${window.location.origin}/p/preview/${id}`
 })
 
-// First scene thumbnail or cover image — shown as blurred background during load
 const blurCover = computed(() => {
   if (!tour.value) return null
   return (
@@ -160,7 +221,6 @@ const blurCover = computed(() => {
 })
 
 // ── SEO ────────────────────────────────────────────────────────
-
 useSeoMeta({
   title: computed(() =>
     tour.value ? `[PREVIEW] ${tour.value.space.title} — Viewora` : 'Tour Preview — Viewora'
@@ -174,13 +234,13 @@ useHead({
 </script>
 
 <style scoped>
-/* Full-screen container */
+/* ── Base ────────────────────────────────────────────────── */
 .tour-page {
   position: fixed;
   inset: 0;
   background: #0a0a0a;
   overflow: hidden;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, sans-serif;
 }
 
 /* ── Loading ─────────────────────────────────────────────── */
@@ -190,21 +250,21 @@ useHead({
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0a0a;
 }
 
 .tour-page-loading-bg {
   position: absolute;
   inset: -20px;
-  background-size: cover;
-  background-position: center;
-  filter: blur(24px) brightness(0.35);
+  width: calc(100% + 40px);
+  height: calc(100% + 40px);
+  object-fit: cover;
+  filter: blur(28px) brightness(0.3) saturate(0.8);
 }
 
 .tour-page-loading-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(10,10,10,0.55);
+  background: rgba(10, 10, 10, 0.6);
 }
 
 .tour-page-loading-center {
@@ -213,18 +273,284 @@ useHead({
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
-/* ── Error ───────────────────────────────────────────────── */
-.tour-page-error {
+.loading-orb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 0 20px rgba(255,255,255,0.5), 0 0 40px rgba(255,255,255,0.2);
+  animation: orb-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.5; }
+}
+
+.loading-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+
+/* ── Error / Empty states ─────────────────────────────────── */
+.tour-page-center {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
 }
 
-/* Reuse existing viewer styles or global components if available */
+.state-card {
+  max-width: 360px;
+  width: 100%;
+  background: rgba(16,16,20,0.95);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 36px 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+}
+
+.state-card__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 4px;
+}
+
+.state-card__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: -0.02em;
+}
+
+.state-card__body {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.6;
+  font-weight: 500;
+  margin: 0;
+}
+
+.state-card__btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.8);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.state-card__btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: white;
+}
+
+/* ── Top Bar ─────────────────────────────────────────────── */
+.preview-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.preview-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.preview-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.8);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+
+.preview-topbar__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.preview-topbar__title {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: -0.01em;
+  line-height: 1;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+}
+
+.preview-topbar__scene {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.04em;
+}
+
+/* Center badge */
+.preview-badge {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: rgba(147, 197, 253, 0.9);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.preview-badge__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 8px rgba(96,165,250,0.8);
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.preview-topbar__right {
+  pointer-events: auto;
+}
+
+/* Exit button */
+.preview-exit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+
+.preview-exit-btn:hover {
+  background: rgba(255,255,255,0.18);
+  color: white;
+  border-color: rgba(255,255,255,0.25);
+  transform: translateY(-1px);
+}
+
+/* ── Bottom Bar ──────────────────────────────────────────── */
+.preview-bottombar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 0 16px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.preview-bottombar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: auto;
+}
+
+.preview-scene-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  font-size: 10px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  letter-spacing: 0.02em;
+}
+
+.preview-watermark {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: color 0.15s ease;
+}
+
+.preview-watermark strong {
+  font-weight: 800;
+  color: rgba(255,255,255,0.5);
+}
+
+.preview-watermark:hover {
+  color: rgba(255,255,255,0.6);
+}
+
+.preview-watermark:hover strong {
+  color: rgba(255,255,255,0.8);
+}
 </style>
