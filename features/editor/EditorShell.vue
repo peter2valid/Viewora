@@ -172,7 +172,6 @@
             <template v-else>
               <button
                 class="rename-popover__del"
-                :disabled="!isLocalSceneId(renameCandidate.id) && scenes.filter(s => !isLocalSceneId(s.id)).length <= 1"
                 @click="sceneDeleteConfirm = renameCandidate.id"
               >Delete scene</button>
             </template>
@@ -1076,12 +1075,6 @@ async function saveSettings() {
 
 async function confirmDeleteScene(id: string) {
   if (deletingScene.value) return
-  if (!isLocalSceneId(id) && scenes.value.filter((s) => !isLocalSceneId(s.id)).length <= 1) {
-    showToast('Cannot delete the last scene.', 'error')
-    renameCandidate.value = null
-    sceneDeleteConfirm.value = null
-    return
-  }
   deletingScene.value = true
   const prevScenes = scenes.value.slice()
   const prevHotspots = { ...hotspotsByScene.value }
