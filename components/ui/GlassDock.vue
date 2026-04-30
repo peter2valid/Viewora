@@ -217,7 +217,10 @@ function onThumbError(url: string | null | undefined) {
 
 function onDragStart(id: string, e: DragEvent) {
   dragSrcId.value = id
-  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', id)
+  }
 }
 
 function onDragEnter(id: string) {
