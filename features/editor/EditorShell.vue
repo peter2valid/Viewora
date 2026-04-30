@@ -501,6 +501,7 @@ watch([scenes, sceneUploadStateById, selectedSceneId, pendingScenePreviewById], 
 }, { deep: true })
 
 function backendSceneStatusToUploadState(status?: string | null): SceneUploadState {
+  if (!status) return 'ready'                                     // null/undefined = no active job
   if (status === 'ready' || status === 'complete') return 'ready'
   if (status === 'failed' || status === 'error') return 'failed'
   if (
@@ -511,7 +512,7 @@ function backendSceneStatusToUploadState(status?: string | null): SceneUploadSta
     || status === 'uploading'
     || status === 'registering'
   ) return 'processing'
-  return 'processing'
+  return 'ready'                                                  // unknown future status → treat as ready
 }
 
 let isMounted = false
@@ -1150,6 +1151,7 @@ onMounted(async () => {
   isMounted = true
   window.addEventListener('keydown', handleKeydown)
   hydrateEditorRecoverySnapshot()
+  if (!planStore.plan) await planStore.fetchSubscriptionStatus()
   await fetchSpace(true)
   startSceneRealtime()
 })
@@ -1784,10 +1786,21 @@ function statusBadgeClass(status?: string) {
   return 'canvas-badge--emerald'
 }
 
+const MAX_POLL_CYCLES = 40 // 40 × 3 s = 2-minute hard cap
+let pollCycles = 0
+
 function startPolling() {
   if (pollingTimer.value) return
   pollFailureCount.value = 0
-  pollingTimer.value = setInterval(async () => { await fetchSpace(true, true) }, 3000)
+  pollCycles = 0
+  pollingTimer.value = setInterval(async () => {
+    pollCycles++
+    if (pollCycles > MAX_POLL_CYCLES) {
+      stopPolling()
+      return
+    }
+    await fetchSpace(true, true)
+  }, 3000)
 }
 
 function stopPolling() {
@@ -1836,7 +1849,6 @@ function markRecentlyCompleted(mediaId: string) {
 }
 
 async function fetchSpace(silent = false, polling = false) {
-  if (!planStore.plan) await planStore.fetchSubscriptionStatus()
   try {
     const previousStatusById = new Map(media.value.map((m: any) => [m.id, m.processing_status]))
     const data = await apiFetch<any>(`/spaces/${props.spaceId}`)
