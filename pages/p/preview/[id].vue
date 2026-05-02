@@ -112,7 +112,7 @@
 
           <!-- Viewora watermark -->
           <a
-            href="https://viewora.software"
+            :href="marketingUrl"
             target="_blank"
             rel="noopener noreferrer"
             class="preview-watermark"
@@ -129,8 +129,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRoute, useSeoMeta, useHead, useAsyncData } from '#imports'
+import { useRoute, useSeoMeta, useHead, useAsyncData, useRuntimeConfig } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+
+const { public: { marketingUrl } } = useRuntimeConfig()
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -234,7 +236,7 @@ useSeoMeta({
 })
 
 useHead({
-  link: [{ rel: 'canonical', href: computed(() => tour.value?.space?.slug ? `https://viewora.software/p/${tour.value.space.slug}` : '') }],
+  link: [{ rel: 'canonical', href: computed(() => tour.value?.space?.slug ? `${marketingUrl}/p/${tour.value.space.slug}` : '') }],
 })
 </script>
 
