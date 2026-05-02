@@ -152,6 +152,11 @@ interface Scene {
   raw_image_url?: string | null
   tile_manifest_url?: string | null
   thumbnail_url?: string | null
+  width?: number | null
+  height?: number | null
+  tile_cols?: number | null
+  tile_rows?: number | null
+  tiles_ready?: boolean | null
   status: string
   initial_yaw?: number
   initial_pitch?: number

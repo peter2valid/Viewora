@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { Hotspot } from '~/domain/hotspot'
 import type { TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
@@ -134,6 +134,18 @@ function goToSceneById(sceneId: string) {
   const idx = (props.tour?.scenes ?? []).findIndex((s: any) => s.id === sceneId)
   if (idx !== -1) goToScene(idx)
 }
+
+// Prefetch thumbnails for scenes 2 and 3 while user explores scene 1
+onMounted(() => {
+  if (typeof requestIdleCallback === 'undefined') return
+  requestIdleCallback(() => {
+    const nextScenes = (props.tour?.scenes ?? []).slice(1, 3)
+    for (const s of nextScenes) {
+      const url = s.thumbnail_url || s.raw_image_url
+      if (url) { const img = new Image(); img.src = url }
+    }
+  }, { timeout: 3000 })
+})
 
 function handleHotspotClick(hotspotId: string) {
   // Find in the raw scene hotspots so we have access to target_scene_id / content.url

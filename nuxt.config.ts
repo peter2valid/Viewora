@@ -81,6 +81,9 @@ export default defineNuxtConfig({
     transpile: [
       '@photo-sphere-viewer/core',
       '@photo-sphere-viewer/markers-plugin',
+      '@photo-sphere-viewer/compass-plugin',
+      '@photo-sphere-viewer/gyroscope-plugin',
+      '@photo-sphere-viewer/equirectangular-tiles-adapter',
     ],
   },
 
