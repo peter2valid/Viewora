@@ -35,7 +35,7 @@
       </div>
 
       <!-- Watermark -->
-      <a v-if="!space.branding_enabled" href="https://viewora.software" target="_blank" class="embed-watermark">
+      <a v-if="!space.branding_enabled" :href="runtimeConfig.public.marketingUrl" target="_blank" class="embed-watermark">
         Viewora
       </a>
     </template>
@@ -47,6 +47,7 @@ definePageMeta({ layout: false })
 import { computed } from 'vue'
 
 const { apiFetch } = useApiFetch()
+const runtimeConfig = useRuntimeConfig()
 const route = useRoute()
 const slug = route.params.slug as string
 

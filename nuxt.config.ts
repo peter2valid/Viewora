@@ -20,6 +20,7 @@ export default defineNuxtConfig({
       // a dedicated backend is deployed (e.g. https://api.viewora.software).
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'https://app.viewora.software',
+      marketingUrl: process.env.NUXT_PUBLIC_MARKETING_URL || 'https://viewora.software',
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
     },

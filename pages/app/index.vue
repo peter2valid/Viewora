@@ -187,20 +187,14 @@ onMounted(async () => {
 
     const [analyticsRes, leadsRes] = await Promise.allSettled([
       apiFetch<any[]>('/analytics/summary'),
-      apiFetch<any[]>('/leads')
+      apiFetch<{ count: number }>('/leads/count?days=7')
     ])
 
     const analyticsData = analyticsRes.status === 'fulfilled' ? toArrayPayload<any>(analyticsRes.value) : []
-    const leadsData = leadsRes.status === 'fulfilled' ? toArrayPayload<any>(leadsRes.value) : []
-    
+    const leadsCountData = leadsRes.status === 'fulfilled' ? (leadsRes.value as any) : null
+
     totalViews.value = analyticsData.reduce((acc, curr) => acc + Number(curr?.total_views || 0), 0)
-    
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    recentLeadsCount.value = leadsData.filter(l => {
-      const createdAt = l?.created_at
-      return createdAt && new Date(createdAt) > sevenDaysAgo
-    }).length
+    recentLeadsCount.value = leadsCountData?.count ?? leadsCountData?.data?.count ?? 0
 
   } catch (e) {
     console.error('Failed to bootstrap dashboard', e)

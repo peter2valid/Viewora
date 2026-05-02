@@ -232,6 +232,7 @@ definePageMeta({ layout: false })
 
 // ── Setup ──────────────────────────────────────────────────────
 const { apiFetch } = useApiFetch()
+const runtimeConfig = useRuntimeConfig()
 const route = useRoute()
 const slug = route.params.slug as string
 
@@ -258,6 +259,9 @@ if (_tourError.value) {
   state.value = _tourPayload.value.tour.scenes.some(s => s.raw_image_url) ? 'ready' : 'empty'
 }
 
+// Gyro hint — dismissed on first touch
+const showGyroHint = ref(false)
+
 // Lead form
 const leadOpen = ref(false)
 const leadPending = ref(false)
@@ -268,7 +272,7 @@ const leadForm = ref({ name: '', email: '', phone: '', message: '' })
 // ── Computed ───────────────────────────────────────────────────
 
 const shareUrl = computed(() => {
-  if (typeof window === 'undefined') return `https://viewora.software/p/${slug}`
+  if (typeof window === 'undefined') return `${runtimeConfig.public.marketingUrl}/p/${slug}`
   return `${window.location.origin}/p/${slug}`
 })
 
@@ -286,7 +290,7 @@ const blurCover = computed(() => {
 const ogImage = computed(() =>
   tour.value?.space.cover_image_url
   ?? tour.value?.scenes[0]?.thumbnail_url
-  ?? 'https://app.viewora.software/images/og-default.png'
+  ?? `${runtimeConfig.public.appUrl}/images/og-default.png`
 )
 
 // ── Lead form ──────────────────────────────────────────────────
@@ -354,7 +358,7 @@ useSeoMeta({
 })
 
 useHead({
-  link: [{ rel: 'canonical', href: computed(() => `https://viewora.software/p/${slug}`) }],
+  link: [{ rel: 'canonical', href: computed(() => `${runtimeConfig.public.marketingUrl}/p/${slug}`) }],
 })
 </script>
 

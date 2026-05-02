@@ -309,7 +309,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useSupabaseClient } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
@@ -319,6 +318,8 @@ import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
 import SceneDock from '~/features/editor/components/SceneDock.vue'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
+import { useEditorRealtime } from '~/features/editor/composables/useEditorRealtime'
+import { useEditorUpload, isLocalSceneId, type SceneUploadState } from '~/features/editor/composables/useEditorUpload'
 import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 import HotspotTypePicker from '~/features/editor/components/HotspotTypePicker.vue'
 import HotspotQuickEditor from '~/features/editor/components/HotspotQuickEditor.vue'
@@ -330,7 +331,6 @@ const props = defineProps<{
 }>()
 
 const { apiFetch } = useApiFetch()
-const supabase = useSupabaseClient()
 const planStore = usePlanStore()
 
 const {
@@ -350,170 +350,41 @@ const showTypePicker = ref(false)
 const quickEditHotspotId = ref<string | null>(null)
 const quickEditScreenPos = ref({ x: 0, y: 0 })
 const hotspotTargetSceneId = ref('')
-const pendingScenePreviewById = ref<Record<string, string>>({})
-type SceneUploadState = 'queued' | 'signing' | 'uploading' | 'registering' | 'processing' | 'ready' | 'failed'
-const sceneUploadStateById = ref<Record<string, SceneUploadState>>({})
-const sceneRealtimeChannels = ref<any[]>([])
-let sceneRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
+const inlineEditMode = computed({
+  get: () => editorStore.mode === 'hotspot',
+  set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
+})
 
-type PersistedLocalScene = {
-  id: string
-  name: string
-  order_index: number
-  status: 'processing'
-  _local: true
-}
-
-type EditorRecoverySnapshot = {
-  selectedSceneId: string
-  localScenes: PersistedLocalScene[]
-  sceneUploadStateById: Record<string, SceneUploadState>
-  scenePreviewById: Record<string, string>
-}
-
-function getEditorRecoveryStorageKey() {
-  return `viewora:editor-recovery:${props.spaceId}`
-}
-
-function getLocalScenes() {
-  return scenes.value.filter((scene) => isLocalSceneId(scene?.id)) as PersistedLocalScene[]
-}
-
-function readEditorRecoverySnapshot(): EditorRecoverySnapshot | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.sessionStorage.getItem(getEditorRecoveryStorageKey())
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<EditorRecoverySnapshot>
-    const safePreviewById: Record<string, string> = {}
-    if (parsed.scenePreviewById && typeof parsed.scenePreviewById === 'object') {
-      for (const [sceneId, preview] of Object.entries(parsed.scenePreviewById as Record<string, unknown>)) {
-        if (!isLocalSceneId(sceneId)) continue
-        if (typeof preview !== 'string') continue
-        if (!preview.startsWith('data:image/')) continue
-        if (preview.length > 600_000) continue
-        safePreviewById[sceneId] = preview
-      }
-    }
-    const validUploadStates = new Set<string>(['queued', 'signing', 'uploading', 'registering', 'processing', 'ready', 'failed'])
-    const safeLocalScenes: PersistedLocalScene[] = []
-    if (Array.isArray(parsed.localScenes)) {
-      for (const item of parsed.localScenes) {
-        if (!item || typeof item !== 'object') continue
-        if (!isLocalSceneId(item.id)) continue
-        if (item._local !== true) continue
-        if (item.status !== 'processing') continue
-        if (typeof item.order_index !== 'number') continue
-        safeLocalScenes.push(item as PersistedLocalScene)
-      }
-    }
-    const safeUploadState: Record<string, SceneUploadState> = {}
-    if (parsed.sceneUploadStateById && typeof parsed.sceneUploadStateById === 'object') {
-      for (const [id, state] of Object.entries(parsed.sceneUploadStateById as Record<string, unknown>)) {
-        if (!isLocalSceneId(id)) continue
-        if (typeof state !== 'string' || !validUploadStates.has(state)) continue
-        safeUploadState[id] = state as SceneUploadState
-      }
-    }
-    return {
-      selectedSceneId: typeof parsed.selectedSceneId === 'string' ? parsed.selectedSceneId : '',
-      localScenes: safeLocalScenes,
-      sceneUploadStateById: safeUploadState,
-      scenePreviewById: safePreviewById,
-    }
-  } catch {
-    return null
-  }
-}
-
-function writeEditorRecoverySnapshot() {
-  if (typeof window === 'undefined') return
-  const localScenes = getLocalScenes()
-  const activeLocalState: Record<string, SceneUploadState> = {}
-  const activeLocalPreviews: Record<string, string> = {}
-  for (const scene of localScenes) {
-    const state = sceneUploadStateById.value[scene.id]
-    if (state) activeLocalState[scene.id] = state
-    const preview = pendingScenePreviewById.value[scene.id]
-    if (preview && !isBlobPreviewUrl(preview)) activeLocalPreviews[scene.id] = preview
-  }
-  if (!localScenes.length && !Object.keys(activeLocalState).length && !Object.keys(activeLocalPreviews).length) {
-    window.sessionStorage.removeItem(getEditorRecoveryStorageKey())
-    return
-  }
-  const snapshot: EditorRecoverySnapshot = {
-    selectedSceneId: isLocalSceneId(selectedSceneId.value) ? selectedSceneId.value : '',
-    localScenes,
-    sceneUploadStateById: activeLocalState,
-    scenePreviewById: activeLocalPreviews,
-  }
-  try {
-    window.sessionStorage.setItem(getEditorRecoveryStorageKey(), JSON.stringify(snapshot))
-  } catch {
-    // If storage quota is exceeded, persist minimal recovery state instead of crashing the watcher.
-    try {
-      window.sessionStorage.setItem(
-        getEditorRecoveryStorageKey(),
-        JSON.stringify({
-          selectedSceneId: snapshot.selectedSceneId,
-          localScenes: snapshot.localScenes,
-          sceneUploadStateById: snapshot.sceneUploadStateById,
-          scenePreviewById: {},
-        } satisfies EditorRecoverySnapshot),
-      )
-    } catch {
-      window.sessionStorage.removeItem(getEditorRecoveryStorageKey())
-    }
-  }
-}
-
-function hydrateEditorRecoverySnapshot() {
-  const snapshot = readEditorRecoverySnapshot()
-  if (!snapshot) return
-  if (snapshot.localScenes.length) {
-    const existingIds = new Set(scenes.value.map((scene) => scene.id))
-    for (const scene of snapshot.localScenes) {
-      if (!existingIds.has(scene.id)) scenes.value.push(scene)
-    }
-  }
-  sceneUploadStateById.value = {
-    ...sceneUploadStateById.value,
-    ...snapshot.sceneUploadStateById,
-  }
-  if (snapshot.scenePreviewById && Object.keys(snapshot.scenePreviewById).length) {
-    replacePendingScenePreviewMap({
-      ...pendingScenePreviewById.value,
-      ...snapshot.scenePreviewById,
-    })
-  }
-  if (snapshot.selectedSceneId && isLocalSceneId(snapshot.selectedSceneId)) {
-    selectedSceneId.value = snapshot.selectedSceneId
-  }
-}
-
-let recoverySnapshotDebounceTimer: ReturnType<typeof setTimeout> | null = null
-watch([scenes, sceneUploadStateById, selectedSceneId, pendingScenePreviewById], () => {
-  if (recoverySnapshotDebounceTimer) clearTimeout(recoverySnapshotDebounceTimer)
-  recoverySnapshotDebounceTimer = setTimeout(() => {
-    recoverySnapshotDebounceTimer = null
-    writeEditorRecoverySnapshot()
-  }, 300)
-}, { deep: true })
-
-function backendSceneStatusToUploadState(status?: string | null): SceneUploadState {
-  if (!status) return 'ready'                                     // null/undefined = no active job
-  if (status === 'ready' || status === 'complete') return 'ready'
-  if (status === 'failed' || status === 'error') return 'failed'
-  if (
-    status === 'queued'
-    || status === 'pending'
-    || status === 'processing'
-    || status === 'signing'
-    || status === 'uploading'
-    || status === 'registering'
-  ) return 'processing'
-  return 'ready'                                                  // unknown future status → treat as ready
-}
+const {
+  pendingScenePreviewById,
+  sceneUploadStateById,
+  canvasFileInput,
+  addSceneFileInput,
+  backendSceneStatusToUploadState,
+  sceneHasRenderableImage,
+  scenePreviewUrl,
+  replacePendingScenePreviewMap,
+  createOptimisticLocalScene,
+  removeOptimisticLocalScene,
+  setSceneUploadState,
+  removeSceneUploadState,
+  mapSceneLinkTargets,
+  createSceneWithPanorama,
+  handlePanoramaUpload,
+  handleViewerCanvasUpload,
+  handleAddSceneFileChange,
+  enqueuePanoramaFiles,
+  hydrateRecoverySnapshot,
+} = useEditorUpload(
+  props.spaceId,
+  uploadFile,
+  scenes,
+  selectedSceneId,
+  hotspotsByScene,
+  showToast,
+  fetchScenes,
+  inlineEditMode,
+)
 
 let isMounted = false
 let fetchScenesVersion = 0
@@ -584,12 +455,6 @@ watch(showSettingsPanel, (open) => {
 })
 const urlCopied = ref(false)
 
-// Bridges editorStore mode ↔ ViewerCanvas isEditing prop
-const inlineEditMode = computed({
-  get: () => editorStore.mode === 'hotspot',
-  set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
-})
-
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
@@ -629,251 +494,7 @@ const embedUrl = computed(() => {
 })
 const embedCopied = ref(false)
 
-function isLocalSceneId(id: string | null | undefined): boolean {
-  return typeof id === 'string' && id.startsWith('local_scene_')
-}
-
-function isBlobPreviewUrl(url: string | null | undefined): url is string {
-  return typeof url === 'string' && url.startsWith('blob:')
-}
-
-function releasePreviewUrl(url: string | null | undefined) {
-  if (typeof window === 'undefined') return
-  if (!isBlobPreviewUrl(url)) return
-  try {
-    window.URL.revokeObjectURL(url)
-  } catch {
-    // Best effort cleanup only.
-  }
-}
-
-function replacePendingScenePreviewMap(next: Record<string, string>) {
-  const nextUrls = new Set(Object.values(next))
-  for (const url of Object.values(pendingScenePreviewById.value)) {
-    if (!nextUrls.has(url)) releasePreviewUrl(url)
-  }
-  pendingScenePreviewById.value = next
-}
-
-function setPendingScenePreview(sceneId: string, url: string) {
-  const next = {
-    ...pendingScenePreviewById.value,
-    [sceneId]: url,
-  }
-  replacePendingScenePreviewMap(next)
-}
-
-function deletePendingScenePreview(sceneId: string) {
-  if (!(sceneId in pendingScenePreviewById.value)) return
-  const next = { ...pendingScenePreviewById.value }
-  delete next[sceneId]
-  replacePendingScenePreviewMap(next)
-}
-
-function movePendingScenePreview(fromSceneId: string, toSceneId: string) {
-  const preview = pendingScenePreviewById.value[fromSceneId]
-  if (!preview) return
-  const next = {
-    ...pendingScenePreviewById.value,
-    [toSceneId]: preview,
-  }
-  delete next[fromSceneId]
-  replacePendingScenePreviewMap(next)
-}
-
-async function createPersistedScenePreview(file: File): Promise<string | null> {
-  if (typeof window === 'undefined') return null
-  const sourceUrl = window.URL.createObjectURL(file)
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error('preview_load_failed'))
-      img.src = sourceUrl
-    })
-
-    const maxWidth = 360
-    const maxHeight = 220
-    const width = image.naturalWidth || image.width || maxWidth
-    const height = image.naturalHeight || image.height || maxHeight
-    const scale = Math.min(1, maxWidth / width, maxHeight / height)
-
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(width * scale))
-    canvas.height = Math.max(1, Math.round(height * scale))
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', 0.78)
-  } catch {
-    return null
-  } finally {
-    window.URL.revokeObjectURL(sourceUrl)
-  }
-}
-
-function mapSceneLinkTargets(fromSceneId: string, toSceneId: string) {
-  const next: Record<string, EditorHotspot[]> = {}
-  for (const [sceneId, list] of Object.entries(hotspotsByScene.value)) {
-    next[sceneId] = (list ?? []).map((h) => (
-      h.type === 'scene_link' && h.targetSceneId === fromSceneId
-        ? { ...h, targetSceneId: toSceneId }
-        : h
-    ))
-  }
-  hotspotsByScene.value = next
-}
-
-function setSceneUploadState(sceneId: string, state: SceneUploadState) {
-  sceneUploadStateById.value = {
-    ...sceneUploadStateById.value,
-    [sceneId]: state,
-  }
-}
-
-function removeSceneUploadState(sceneId: string) {
-  if (!(sceneId in sceneUploadStateById.value)) return
-  const next = { ...sceneUploadStateById.value }
-  delete next[sceneId]
-  sceneUploadStateById.value = next
-}
-
-function createOptimisticLocalScene(file: File, previewUrl?: string, options?: { select?: boolean }): string {
-  const id = `local_scene_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-  const orderIndex = scenes.value.length
-  const name = deriveSceneName(file.name, orderIndex + 1)
-  const optimisticScene = {
-    id,
-    name,
-    status: 'processing',
-    order_index: orderIndex,
-    raw_image_url: null,
-    thumbnail_url: null,
-    tile_manifest_url: null,
-    _local: true,
-  }
-  scenes.value = [...scenes.value, optimisticScene]
-  setSceneUploadState(id, 'queued')
-  if (options?.select) selectedSceneId.value = id
-  hotspotsByScene.value = {
-    ...hotspotsByScene.value,
-    [id]: hotspotsByScene.value[id] ?? [],
-  }
-  if (previewUrl) setPendingScenePreview(id, previewUrl)
-  return id
-}
-
-async function enqueuePanoramaFiles(files: File[]) {
-  if (!files.length) return
-  const sceneCountBeforeUpload = scenes.value.length
-  const shouldSelectFirst = !selectedSceneId.value && scenes.value.length === 0
-  const queued = await Promise.all(files.map(async (file, idx) => {
-    const previewUrl = URL.createObjectURL(file)
-    const localSceneId = createOptimisticLocalScene(file, previewUrl, { select: shouldSelectFirst && idx === 0 })
-    const persistedPreview = await createPersistedScenePreview(file)
-    if (persistedPreview) setPendingScenePreview(localSceneId, persistedPreview)
-    return { file, localSceneId }
-  }))
-
-  for (let idx = 0; idx < queued.length; idx++) {
-    const item = queued[idx]
-    setSceneUploadState(item.localSceneId, 'signing')
-    uploadFile(item.file, 'panorama', {
-      onRegister: async (record: any) => {
-        setSceneUploadState(item.localSceneId, 'registering')
-        const sceneName = deriveSceneName(item.file.name, sceneCountBeforeUpload + idx + 1)
-        try {
-          const createdScene = await createSceneWithPanorama(record.public_url, sceneName, item.localSceneId)
-          if (createdScene) {
-            inlineEditMode.value = true
-            await fetchScenes()
-            if (sceneCountBeforeUpload === 0 && idx === 0) {
-              showToast('Scene ready. Click anywhere in the viewer to add your first hotspot')
-            } else {
-              showToast(`${createdScene.name || 'Scene'} added`)
-            }
-          }
-        } catch {
-          setSceneUploadState(item.localSceneId, 'failed')
-          showToast(`${item.file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
-        }
-      },
-      onError: (err: any, humanError: string) => {
-        setSceneUploadState(item.localSceneId, 'failed')
-        removeOptimisticLocalScene(item.localSceneId)
-        showToast(humanError, 'error')
-      }
-    })
-  }
-}
-
-async function syncPendingHotspotsForScene(sceneId: string) {
-  const pending = (hotspotsByScene.value[sceneId] ?? []).filter((h) => h._pending)
-  if (!pending.length) return
-
-  for (const hs of pending) {
-    const payload: any = {
-      type: hs.type,
-      yaw: hs.yaw,
-      pitch: hs.pitch,
-      label: hs.label || (hs.type === 'scene_link' ? 'Go to next room' : 'Info hotspot'),
-    }
-
-    if (hs.type === 'url') payload.content = { url: hs.url || publicUrl.value, button_label: 'Open link' }
-    if (hs.type === 'info') payload.content = { text: hs.description || 'Point of interest' }
-    if (hs.type === 'scene_link' && hs.targetSceneId) payload.target_scene_id = hs.targetSceneId
-
-    try {
-      const response = await apiFetch<any>(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload })
-      const created = unwrapApiData<any>(response)?.hotspot || response?.hotspot
-      if (!created) continue
-      const mapped = mapDbHotspot(created)
-      hotspotsByScene.value = {
-        ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((x) => x.id === hs.id ? mapped : x),
-      }
-    } catch {
-      hotspotsByScene.value = {
-        ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((x) => {
-          if (x.id !== hs.id) return x
-          const { _pending, ...rest } = x
-          return rest
-        }),
-      }
-    }
-  }
-}
-
-function removeOptimisticLocalScene(localSceneId: string) {
-  scenes.value = scenes.value.filter((s) => s.id !== localSceneId)
-  const nextHotspots = { ...hotspotsByScene.value }
-  delete nextHotspots[localSceneId]
-  hotspotsByScene.value = nextHotspots
-  deletePendingScenePreview(localSceneId)
-  removeSceneUploadState(localSceneId)
-  if (selectedSceneId.value === localSceneId) {
-    selectedSceneId.value = scenes.value[0]?.id || ''
-  }
-}
-
 const hasPanorama = computed(() => Boolean(scenes.value.length || Object.keys(pendingScenePreviewById.value).length))
-
-function sceneHasRenderableImage(scene: any): boolean {
-  if (!scene) return false
-  if (scene.id && pendingScenePreviewById.value[scene.id]) return true
-  return Boolean(scene.raw_image_url || scene.thumbnail_url || scene.tile_manifest_url)
-}
-
-function scenePreviewUrl(scene: any): string | null {
-  if (!scene) return null
-  return pendingScenePreviewById.value[scene.id]
-    || (scene as any).thumbnail_url
-    || (scene as any).raw_image_url
-    || (scene as any).tile_manifest_url
-    || null
-}
 
 const selectedScene = computed(() =>
   scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null
@@ -1025,6 +646,8 @@ watch(deleteCandidate, (candidate) => {
     targetSceneId: validTargetId,
     type: (candidate.type as 'info' | 'url' | 'scene_link') || 'info',
     icon: candidate.icon || '',
+    scale: 1,
+    hoverScale: 1.3,
   }
 })
 
@@ -1160,7 +783,7 @@ async function handleReorderScenes(orderedIds: string[]) {
 onMounted(async () => {
   isMounted = true
   window.addEventListener('keydown', handleKeydown)
-  hydrateEditorRecoverySnapshot()
+  hydrateRecoverySnapshot()
   if (!planStore.plan) await planStore.fetchSubscriptionStatus()
   await fetchSpace(true)
   startSceneRealtime()
@@ -1174,7 +797,6 @@ onBeforeUnmount(() => {
   stopSceneRealtime()
   replacePendingScenePreviewMap({})
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
-  if (recoverySnapshotDebounceTimer) { clearTimeout(recoverySnapshotDebounceTimer); recoverySnapshotDebounceTimer = null }
 })
 
 async function fetchScenes() {
@@ -1306,41 +928,11 @@ function isAbortError(err: any): boolean {
   return err?.name === 'AbortError' || err?.cause?.name === 'AbortError' || err?.type === 'aborted'
 }
 
-function refreshSceneGraphSoon() {
-  if (!isMounted) return
-  if (sceneRealtimeRefreshTimer) clearTimeout(sceneRealtimeRefreshTimer)
-  sceneRealtimeRefreshTimer = setTimeout(() => {
-    if (!isMounted) return
-    void fetchSpace(true, false)
-  }, 200)
-}
-
-function startSceneRealtime() {
-  stopSceneRealtime()
-  const scenesChannel = supabase
-    .channel(`space:${props.spaceId}:scenes`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'scenes', filter: `property_id=eq.${props.spaceId}` },
-      refreshSceneGraphSoon,
-    )
-    .subscribe()
-  const hotspotsChannel = supabase
-    .channel(`space:${props.spaceId}:hotspots`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'hotspots', filter: `property_id=eq.${props.spaceId}` },
-      refreshSceneGraphSoon,
-    )
-    .subscribe()
-  sceneRealtimeChannels.value = [scenesChannel, hotspotsChannel]
-}
-
-function stopSceneRealtime() {
-  for (const channel of sceneRealtimeChannels.value) void supabase.removeChannel(channel)
-  sceneRealtimeChannels.value = []
-  if (sceneRealtimeRefreshTimer) { clearTimeout(sceneRealtimeRefreshTimer); sceneRealtimeRefreshTimer = null }
-}
+const { start: startSceneRealtime, stop: stopSceneRealtime } = useEditorRealtime(
+  props.spaceId,
+  () => { if (isMounted) void fetchSpace(true) },
+  () => isMounted,
+)
 
 async function fetchHotspots(sceneId: string) {
   if (isLocalSceneId(sceneId)) return
@@ -1364,41 +956,9 @@ async function selectScene(sceneId: string) {
   if (!hotspotsByScene.value[sceneId]) await fetchHotspots(sceneId)
 }
 
-const ensureSceneForEditing = (() => {
-  let ensureScenePromise: Promise<string | null> | null = null
-
-  return async (): Promise<string | null> => {
-    if (selectedSceneId.value) return selectedSceneId.value
-    if (!panorama.value?.public_url) return null
-    if (ensureScenePromise) return ensureScenePromise
-
-    ensureScenePromise = (async () => {
-      try {
-        const createResponse = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, {
-          method: 'POST',
-          body: {
-            name: `Scene ${(scenes.value?.length || 0) + 1}`,
-            raw_image_url: panorama.value!.public_url,
-            initial_yaw: 0,
-            initial_pitch: 0,
-          },
-        })
-        const createdScene = unwrapApiData<any>(createResponse)?.scene || createResponse?.scene
-        if (createdScene) {
-          scenes.value = [...scenes.value, createdScene]
-          selectedSceneId.value = createdScene.id
-          hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
-          return createdScene.id as string
-        }
-        return null
-      } finally {
-        ensureScenePromise = null
-      }
-    })()
-
-    return ensureScenePromise
-  }
-})()
+function ensureSceneForEditing(): string | null {
+  return selectedSceneId.value || null
+}
 
 function resolveTargetSceneId(currentSceneId: string) {
   if (hotspotTargetSceneId.value && hotspotTargetSceneId.value !== currentSceneId) return hotspotTargetSceneId.value
@@ -1417,7 +977,7 @@ async function handleViewerAddHotspot({ yaw, pitch, screenX, screenY }: { yaw: n
   }
   if (addingHotspot.value) return
 
-  const sceneId = await ensureSceneForEditing()
+  const sceneId = ensureSceneForEditing() as string | null
   if (!sceneId) {
     showToast('Create or upload a scene first.', 'error')
     return
@@ -1450,7 +1010,7 @@ async function handleViewerAddHotspot({ yaw, pitch, screenX, screenY }: { yaw: n
   }
 
   editDraft.value = {
-    label: optimisticEntry.label,
+    label: optimisticEntry.label || '',
     description: '',
     url: '',
     targetSceneId,
@@ -1955,96 +1515,6 @@ async function handleTogglePublish() {
   } finally {
     publishing.value = false
   }
-}
-
-async function handlePanoramaUpload(e: any) {
-  const files = Array.from((e.target.files || []) as FileList)
-  if (!files.length) return
-  e.target.value = ''
-  if (files.length > 1) {
-    showToast(`Uploading ${files.length} scenes in background...`)
-  }
-  await enqueuePanoramaFiles(files)
-}
-
-const canvasFileInput = ref<HTMLInputElement | null>(null)
-const addSceneFileInput = ref<HTMLInputElement | null>(null)
-
-function deriveSceneName(fileName: string, sceneNumber: number): string {
-  const base = fileName.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim()
-  if (!base) return `Scene ${sceneNumber}`
-  return base.replace(/\s+/g, ' ').slice(0, 64)
-}
-
-async function createSceneWithPanorama(rawImageUrl: string, name?: string, localSceneId?: string) {
-  const sceneNumber = (scenes.value?.length || 0) + 1
-  const response = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, {
-    method: 'POST',
-    body: {
-      name: name || `Scene ${sceneNumber}`,
-      raw_image_url: rawImageUrl,
-      initial_yaw: 0,
-      initial_pitch: 0,
-    },
-  })
-  const createdScene = unwrapApiData<any>(response)?.scene || response?.scene
-  if (createdScene) {
-    const shouldSelectCreatedScene = localSceneId
-      ? selectedSceneId.value === localSceneId
-      : (!selectedSceneId.value && scenes.value.length === 0)
-
-    if (localSceneId && isLocalSceneId(localSceneId)) {
-      scenes.value = scenes.value.map((s) => s.id === localSceneId ? createdScene : s)
-      if (selectedSceneId.value === localSceneId) selectedSceneId.value = createdScene.id
-      const currentState = sceneUploadStateById.value[localSceneId]
-      if (currentState) {
-        setSceneUploadState(createdScene.id, backendSceneStatusToUploadState(createdScene.status))
-        removeSceneUploadState(localSceneId)
-      }
-
-      if (hotspotsByScene.value[localSceneId]) {
-        hotspotsByScene.value = {
-          ...hotspotsByScene.value,
-          [createdScene.id]: hotspotsByScene.value[localSceneId],
-        }
-        const nextHotspots = { ...hotspotsByScene.value }
-        delete nextHotspots[localSceneId]
-        hotspotsByScene.value = nextHotspots
-      } else {
-        hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
-      }
-
-      mapSceneLinkTargets(localSceneId, createdScene.id)
-      movePendingScenePreview(localSceneId, createdScene.id)
-
-      await syncPendingHotspotsForScene(createdScene.id)
-    } else {
-      scenes.value = [...scenes.value, createdScene]
-      hotspotsByScene.value = { ...hotspotsByScene.value, [createdScene.id]: [] }
-      setSceneUploadState(createdScene.id, backendSceneStatusToUploadState(createdScene.status))
-    }
-
-    if (shouldSelectCreatedScene) selectedSceneId.value = createdScene.id
-  }
-  return createdScene || null
-}
-
-async function handleViewerCanvasUpload(file?: File) {
-  if (file) {
-    await enqueuePanoramaFiles([file])
-  }
-  else { canvasFileInput.value?.click() }
-}
-
-async function handleAddSceneFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  const files = Array.from(input.files || [])
-  if (!files.length) return
-  input.value = ''
-  if (files.length > 1) {
-    showToast(`Adding ${files.length} scenes in background...`)
-  }
-  await enqueuePanoramaFiles(files)
 }
 
 

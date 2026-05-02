@@ -98,6 +98,8 @@
         <slot />
       </main>
     </div>
+
+    <OnboardingWizard :visible="showOnboarding" @done="finishOnboarding" />
   </div>
 </template>
 
@@ -108,7 +110,10 @@ import { useAuthStore } from '~/stores/auth'
 import { usePlanStore } from '~/stores/plan'
 import { useSupabaseUser, useSupabaseClient, useRoute } from '#imports'
 
+const ONBOARDING_KEY = 'viewora_onboarding_done'
+
 const isSidebarOpen = ref(false)
+const showOnboarding = ref(false)
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 const route = useRoute()
@@ -120,6 +125,11 @@ const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
 
 const isExactRoute = (path: string) => route.path === path
 
+function finishOnboarding() {
+  showOnboarding.value = false
+  if (typeof window !== 'undefined') localStorage.setItem(ONBOARDING_KEY, '1')
+}
+
 // Initialize stores on mount
 onMounted(async () => {
   initTheme()
@@ -127,6 +137,9 @@ onMounted(async () => {
     authStore.setUser(user.value)
     await planStore.fetchSubscriptionStatus()
     authStore.fetchProfile().catch(() => {})
+  }
+  if (typeof window !== 'undefined' && !localStorage.getItem(ONBOARDING_KEY)) {
+    showOnboarding.value = true
   }
 })
 

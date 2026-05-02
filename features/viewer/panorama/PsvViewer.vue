@@ -320,13 +320,14 @@ watch(
     }
 
     // Draw points
-    points.forEach((p, i) => {
+    const safePoints = points ?? []
+    safePoints.forEach((p, i) => {
       addTracePoint(handle.value, `trace-dot-${i}`, p)
     })
 
     // Draw polygon
-    if (points.length >= 3) {
-      updateTracePolygon(handle.value, points)
+    if (safePoints.length >= 3) {
+      updateTracePolygon(handle.value, safePoints)
     }
   },
   { deep: true }

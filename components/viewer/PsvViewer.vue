@@ -65,7 +65,7 @@ const dockItems = computed(() =>
     label: s.name || `Scene ${idx + 1}`,
     imageUrl: s.thumbnail_url || s.raw_image_url || null,
     ariaLabel: `Go to ${s.name || `Scene ${idx + 1}`}`,
-    badge: s.status && s.status !== 'ready' ? 'loading' : null,
+    badge: (s.status && s.status !== 'ready' ? 'loading' : null) as 'loading' | 'failed' | null,
   }))
 )
 
