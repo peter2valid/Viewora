@@ -311,7 +311,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
+import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
@@ -320,6 +320,8 @@ import SceneDock from '~/features/editor/components/SceneDock.vue'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import { useEditorRealtime } from '~/features/editor/composables/useEditorRealtime'
 import { useEditorUpload, isLocalSceneId, type SceneUploadState } from '~/features/editor/composables/useEditorUpload'
+import { useHotspotEditor } from '~/features/editor/composables/useHotspotEditor'
+import { useEditorPublish } from '~/features/editor/composables/useEditorPublish'
 import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 import HotspotTypePicker from '~/features/editor/components/HotspotTypePicker.vue'
 import HotspotQuickEditor from '~/features/editor/components/HotspotQuickEditor.vue'
@@ -339,17 +341,10 @@ const {
 } = useSceneUpload(props.spaceId)
 
 const space = ref<any>(null)
-const publishing = ref(false)
 const placeholderPanoramaUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23111627"/><stop offset="55%" stop-color="%231f2a44"/><stop offset="100%" stop-color="%232a4365"/></linearGradient></defs><rect width="1600" height="800" fill="url(%23g)"/><circle cx="1220" cy="230" r="180" fill="rgba(255,255,255,0.08)"/><circle cx="360" cy="600" r="260" fill="rgba(255,255,255,0.06)"/><g fill="none" stroke="rgba(255,255,255,0.35)"><path d="M0 540h1600"/><path d="M0 480h1600"/></g><text x="120" y="170" fill="rgba(255,255,255,0.88)" font-family="Arial" font-size="48" font-weight="700">Viewora 360 Tour Preview</text><text x="120" y="235" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="28">Upload your panorama to replace this placeholder instantly.</text></svg>'
-const addingHotspot = ref(false)
 const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
 const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
-const hotspotDraftType = ref<'info' | 'scene_link' | 'url' | 'video' | 'youtube'>('info')
-const showTypePicker = ref(false)
-const quickEditHotspotId = ref<string | null>(null)
-const quickEditScreenPos = ref({ x: 0, y: 0 })
-const hotspotTargetSceneId = ref('')
 const inlineEditMode = computed({
   get: () => editorStore.mode === 'hotspot',
   set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
@@ -390,48 +385,10 @@ let isMounted = false
 let fetchScenesVersion = 0
 let fetchScenesController: AbortController | null = null
 
-type DeleteCandidate = EditorHotspot & { sceneId: string }
-const deleteCandidate = ref<DeleteCandidate | null>(null)
-const deletingHotspot = ref(false)
-const repositioningHotspotId = ref<string | null>(null)
-const editDraft = ref<{ label: string; description: string; url: string; targetSceneId: string; type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'; icon: string; scale: number; hoverScale: number; corners?: Array<{ yaw: number; pitch: number }> }>({
-  label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', scale: 1, hoverScale: 1.3,
-})
-const savingHotspot = ref(false)
 const renameCandidate = ref<{ id: string; name: string } | null>(null)
 const renameDraft = ref('')
 const renameSaving = ref(false)
 const renameInputRef = ref<HTMLInputElement | null>(null)
-const showSettingsPanel = ref(false)
-const isTracing = ref(false)
-const tracePoints = ref<Array<{ yaw: number; pitch: number }>>([])
-
-function startTracing() {
-  isTracing.value = true
-  tracePoints.value = []
-  showToast('Click 4 corners in the room to pin video', 'success')
-}
-
-watch(isTracing, (val) => {
-  // We no longer block modal state here so the panel stays visible
-})
-function handleUpdateTrace(payload: { yaw: number; pitch: number }) {
-  if (!isTracing.value) return
-  
-  tracePoints.value.push(payload)
-  
-  if (tracePoints.value.length === 4) {
-    editDraft.value.corners = [...tracePoints.value]
-    isTracing.value = false
-    tracePoints.value = []
-    showToast('Spatial mapping complete', 'success')
-  } else {
-    showToast(`Point ${tracePoints.value.length}/4 captured`, 'success')
-  }
-}
-
-const settingsDraft = ref({ hfov: 90, yaw: 0, pitch: 0, autoRotate: false })
-const settingsSaving = ref(false)
 const sceneDeleteConfirm = ref<string | null>(null)
 const deletingScene = ref(false)
 
