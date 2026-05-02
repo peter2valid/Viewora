@@ -197,13 +197,10 @@ async function initWithScene(scene: TourScene) {
       onReady: () => {
         state.value = 'ready'
         emit('loaded')
-        const delay = props.isEditing ? 0 : 2000
-        setTimeout(() => {
-          if (props.hotspots?.length) {
-            syncHotspots(handle.value, props.hotspots)
-            void nudgeRender(handle.value)
-          }
-        }, delay)
+        if (props.hotspots?.length) {
+          syncHotspots(handle.value, props.hotspots)
+          void nudgeRender(handle.value)
+        }
       },
       onError: (err) => {
         state.value = 'error'

@@ -75,12 +75,13 @@ function mapRawScene(s: any, tour: any): TourScene {
   const settings360 = tour?.space?.property_360_settings?.[0]
   return {
     id: s.id,
-    // Use thumbnail as baseUrl for the viewer to ensure fast initial load
-    // while tiled manifest handles the high resolution.
     imageUrl: s.thumbnail_url || s.raw_image_url || '',
     tileManifestUrl: s.tile_manifest_url || undefined,
-    width: s.width,
-    height: s.height,
+    tileCols:   s.tile_cols   ?? undefined,
+    tileRows:   s.tile_rows   ?? undefined,
+    tilesReady: s.tiles_ready ?? false,
+    width:  s.width  ?? undefined,
+    height: s.height ?? undefined,
     title: s.name,
     hotspots: [],
     settings: {

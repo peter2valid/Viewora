@@ -57,7 +57,7 @@ export default defineNuxtConfig({
     '/reset-password': { ssr: false },
     '/confirm': { ssr: false },
     // Public tour pages — SSR for fast first paint + Vercel edge caching
-    '/p/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' } },
+    '/p/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300' } },
     // Embed pages — SSR for fast first paint in iframes
     '/embed/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15' } },
     // App dashboard — client-side only (auth-protected, user-specific data)
@@ -114,7 +114,13 @@ export default defineNuxtConfig({
         output: {
           manualChunks: {
             'vendor-supabase': ['@supabase/supabase-js'],
-            'vendor-psv': ['@photo-sphere-viewer/core', '@photo-sphere-viewer/markers-plugin'],
+            'vendor-psv': [
+              '@photo-sphere-viewer/core',
+              '@photo-sphere-viewer/markers-plugin',
+              '@photo-sphere-viewer/compass-plugin',
+              '@photo-sphere-viewer/gyroscope-plugin',
+              '@photo-sphere-viewer/equirectangular-tiles-adapter',
+            ],
           },
         },
       },

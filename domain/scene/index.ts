@@ -39,6 +39,9 @@ export interface TourScene {
   id: string
   imageUrl: string
   tileManifestUrl?: string
+  tileCols?: number
+  tileRows?: number
+  tilesReady?: boolean
   width?: number
   height?: number
   title?: string

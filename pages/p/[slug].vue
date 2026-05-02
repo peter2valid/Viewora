@@ -357,9 +357,16 @@ useSeoMeta({
   twitterImage: ogImage,
 })
 
-useHead({
-  link: [{ rel: 'canonical', href: computed(() => `${runtimeConfig.public.marketingUrl}/p/${slug}`) }],
-})
+useHead(computed(() => {
+  const thumbUrl = tour.value?.scenes?.[0]?.thumbnail_url
+  const links: any[] = [
+    { rel: 'canonical', href: `${runtimeConfig.public.marketingUrl}/p/${slug}` },
+  ]
+  if (thumbUrl) {
+    links.push({ rel: 'preload', as: 'image' as const, href: thumbUrl })
+  }
+  return { link: links }
+}))
 </script>
 
 <style scoped>

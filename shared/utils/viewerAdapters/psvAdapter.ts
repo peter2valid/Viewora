@@ -1,6 +1,8 @@
-// PSV Adapter — DaVinci Edition
-// A master-level abstraction isolating Photo Sphere Viewer from business logic.
-// Robust, resolution-aware, and memory-safe.
+import { Viewer } from '@photo-sphere-viewer/core'
+import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
+import { CompassPlugin } from '@photo-sphere-viewer/compass-plugin'
+import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
+import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
@@ -43,7 +45,6 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 }
 
-/** Renders the hotspot as a plain PNG/SVG image — the icon IS the marker */
 function buildMarkerHtml(hotspot: Hotspot): string {
   const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info-solid'
   const iconUrl = HOTSPOT_ICONS_BY_KEY[iconKey] || HOTSPOT_ICONS_BY_KEY['info-solid'] || ''
@@ -58,9 +59,6 @@ function buildInfoContent(hotspot: Hotspot): string {
   return `<div class="psv-hs-panel">${title}${desc}</div>`
 }
 
-/** 
- * MASTER INIT: Multi-resolution, Plugin-rich, and Hardware-accelerated.
- */
 export function getHotspotScreenPos(
   handle: PsvViewerHandle | null,
   yaw: number,
@@ -84,51 +82,64 @@ export interface InitViewerOptions {
   onMarkerLeave?: (id: string) => void
 }
 
+/** Returns the PSV panorama config — tiles only when ALL of: url, cols, rows, tilesReady */
+function buildPanorama(scene: TourScene) {
+  const hasTiles =
+    !!scene.tileManifestUrl &&
+    !!scene.tileCols &&
+    !!scene.tileRows &&
+    scene.tilesReady === true
+
+  if (hasTiles) {
+    return {
+      width:   scene.width || 12288,
+      cols:    scene.tileCols!,
+      rows:    scene.tileRows!,
+      baseUrl: scene.imageUrl,
+      tileUrl: (col: number, row: number) =>
+        `${scene.tileManifestUrl}/${col}_${row}.webp`,
+    }
+  }
+
+  // Safe fallback — works for old scenes without tiles and new scenes while tiling
+  return scene.imageUrl
+}
+
 export async function initViewer(
   container: HTMLElement,
   scene: TourScene,
   options: InitViewerOptions = {},
 ): Promise<PsvViewerHandle> {
   const { onReady, onError, onClick, onMarkerClick, isEditing = false, onMarkerEnter, onMarkerLeave } = options
-  const [
-    { Viewer },
-    { MarkersPlugin },
-    { CompassPlugin },
-    { GyroscopePlugin },
-    { EquirectangularTilesAdapter },
-  ] = await Promise.all([
-    import('@photo-sphere-viewer/core'),
-    import('@photo-sphere-viewer/markers-plugin'),
-    import('@photo-sphere-viewer/compass-plugin'),
-    import('@photo-sphere-viewer/gyroscope-plugin'),
-    import('@photo-sphere-viewer/equirectangular-tiles-adapter'),
-  ])
 
-  const useTiles = !!scene.tileManifestUrl
+  const isTouchDevice =
+    typeof window !== 'undefined' &&
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+
+  const hasTiles =
+    !!scene.tileManifestUrl &&
+    !!scene.tileCols &&
+    !!scene.tileRows &&
+    scene.tilesReady === true
+
+  const plugins: any[] = [
+    [MarkersPlugin, { clickEventOnMarker: false }],
+    [CompassPlugin, { size: '120px', position: 'bottom left', navigation: true }],
+  ]
+  if (isTouchDevice) {
+    plugins.push([GyroscopePlugin, { touchmove: true, absolutePosition: true }])
+  }
 
   const viewer: any = new Viewer({
     container,
-    adapter: useTiles ? [EquirectangularTilesAdapter, {
-      showQueue: false,
-      interpolation: true,
-    }] : undefined,
-    panorama: useTiles ? {
-      width: scene.width || 12288,
-      cols: 16,
-      rows: 8,
-      baseUrl: scene.imageUrl, // High-speed thumbnail as base
-      tileUrl: () => scene.tileManifestUrl!,
-    } : scene.imageUrl,
+    adapter: hasTiles ? [EquirectangularTilesAdapter, { showQueue: false, interpolation: true }] : undefined,
+    panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
     touchmoveTwoFingers: false,
     fisheye: !isEditing,
-    plugins: [
-      [MarkersPlugin, { clickEventOnMarker: false }],
-      [CompassPlugin, { size: '120px', position: 'bottom left', navigation: true }],
-      [GyroscopePlugin, { touchmove: true, absolutePosition: true }],
-    ],
+    plugins,
   })
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
@@ -150,8 +161,7 @@ export async function initViewer(
   })
 
   const cleanupFns: Array<() => void> = []
-  
-  // Click Handlers
+
   const handleClick = (e: any) => {
     if (e.data?.rightclick) return
     let screenX = 0
@@ -165,7 +175,6 @@ export async function initViewer(
   viewer.addEventListener('click', handleClick)
   cleanupFns.push(() => viewer.removeEventListener('click', handleClick))
 
-  // Marker Handlers
   const handleMarkerSelect = (e: any) => onMarkerClick?.(e.marker.id)
   markers.addEventListener('select-marker', handleMarkerSelect)
   cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
@@ -191,50 +200,50 @@ export async function initViewer(
   }
 }
 
-/** 
- * MASTER SCENE LOAD: Precise state reset 
- */
 export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene): Promise<void> {
   if (!handle?.viewer || !scene.imageUrl) return
-  
-  // 1. Wipe everything to prevent artifacts
+
   handle.markers.clearMarkers()
   handle.markerSignatures.clear()
 
-  const useTiles = !!scene.tileManifestUrl
-  const panorama = useTiles ? {
-    width: scene.width || 12288,
-    cols: 16,
-    rows: 8,
-    baseUrl: scene.imageUrl,
-    tileUrl: () => scene.tileManifestUrl!,
-  } : scene.imageUrl
+  const hasTiles =
+    !!scene.tileManifestUrl &&
+    !!scene.tileCols &&
+    !!scene.tileRows &&
+    scene.tilesReady === true
 
-  await handle.viewer.setPanorama(panorama, {
+  // Swap adapter if needed when switching between tiled and non-tiled scenes
+  if (hasTiles && !handle.viewer.adapter?.constructor?.name?.includes('Tiles')) {
+    // PSV doesn't support live adapter swap — reinit would be needed.
+    // For now fall back gracefully to full image for non-matching adapter state.
+    await handle.viewer.setPanorama(scene.imageUrl, {
+      showLoader: false,
+      position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
+      transition: { speed: 1000, rotation: true, effect: 'black' },
+    })
+    return
+  }
+
+  await handle.viewer.setPanorama(buildPanorama(scene), {
     showLoader: false,
     position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
     transition: { speed: 1000, rotation: true, effect: 'black' },
   })
 }
 
-/** 
- * MASTER ADDER: Defensive property handling and 3D Spatial Geometry
- */
 export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): void {
   if (!handle?.markers || !hotspot) return
 
   const isLayerType = hotspot.type === 'video' || hotspot.type === 'youtube'
   const hasCorners = Array.isArray(hotspot.corners) && hotspot.corners.length === 4
-  
-  // Numerical Safety
-  const scale = Number(hotspot.scale || 1)
+
+  const scale       = Number(hotspot.scale || 1)
   const hoverAmount = Number(hotspot.hoverScale || 1.3)
 
-  // 1. Standard Interactive Markers (Info, Link, URL)
   if (!isLayerType) {
-    const labelText = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
+    const labelText   = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
     const contentHtml = !handle.isEditing && hotspot.type === 'info' ? buildInfoContent(hotspot) : undefined
-    const baseSize = scale * 44
+    const baseSize    = scale * 44
 
     handle.markers.addMarker({
       id: hotspot.id,
@@ -249,61 +258,50 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     return
   }
 
-  // 2. Spatial 3D Elements (Video, YouTube)
   if (isLayerType && hotspot.url) {
     const videoBaseSize = scale * 640
-    const ratio = 360 / 640
-    const position = hasCorners ? hotspot.corners : { yaw: hotspot.yaw, pitch: hotspot.pitch }
-    const size = hasCorners ? undefined : { width: videoBaseSize, height: videoBaseSize * ratio }
+    const ratio         = 360 / 640
+    const position      = hasCorners ? hotspot.corners : { yaw: hotspot.yaw, pitch: hotspot.pitch }
+    const size          = hasCorners ? undefined : { width: videoBaseSize, height: videoBaseSize * ratio }
 
-    // DaVinci Level: Create a robust DOM wrapper that holds both the video content 
-    // AND the selection UI for the editor.
     const container = document.createElement('div')
     container.className = `psv-hs-spatial-container ${handle.isEditing ? 'psv-hs-spatial--editable' : ''}`
-    container.style.width = '100%'
-    container.style.height = '100%'
+    container.style.width    = '100%'
+    container.style.height   = '100%'
     container.style.position = 'relative'
 
     let contentElement: HTMLElement
 
     if (hotspot.type === 'video') {
-      const video = document.createElement('video')
-      video.src = hotspot.url
-      video.autoplay = true
-      video.muted = true
-      video.loop = true
-      video.style.width = '100%'
-      video.style.height = '100%'
-      video.style.objectFit = 'cover'
+      const video      = document.createElement('video')
+      video.src        = hotspot.url
+      video.autoplay   = true
+      video.muted      = true
+      video.loop       = true
+      video.style.width      = '100%'
+      video.style.height     = '100%'
+      video.style.objectFit  = 'cover'
       contentElement = video
     } else {
-      const videoId = hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/) 
-        ? hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/)![1]
-        : hotspot.url
-        
-      const iframe = document.createElement('iframe')
-      iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0`
-      iframe.frameBorder = '0'
-      iframe.allow = 'autoplay; encrypted-media'
-      iframe.style.width = '100%'
-      iframe.style.height = '100%'
-      iframe.style.pointerEvents = handle.isEditing ? 'none' : 'auto'
+      const videoId = hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/)?.[1] ?? hotspot.url
+
+      const iframe        = document.createElement('iframe')
+      iframe.src          = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0`
+      iframe.frameBorder  = '0'
+      iframe.allow        = 'autoplay; encrypted-media'
+      iframe.style.width          = '100%'
+      iframe.style.height         = '100%'
+      iframe.style.pointerEvents  = handle.isEditing ? 'none' : 'auto'
       contentElement = iframe
     }
 
     container.appendChild(contentElement)
 
-    // Add Editor Overlay Handle
     if (handle.isEditing) {
-      const overlay = document.createElement('div')
-      overlay.className = 'psv-hs-spatial-overlay'
-      overlay.innerHTML = buildMarkerHtml(hotspot)
-      
-      // If mapped to corners, make the overlay cover the whole area
-      if (hasCorners) {
-        overlay.classList.add('psv-hs-spatial-overlay--mapped')
-      }
-      
+      const overlay       = document.createElement('div')
+      overlay.className   = 'psv-hs-spatial-overlay'
+      overlay.innerHTML   = buildMarkerHtml(hotspot)
+      if (hasCorners) overlay.classList.add('psv-hs-spatial-overlay--mapped')
       container.appendChild(overlay)
     }
 
@@ -324,30 +322,20 @@ export function removeHotspot(handle: PsvViewerHandle | null, id: string): void 
   handle.markerSignatures?.delete(id)
 }
 
-/** 
- * MASTER SYNC: The DaVinci Diff Engine
- */
 export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[]): void {
   if (!handle?.markers) return
 
   const nextById = new Map<string, Hotspot>()
   hotspots.forEach(hs => { if (hs?.id) nextById.set(hs.id, hs) })
 
-  // 1. Precise Removal
   for (const existingId of Array.from(handle.markerSignatures.keys())) {
-    if (!nextById.has(existingId)) {
-      removeHotspot(handle, existingId)
-    }
+    if (!nextById.has(existingId)) removeHotspot(handle, existingId)
   }
 
-  // 2. Intelligent Updates
   for (const [id, hs] of nextById) {
     const nextSig = hotspotSignature(hs)
     const prevSig = handle.markerSignatures.get(id)
-
     if (!prevSig || prevSig !== nextSig) {
-      // Hard Reset: For maximum stability, we remove and re-add 
-      // rather than using 'updateMarker' which is buggy for type changes.
       removeHotspot(handle, id)
       addHotspot(handle, hs)
       handle.markerSignatures.set(id, nextSig)
@@ -355,7 +343,6 @@ export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[]
   }
 }
 
-/** Tracing Feedbacks */
 export function addTracePoint(handle: PsvViewerHandle | null, id: string, pos: { yaw: number; pitch: number }): void {
   if (!handle?.markers) return
   handle.markers.addMarker({
@@ -381,13 +368,11 @@ export async function focusHotspot(handle: PsvViewerHandle | null, id: string): 
   if (!handle?.viewer || !handle?.markers) return
   const marker = handle.markers.getMarker(id)
   if (!marker) return
-
-  // Cinematic Camera Easing
   await handle.viewer.animate({
-    yaw: marker.config.position.yaw,
+    yaw:   marker.config.position.yaw,
     pitch: marker.config.position.pitch,
-    zoom: 70, // Subtle focus zoom
-    speed: '4rpm', // Controlled, smooth rotation
+    zoom:  70,
+    speed: '4rpm',
   })
 }
 
