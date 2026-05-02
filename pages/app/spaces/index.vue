@@ -107,8 +107,8 @@
             <!-- Step 1 -->
             <div class="flex flex-col items-center group/step">
               <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <NuxtImg 
-                  src="~/assets/images/Upload_Panoramas.png" 
+                <NuxtImg
+                  src="/assets/images/Upload_Panoramas.png"
                   alt="Upload 360 Panoramas"
                   class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
                   loading="lazy"
@@ -125,8 +125,8 @@
             <!-- Step 2 -->
             <div class="flex flex-col items-center group/step">
               <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <NuxtImg 
-                  src="~/assets/images/Visual_Editor.png" 
+                <NuxtImg
+                  src="/assets/images/Visual_Editor.png"
                   alt="Visual 360 Editor"
                   class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
                   loading="lazy"
@@ -143,8 +143,8 @@
             <!-- Step 3 -->
             <div class="flex flex-col items-center group/step">
               <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <NuxtImg 
-                  src="~/assets/images/Publish_Virtual_Tour.png" 
+                <NuxtImg
+                  src="/assets/images/Publish_Virtual_Tour.png"
                   alt="Publish and Share anywhere"
                   class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
                   loading="lazy"
