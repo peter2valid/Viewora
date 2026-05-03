@@ -293,6 +293,24 @@ const ogImage = computed(() =>
   ?? `${runtimeConfig.public.appUrl}/images/og-default.png`
 )
 
+// ── Analytics ──────────────────────────────────────────────────
+
+onMounted(() => {
+  if (process.client && tour.value) {
+    // Record internal view analytics
+    const source = (route.query.src as string) || 'direct'
+    apiFetch('/analytics/view', {
+      method: 'POST',
+      body: {
+        spaceId: tour.value.space.id,
+        source: source
+      }
+    }).catch(() => {
+      // Silently fail analytics if needed
+    })
+  }
+})
+
 // ── Lead form ──────────────────────────────────────────────────
 
 async function submitLead() {
