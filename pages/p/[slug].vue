@@ -272,7 +272,7 @@ const leadForm = ref({ name: '', email: '', phone: '', message: '' })
 // ── Computed ───────────────────────────────────────────────────
 
 const shareUrl = computed(() => {
-  if (typeof window === 'undefined') return `${runtimeConfig.public.marketingUrl}/p/${slug}`
+  if (typeof window === 'undefined') return `${runtimeConfig.public.appUrl}/p/${slug}`
   return `${window.location.origin}/p/${slug}`
 })
 
