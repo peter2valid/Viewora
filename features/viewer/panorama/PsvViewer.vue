@@ -210,6 +210,12 @@ async function initWithScene(scene: TourScene) {
       onClick: (payload) => {
         // Canvas click: close locked menu, then handle add/trace
         if (menu.locked) { closeMenu(); return }
+        
+        // Clear active hotspots when clicking background
+        if (handle.value) {
+          props.hotspots?.forEach(h => toggleHotspotActive(handle.value, h.id, false))
+        }
+
         isFocusing.value = false
         if (props.isTracing) {
           emit('update-trace', payload)
@@ -224,9 +230,16 @@ async function initWithScene(scene: TourScene) {
           menu.locked = true
         } else {
           const hs = props.hotspots?.find(h => h.id === id)
-          // For info hotspots, we trigger cinematic focus
+          
+          // Clear others first
+          props.hotspots?.forEach(h => {
+             if (h.id !== id) toggleHotspotActive(handle.value, h.id, false)
+          })
+
+          // For info hotspots, we trigger cinematic focus and show the custom card
           if (hs?.type === 'info' || hs?.type === 'url' || hs?.type === 'video' || hs?.type === 'youtube') {
             isFocusing.value = true
+            toggleHotspotActive(handle.value, id, true)
             await focusHotspot(handle.value, id)
           }
           emit('hotspot-click', id)

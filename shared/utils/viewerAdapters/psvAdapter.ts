@@ -25,6 +25,11 @@ export interface PsvClickPayload {
 }
 
 /** Centralized Signature: Every visual property must be represented here */
+function esc(s: string): string {
+  if (!s) return ''
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+}
+
 function hotspotSignature(hs: Hotspot): string {
   return [
     hs.yaw,
@@ -41,22 +46,141 @@ function hotspotSignature(hs: Hotspot): string {
   ].join('|')
 }
 
-function esc(s: string): string {
-  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+/** 
+ * Custom WebComponent for Hotspots 
+ * This allows us to have floating 3D cards directly above the hotspot 
+ * without using the clunky right-side panel.
+ */
+if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
+  class VieworaHotspot extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+      this.render();
+    }
+
+    static get observedAttributes() {
+      return ['label', 'description', 'icon-url', 'type', 'active'];
+    }
+
+    attributeChangedCallback() {
+      this.render();
+    }
+
+    render() {
+      const label = this.getAttribute('label') || '';
+      const desc = this.getAttribute('description') || '';
+      const iconUrl = this.getAttribute('icon-url') || '';
+      const type = this.getAttribute('type') || '';
+      const isActive = this.getAttribute('active') === 'true';
+
+      this.shadowRoot!.innerHTML = `
+        <style>
+          :host {
+            display: block;
+            position: relative;
+            user-select: none;
+          }
+          .hotspot-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+          }
+          .hotspot-container:hover {
+            transform: scale(1.1);
+          }
+          .icon-wrapper {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .icon-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+          .pulse {
+            position: absolute;
+            inset: -7px;
+            border-radius: 50%;
+            border: 2px solid rgba(99, 102, 241, 0.55);
+            animation: pulse 2.2s ease-out infinite;
+            display: ${type === 'scene_link' ? 'block' : 'none'};
+          }
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(1.65); opacity: 0; }
+          }
+          
+          /* The Floating Card */
+          .info-card {
+            position: absolute;
+            bottom: 54px;
+            left: 50%;
+            transform: translateX(-50%) translateY(${isActive ? '0' : '10px'});
+            width: 220px;
+            background: rgba(10, 12, 20, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 16px;
+            opacity: ${isActive ? '1' : '0'};
+            visibility: ${isActive ? 'visible' : 'hidden'};
+            pointer-events: ${isActive ? 'auto' : 'none'};
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+          }
+          .card-title {
+            margin: 0 0 6px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+          }
+          .card-desc {
+            margin: 0;
+            font-size: 12px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.6);
+            white-space: pre-wrap;
+          }
+        </style>
+        <div class="hotspot-container">
+          <div class="info-card">
+            ${label ? `<h3 class="card-title">${label}</h3>` : ''}
+            ${desc ? `<p class="card-desc">${desc}</p>` : ''}
+          </div>
+          <div class="icon-wrapper">
+            <div class="pulse"></div>
+            <img src="${iconUrl}" class="icon-img" draggable="false">
+          </div>
+        </div>
+      `;
+    }
+  }
+  customElements.define('viewora-hotspot', VieworaHotspot);
 }
 
-function buildMarkerHtml(hotspot: Hotspot): string {
+function buildMarkerHtml(hotspot: Hotspot, isActive = false): string {
   const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info-solid'
   const iconUrl = HOTSPOT_ICONS_BY_KEY[iconKey] || HOTSPOT_ICONS_BY_KEY['info-solid'] || ''
-  const pulse = hotspot.type === 'scene_link' ? '<span class="psv-hs-pulse" aria-hidden="true"></span>' : ''
-  return `<div class="psv-hs-marker" aria-label="${esc(hotspot.label ?? hotspot.type)}">${pulse}<img src="${iconUrl}" class="psv-hs-icon-img" draggable="false" alt=""></div>`
-}
-
-function buildInfoContent(hotspot: Hotspot): string {
-  const title = hotspot.label ? `<p class="psv-hs-panel-title">${esc(hotspot.label)}</p>` : ''
-  const desc = hotspot.description ? `<p class="psv-hs-panel-desc">${esc(hotspot.description)}</p>` : ''
-  if (!title && !desc) return ''
-  return `<div class="psv-hs-panel">${title}${desc}</div>`
+  
+  return `<viewora-hotspot 
+    label="${esc(hotspot.label || '')}" 
+    description="${esc(hotspot.description || '')}" 
+    icon-url="${iconUrl}" 
+    type="${hotspot.type}"
+    active="${isActive}"
+  ></viewora-hotspot>`
 }
 
 export function getHotspotScreenPos(
@@ -373,6 +497,18 @@ export function updateTracePolygon(handle: PsvViewerHandle | null, points: Array
     polyline: points,
     svgStyle: { fill: 'rgba(59, 130, 246, 0.3)', stroke: 'rgba(59, 130, 246, 0.8)', strokeWidth: '2px' },
   })
+}
+
+export function toggleHotspotActive(handle: PsvViewerHandle | null, id: string, active: boolean): void {
+  if (!handle?.markers) return
+  const marker = handle.markers.getMarker(id)
+  if (!marker || !marker.element) return
+  
+  // Find the custom element inside the marker
+  const customEl = marker.element.querySelector('viewora-hotspot')
+  if (customEl) {
+    customEl.setAttribute('active', active ? 'true' : 'false')
+  }
 }
 
 export async function focusHotspot(handle: PsvViewerHandle | null, id: string): Promise<void> {
