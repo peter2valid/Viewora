@@ -64,6 +64,8 @@ export default defineNuxtConfig({
     '/app/**': { ssr: false, headers: { 'Cache-Control': 'no-store' } },
     // API — no caching for authenticated data
     '/api/**': { headers: { 'Cache-Control': 'private, no-store, must-revalidate' } },
+    // PostHog proxy — never cache, always pass through to Nitro server handler
+    '/ingest/**': { cache: false },
   },
 
   nitro: {
