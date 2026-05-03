@@ -336,8 +336,8 @@ const seoTitle = computed(() => {
 })
 
 const seoDesc = computed(() => tour.value?.space.description || 'Step inside and explore this immersive 360° virtual tour. Experience every detail in high-resolution spatial reality on Viewora.')
-const seoImage = computed(() => ogImage.value)
 
+// Build SEO tags early for SSR
 useSeoMeta({
   title: seoTitle,
   description: seoDesc,
@@ -348,7 +348,8 @@ useSeoMeta({
   // OpenGraph / Facebook
   ogTitle: seoTitle,
   ogDescription: seoDesc,
-  ogImage: seoImage,
+  ogImage: computed(() => ogImage.value),
+  ogImageSecureUrl: computed(() => ogImage.value),
   ogImageType: 'image/jpeg',
   ogImageWidth: 1200,
   ogImageHeight: 630,
@@ -360,7 +361,7 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
   twitterTitle: seoTitle,
   twitterDescription: seoDesc,
-  twitterImage: seoImage,
+  twitterImage: computed(() => ogImage.value),
   twitterLabel1: 'Experience Type',
   twitterData1: '360° Virtual Reality',
   twitterLabel2: 'Platform',
