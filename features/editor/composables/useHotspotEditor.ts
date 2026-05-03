@@ -9,8 +9,8 @@ type SceneChip = { id: string; label: string; ready: boolean }
 type EditorStore = {
   mode: string
   selectedHotspotId: string | null
-  setMode: (mode: string) => void
-  setPanel: (panel: string | null) => void
+  setMode: (mode: any) => void
+  setPanel: (panel: any) => void
   selectHotspot: (id: string | null) => void
 }
 
@@ -79,7 +79,7 @@ export function useHotspotEditor(
   watch(deleteCandidate, (candidate) => {
     if (!candidate) return
     const validTargetId = sceneChips.value.some(s => s.id === candidate.targetSceneId && s.id !== candidate.sceneId)
-      ? candidate.targetSceneId
+      ? (candidate.targetSceneId || '')
       : sceneChips.value.find(s => s.id !== candidate.sceneId)?.id || ''
     editDraft.value = {
       label: candidate.label || '',

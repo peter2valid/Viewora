@@ -311,7 +311,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
+import { type EditorHotspot, mapDbHotspots } from '~/features/editor/mappers'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
@@ -381,6 +381,94 @@ const {
   inlineEditMode,
 )
 
+const sceneChips = computed(() => {
+  if (!scenes.value.length) return []
+  return scenes.value
+    .slice()
+    .sort((a, b) => {
+      const orderDiff = Number(a.order_index || 0) - Number(b.order_index || 0)
+      if (orderDiff !== 0) return orderDiff
+      return String(a.id || '').localeCompare(String(b.id || ''))
+    })
+    .map((s, idx) => {
+      const state: SceneUploadState = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
+      const badge: 'loading' | 'failed' | null = state === 'failed' ? 'failed' : state === 'ready' ? null : 'loading'
+      return {
+        id: s.id,
+        label: s.name || `Scene ${idx + 1}`,
+        ready: state === 'ready',
+        badge,
+        imageUrl: scenePreviewUrl(s),
+      }
+    })
+})
+
+const {
+  editDraft,
+  savingHotspot,
+  addingHotspot,
+  deletingHotspot,
+  quickEditHotspotId,
+  quickEditScreenPos,
+  repositioningHotspotId,
+  hotspotDraftType,
+  showTypePicker,
+  isTracing,
+  tracePoints,
+  deleteCandidate,
+  activeSceneHotspots,
+  hotspotCount,
+  activeSceneHotspotsWithPreview,
+  otherScenesForHotspot,
+  startTracing,
+  handleUpdateTrace,
+  onOpenTypePicker,
+  onTypePicked,
+  onCancelPlacement,
+  onQuickEditCancel,
+  handleViewerAddHotspot,
+  onQuickEditDone,
+  onQuickEditMore,
+  handleHotspotEdit,
+  deleteHotspot,
+  handleHotspotReposition,
+  selectHotspot,
+  patchHotspotDraft,
+  closeHotspotPanel,
+  confirmDeleteHotspot,
+  saveHotspotEdit,
+} = useHotspotEditor(
+  apiFetch,
+  editorStore,
+  inlineEditMode,
+  selectedSceneId,
+  hotspotsByScene,
+  sceneChips,
+  showToast,
+  fetchHotspots,
+)
+
+const {
+  publishing,
+  showSettingsPanel,
+  settingsDraft,
+  settingsSaving,
+  showShareModal,
+  handleTogglePublish,
+  saveSettings,
+} = useEditorPublish(
+  props.spaceId,
+  apiFetch,
+  space,
+  scenes,
+  hotspotsByScene,
+  sceneUploadStateById,
+  backendSceneStatusToUploadState,
+  fetchHotspots,
+  showToast,
+  editorStore,
+)
+
 let isMounted = false
 let fetchScenesVersion = 0
 let fetchScenesController: AbortController | null = null
@@ -394,22 +482,6 @@ const deletingScene = ref(false)
 
 const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
-const showShareModal = ref(false)
-watch(showShareModal, (open) => open ? editorStore.openModal() : editorStore.closeModal())
-watch(showSettingsPanel, (open) => {
-  if (open) {
-    const s = space.value?.property_360_settings?.[0]
-    settingsDraft.value = {
-      hfov: s?.hfov_default ?? 90,
-      yaw: s?.yaw_default ?? 0,
-      pitch: s?.pitch_default ?? 0,
-      autoRotate: s?.auto_rotate_enabled ?? false,
-    }
-    editorStore.openModal()
-  } else {
-    editorStore.closeModal()
-  }
-})
 const urlCopied = ref(false)
 
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
@@ -459,34 +531,7 @@ const selectedScene = computed(() =>
 
 const activeScene = computed(() => selectedScene.value)
 
-const activeSceneHotspots = computed(() => {
-  if (!selectedSceneId.value) return []
-  return hotspotsByScene.value[selectedSceneId.value] || []
-})
 
-// Merges the live edit draft into the selected hotspot so the viewer reflects
-// every style/content change immediately without requiring a save.
-const activeSceneHotspotsWithPreview = computed(() => {
-  const hotspots = activeSceneHotspots.value
-  const selectedId = editorStore.selectedHotspotId
-  if (!selectedId) return hotspots
-  return hotspots.map(h => {
-    if (h.id !== selectedId) return h
-    const d = editDraft.value
-    return {
-      ...h,
-      label: d.label,
-      description: d.description,
-      url: d.url,
-      targetSceneId: d.targetSceneId,
-      type: d.type as any,
-      icon: d.icon,
-      scale: d.scale,
-      hoverScale: d.hoverScale,
-      corners: d.corners,
-    }
-  })
-})
 const activePanoramaSrc = computed(() => {
   // pendingScenePreviewById may contain blob: or data: URLs created in-browser for dock thumbnails.
   // PSV uses fetch() internally which CANNOT load blob: or data: URLs.
@@ -521,41 +566,6 @@ const activeViewerScene = computed(() => {
   }
 })
 
-const hotspotCount = computed(() =>
-  Object.values(hotspotsByScene.value).reduce((sum, items) => sum + items.length, 0)
-)
-
-const sceneChips = computed(() => {
-  if (!scenes.value.length) return []
-  return scenes.value
-    .slice()
-    .sort((a, b) => {
-      const orderDiff = Number(a.order_index || 0) - Number(b.order_index || 0)
-      if (orderDiff !== 0) return orderDiff
-      return String(a.id || '').localeCompare(String(b.id || ''))
-    })
-    .map((s, idx) => {
-      const state: SceneUploadState = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
-      const badge: 'loading' | 'failed' | null = state === 'failed' ? 'failed' : state === 'ready' ? null : 'loading'
-      return {
-        id: s.id,
-        label: s.name || `Scene ${idx + 1}`,
-        ready: state === 'ready',
-        badge,
-        imageUrl: scenePreviewUrl(s),
-      }
-    })
-})
-
-const editableOtherScenes = computed(() =>
-  deleteCandidate.value ? sceneChips.value.filter((s) => s.id !== deleteCandidate.value!.sceneId) : []
-)
-
-const otherScenesForHotspot = computed(() =>
-  sceneChips.value
-    .filter(s => s.id !== selectedSceneId.value && s.ready)
-    .map(s => ({ id: s.id, label: s.label }))
-)
 
 const hasProcessingScenes = computed(() =>
   scenes.value.some((s: any) => {
@@ -584,29 +594,6 @@ watch(hasProcessingScenes, (sceneProcessing) => {
     window.onbeforeunload = null
   }
 }, { immediate: true })
-
-watch(inlineEditMode, (editing) => {
-  if (!editing) deleteCandidate.value = null
-})
-
-watch(deleteCandidate, (candidate) => {
-  if (!candidate) return
-  const validTargetId = sceneChips.value.some(
-    (s) => s.id === candidate.targetSceneId && s.id !== candidate.sceneId,
-  )
-    ? candidate.targetSceneId
-    : sceneChips.value.find((s) => s.id !== candidate.sceneId)?.id || ''
-  editDraft.value = {
-    label: candidate.label || '',
-    description: candidate.description || '',
-    url: candidate.url || '',
-    targetSceneId: validTargetId,
-    type: (candidate.type as 'info' | 'url' | 'scene_link') || 'info',
-    icon: candidate.icon || '',
-    scale: 1,
-    hoverScale: 1.3,
-  }
-})
 
 watch(renameCandidate, async (val) => {
   if (!val) { sceneDeleteConfirm.value = null; return }
@@ -640,33 +627,6 @@ async function saveRenameScene() {
     showToast(e?.data?.statusMessage || 'Failed to rename scene', 'error')
   } finally {
     renameSaving.value = false
-  }
-}
-
-async function saveSettings() {
-  if (settingsSaving.value) return
-  settingsSaving.value = true
-  const patch = {
-    hfov_default: settingsDraft.value.hfov,
-    yaw_default: settingsDraft.value.yaw,
-    pitch_default: settingsDraft.value.pitch,
-    auto_rotate_enabled: settingsDraft.value.autoRotate,
-  }
-  const prevSettings = space.value?.property_360_settings?.[0]
-  if (space.value) {
-    space.value = { ...space.value, property_360_settings: [{ ...(prevSettings ?? {}), ...patch }] }
-  }
-  showSettingsPanel.value = false
-  try {
-    await apiFetch(`/spaces/${props.spaceId}/settings`, { method: 'PATCH', body: patch })
-    showToast('Settings saved')
-  } catch (e: any) {
-    if (space.value) {
-      space.value = { ...space.value, property_360_settings: prevSettings !== undefined ? [prevSettings] : [] }
-    }
-    showToast(e?.data?.statusMessage || 'Failed to save settings', 'error')
-  } finally {
-    settingsSaving.value = false
   }
 }
 
@@ -913,403 +873,15 @@ async function selectScene(sceneId: string) {
   if (!hotspotsByScene.value[sceneId]) await fetchHotspots(sceneId)
 }
 
-function ensureSceneForEditing(): string | null {
-  return selectedSceneId.value || null
-}
-
-function resolveTargetSceneId(currentSceneId: string) {
-  if (hotspotTargetSceneId.value && hotspotTargetSceneId.value !== currentSceneId) return hotspotTargetSceneId.value
-  const ordered = sceneChips.value.map((s: any) => s.id)
-  if (ordered.length < 2) return null
-  const idx = ordered.findIndex((id: string) => id === currentSceneId)
-  if (idx === -1) return ordered[0]
-  const next = ordered[(idx + 1) % ordered.length]
-  return next === currentSceneId ? null : next
-}
-
-async function handleViewerAddHotspot({ yaw, pitch, screenX, screenY }: { yaw: number; pitch: number; screenX: number; screenY: number }) {
-  if (repositioningHotspotId.value) {
-    await repositionHotspot(repositioningHotspotId.value, yaw, pitch)
-    return
-  }
-  if (addingHotspot.value) return
-
-  const sceneId = ensureSceneForEditing() as string | null
-  if (!sceneId) {
-    showToast('Create or upload a scene first.', 'error')
-    return
-  }
-
-  const type = hotspotDraftType.value
-  const targetSceneId = type === 'scene_link' ? (resolveTargetSceneId(sceneId) ?? '') : ''
-
-  if (type === 'scene_link' && !targetSceneId) {
-    showToast('Add another scene first, then place a scene-link hotspot.', 'error')
-    return
-  }
-
-  const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-  const optimisticEntry: EditorHotspot = {
-    id: tempId,
-    yaw,
-    pitch,
-    type,
-    label: type === 'scene_link' ? 'Go to next room' : '',
-    url: '',
-    targetSceneId,
-    description: '',
-    _pending: true,
-  }
-
-  hotspotsByScene.value = {
-    ...hotspotsByScene.value,
-    [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), optimisticEntry],
-  }
-
-  editDraft.value = {
-    label: optimisticEntry.label || '',
-    description: '',
-    url: '',
-    targetSceneId,
-    type,
-    icon: '',
-    scale: 1,
-    hoverScale: 1.3,
-  }
-  editorStore.selectHotspot(tempId)
-  quickEditHotspotId.value = tempId
-  quickEditScreenPos.value = { x: screenX, y: screenY }
-  editorStore.setMode('view')
-}
-
-function onOpenTypePicker() {
-  showTypePicker.value = true
-}
-
-function onTypePicked(userType: 'move' | 'info' | 'media' | 'link') {
-  showTypePicker.value = false
-  const typeMap = { move: 'scene_link', info: 'info', media: 'video', link: 'url' } as const
-  hotspotDraftType.value = typeMap[userType]
-  editorStore.setMode('hotspot')
-}
-
-function onCancelPlacement() {
-  editorStore.setMode('view')
-}
-
-function onQuickEditCancel() {
-  const id = quickEditHotspotId.value
-  quickEditHotspotId.value = null
-  if (id) {
-    const sceneId = selectedSceneId.value
-    const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
-    if (hs?._pending) {
-      hotspotsByScene.value = {
-        ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id),
-      }
-    }
-  }
-  editorStore.selectHotspot(null)
-}
-
-function buildHotspotPayload(d: typeof editDraft.value, hs: EditorHotspot) {
-  const payload: any = {
-    type: d.type,
-    yaw: hs.yaw,
-    pitch: hs.pitch,
-    label: d.label.trim() || (d.type === 'scene_link' ? 'Go to next room' : 'Info hotspot'),
-  }
-  if (d.type === 'info') {
-    payload.content = { text: d.description.trim() || '' }
-  } else if (d.type === 'url') {
-    payload.content = { url: d.url.trim(), button_label: 'Open link' }
-  } else if (d.type === 'video' || d.type === 'youtube') {
-    payload.content = { url: d.url.trim() }
-  } else if (d.type === 'scene_link') {
-    payload.target_scene_id = d.targetSceneId
-  }
-
-  if (d.icon) {
-    payload.content = { ...(payload.content ?? {}), icon: d.icon }
-  }
-  if (d.scale !== 1) {
-    payload.content = { ...(payload.content ?? {}), scale: Number(d.scale) }
-  }
-  if (d.hoverScale !== 1.3) {
-    payload.content = { ...(payload.content ?? {}), hoverScale: Number(d.hoverScale) }
-  }
-  if (d.corners && d.corners.length === 4) {
-    payload.content = { ...(payload.content ?? {}), corners: d.corners }
-  }
-
-  return payload
-}
-
-async function onQuickEditDone() {
-  const id = quickEditHotspotId.value
-  quickEditHotspotId.value = null
-  if (!id) return
-  const sceneId = selectedSceneId.value
-
-  if (isLocalSceneId(sceneId)) {
-    const d = editDraft.value
-    hotspotsByScene.value = {
-      ...hotspotsByScene.value,
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h =>
-        h.id === id ? { ...h, ...d, _pending: true } : h
-      ),
-    }
-    showToast('Hotspot saved locally. It will sync when upload completes.')
-    editorStore.selectHotspot(null)
-    return
-  }
-
-  const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
-  if (!hs) return
-  const beforeCount = hotspotCount.value
-  addingHotspot.value = true
-  try {
-    const response = await apiFetch<any>(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(editDraft.value, hs) })
-    const created = unwrapApiData<any>(response)?.hotspot || response?.hotspot
-    if (created) {
-      const mapped = mapDbHotspot(created)
-      hotspotsByScene.value = {
-        ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id).concat([mapped]),
-      }
-      showToast(beforeCount === 0 ? 'Your tour is now interactive' : 'Hotspot added')
-    }
-  } catch (e: any) {
-    hotspotsByScene.value = {
-      ...hotspotsByScene.value,
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id),
-    }
-    showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
-  } finally {
-    addingHotspot.value = false
-    editorStore.selectHotspot(null)
-  }
-}
-
-async function onQuickEditMore() {
-  const id = quickEditHotspotId.value
-  quickEditHotspotId.value = null
-  if (!id) return
-  const sceneId = selectedSceneId.value
-
-  if (isLocalSceneId(sceneId)) {
-    const d = editDraft.value
-    hotspotsByScene.value = {
-      ...hotspotsByScene.value,
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h =>
-        h.id === id ? { ...h, ...d, _pending: true } : h
-      ),
-    }
-    editorStore.selectHotspot(id)
-    editorStore.setPanel('hotspots')
-    return
-  }
-
-  const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
-  if (!hs) return
-  addingHotspot.value = true
-  try {
-    const response = await apiFetch<any>(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(editDraft.value, hs) })
-    const created = unwrapApiData<any>(response)?.hotspot || response?.hotspot
-    if (created) {
-      const mapped = mapDbHotspot(created)
-      hotspotsByScene.value = {
-        ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id).concat([mapped]),
-      }
-      selectHotspot(mapped.id)
-      editorStore.setPanel('hotspots')
-    }
-  } catch (e: any) {
-    hotspotsByScene.value = {
-      ...hotspotsByScene.value,
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id),
-    }
-    showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
-    editorStore.selectHotspot(null)
-  } finally {
-    addingHotspot.value = false
-  }
-}
-
 function handleHotspotClick(id: string) {
-  // In editor mode the radial menu handles clicks — only preview mode needs this
   if (!isPreviewMode.value) return
-  const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
+  const hotspot = activeSceneHotspots.value.find(h => h.id === id)
   if (!hotspot) return
   if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
-    selectScene(hotspot.targetSceneId)
+    void selectScene(hotspot.targetSceneId)
     showToast('Moved to linked scene')
   } else if (hotspot.type === 'url' && hotspot.url) {
     window.open(hotspot.url, '_blank', 'noopener,noreferrer')
-  }
-}
-
-function handleHotspotEdit(id: string) {
-  selectHotspot(id)
-  editorStore.setPanel('hotspots')
-  editorStore.setMode('view')
-}
-
-async function deleteHotspot(id: string) {
-  if (!id || deletingHotspot.value) return
-  const sceneId = selectedSceneId.value
-  deletingHotspot.value = true
-  hotspotsByScene.value = {
-    ...hotspotsByScene.value,
-    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter((h) => h.id !== id),
-  }
-  editorStore.selectHotspot(null)
-  try {
-    await apiFetch(`/hotspots/${id}`, { method: 'DELETE' })
-    showToast('Hotspot deleted')
-  } catch (e: any) {
-    await fetchHotspots(sceneId)
-    showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
-  } finally {
-    deletingHotspot.value = false
-  }
-}
-
-function handleHotspotReposition(id: string) {
-  repositioningHotspotId.value = id
-  editorStore.setMode('hotspot')
-  showToast('Click anywhere to reposition the hotspot')
-}
-
-async function repositionHotspot(id: string, yaw: number, pitch: number) {
-  const sceneId = selectedSceneId.value
-  repositioningHotspotId.value = null
-  editorStore.setMode('view')
-  hotspotsByScene.value = {
-    ...hotspotsByScene.value,
-    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, yaw, pitch } : h),
-  }
-  try {
-    await apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch } })
-    showToast('Hotspot repositioned')
-  } catch (e: any) {
-    await fetchHotspots(sceneId)
-    showToast(e?.data?.statusMessage || 'Failed to reposition hotspot', 'error')
-  }
-}
-
-function selectHotspot(id: string | null) {
-  editorStore.selectHotspot(id)
-  if (!id) return
-
-  const hotspot = activeSceneHotspots.value.find((h) => h.id === id)
-  if (hotspot) {
-    editDraft.value = {
-      label: hotspot.label || '',
-      description: hotspot.description || '',
-      url: hotspot.url || '',
-      targetSceneId: hotspot.targetSceneId || '',
-      type: (hotspot.type as any) || 'info',
-      icon: hotspot.icon || '',
-      scale: hotspot.scale || 1,
-      hoverScale: hotspot.hoverScale || 1.3,
-      corners: hotspot.corners,
-    }
-  }
-}
-
-function patchHotspotDraft(patch: Partial<typeof editDraft.value>) {
-  editDraft.value = { ...editDraft.value, ...patch }
-}
-
-function closeHotspotPanel() {
-  editorStore.setPanel(null)
-  editorStore.setMode('view')
-  editorStore.selectHotspot(null)
-}
-
-function confirmDeleteHotspot() {
-  const id = editorStore.selectedHotspotId
-  if (id) deleteHotspot(id)
-}
-
-async function saveHotspotEdit() {
-  const id = editorStore.selectedHotspotId
-  if (!id || savingHotspot.value) return
-  
-  savingHotspot.value = true
-  const sceneId = selectedSceneId.value
-  const newType = editDraft.value.type
-  const patch: any = {}
-  
-  const trimmedLabel = editDraft.value.label.trim()
-  patch.label = trimmedLabel || (newType === 'scene_link' ? 'Go to next room' : 'Info hotspot')
-  
-  if (newType === 'info') {
-    patch.content = { text: editDraft.value.description.trim() || 'Point of interest' }
-  } else if (newType === 'url') {
-    patch.content = { url: editDraft.value.url.trim(), button_label: 'Open link' }
-  } else if (newType === 'video' || newType === 'youtube') {
-    patch.content = { url: editDraft.value.url.trim() }
-  } else if (newType === 'scene_link') {
-    if (editDraft.value.targetSceneId) patch.target_scene_id = editDraft.value.targetSceneId
-  }
-
-  if (editDraft.value.icon) {
-    patch.content = { ...(patch.content ?? {}), icon: editDraft.value.icon }
-  }
-  
-  if (editDraft.value.scale !== 1) {
-    patch.content = { ...(patch.content ?? {}), scale: Number(editDraft.value.scale) }
-  }
-
-  if (editDraft.value.hoverScale !== 1.3) {
-    patch.content = { ...(patch.content ?? {}), hoverScale: Number(editDraft.value.hoverScale) }
-  }
-
-  if (editDraft.value.corners) {
-    patch.content = { ...(patch.content ?? {}), corners: editDraft.value.corners }
-  }
-
-  patch.type = newType
-
-  // Optimistic update
-  hotspotsByScene.value = {
-    ...hotspotsByScene.value,
-    [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((h) =>
-      h.id !== id ? h : {
-        ...h,
-        type: newType,
-        label: patch.label,
-        description: patch.content?.text,
-        url: patch.content?.url,
-        targetSceneId: patch.target_scene_id,
-        icon: editDraft.value.icon || undefined,
-        scale: Number(editDraft.value.scale),
-        hoverScale: Number(editDraft.value.hoverScale),
-        corners: editDraft.value.corners,
-      }
-    ),
-  }
-
-  try {
-    const res = await apiFetch<any>(`/hotspots/${id}`, { method: 'PATCH', body: patch })
-    const updated = unwrapApiData<any>(res)?.hotspot || res?.hotspot
-    if (updated) {
-      const mapped = mapDbHotspot(updated)
-      hotspotsByScene.value = {
-        ...hotspotsByScene.value,
-        [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map((h) => h.id === id ? mapped : h),
-      }
-    }
-    showToast('Hotspot updated')
-  } catch (e: any) {
-    await fetchHotspots(sceneId)
-    showToast(e?.data?.statusMessage || 'Failed to update hotspot', 'error')
-  } finally {
-    savingHotspot.value = false
   }
 }
 
@@ -1344,137 +916,6 @@ async function fetchSpace(silent = false) {
     if (!silent) showToast('Failed to load space data', 'error')
   }
 }
-
-function validateTourHealth() {
-  const issues: { type: 'error' | 'warning'; message: string; sceneId?: string }[] = []
-  
-  if (scenes.value.length === 0) {
-    issues.push({ type: 'error', message: 'Your tour has no scenes. Add at least one scene first.' })
-    return issues
-  }
-
-  // 1. Check for ready state — All scenes must be ready in a DaVinci-grade tour
-  const notReady = scenes.value.filter(s => {
-    const state = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
-    return state !== 'ready'
-  })
-  if (notReady.length > 0) {
-    issues.push({ 
-      type: 'error', 
-      message: `${notReady.length} scene${notReady.length > 1 ? 's are' : ' is'} still processing. Wait for them to finish.` 
-    })
-  }
-
-  // 2. Broken Links
-  const sceneIds = new Set(scenes.value.map(s => s.id))
-  let brokenCount = 0
-  for (const hotspots of Object.values(hotspotsByScene.value)) {
-    for (const h of hotspots as EditorHotspot[]) {
-      if (h.type === 'scene_link' && h.targetSceneId && !sceneIds.has(h.targetSceneId)) {
-        brokenCount++
-      }
-    }
-  }
-  if (brokenCount > 0) {
-    issues.push({ type: 'error', message: `${brokenCount} scene link${brokenCount > 1 ? 's' : ''} point to deleted rooms. Fix them first.` })
-  }
-
-  // 3. Connectivity (Unreachable Scenes)
-  const sortedScenes = [...scenes.value].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-  const rootId = sortedScenes[0]?.id
-  if (rootId) {
-    const reachable = new Set<string>([rootId])
-    const queue = [rootId]
-    
-    while (queue.length > 0) {
-      const currentId = queue.shift()!
-      const hotspots = hotspotsByScene.value[currentId] || []
-      for (const h of hotspots) {
-        if (h.type === 'scene_link' && h.targetSceneId && sceneIds.has(h.targetSceneId)) {
-          if (!reachable.has(h.targetSceneId)) {
-            reachable.add(h.targetSceneId)
-            queue.push(h.targetSceneId)
-          }
-        }
-      }
-    }
-    
-    const unreachable = scenes.value.filter(s => !reachable.has(s.id))
-    if (unreachable.length > 0) {
-      issues.push({ 
-        type: 'warning', 
-        message: `${unreachable.length} room${unreachable.length > 1 ? 's are' : ' is'} unreachable from the start. Add links to them.` 
-      })
-    }
-  }
-
-  // 4. Dead Ends
-  if (scenes.value.length > 1) {
-    const deadEnds = scenes.value.filter(s => {
-      const hotspots = hotspotsByScene.value[s.id] || []
-      return !hotspots.some(h => h.type === 'scene_link')
-    })
-    if (deadEnds.length > 0) {
-      issues.push({ 
-        type: 'warning', 
-        message: `${deadEnds.length} room${deadEnds.length > 1 ? 's have' : ' has'} no way to leave. Add an arrow back or to another room.` 
-      })
-    }
-  }
-
-  return issues
-}
-
-async function handleTogglePublish() {
-  publishing.value = true
-  try {
-    const isLive = space.value.is_published
-    if (!isLive) {
-      // Eagerly load hotspots for any backend scene the user never visited so the
-      // broken-link and connectivity scan covers the full tour, not just what is in memory.
-      const unloadedScenes = scenes.value.filter(
-        (s: any) => !isLocalSceneId(s.id) && hotspotsByScene.value[s.id] === undefined,
-      )
-      if (unloadedScenes.length) {
-        await Promise.all(unloadedScenes.map((s: any) => fetchHotspots(s.id)))
-      }
-
-      const issues = validateTourHealth()
-      const errors = issues.filter(i => i.type === 'error')
-      const warnings = issues.filter(i => i.type === 'warning')
-
-      if (errors.length > 0) {
-        showToast(errors[0].message, 'error')
-        return
-      }
-
-      if (warnings.length > 0) {
-        // For warnings, we show them as errors for now to enforce quality,
-        // but we could make this a "Publish anyway" choice later.
-        showToast(warnings[0].message, 'error')
-        return
-      }
-    }
-    const updated = await apiFetch<any>(`/spaces/${props.spaceId}/publish`, {
-      method: 'POST',
-      body: {
-        publish: !isLive,
-        slug: space.value?.slug,
-        lead_form_enabled: space.value.lead_form_enabled,
-        branding_enabled: space.value.branding_enabled,
-      },
-    })
-    space.value = updated
-    if (!isLive) showShareModal.value = true
-    else showToast('Tour unpublished')
-  } catch (e: any) {
-    showToast(e.data?.statusMessage || 'Publishing failed', 'error')
-  } finally {
-    publishing.value = false
-  }
-}
-
-
 
 // Expose for new UI components that need to read/drive editor state
 defineExpose({
