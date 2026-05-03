@@ -330,13 +330,21 @@ function resetLead() {
 
 // ── SEO ────────────────────────────────────────────────────────
 
-const seoTitle = computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Virtual Tour — Viewora')
-const seoDesc = computed(() => tour.value?.space.description || 'Experience this property in 360° immersive virtual reality on Viewora.')
+const seoTitle = computed(() => {
+  const name = tour.value?.space.title || 'Virtual Tour'
+  return `Experience 360° Virtual Tour: ${name} | Viewora — Immersive Spatial Reality`
+})
+
+const seoDesc = computed(() => tour.value?.space.description || 'Step inside and explore this immersive 360° virtual tour. Experience every detail in high-resolution spatial reality on Viewora.')
 const seoImage = computed(() => ogImage.value)
 
 useSeoMeta({
   title: seoTitle,
   description: seoDesc,
+  keywords: computed(() => {
+    const base = '360 virtual tour, VR experience, virtual reality, immersive tour, spatial reality, Viewora'
+    return tour.value ? `${tour.value.space.title}, ${tour.value.space.space_type || 'property'}, ${base}` : base
+  }),
   // OpenGraph
   ogTitle: seoTitle,
   ogDescription: seoDesc,
