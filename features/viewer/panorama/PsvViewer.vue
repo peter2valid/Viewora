@@ -208,18 +208,20 @@ async function initWithScene(scene: TourScene) {
         emit('error', err)
       },
       onClick: (payload) => {
-        // Canvas click: close locked menu, then handle add/trace
-        if (menu.locked) { closeMenu(); return }
-        
-        // Clear active hotspots when clicking background
-        if (handle.value) {
+        // Clear active hotspots (public viewer)
+        if (handle.value && !props.isEditing) {
           props.hotspots?.forEach(h => toggleHotspotActive(handle.value, h.id, false))
         }
 
+        // Close editor menu but DON'T return — continue to allow adding the hotspot
+        if (menu.locked) { closeMenu() }
+        
         isFocusing.value = false
+        
         if (props.isTracing) {
           emit('update-trace', payload)
         } else if (props.isEditing) {
+          // In editor mode, we want to add a hotspot immediately on click
           emit('add-hotspot', payload)
         }
       },
