@@ -466,6 +466,10 @@ onUnmounted(() => {
 }
 
 /* ── Hotspot marker base ─────────────────────────── */
+:global(.psv-marker) {
+  overflow: visible !important; /* Prevent clipping of floating cards */
+}
+
 :global(.psv-hs-marker) {
   position: relative;
   display: flex;

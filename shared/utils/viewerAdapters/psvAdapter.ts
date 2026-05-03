@@ -81,13 +81,18 @@ if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
         <style>
           :host {
             display: block;
+            width: 100%;
+            height: 100%;
             position: relative;
             user-select: none;
           }
           .hotspot-container {
+            width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             cursor: pointer;
             filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
             transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -97,8 +102,8 @@ if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
           }
           .icon-wrapper {
             position: relative;
-            width: 44px;
-            height: 44px;
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -110,7 +115,7 @@ if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
           }
           .pulse {
             position: absolute;
-            inset: -7px;
+            inset: -15%;
             border-radius: 50%;
             border: 2px solid rgba(99, 102, 241, 0.55);
             animation: pulse 2.2s ease-out infinite;
@@ -124,33 +129,34 @@ if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
           /* The Floating Card */
           .info-card {
             position: absolute;
-            bottom: 54px;
+            bottom: 120%;
             left: 50%;
             transform: translateX(-50%) translateY(${isActive ? '0' : '10px'});
             width: 220px;
-            background: rgba(10, 12, 20, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(10, 12, 20, 0.9);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 16px;
             padding: 16px;
             opacity: ${isActive ? '1' : '0'};
             visibility: ${isActive ? 'visible' : 'hidden'};
             pointer-events: ${isActive ? 'auto' : 'none'};
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            z-index: 100;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            z-index: 9999;
           }
           .card-title {
             margin: 0 0 6px 0;
             font-size: 14px;
             font-weight: 700;
             color: #fff;
+            line-height: 1.2;
           }
           .card-desc {
             margin: 0;
             font-size: 12px;
             line-height: 1.5;
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255, 255, 255, 0.7);
             white-space: pre-wrap;
           }
         </style>
@@ -161,7 +167,7 @@ if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
           </div>
           <div class="icon-wrapper">
             <div class="pulse"></div>
-            <img src="${iconUrl}" class="icon-img" draggable="false">
+            <img src="${iconUrl}" class="icon-img" draggable="false" loading="eager">
           </div>
         </div>
       `;
