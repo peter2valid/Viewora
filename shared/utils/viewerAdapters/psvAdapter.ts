@@ -202,7 +202,7 @@ export async function initViewer(
   }
 }
 
-export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene): Promise<void> {
+export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene, hotspots?: Hotspot[]): Promise<void> {
   if (!handle?.viewer || !scene.imageUrl) return
 
   handle.markers.clearMarkers()
@@ -223,14 +223,18 @@ export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene
       position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
       transition: { speed: 1000, rotation: true, effect: 'black' },
     })
-    return
+  } else {
+    await handle.viewer.setPanorama(buildPanorama(scene), {
+      showLoader: false,
+      position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
+      transition: { speed: 1000, rotation: true, effect: 'black' },
+    })
   }
 
-  await handle.viewer.setPanorama(buildPanorama(scene), {
-    showLoader: false,
-    position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
-    transition: { speed: 1000, rotation: true, effect: 'black' },
-  })
+  // Enforce hotspots after panorama is set
+  if (hotspots?.length) {
+    syncHotspots(handle, hotspots, true)
+  }
 }
 
 export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): void {
@@ -324,11 +328,16 @@ export function removeHotspot(handle: PsvViewerHandle | null, id: string): void 
   handle.markerSignatures?.delete(id)
 }
 
-export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[]): void {
+export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[], force = false): void {
   if (!handle?.markers) return
 
   const nextById = new Map<string, Hotspot>()
   hotspots.forEach(hs => { if (hs?.id) nextById.set(hs.id, hs) })
+
+  // If forced, clear signatures to ensure all markers are re-added
+  if (force) {
+    handle.markerSignatures.clear()
+  }
 
   for (const existingId of Array.from(handle.markerSignatures.keys())) {
     if (!nextById.has(existingId)) removeHotspot(handle, existingId)

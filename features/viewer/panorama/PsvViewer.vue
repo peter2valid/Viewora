@@ -277,9 +277,14 @@ watch(
     closeMenu()
     isFocusing.value = false
     try {
-      await loadScene(handle.value, next)
+      await loadScene(handle.value, next, props.hotspots ?? [])
       state.value = 'ready'
-      syncHotspots(handle.value, props.hotspots ?? [])
+      // Second enforcement check after a short delay for safety
+      setTimeout(() => {
+        if (handle.value && props.hotspots) {
+          syncHotspots(handle.value, props.hotspots, true)
+        }
+      }, 300)
       void nudgeRender(handle.value)
     } catch (err: any) {
       state.value = 'error'
@@ -292,7 +297,7 @@ watch(
 watch(
   () => props.hotspots,
   (next) => {
-    if (state.value !== 'ready') return
+    if (state.value !== 'ready' || !handle.value) return
     if (hotspotSyncTimer) clearTimeout(hotspotSyncTimer)
     hotspotSyncTimer = setTimeout(() => {
       syncHotspots(handle.value, next ?? [])
