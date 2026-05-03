@@ -11,10 +11,17 @@ export default defineNuxtPlugin({
     const authStore = useAuthStore()
     const planStore = usePlanStore()
 
-    if (user.value) {
+    const route = useRoute()
+    const isPublicTour = route.path.startsWith('/p/')
+
+    if (user.value && !isPublicTour) {
       authStore.setUser(user.value)
       planStore.fetchSubscriptionStatus().catch(() => {})
       authStore.fetchProfile().catch(() => {})
+    } else if (user.value) {
+      // Still set the user state so we know they are logged in, 
+      // but don't fetch heavy metadata on the tour viewer.
+      authStore.setUser(user.value)
     }
 
     // Re-sync on auth state changes

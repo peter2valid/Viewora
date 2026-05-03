@@ -394,7 +394,7 @@ useHead({
   ],
   meta: [
     { name: 'theme-color', content: '#0a0a0a' },
-    { name: 'apple-mobile-web-app-capable', content: 'yes' },
+    { name: 'mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
     { name: 'pinterest', content: 'nopin', data_pin_description: seoDesc.value },
     { property: 'og:image:alt', content: computed(() => `360° Virtual Tour of ${tour.value?.space.title || 'Property'}`) }
