@@ -330,43 +330,39 @@ function resetLead() {
 
 // ── SEO ────────────────────────────────────────────────────────
 
+const seoTitle = computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Virtual Tour — Viewora')
+const seoDesc = computed(() => tour.value?.space.description || 'Experience this property in 360° immersive virtual reality on Viewora.')
+const seoImage = computed(() => ogImage.value)
+
 useSeoMeta({
-  title: computed(() =>
-    tour.value ? `${tour.value.space.title} — Viewora` : 'Virtual Tour — Viewora'
-  ),
-  description: computed(() =>
-    tour.value?.space.description
-    ?? 'Explore this immersive 360° virtual tour on Viewora.'
-  ),
-  ogTitle: computed(() =>
-    tour.value ? `${tour.value.space.title} — Viewora` : 'Virtual Tour — Viewora'
-  ),
-  ogDescription: computed(() =>
-    tour.value?.space.description
-    ?? 'Experience this property in 360° on Viewora.'
-  ),
-  ogImage,
+  title: seoTitle,
+  description: seoDesc,
+  // OpenGraph
+  ogTitle: seoTitle,
+  ogDescription: seoDesc,
+  ogImage: seoImage,
   ogType: 'website',
+  ogSiteName: 'Viewora',
+  ogUrl: shareUrl,
+  // Twitter
   twitterCard: 'summary_large_image',
-  twitterTitle: computed(() =>
-    tour.value ? `${tour.value.space.title} — Viewora` : 'Virtual Tour — Viewora'
-  ),
-  twitterDescription: computed(() =>
-    tour.value?.space.description ?? 'Immersive 360° virtual tour on Viewora.'
-  ),
-  twitterImage: ogImage,
+  twitterTitle: seoTitle,
+  twitterDescription: seoDesc,
+  twitterImage: seoImage,
 })
 
-useHead(computed(() => {
-  const thumbUrl = tour.value?.scenes?.[0]?.thumbnail_url
-  const links: any[] = [
-    { rel: 'canonical', href: `${runtimeConfig.public.marketingUrl}/p/${slug}` },
+useHead({
+  title: seoTitle,
+  link: [
+    { rel: 'canonical', href: shareUrl.value },
+    { rel: 'icon', type: 'image/png', href: '/favicon.png' }
+  ],
+  meta: [
+    { name: 'theme-color', content: '#0a0a0a' },
+    { name: 'apple-mobile-web-app-capable', content: 'yes' },
+    { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
   ]
-  if (thumbUrl) {
-    links.push({ rel: 'preload', as: 'image' as const, href: thumbUrl })
-  }
-  return { link: links }
-}))
+})
 </script>
 
 <style scoped>
