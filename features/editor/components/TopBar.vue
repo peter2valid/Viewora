@@ -61,14 +61,15 @@
 
           <button
             @click="$emit('toggle-publish')"
-            :disabled="publishing || editorStore.isSaving"
+            :disabled="publishing || editorStore.isSaving || hasProcessingScenes"
             class="inline-flex items-center justify-center gap-2 h-8 px-3 sm:px-4 rounded-lg text-[11px] sm:text-[12px] font-semibold transition-all duration-[160ms] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             :class="isPublished
               ? 'bg-white/[0.08] text-gray-200 border border-white/[0.15] hover:bg-white/[0.12]'
               : 'bg-blue-600 text-white hover:bg-blue-500'"
+            :title="hasProcessingScenes ? 'Scenes are still processing…' : undefined"
           >
             <span
-              v-if="publishing || editorStore.isSaving"
+              v-if="publishing || editorStore.isSaving || hasProcessingScenes"
               class="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin"
             ></span>
             <template v-else>
@@ -90,6 +91,7 @@ defineProps<{
   spaceName: string
   isPublished: boolean
   publishing: boolean
+  hasProcessingScenes?: boolean
   spaceId?: string
   slug?: string
 }>()
