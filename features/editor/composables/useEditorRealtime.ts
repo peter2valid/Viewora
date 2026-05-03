@@ -24,21 +24,12 @@ export function useEditorRealtime(
       .channel(`space:${spaceId}:scenes`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'scenes', filter: `property_id=eq.${spaceId}` },
+        { event: '*', schema: 'public', table: 'scenes', filter: `space_id=eq.${spaceId}` },
         refreshSoon,
       )
       .subscribe()
 
-    const hotspotsChannel = supabase
-      .channel(`space:${spaceId}:hotspots`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'hotspots', filter: `property_id=eq.${spaceId}` },
-        refreshSoon,
-      )
-      .subscribe()
-
-    channels = [scenesChannel, hotspotsChannel]
+    channels = [scenesChannel]
   }
 
   function stop() {
