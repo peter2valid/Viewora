@@ -51,7 +51,7 @@ function hotspotSignature(hs: Hotspot): string {
  * This allows us to have floating 3D cards directly above the hotspot 
  * without using the clunky right-side panel.
  */
-if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
+if (typeof window !== 'undefined' && window.customElements && !window.customElements.get('viewora-hotspot')) {
   class VieworaHotspot extends HTMLElement {
     constructor() {
       super();
@@ -142,7 +142,7 @@ if (typeof window !== 'undefined' && !customElements.get('viewora-hotspot')) {
       `;
     }
   }
-  customElements.define('viewora-hotspot', VieworaHotspot);
+  window.customElements.define('viewora-hotspot', VieworaHotspot);
 }
 
 function buildMarkerHtml(hotspot: Hotspot, isActive = false): string {

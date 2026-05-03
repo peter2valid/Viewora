@@ -470,6 +470,14 @@ onUnmounted(() => {
   overflow: visible !important; /* Prevent clipping of floating cards */
 }
 
+/* Safety net: Ensure the custom element tag is never 0x0px */
+:global(viewora-hotspot) {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+}
+
 :global(.psv-hs-marker) {
   position: relative;
   display: flex;
