@@ -345,18 +345,26 @@ useSeoMeta({
     const base = '360 virtual tour, VR experience, virtual reality, immersive tour, spatial reality, Viewora'
     return tour.value ? `${tour.value.space.title}, ${tour.value.space.space_type || 'property'}, ${base}` : base
   }),
-  // OpenGraph
+  // OpenGraph / Facebook
   ogTitle: seoTitle,
   ogDescription: seoDesc,
   ogImage: seoImage,
+  ogImageType: 'image/jpeg',
+  ogImageWidth: 1200,
+  ogImageHeight: 630,
   ogType: 'website',
   ogSiteName: 'Viewora',
   ogUrl: shareUrl,
+  ogLocale: 'en_US',
   // Twitter
   twitterCard: 'summary_large_image',
   twitterTitle: seoTitle,
   twitterDescription: seoDesc,
   twitterImage: seoImage,
+  twitterLabel1: 'Experience Type',
+  twitterData1: '360° Virtual Reality',
+  twitterLabel2: 'Platform',
+  twitterData2: 'Viewora Spatial Engine'
 })
 
 useHead({
@@ -368,7 +376,39 @@ useHead({
   meta: [
     { name: 'theme-color', content: '#0a0a0a' },
     { name: 'apple-mobile-web-app-capable', content: 'yes' },
-    { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
+    { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+    { name: 'pinterest', content: 'nopin', data_pin_description: seoDesc.value },
+    { property: 'og:image:alt', content: computed(() => `360° Virtual Tour of ${tour.value?.space.title || 'Property'}`) }
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      children: computed(() => {
+        if (!tour.value) return '{}'
+        const s = tour.value.space
+        return JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'RealEstateListing',
+          'name': s.title,
+          'description': s.description || seoDesc.value,
+          'url': shareUrl.value,
+          'image': ogImage.value,
+          'datePosted': s.created_at,
+          'address': {
+            '@type': 'PostalAddress',
+            'streetAddress': (s as any).location_text || 'Available on request',
+          },
+          'subjectOf': {
+            '@type': 'Place',
+            'name': s.title,
+            'photo': ogImage.value,
+            'hasDriveThroughService': false,
+            'publicAccess': true,
+            'additionalType': 'http://www.productontology.org/id/Virtual_tour'
+          }
+        })
+      })
+    }
   ]
 })
 </script>
