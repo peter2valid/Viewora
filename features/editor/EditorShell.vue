@@ -1,6 +1,18 @@
 <template>
   <div class="editor-shell">
 
+    <!-- Full-screen error overlay when initial space load fails -->
+    <div v-if="spaceLoadFailed" class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-gray-950 gap-4">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <p class="text-white/60 text-sm font-medium">Failed to load tour — check your connection</p>
+      <button
+        class="px-4 h-9 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition-colors"
+        @click="fetchSpace(false)"
+      >Retry</button>
+    </div>
+
     <!-- Hidden file input — triggered by ViewerCanvas "Choose File" (empty state) -->
     <input
       ref="canvasFileInput"
@@ -473,6 +485,7 @@ const {
 let isMounted = false
 let fetchScenesVersion = 0
 let fetchScenesController: AbortController | null = null
+const spaceLoadFailed = ref(false)
 
 const renameCandidate = ref<{ id: string; name: string } | null>(null)
 const renameDraft = ref('')
@@ -838,7 +851,7 @@ async function fetchScenes() {
   } catch (err: any) {
     if (isAbortError(err)) return
     fetchScenesController = null
-    // Keep existing scenes/previews on transient backend errors.
+    showToast('Could not refresh scenes — showing last known state', 'error')
   }
 }
 
@@ -908,12 +921,14 @@ function statusBadgeClass(status?: string) {
 async function fetchSpace(silent = false) {
   try {
     const data = await apiFetch<any>(`/spaces/${props.spaceId}`)
+    spaceLoadFailed.value = false
     space.value = data
 
     await fetchScenes()
 
     if (!selectedSceneId.value && scenes.value.length) selectedSceneId.value = scenes.value[0].id
   } catch (e: any) {
+    if (!space.value) spaceLoadFailed.value = true
     if (!silent) showToast('Failed to load space data', 'error')
   }
 }
