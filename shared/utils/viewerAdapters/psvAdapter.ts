@@ -88,7 +88,8 @@ function buildPanorama(scene: TourScene) {
     !!scene.tileManifestUrl &&
     !!scene.tileCols &&
     !!scene.tileRows &&
-    scene.tilesReady === true
+    scene.tilesReady === true &&
+    (scene.width || 0) > 4096
 
   if (hasTiles) {
     return {
@@ -120,7 +121,8 @@ export async function initViewer(
     !!scene.tileManifestUrl &&
     !!scene.tileCols &&
     !!scene.tileRows &&
-    scene.tilesReady === true
+    scene.tilesReady === true &&
+    (scene.width || 0) > 4096
 
   const plugins: any[] = [
     [MarkersPlugin, { clickEventOnMarker: false }],
@@ -138,7 +140,7 @@ export async function initViewer(
     defaultPitch: scene.settings.pitch_default,
     navbar: false,
     touchmoveTwoFingers: false,
-    fisheye: !isEditing,
+    fisheye: false,
     plugins,
   })
 
