@@ -354,7 +354,6 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 
   if (!isLayerType) {
     const labelText   = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
-    const contentHtml = !handle.isEditing && hotspot.type === 'info' ? buildInfoContent(hotspot) : undefined
     const baseSize    = scale * 44
 
     handle.markers.addMarker({
@@ -364,7 +363,6 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       size: { width: baseSize, height: baseSize },
       anchor: 'center center',
       tooltip: labelText ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
-      ...(contentHtml ? { content: contentHtml } : {}),
       hoverScale: hoverAmount,
     })
     return
