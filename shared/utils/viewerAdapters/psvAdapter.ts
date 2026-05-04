@@ -53,99 +53,149 @@ function hotspotSignature(hs: Hotspot): string {
  */
 if (typeof window !== 'undefined' && window.customElements && !window.customElements.get('viewora-hotspot')) {
   class VieworaHotspot extends HTMLElement {
+    private _isActive: boolean = false;
+    private _data: any = {};
+
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
     }
 
-    connectedCallback() {
-      this.render();
-    }
-
     static get observedAttributes() {
-      return ['label', 'description', 'icon-url', 'type', 'active'];
+      return ['label', 'description', 'icon-url', 'type', 'active', 'image-url'];
     }
 
     attributeChangedCallback() {
       this.render();
     }
 
+    // THIS IS THE SECRET: PSV calls this on every frame
+    updateMarker(properties: any) {
+      // We can use properties.zoomLevel, properties.position etc.
+      // For now, we just ensure our container stays visible and correctly oriented
+      const container = this.shadowRoot?.querySelector('.psv-custom-marker-container');
+      if (container) {
+        // You can add logic here to scale the marker based on zoom if desired
+      }
+    }
+
     render() {
-      const label = this.getAttribute('label') || '';
-      const desc = this.getAttribute('description') || '';
+      const label = this.getAttribute('label') || 'New Hotspot';
+      const desc = this.getAttribute('description') || 'No description provided.';
       const iconUrl = this.getAttribute('icon-url') || '';
-      const type = this.getAttribute('type') || '';
+      const imageUrl = this.getAttribute('image-url') || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80';
       const isActive = this.getAttribute('active') === 'true';
 
-      // Style the shadow root for the CARD only
       this.shadowRoot!.innerHTML = `
         <style>
           :host {
             display: block;
+            width: 300px;
+            pointer-events: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          }
+          .marker-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translateY(-100%);
+            margin-top: -15px;
+            pointer-events: auto;
+          }
+          
+          /* The Premium Card */
+          .card {
             width: 100%;
-            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            opacity: ${isActive ? '1' : '0.4'};
+            transform: scale(${isActive ? '1' : '0.85'});
+            border: 1px solid rgba(255, 255, 255, 0.2);
+          }
+          .card:hover {
+            opacity: 1;
+            transform: scale(1);
+          }
+          .header-img {
+            width: 100%;
+            height: 120px;
+            background: url('${imageUrl}') center/cover no-repeat;
             position: relative;
           }
-          .info-card {
+          .header-overlay {
             position: absolute;
-            bottom: 110%;
-            left: 50%;
-            transform: translateX(-50%) translateY(${isActive ? '0' : '10px'});
-            width: 240px;
-            background: rgba(8, 10, 16, 0.92);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: 18px;
-            padding: 18px;
-            opacity: ${isActive ? '1' : '0'};
-            visibility: ${isActive ? 'visible' : 'hidden'};
-            pointer-events: ${isActive ? 'auto' : 'none'};
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
-            z-index: 10000;
+            inset: 0;
+            background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));
           }
-          .card-title {
-            margin: 0 0 8px 0;
-            font-size: 15px;
-            font-weight: 800;
+          .content {
+            padding: 15px;
+            background: #222;
+            color: #eee;
+          }
+          .title {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+            font-weight: 700;
             color: #fff;
-            line-height: 1.2;
-            letter-spacing: -0.01em;
           }
-          .card-desc {
-            margin: 0;
+          .description {
+            margin: 0 0 15px 0;
             font-size: 13px;
-            line-height: 1.6;
-            color: rgba(255, 255, 255, 0.75);
-            white-space: pre-wrap;
+            line-height: 1.4;
+            color: #bbb;
           }
-        </style>
-        <div class="info-card">
-          ${label ? `<h3 class="card-title">${label}</h3>` : ''}
-          ${desc ? `<p class="card-desc">${desc}</p>` : ''}
-        </div>
-        <slot></slot>
-      `;
-
-      // Render the ICON into the main element (Light DOM) for PSV compatibility
-      this.innerHTML = `
-        <div class="viewora-hs-inner" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative;">
-          ${type === 'scene_link' ? '<div class="pulse-ring"></div>' : ''}
-          <img src="${iconUrl}" style="width:100%; height:100%; object-fit:contain; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));" draggable="false">
-        </div>
-        <style>
-          @keyframes hs-pulse {
-            0% { transform: scale(1); opacity: 0.8; }
-            100% { transform: scale(1.8); opacity: 0; }
+          .footer {
+            padding: 10px 15px;
+            background: #111;
+            font-family: monospace;
+            font-size: 11px;
+            color: #888;
+            border-top: 1px solid #333;
           }
-          .pulse-ring {
-            position: absolute;
-            inset: -15%;
+          
+          /* The Anchor Point (Circle) */
+          .anchor {
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border: 4px solid #fff;
             border-radius: 50%;
-            border: 2px solid rgba(99, 102, 241, 0.6);
-            animation: hs-pulse 2s ease-out infinite;
+            box-shadow: 0 0 0 4px rgba(255,255,255,0.3);
+            margin-top: 10px;
+            position: relative;
+            z-index: 2;
+          }
+          .anchor-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #222;
           }
         </style>
+        
+        <div class="marker-container">
+          <div class="card">
+            <div class="header-img">
+              <div class="header-overlay"></div>
+            </div>
+            <div class="content">
+              <h3 class="title">${label}</h3>
+              <p class="description">${desc}</p>
+              <div style="color:#6366f1; font-size:11px; font-weight:bold;">CLICK TO EXPLORE</div>
+            </div>
+            <div class="footer">
+              ID: ${this.id || 'N/A'}<br>
+              TYPE: ${this.getAttribute('type') || 'INFO'}
+            </div>
+          </div>
+          <div class="anchor">
+            <div class="anchor-inner"></div>
+          </div>
+        </div>
       `;
     }
   }
@@ -153,13 +203,13 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
 }
 
 function buildMarkerHtml(hotspot: Hotspot, isActive = false): string {
-  const iconKey = hotspot.icon || TYPE_DEFAULT_ICON[hotspot.type] || 'info-solid'
-  const iconUrl = HOTSPOT_ICONS_BY_KEY[iconKey] || HOTSPOT_ICONS_BY_KEY['info-solid'] || ''
-  
+  // We no longer use buildMarkerHtml for the actual element, 
+  // but we keep it as a fallback if needed.
   return `<viewora-hotspot 
+    id="${hotspot.id}"
     label="${esc(hotspot.label || '')}" 
     description="${esc(hotspot.description || '')}" 
-    icon-url="${iconUrl}" 
+    icon-url="${HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || ''}" 
     type="${hotspot.type}"
     active="${isActive}"
   ></viewora-hotspot>`
@@ -356,12 +406,21 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     const labelText   = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
     const baseSize    = scale * 44
 
+    // Create the custom element instance
+    const el = document.createElement('viewora-hotspot');
+    el.setAttribute('id', hotspot.id);
+    el.setAttribute('label', hotspot.label || '');
+    el.setAttribute('description', hotspot.description || '');
+    el.setAttribute('type', hotspot.type);
+    el.setAttribute('icon-url', HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || '');
+    el.setAttribute('active', 'false');
+
     handle.markers.addMarker({
       id: hotspot.id,
       position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-      html: buildMarkerHtml(hotspot),
-      size: { width: baseSize, height: baseSize },
-      anchor: 'center center',
+      element: el, // Use 'element' for WebComponent stability
+      size: { width: 300, height: 400 }, // Size for the large card
+      anchor: 'bottom center', // Anchor at the bottom of the card
       tooltip: labelText ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
       hoverScale: hoverAmount,
     })
