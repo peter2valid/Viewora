@@ -80,9 +80,15 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
       // Style the shadow root for the CARD only
       this.shadowRoot!.innerHTML = `
         <style>
+          :host {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+          }
           .info-card {
             position: absolute;
-            bottom: 60px;
+            bottom: 110%;
             left: 50%;
             transform: translateX(-50%) translateY(${isActive ? '0' : '10px'});
             width: 240px;
@@ -118,6 +124,7 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
           ${label ? `<h3 class="card-title">${label}</h3>` : ''}
           ${desc ? `<p class="card-desc">${desc}</p>` : ''}
         </div>
+        <slot></slot>
       `;
 
       // Render the ICON into the main element (Light DOM) for PSV compatibility
