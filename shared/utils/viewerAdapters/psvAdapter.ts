@@ -53,9 +53,6 @@ function hotspotSignature(hs: Hotspot): string {
  */
 if (typeof window !== 'undefined' && window.customElements && !window.customElements.get('viewora-hotspot')) {
   class VieworaHotspot extends HTMLElement {
-    private _isActive: boolean = false;
-    private _data: any = {};
-
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
@@ -69,132 +66,120 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
       this.render();
     }
 
-    // THIS IS THE SECRET: PSV calls this on every frame
     updateMarker(properties: any) {
-      // We can use properties.zoomLevel, properties.position etc.
-      // For now, we just ensure our container stays visible and correctly oriented
-      const container = this.shadowRoot?.querySelector('.psv-custom-marker-container');
-      if (container) {
-        // You can add logic here to scale the marker based on zoom if desired
-      }
+      // Optional: Handle scale based on distance/zoom if needed
     }
 
     render() {
-      const label = this.getAttribute('label') || 'New Hotspot';
-      const desc = this.getAttribute('description') || 'No description provided.';
+      const type = this.getAttribute('type') || 'info';
+      const label = this.getAttribute('label') || '';
+      const desc = this.getAttribute('description') || '';
       const iconUrl = this.getAttribute('icon-url') || '';
-      const imageUrl = this.getAttribute('image-url') || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80';
+      const imageUrl = this.getAttribute('image-url') || '';
       const isActive = this.getAttribute('active') === 'true';
 
+      // ── LOGIC 1: NAVIGATION (MOVE) ──────────────────────────
+      // Navigation must be stable, fast, and icon-based.
+      if (type === 'scene_link' || type === 'nav') {
+        this.shadowRoot!.innerHTML = `
+          <style>
+            :host {
+              display: block;
+              width: 50px;
+              height: 50px;
+            }
+            .nav-container {
+              width: 100%;
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              position: relative;
+              cursor: pointer;
+              transition: transform 0.2s ease;
+            }
+            .nav-container:hover { transform: scale(1.2); }
+            .nav-icon {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+              filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+            }
+            .pulse {
+              position: absolute;
+              inset: -15%;
+              border-radius: 50%;
+              border: 3px solid rgba(99, 102, 241, 0.6);
+              animation: nav-pulse 2s ease-out infinite;
+            }
+            @keyframes nav-pulse {
+              0% { transform: scale(1); opacity: 0.8; }
+              100% { transform: scale(1.6); opacity: 0; }
+            }
+          </style>
+          <div class="nav-container">
+            <div class="pulse"></div>
+            <img src="${iconUrl || '/hotspot-icons/nav-up.png'}" class="nav-icon">
+          </div>
+        `;
+        return;
+      }
+
+      // ── LOGIC 2: INFO (BIG CARD) ────────────────────────────
       this.shadowRoot!.innerHTML = `
         <style>
           :host {
             display: block;
             width: 300px;
             pointer-events: none;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           }
-          .marker-container {
+          .card-container {
             position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
-            transform: translateY(-100%);
-            margin-top: -15px;
+            transform: translateY(-20px);
             pointer-events: auto;
           }
-          
-          /* The Premium Card */
           .card {
             width: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
+            background: rgba(20, 22, 28, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            opacity: ${isActive ? '1' : '0.4'};
-            transform: scale(${isActive ? '1' : '0.85'});
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            opacity: ${isActive ? '1' : '0.15'};
+            transform: scale(${isActive ? '1' : '0.8'}) translateY(${isActive ? '0' : '20px'});
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            color: white;
           }
-          .card:hover {
-            opacity: 1;
-            transform: scale(1);
-          }
-          .header-img {
+          .img-header {
             width: 100%;
-            height: 120px;
-            background: url('${imageUrl}') center/cover no-repeat;
-            position: relative;
+            height: 140px;
+            background: url('${imageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80'}') center/cover;
           }
-          .header-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));
-          }
-          .content {
-            padding: 15px;
-            background: #222;
-            color: #eee;
-          }
-          .title {
-            margin: 0 0 5px 0;
-            font-size: 18px;
-            font-weight: 700;
-            color: #fff;
-          }
-          .description {
-            margin: 0 0 15px 0;
-            font-size: 13px;
-            line-height: 1.4;
-            color: #bbb;
-          }
-          .footer {
-            padding: 10px 15px;
-            background: #111;
-            font-family: monospace;
-            font-size: 11px;
-            color: #888;
-            border-top: 1px solid #333;
-          }
-          
-          /* The Anchor Point (Circle) */
+          .padding { padding: 20px; }
+          .title { font-size: 20px; font-weight: 800; margin: 0 0 8px 0; }
+          .desc { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.6; margin: 0; }
           .anchor {
-            width: 24px;
-            height: 24px;
-            background: #fff;
-            border: 4px solid #fff;
+            width: 14px;
+            height: 14px;
+            background: white;
             border-radius: 50%;
-            box-shadow: 0 0 0 4px rgba(255,255,255,0.3);
-            margin-top: 10px;
-            position: relative;
-            z-index: 2;
-          }
-          .anchor-inner {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: #222;
+            margin-top: 15px;
+            box-shadow: 0 0 20px white;
           }
         </style>
-        
-        <div class="marker-container">
+        <div class="card-container">
           <div class="card">
-            <div class="header-img">
-              <div class="header-overlay"></div>
-            </div>
-            <div class="content">
-              <h3 class="title">${label}</h3>
-              <p class="description">${desc}</p>
-              <div style="color:#6366f1; font-size:11px; font-weight:bold;">CLICK TO EXPLORE</div>
-            </div>
-            <div class="footer">
-              ID: ${this.id || 'N/A'}<br>
-              TYPE: ${this.getAttribute('type') || 'INFO'}
+            <div class="img-header"></div>
+            <div class="padding">
+              <h3 class="title">${label || 'Information'}</h3>
+              <p class="desc">${desc}</p>
             </div>
           </div>
-          <div class="anchor">
-            <div class="anchor-inner"></div>
-          </div>
+          <div class="anchor"></div>
         </div>
       `;
     }
@@ -415,12 +400,16 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     el.setAttribute('icon-url', HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || '');
     el.setAttribute('active', 'false');
 
+    const isNav = hotspot.type === 'scene_link' || hotspot.type === 'nav';
+    const markerSize = isNav ? { width: 50, height: 50 } : { width: 300, height: 400 };
+    const markerAnchor = isNav ? 'center center' : 'bottom center';
+
     handle.markers.addMarker({
       id: hotspot.id,
       position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-      element: el, // Use 'element' for WebComponent stability
-      size: { width: 300, height: 400 }, // Size for the large card
-      anchor: 'bottom center', // Anchor at the bottom of the card
+      element: el,
+      size: markerSize,
+      anchor: markerAnchor,
       tooltip: labelText ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
       hoverScale: hoverAmount,
     })
