@@ -63,6 +63,7 @@
       @toggle-publish="handleTogglePublish"
       @toggle-settings="showSettingsPanel = !showSettingsPanel"
       @preview="editorStore.setMode('preview')"
+      @share="showShareModal = true"
     />
 
     <HotspotPanel

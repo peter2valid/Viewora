@@ -59,6 +59,19 @@
             </svg>
           </button>
 
+          <!-- Share button — only when tour is already published -->
+          <button
+            v-if="isPublished"
+            @click="$emit('share')"
+            class="flex-shrink-0 flex items-center justify-center gap-2 h-8 px-2 sm:px-3 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/[0.08] transition-colors"
+            title="Share tour"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
+            </svg>
+            <span class="hidden md:inline text-[12px] font-semibold">Share</span>
+          </button>
+
           <button
             @click="$emit('toggle-publish')"
             :disabled="publishing || editorStore.isSaving || hasProcessingScenes"
@@ -100,6 +113,7 @@ defineEmits<{
   (e: 'toggle-publish'): void
   (e: 'toggle-settings'): void
   (e: 'preview'): void
+  (e: 'share'): void
 }>()
 
 const editorStore = useEditorStore()
