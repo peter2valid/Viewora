@@ -3,9 +3,13 @@ import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 import { CompassPlugin } from '@photo-sphere-viewer/compass-plugin'
 import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
 import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
+import { SettingsPlugin } from '@photo-sphere-viewer/settings-plugin'
+import { StereoPlugin } from '@photo-sphere-viewer/stereo-plugin'
+import { VisibleRangePlugin } from '@photo-sphere-viewer/visible-range-plugin'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import '@photo-sphere-viewer/virtual-tour-plugin/index.css'
+import '@photo-sphere-viewer/settings-plugin/index.css'
 
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
@@ -300,9 +304,22 @@ export async function initViewer(
     [MarkersPlugin, { clickEventOnMarker: false }],
     [CompassPlugin, { size: '120px', position: 'bottom left', navigation: true }],
   ]
+
+  if (scene.settings.auto_rotate_enabled) {
+    plugins.push([AutorotatePlugin, {
+      autorotateSpeed: '2rpm',
+      autorotatePitch: scene.settings.pitch_default ?? 0,
+      autostartDelay: 3000,
+      autostartOnIdle: true,
+    }])
+  }
+
   if (isTouchDevice) {
     plugins.push([GyroscopePlugin, { touchmove: true, absolutePosition: true }])
   }
+
+  // Prevent looking at poles — keeps the tour feeling grounded
+  plugins.push([VisibleRangePlugin, { verticalRange: ['-75deg', '55deg'] }])
 
   const viewer: any = new Viewer({
     container,
@@ -698,18 +715,26 @@ export async function initVirtualTourViewer(
 
   const nodes = buildTourNodes(scenes, hotspotsByScene)
 
+  // Plugin order matters — VirtualTour must be last (depends on MarkersPlugin)
   const plugins: any[] = [
     [MarkersPlugin, {}],
+    [SettingsPlugin, {}],
     [CompassPlugin, { size: '120px', position: 'bottom left', navigation: false }],
   ]
 
   if (autoRotate) {
-    plugins.push([AutorotatePlugin, { autorotateSpeed: '2rpm', autorotatePitch: 0 }])
+    plugins.push([AutorotatePlugin, {
+      autorotateSpeed: '2rpm',
+      autorotatePitch: 0,
+      autostartDelay: 2000,
+      autostartOnIdle: true,
+    }])
   }
 
-  if (isTouchDevice) {
-    plugins.push([GyroscopePlugin, { touchmove: true, absolutePosition: true }])
-  }
+  // Always include Gyroscope — StereoPlugin (VR mode) requires it for head tracking
+  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
+  plugins.push([StereoPlugin])
+  plugins.push([VisibleRangePlugin, { verticalRange: ['-75deg', '55deg'] }])
 
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
   plugins.push([VirtualTourPlugin, {
@@ -740,6 +765,41 @@ export async function initVirtualTourViewer(
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
+  const settings: any = viewer.getPlugin(SettingsPlugin)
+  const gyroscope: any = viewer.getPlugin(GyroscopePlugin)
+  const stereo: any = viewer.getPlugin(StereoPlugin)
+  const autorotate: any = autoRotate ? viewer.getPlugin(AutorotatePlugin) : null
+
+  // ── Wire Settings panel toggles ────────────────────────────
+  if (settings) {
+    if (autorotate) {
+      settings.addSetting({
+        id: 'autorotate',
+        type: 'toggle',
+        label: 'Auto-rotate',
+        active: () => autorotate.isEnabled(),
+        toggle: () => autorotate.toggle(),
+      })
+    }
+    if (gyroscope) {
+      settings.addSetting({
+        id: 'gyroscope',
+        type: 'toggle',
+        label: 'Gyroscope',
+        active: () => gyroscope.isEnabled(),
+        toggle: () => gyroscope.toggle(),
+      })
+    }
+    if (stereo) {
+      settings.addSetting({
+        id: 'stereo',
+        type: 'toggle',
+        label: 'VR mode',
+        active: () => stereo.isEnabled(),
+        toggle: () => stereo.toggle(),
+      })
+    }
+  }
 
   const cleanupFns: Array<() => void> = []
 
@@ -794,5 +854,13 @@ export function vtToggleMarkerActive(handle: PsvViewerHandle | null, markerId: s
     if (!marker?.element) return
     const el = marker.element.querySelector?.('viewora-hotspot') || marker.element
     if (el) el.setAttribute('active', active ? 'true' : 'false')
+  } catch { /* noop */ }
+}
+
+/** Open/close the Settings panel (public viewer gear button) */
+export function openSettings(handle: PsvViewerHandle | null): void {
+  if (!handle?.viewer) return
+  try {
+    handle.viewer.getPlugin(SettingsPlugin)?.toggleSettings()
   } catch { /* noop */ }
 }

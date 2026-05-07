@@ -55,6 +55,19 @@
 
     <!-- ── Vignette overlay when info card is open ── -->
     <div v-if="hasTourData" :class="['vt-vignette', { 'vt-vignette--active': vtFocusing }]" />
+
+    <!-- ── Settings gear button (VT mode only) ── -->
+    <button
+      v-if="hasTourData && vtReady"
+      class="vt-settings-btn"
+      aria-label="Settings"
+      @click="openSettings(vtHandle)"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -69,6 +82,7 @@ import {
   initVirtualTourViewer,
   vtGoToNode,
   vtToggleMarkerActive,
+  openSettings,
   focusHotspot,
   destroy,
   type PsvViewerHandle,
@@ -424,5 +438,56 @@ function onViewerClick() {
   width: 100% !important;
   height: 100% !important;
   position: relative !important;
+}
+
+/* ── Settings gear button ───────────────────────────────── */
+.vt-settings-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(10, 12, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms, color 150ms, transform 150ms;
+}
+.vt-settings-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: #fff;
+  transform: rotate(30deg);
+}
+.vt-settings-btn svg { width: 17px; height: 17px; }
+
+/* ── PSV Settings panel overrides ───────────────────────── */
+:global(.psv-settings) {
+  background: rgba(10, 12, 20, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
+  backdrop-filter: blur(16px) !important;
+  padding: 6px !important;
+  min-width: 200px !important;
+}
+:global(.psv-settings-item) {
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition: background 120ms !important;
+}
+:global(.psv-settings-item:hover) {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #fff !important;
+}
+:global(.psv-settings-item--active .psv-settings-item-icon) {
+  color: #3b82f6 !important;
 }
 </style>
