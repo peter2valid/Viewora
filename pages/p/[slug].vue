@@ -361,7 +361,7 @@ useSeoMeta({
   description: seoDesc,
   keywords: computed(() => {
     const base = '360 virtual tour, VR experience, virtual reality, immersive tour, spatial reality, Viewora'
-    return tour.value ? `${tour.value.space.title}, ${tour.value.space.space_type || 'property'}, ${base}` : base
+    return tour.value ? `${tour.value.space.title}, ${(tour.value.space as any).space_type || 'property'}, ${base}` : base
   }),
   // OpenGraph / Facebook
   ogTitle: seoTitle,
@@ -396,15 +396,15 @@ useHead({
     { name: 'theme-color', content: '#0a0a0a' },
     { name: 'mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
-    { name: 'pinterest', content: 'nopin', data_pin_description: seoDesc.value },
+    { name: 'pinterest', content: 'nopin' },
     { property: 'og:image:alt', content: computed(() => `360° Virtual Tour of ${tour.value?.space.title || 'Property'}`) }
   ],
   script: [
     {
       type: 'application/ld+json',
-      children: computed(() => {
+      innerHTML: computed(() => {
         if (!tour.value) return '{}'
-        const s = tour.value.space
+        const s = tour.value.space as any
         return JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'RealEstateListing',

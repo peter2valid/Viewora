@@ -87,12 +87,28 @@
       @cancel-placement="onCancelPlacement"
     />
 
+    <!-- Preview mode: identical GlassDock to what the public viewer shows -->
+    <GlassDock
+      v-if="isPreviewMode && scenes.length > 1"
+      :items="glassDockItems"
+      :active-id="selectedSceneId"
+      :bottom-px="20"
+      :edge-inset-px="16"
+      :max-strip-vw="80"
+      :max-strip-px="860"
+      :max-scale="1.6"
+      :sigma-px="94"
+      :lift-px="14"
+      @select="selectScene"
+    />
+
+    <!-- Editor mode: SceneDock with rename, reorder, add -->
     <SceneDock
-      v-if="!isPreviewMode || scenes.length > 1"
+      v-else-if="!isPreviewMode"
       :scenes="sceneChips"
       :active-scene-id="selectedSceneId"
       :add-scene-pending="false"
-      :show-add="!isPreviewMode"
+      :show-add="true"
       @select-scene="selectScene"
       @add-scene="handleAddScene"
       @reorder-scenes="handleReorderScenes"
@@ -330,6 +346,7 @@ import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
 import SceneDock from '~/features/editor/components/SceneDock.vue'
+import GlassDock from '~/components/ui/GlassDock.vue'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import { useEditorRealtime } from '~/features/editor/composables/useEditorRealtime'
 import { useEditorUpload, isLocalSceneId, type SceneUploadState } from '~/features/editor/composables/useEditorUpload'
@@ -500,6 +517,16 @@ const urlCopied = ref(false)
 
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
+const glassDockItems = computed(() =>
+  sceneChips.value.map(s => ({
+    id: s.id,
+    label: s.label,
+    imageUrl: s.imageUrl || null,
+    ariaLabel: `Go to ${s.label}`,
+    badge: s.badge,
+  }))
+)
+
 function showToast(message: string, type: 'success' | 'error' = 'success') {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { message, type }
@@ -567,7 +594,10 @@ const activeViewerScene = computed(() => {
   return {
     id: activeScene.value?.id ?? 'editor-scene',
     imageUrl: url,
-    // tileManifestUrl: activeScene.value?.tile_manifest_url, // Disabled until DZI is supported
+    tileManifestUrl: activeScene.value?.tile_manifest_url ?? undefined,
+    tileCols: activeScene.value?.tile_cols ?? undefined,
+    tileRows: activeScene.value?.tile_rows ?? undefined,
+    tilesReady: activeScene.value?.tiles_ready ?? false,
     width: activeScene.value?.width,
     height: activeScene.value?.height,
     hotspots: activeSceneHotspots.value ?? [],
