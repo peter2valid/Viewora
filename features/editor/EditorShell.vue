@@ -140,8 +140,8 @@
       :saving="addingHotspot"
       @update-draft="patchHotspotDraft"
       @done="onQuickEditDone"
-      @more="onQuickEditMore"
       @cancel="onQuickEditCancel"
+      @start-tracing="startTracing"
     />
 
     <!-- Toast + Share modal teleported to body -->

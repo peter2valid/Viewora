@@ -4,7 +4,7 @@ import { isLocalSceneId } from '~/features/editor/composables/useEditorUpload'
 
 type HotspotType = 'info' | 'scene_link' | 'url' | 'video' | 'youtube'
 
-type SceneChip = { id: string; label: string; ready: boolean }
+type SceneChip = { id: string; label: string; ready: boolean; imageUrl?: string | null }
 
 type EditorStore = {
   mode: string
@@ -24,6 +24,7 @@ type EditDraft = {
   scale: number
   hoverScale: number
   corners?: Array<{ yaw: number; pitch: number }>
+  imageUrl?: string
 }
 
 export function useHotspotEditor(
@@ -64,12 +65,12 @@ export function useHotspotEditor(
     return hotspots.map(h => {
       if (h.id !== selectedId) return h
       const d = editDraft.value
-      return { ...h, label: d.label, description: d.description, url: d.url, targetSceneId: d.targetSceneId, type: d.type as any, icon: d.icon, scale: d.scale, hoverScale: d.hoverScale, corners: d.corners }
+      return { ...h, label: d.label, description: d.description, url: d.url, targetSceneId: d.targetSceneId, type: d.type as any, icon: d.icon, scale: d.scale, hoverScale: d.hoverScale, corners: d.corners, imageUrl: d.imageUrl }
     })
   })
 
   const otherScenesForHotspot = computed(() =>
-    sceneChips.value.filter(s => s.id !== selectedSceneId.value && s.ready).map(s => ({ id: s.id, label: s.label }))
+    sceneChips.value.filter(s => s.id !== selectedSceneId.value && s.ready).map(s => ({ id: s.id, label: s.label, imageUrl: s.imageUrl }))
   )
 
   watch(inlineEditMode, (editing) => {
@@ -140,6 +141,7 @@ export function useHotspotEditor(
     if (d.scale !== 1) payload.content = { ...(payload.content ?? {}), scale: Number(d.scale) }
     if (d.hoverScale !== 1.3) payload.content = { ...(payload.content ?? {}), hoverScale: Number(d.hoverScale) }
     if (d.corners?.length === 4) payload.content = { ...(payload.content ?? {}), corners: d.corners }
+    if (d.imageUrl) payload.content = { ...(payload.content ?? {}), image_url: d.imageUrl }
     return payload
   }
 
@@ -196,7 +198,7 @@ export function useHotspotEditor(
     const optimisticEntry: EditorHotspot = { id: tempId, yaw, pitch, type, label: type === 'scene_link' ? 'Go to next room' : '', url: '', targetSceneId, description: '', _pending: true }
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), optimisticEntry] }
 
-    editDraft.value = { label: optimisticEntry.label || '', description: '', url: '', targetSceneId, type, icon: '', scale: 1, hoverScale: 1.3 }
+    editDraft.value = { label: optimisticEntry.label || '', description: '', url: '', targetSceneId, type, icon: '', scale: 1, hoverScale: 1.3, imageUrl: '' }
     editorStore.selectHotspot(tempId)
     quickEditHotspotId.value = tempId
     quickEditScreenPos.value = { x: screenX, y: screenY }
@@ -343,6 +345,7 @@ export function useHotspotEditor(
         scale: hotspot.scale || 1,
         hoverScale: hotspot.hoverScale || 1.3,
         corners: hotspot.corners,
+        imageUrl: hotspot.imageUrl || '',
       }
     }
   }
@@ -378,12 +381,13 @@ export function useHotspotEditor(
     if (d.scale !== 1) patch.content = { ...(patch.content ?? {}), scale: Number(d.scale) }
     if (d.hoverScale !== 1.3) patch.content = { ...(patch.content ?? {}), hoverScale: Number(d.hoverScale) }
     if (d.corners) patch.content = { ...(patch.content ?? {}), corners: d.corners }
+    if (d.imageUrl) patch.content = { ...(patch.content ?? {}), image_url: d.imageUrl }
     patch.type = newType
 
     hotspotsByScene.value = {
       ...hotspotsByScene.value,
       [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h =>
-        h.id !== id ? h : { ...h, type: newType, label: patch.label, description: patch.content?.text, url: patch.content?.url, targetSceneId: patch.target_scene_id, icon: d.icon || undefined, scale: Number(d.scale), hoverScale: Number(d.hoverScale), corners: d.corners }
+        h.id !== id ? h : { ...h, type: newType, label: patch.label, description: patch.content?.text, url: patch.content?.url, targetSceneId: patch.target_scene_id, icon: d.icon || undefined, scale: Number(d.scale), hoverScale: Number(d.hoverScale), corners: d.corners, imageUrl: d.imageUrl }
       ),
     }
 

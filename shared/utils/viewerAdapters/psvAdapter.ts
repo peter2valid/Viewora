@@ -2,7 +2,10 @@ import { Viewer } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 import { CompassPlugin } from '@photo-sphere-viewer/compass-plugin'
 import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
+import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
+import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
+import '@photo-sphere-viewer/virtual-tour-plugin/index.css'
 
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
@@ -43,6 +46,7 @@ function hotspotSignature(hs: Hotspot): string {
     Number(hs.scale || 1).toFixed(2),
     Number(hs.hoverScale || 1.3).toFixed(2),
     JSON.stringify(hs.corners || []),
+    hs.imageUrl ?? '',
   ].join('|')
 }
 
@@ -126,11 +130,12 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
       }
 
       // ── LOGIC 2: INFO (BIG CARD) ────────────────────────────
+      const iconUrl2 = this.getAttribute('icon-url') || '';
       this.shadowRoot!.innerHTML = `
         <style>
           :host {
             display: block;
-            width: 300px;
+            width: 260px;
             pointer-events: none;
           }
           .card-container {
@@ -143,40 +148,66 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
           }
           .card {
             width: 100%;
-            background: rgba(20, 22, 28, 0.95);
-            backdrop-filter: blur(20px);
+            background: rgba(12, 14, 22, 0.97);
+            backdrop-filter: blur(24px);
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
+            border-radius: 18px;
             overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            opacity: ${isActive ? '1' : '0.15'};
-            transform: scale(${isActive ? '1' : '0.8'}) translateY(${isActive ? '0' : '20px'});
-            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+            opacity: ${isActive ? '1' : '0.12'};
+            transform: scale(${isActive ? '1' : '0.78'}) translateY(${isActive ? '0' : '24px'});
+            transition: all 0.45s cubic-bezier(0.23, 1, 0.32, 1);
             color: white;
           }
           .img-header {
             width: 100%;
-            height: 140px;
-            background: url('${imageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80'}') center/cover;
+            height: 130px;
+            background: url('${imageUrl}') center/cover no-repeat;
+            background-color: rgba(255,255,255,0.04);
           }
-          .padding { padding: 20px; }
-          .title { font-size: 20px; font-weight: 800; margin: 0 0 8px 0; }
-          .desc { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.6; margin: 0; }
+          .icon-strip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 16px 0;
+          }
+          .icon-wrap {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(99,102,241,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+          .icon-wrap img { width: 18px; height: 18px; object-fit: contain; }
+          .type-label {
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(99,102,241,0.8);
+          }
+          .padding { padding: 10px 16px 16px; }
+          .title { font-size: 15px; font-weight: 800; margin: 0 0 5px 0; line-height: 1.3; letter-spacing: -0.01em; }
+          .desc { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.6; margin: 0; }
           .anchor {
-            width: 14px;
-            height: 14px;
-            background: white;
+            width: 10px;
+            height: 10px;
+            background: rgba(255,255,255,0.9);
             border-radius: 50%;
-            margin-top: 15px;
-            box-shadow: 0 0 20px white;
+            margin-top: 10px;
+            box-shadow: 0 0 16px rgba(255,255,255,0.6);
           }
         </style>
         <div class="card-container">
           <div class="card">
-            <div class="img-header"></div>
+            ${imageUrl ? `<div class="img-header"></div>` : ''}
+            ${iconUrl2 ? `<div class="icon-strip"><div class="icon-wrap"><img src="${iconUrl2}" /></div><span class="type-label">Info</span></div>` : ''}
             <div class="padding">
               <h3 class="title">${label || 'Information'}</h3>
-              <p class="desc">${desc}</p>
+              ${desc ? `<p class="desc">${desc}</p>` : ''}
             </div>
           </div>
           <div class="anchor"></div>
@@ -397,10 +428,11 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     el.setAttribute('label', hotspot.label || '');
     el.setAttribute('description', hotspot.description || '');
     el.setAttribute('type', hotspot.type);
-    el.setAttribute('icon-url', HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || '');
+    el.setAttribute('icon-url', HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY[hotspot.type === 'scene_link' ? 'nav-up' : 'info-3d-light'] || '');
+    el.setAttribute('image-url', hotspot.imageUrl || '');
     el.setAttribute('active', 'false');
 
-    const isNav = hotspot.type === 'scene_link' || hotspot.type === 'nav';
+    const isNav = hotspot.type === 'scene_link';
     const markerSize = isNav ? { width: 50, height: 50 } : { width: 300, height: 400 };
     const markerAnchor = isNav ? 'center center' : 'bottom center';
 
@@ -529,14 +561,14 @@ export function updateTracePolygon(handle: PsvViewerHandle | null, points: Array
 
 export function toggleHotspotActive(handle: PsvViewerHandle | null, id: string, active: boolean): void {
   if (!handle?.markers) return
-  const marker = handle.markers.getMarker(id)
-  if (!marker || !marker.element) return
-  
-  // Find the custom element inside the marker
-  const customEl = marker.element.querySelector('viewora-hotspot')
-  if (customEl) {
-    customEl.setAttribute('active', active ? 'true' : 'false')
-  }
+  try {
+    const marker = handle.markers.getMarker(id)
+    if (!marker || !marker.element) return
+    const customEl = marker.element.querySelector('viewora-hotspot')
+    if (customEl) {
+      customEl.setAttribute('active', active ? 'true' : 'false')
+    }
+  } catch { /* marker not in scene — safe to ignore */ }
 }
 
 export async function focusHotspot(handle: PsvViewerHandle | null, id: string): Promise<void> {
@@ -564,4 +596,203 @@ export function destroy(handle: PsvViewerHandle | null): void {
   if (!handle?.viewer) return
   try { handle.cleanup?.() } catch { /* noop */ }
   try { handle.viewer.destroy() } catch { /* noop */ }
+}
+
+// ── VirtualTourPlugin integration ─────────────────────────────────────────────
+// Used by the public viewer to get stable native multi-scene navigation.
+// The editor keeps the MarkersPlugin-only approach for per-hotspot editing.
+
+/** Build VirtualTourNode[] from all scenes + their resolved hotspots */
+function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hotspot[]>): any[] {
+  return scenes.map(scene => {
+    const hotspots = hotspotsByScene[scene.id] ?? []
+
+    // scene_link hotspots become VirtualTour navigation links (native arrows)
+    const links = hotspots
+      .filter(h => h.type === 'scene_link' && h.targetSceneId)
+      .map(h => ({
+        nodeId: h.targetSceneId!,
+        position: { yaw: h.yaw, pitch: h.pitch },
+        arrowStyle: {
+          element: () => {
+            const el = document.createElement('viewora-hotspot')
+            el.setAttribute('type', 'scene_link')
+            el.setAttribute('label', h.label || '')
+            el.setAttribute('icon-url',
+              HOTSPOT_ICONS_BY_KEY[h.icon || ''] ||
+              HOTSPOT_ICONS_BY_KEY['nav-up'] || ''
+            )
+            el.setAttribute('active', 'false')
+            return el
+          },
+          size: { width: 50, height: 50 },
+        },
+        data: { hotspotId: h.id, label: h.label || '' },
+      }))
+
+    // All other hotspot types become MarkersPlugin markers on the node
+    const markers = hotspots
+      .filter(h => h.type !== 'scene_link')
+      .map(h => {
+        const el = document.createElement('viewora-hotspot')
+        el.setAttribute('id', h.id)
+        el.setAttribute('label', h.label || '')
+        el.setAttribute('description', h.description || '')
+        el.setAttribute('type', h.type)
+        el.setAttribute('icon-url',
+          HOTSPOT_ICONS_BY_KEY[h.icon || ''] ||
+          HOTSPOT_ICONS_BY_KEY['info-3d-light'] || ''
+        )
+        el.setAttribute('image-url', h.imageUrl || '')
+        el.setAttribute('active', 'false')
+
+        return {
+          id: h.id,
+          position: { yaw: h.yaw, pitch: h.pitch },
+          element: el,
+          size: { width: 300, height: 400 },
+          anchor: 'bottom center',
+          hoverScale: Number(h.hoverScale || 1.3),
+        }
+      })
+
+    return {
+      id: scene.id,
+      // Use plain imageUrl (no tiles) — VT requires a consistent adapter across all nodes
+      panorama: scene.imageUrl,
+      name: scene.title,
+      thumbnail: scene.imageUrl,
+      links,
+      markers,
+    }
+  })
+}
+
+export interface VirtualTourInitOptions {
+  onReady?: () => void
+  onError?: (err: Error) => void
+  onNodeChanged?: (nodeId: string) => void
+  onMarkerClick?: (hotspotId: string, type: string) => void
+  autoRotate?: boolean
+}
+
+/**
+ * Initialize a PSV viewer with VirtualTourPlugin for the public viewer.
+ * Scene navigation is handled natively by VT; info/url hotspots fire onMarkerClick.
+ */
+export async function initVirtualTourViewer(
+  container: HTMLElement,
+  scenes: TourScene[],
+  hotspotsByScene: Record<string, Hotspot[]>,
+  startNodeId: string,
+  options: VirtualTourInitOptions = {},
+): Promise<PsvViewerHandle> {
+  const { onReady, onError, onNodeChanged, onMarkerClick, autoRotate } = options
+
+  const startScene = scenes.find(s => s.id === startNodeId) || scenes[0]
+  if (!startScene) throw new Error('No scenes to display')
+
+  const isTouchDevice =
+    typeof window !== 'undefined' &&
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+
+  const nodes = buildTourNodes(scenes, hotspotsByScene)
+
+  const plugins: any[] = [
+    [MarkersPlugin, {}],
+    [CompassPlugin, { size: '120px', position: 'bottom left', navigation: false }],
+  ]
+
+  if (autoRotate) {
+    plugins.push([AutorotatePlugin, { autorotateSpeed: '2rpm', autorotatePitch: 0 }])
+  }
+
+  if (isTouchDevice) {
+    plugins.push([GyroscopePlugin, { touchmove: true, absolutePosition: true }])
+  }
+
+  // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
+  plugins.push([VirtualTourPlugin, {
+    dataMode: 'client',
+    positionMode: 'manual',
+    renderMode: '3d',
+    nodes,
+    startNodeId,
+    transitionOptions: {
+      showLoader: true,
+      speed: '20rpm',
+      effect: 'black',
+      rotation: true,
+    },
+    showLinkTooltip: false,
+  }])
+
+  const viewer: any = new Viewer({
+    container,
+    panorama: startScene.imageUrl,
+    defaultYaw: startScene.settings.yaw_default,
+    defaultPitch: startScene.settings.pitch_default,
+    navbar: false,
+    touchmoveTwoFingers: false,
+    fisheye: false,
+    plugins,
+  })
+
+  const markers: any = viewer.getPlugin(MarkersPlugin)
+  const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
+
+  const cleanupFns: Array<() => void> = []
+
+  viewer.addEventListener('ready', () => onReady?.(), { once: true })
+  viewer.addEventListener('panorama-error', (e: any) => {
+    onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'))
+  })
+
+  const handleNodeChanged = (e: any) => onNodeChanged?.(e.node.id)
+  virtualTour.addEventListener('node-changed', handleNodeChanged)
+  cleanupFns.push(() => virtualTour.removeEventListener('node-changed', handleNodeChanged))
+
+  const handleMarkerSelect = (e: any) => {
+    const type = e.marker?.element?.querySelector?.('viewora-hotspot')?.getAttribute?.('type') || 'info'
+    onMarkerClick?.(e.marker.id, type)
+  }
+  markers.addEventListener('select-marker', handleMarkerSelect)
+  cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
+
+  return {
+    viewer,
+    markers,
+    markerSignatures: new Map(),
+    isEditing: false,
+    cleanup: () => { for (const fn of cleanupFns) fn() },
+  }
+}
+
+/** Navigate VirtualTour to a specific node (public viewer GlassDock) */
+export function vtGoToNode(handle: PsvViewerHandle | null, nodeId: string): void {
+  if (!handle?.viewer) return
+  try {
+    const vt = handle.viewer.getPlugin(VirtualTourPlugin)
+    vt?.setCurrentNode(nodeId)
+  } catch { /* noop */ }
+}
+
+/** Get the currently displayed VirtualTour node id */
+export function vtCurrentNodeId(handle: PsvViewerHandle | null): string | null {
+  if (!handle?.viewer) return null
+  try {
+    const vt = handle.viewer.getPlugin(VirtualTourPlugin)
+    return vt?.getCurrentNode()?.id ?? null
+  } catch { return null }
+}
+
+/** Toggle active state on a VT node's marker (info card show/hide) */
+export function vtToggleMarkerActive(handle: PsvViewerHandle | null, markerId: string, active: boolean): void {
+  if (!handle?.markers) return
+  try {
+    const marker = handle.markers.getMarker(markerId)
+    if (!marker?.element) return
+    const el = marker.element.querySelector?.('viewora-hotspot') || marker.element
+    if (el) el.setAttribute('active', active ? 'true' : 'false')
+  } catch { /* noop */ }
 }

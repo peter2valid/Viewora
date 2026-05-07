@@ -17,6 +17,7 @@ const props = defineProps<{
     scale: number
     hoverScale: number
     corners?: Array<{ yaw: number; pitch: number }>
+    imageUrl?: string
   }
   otherScenes: Array<{ id: string; label: string }>
   saving: boolean
@@ -173,6 +174,18 @@ function updateDraft(patch: Partial<typeof props.draft>) {
                 placeholder="Add a description…"
                 rows="4"
                 @input="updateDraft({ description: ($event.target as HTMLTextAreaElement).value })"
+              />
+            </div>
+
+            <!-- Info: cover image -->
+            <div v-if="draft.type === 'info'" class="hs-field">
+              <label class="hs-field-label">Cover Image URL <span class="hs-optional">optional</span></label>
+              <div v-if="draft.imageUrl" class="hs-image-preview" :style="`background-image: url('${draft.imageUrl}')`" />
+              <input
+                class="hs-input"
+                :value="draft.imageUrl"
+                placeholder="https://…image.jpg"
+                @input="updateDraft({ imageUrl: ($event.target as HTMLInputElement).value })"
               />
             </div>
 
@@ -602,6 +615,24 @@ function updateDraft(patch: Partial<typeof props.draft>) {
   font-size: 11px;
   color: rgba(255,255,255,0.3);
   line-height: 1.5;
+}
+
+.hs-optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: rgba(255,255,255,0.2);
+  font-size: 9px;
+}
+
+.hs-image-preview {
+  width: 100%;
+  height: 80px;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
 }
 
 .hs-shortcuts {

@@ -59,6 +59,7 @@ import {
   updateTracePolygon,
   getHotspotScreenPos,
   focusHotspot,
+  toggleHotspotActive,
   type PsvViewerHandle,
   type InitViewerOptions,
 } from '~/shared/utils/viewerAdapters/psvAdapter'

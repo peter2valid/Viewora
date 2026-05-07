@@ -11,6 +11,7 @@ export interface Hotspot {
   scale?: number
   hoverScale?: number
   corners?: Array<{ yaw: number; pitch: number }>
+  imageUrl?: string
 }
 
 export interface HotspotCreatePayload {
