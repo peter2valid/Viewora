@@ -342,16 +342,8 @@ watch(
 
 // Hotspot sync whenever the list changes — debounced to prevent flicker on fast keystrokes
 watch(
-      if (isAdapterMismatchError(err)) {
-        try { destroy(handle.value) } catch { /* noop */ }
-        handle.value = null
-        await initWithScene(next)
-        return
-      }
-      try { destroy(handle.value) } catch { /* noop */ }
-      handle.value = null
-      state.value = 'error'
-      errorMessage.value = err?.message || 'Failed to switch scene'
+  () => props.hotspots,
+  (next) => {
     if (state.value !== 'ready' || !handle.value) return
     if (hotspotSyncTimer) clearTimeout(hotspotSyncTimer)
     hotspotSyncTimer = setTimeout(() => {
