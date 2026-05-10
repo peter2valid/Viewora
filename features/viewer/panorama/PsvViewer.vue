@@ -4,11 +4,19 @@
 
     <!-- Error -->
     <div v-if="state === 'error'" class="psv-overlay psv-overlay--error">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="psv-overlay-icon">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 8v4M12 16h.01" />
-      </svg>
-      <p class="psv-overlay-msg">{{ errorMessage }}</p>
+      <div class="psv-overlay-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="psv-overlay-icon">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v4M12 16h.01" />
+        </svg>
+        <div class="psv-overlay-copy">
+          <p class="psv-overlay-title">Panorama couldn't load</p>
+          <p class="psv-overlay-msg">{{ errorMessage }}</p>
+        </div>
+        <div class="psv-overlay-actions">
+          <button class="psv-overlay-btn" @click="retryCurrentScene">Retry</button>
+        </div>
+      </div>
     </div>
 
     <!-- Empty: no image URL provided -->
@@ -100,6 +108,21 @@ let menuRaf: number | null = null
 let menuCloseTimer: ReturnType<typeof setTimeout> | null = null
 let menuHovered = false
 let hotspotSyncTimer: ReturnType<typeof setTimeout> | null = null
+const isAdapterMismatchError = (err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err)
+  return /right adapter|Invalid panorama configuration|Invalid panorama url/i.test(message)
+}
+
+async function retryCurrentScene() {
+  if (!props.scene?.imageUrl) return
+  closeMenu()
+  state.value = 'loading'
+  try {
+    destroy(handle.value)
+  } catch { /* noop */ }
+  handle.value = null
+  await initWithScene(props.scene)
+}
 
 function trackMenuPosition() {
   if (!menu.visible || !menu.hotspotId || !handle.value) return
@@ -204,6 +227,8 @@ async function initWithScene(scene: TourScene) {
         }
       },
       onError: (err) => {
+        try { destroy(handle.value) } catch { /* noop */ }
+        handle.value = null
         state.value = 'error'
         errorMessage.value = err.message || 'Failed to load panorama'
         emit('error', err)
@@ -317,8 +342,16 @@ watch(
 
 // Hotspot sync whenever the list changes — debounced to prevent flicker on fast keystrokes
 watch(
-  () => props.hotspots,
-  (next) => {
+      if (isAdapterMismatchError(err)) {
+        try { destroy(handle.value) } catch { /* noop */ }
+        handle.value = null
+        await initWithScene(next)
+        return
+      }
+      try { destroy(handle.value) } catch { /* noop */ }
+      handle.value = null
+      state.value = 'error'
+      errorMessage.value = err?.message || 'Failed to switch scene'
     if (state.value !== 'ready' || !handle.value) return
     if (hotspotSyncTimer) clearTimeout(hotspotSyncTimer)
     hotspotSyncTimer = setTimeout(() => {
@@ -440,7 +473,27 @@ onUnmounted(() => {
 }
 
 .psv-overlay--error {
-  background: rgba(10, 10, 10, 0.85);
+  background: rgba(8, 10, 16, 0.55);
+}
+
+.psv-overlay-card {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 320px;
+  padding: 18px 18px 16px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 26%, rgba(0,0,0,0.12) 100%),
+    rgba(10, 12, 20, 0.42);
+  border: 1px solid rgba(255,255,255,0.14);
+  backdrop-filter: blur(24px) saturate(1.08) brightness(1.02);
+  -webkit-backdrop-filter: blur(24px) saturate(1.08) brightness(1.02);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
 .psv-overlay-icon {
@@ -449,10 +502,47 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.25);
 }
 
+.psv-overlay-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.psv-overlay-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: -0.01em;
+}
+
 .psv-overlay-msg {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.58);
   font-weight: 500;
+}
+
+.psv-overlay-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.psv-overlay-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.9);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.psv-overlay-btn:hover {
+  background: rgba(255,255,255,0.14);
+  transform: translateY(-1px);
 }
 
 .psv-edit-hint {
