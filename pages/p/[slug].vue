@@ -241,10 +241,11 @@ onMounted(async () => {
 async function fetchSpace() {
   pending.value = true
   try {
-    const data = await apiFetch<any>(`/spaces/by-slug/${encodeURIComponent(slug)}`)
-    space.value = data
-    syncShareLinks(data)
-    fireViewEvent(data.id)
+    const data = await apiFetch<any>(`/p/${encodeURIComponent(slug)}`)
+    const spaceData = data?.tour?.space ?? data
+    space.value = spaceData
+    syncShareLinks(spaceData)
+    fireViewEvent(spaceData.id)
   } catch (err: any) {
     fetchError.value = err.data?.statusMessage || 'Space unavailable or removed.'
   } finally {
