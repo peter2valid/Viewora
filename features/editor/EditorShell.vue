@@ -1003,8 +1003,9 @@ defineExpose({
   position: fixed;
   inset: 0;
   overflow: hidden;
-  /* Use theme token so editor background exactly matches dashboard deep black in dark mode */
-  background: var(--bg);
+  /* Pin the editor subtree to deep black regardless of the global app theme. */
+  --bg: #000000;
+  background: #000000;
 }
 
 /* ── Toast ─────────────────────────────────────────────────── */
