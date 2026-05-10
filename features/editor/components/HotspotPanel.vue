@@ -380,9 +380,15 @@ function updateDraft(patch: Partial<typeof props.draft>) {
 .hs-panel {
   display: flex;
   flex-direction: column;
-  background: rgba(10, 12, 20, 0.94);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 26%, rgba(0,0,0,0.14) 100%),
+    rgba(10, 12, 20, 0.42);
+  backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 28px 72px rgba(0, 0, 0, 0.42);
 }
 
 /* ── Header ── */
@@ -422,7 +428,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
   transition: color 140ms, background 140ms;
   flex-shrink: 0;
 }
-.hs-close:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08); }
+.hs-close:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.10); }
 
 /* ── List ── */
 .hs-list {
@@ -465,12 +471,12 @@ function updateDraft(patch: Partial<typeof props.draft>) {
   text-align: left;
   transition: background 130ms;
 }
-.hs-item:hover { background: rgba(255,255,255,0.05); }
+.hs-item:hover { background: rgba(255,255,255,0.08); }
 .hs-item-icon {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.09);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -540,7 +546,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
   letter-spacing: 0.08em;
   color: rgba(255,255,255,0.3);
 }
-.hs-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 0; }
+.hs-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 0; }
 
 /* Type badge */
 .hs-type-badge {

@@ -200,13 +200,19 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 5px 9px;
   border-radius: 8px;
-  background: rgba(10, 12, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 28%, rgba(0,0,0,0.14) 100%),
+    rgba(10, 12, 20, 0.42);
+  backdrop-filter: blur(24px) saturate(1.08) brightness(1.02);
+  -webkit-backdrop-filter: blur(24px) saturate(1.08) brightness(1.02);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease, transform 120ms ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 16px 34px rgba(0, 0, 0, 0.32);
 }
 
 .group:hover .tooltip {

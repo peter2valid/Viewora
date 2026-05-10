@@ -1043,8 +1043,8 @@ defineExpose({
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(0,0,0,0.72);
-  backdrop-filter: blur(6px);
+  background: rgba(0,0,0,0.34);
+  backdrop-filter: blur(18px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1053,10 +1053,17 @@ defineExpose({
 .share-modal {
   width: 100%;
   max-width: 440px;
-  background: rgba(10,12,20,0.96);
-  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 26%, rgba(0,0,0,0.14) 100%),
+    rgba(10,12,20,0.42);
+  backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  border: 1px solid rgba(255,255,255,0.14);
   border-radius: 20px;
   padding: 28px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 28px 72px rgba(0,0,0,0.42);
 }
 .share-modal__header {
   display: flex;
@@ -1334,12 +1341,18 @@ defineExpose({
   left: 50%;
   transform: translateX(-50%);
   width: 260px;
-  background: rgba(10, 12, 20, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 26%, rgba(0,0,0,0.14) 100%),
+    rgba(10, 12, 20, 0.42);
+  backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 14px;
   padding: 14px;
   z-index: 400;
-  backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 24px 60px rgba(0,0,0,0.40);
 }
 .rename-popover__label {
   display: block;
@@ -1414,10 +1427,17 @@ defineExpose({
 .settings-modal {
   width: 100%;
   max-width: 380px;
-  background: rgba(10,12,20,0.97);
-  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 26%, rgba(0,0,0,0.14) 100%),
+    rgba(10,12,20,0.42);
+  backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  border: 1px solid rgba(255,255,255,0.14);
   border-radius: 20px;
   padding: 24px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 28px 72px rgba(0,0,0,0.42);
 }
 .settings-modal__header {
   display: flex;

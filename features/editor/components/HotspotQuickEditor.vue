@@ -445,10 +445,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 <style scoped>
 .qe-card {
   z-index: 150;
-  background: rgba(10, 12, 20, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 28%, rgba(0,0,0,0.16) 100%),
+    rgba(10, 12, 20, 0.40);
+  backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 22px;
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255,255,255,0.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 28px 70px rgba(0, 0, 0, 0.42);
   display: flex;
   flex-direction: column;
   max-height: 80vh;
@@ -461,7 +467,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   align-items: flex-start;
   justify-content: space-between;
   padding: 14px 14px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
   flex-shrink: 0;
   gap: 8px;
 }
@@ -524,7 +530,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   display: flex;
   flex-direction: column;
   gap: 7px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
 .qe-section:last-child { border-bottom: none; }
 .qe-section-label {
@@ -545,8 +551,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   height: 36px;
   padding: 0 11px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
   color: #fff;
   font-size: 12px;
   font-weight: 600;
@@ -555,14 +561,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   box-sizing: border-box;
   font-family: inherit;
 }
-.qe-input:focus { border-color: rgba(99,102,241,0.5); background: rgba(255,255,255,0.09); }
+.qe-input:focus { border-color: rgba(99,102,241,0.55); background: rgba(255,255,255,0.11); }
 
 .qe-textarea {
   width: 100%;
   padding: 9px 11px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
   color: #fff;
   font-size: 12px;
   font-weight: 500;
@@ -583,8 +589,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   border-radius: 10px;
   background-size: cover;
   background-position: center;
-  background-color: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+  background-color: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
 }
 
 /* ── Empty state ── */
@@ -593,8 +599,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   color: rgba(255,255,255,0.3);
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px dashed rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.05);
+  border: 1px dashed rgba(255,255,255,0.12);
   line-height: 1.5;
 }
 
@@ -606,13 +612,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   gap: 9px;
   padding: 7px 10px 7px 7px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
   cursor: pointer;
   transition: background 130ms, border-color 130ms;
   text-align: left;
 }
-.qe-room-trigger:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.14); }
+.qe-room-trigger:hover { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.18); }
 
 .qe-room-thumb {
   width: 54px;
@@ -646,8 +652,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .qe-room-dropdown {
   border-radius: 12px;
-  background: rgba(18, 20, 30, 0.98);
-  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(12, 14, 22, 0.48);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  border: 1px solid rgba(255,255,255,0.12);
   overflow: hidden;
   margin-top: -2px;
 }
@@ -705,12 +713,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   gap: 5px;
   padding: 10px 6px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.06);
   border: 1.5px solid transparent;
   cursor: pointer;
   transition: background 130ms, border-color 130ms, transform 100ms;
 }
-.qe-nav-icon-btn:hover { background: rgba(255,255,255,0.09); transform: scale(1.04); }
+.qe-nav-icon-btn:hover { background: rgba(255,255,255,0.12); transform: scale(1.04); }
 .qe-nav-icon-btn--active {
   background: rgba(99,102,241,0.12);
   border-color: rgba(99,102,241,0.5);
@@ -750,7 +758,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.06);
   border: 1.5px solid transparent;
   cursor: pointer;
   display: flex;
@@ -759,7 +767,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   padding: 6px;
   transition: background 120ms, border-color 120ms, transform 100ms;
 }
-.qe-icon-btn:hover { background: rgba(255,255,255,0.09); transform: scale(1.07); }
+.qe-icon-btn:hover { background: rgba(255,255,255,0.12); transform: scale(1.07); }
 .qe-icon-btn--active {
   background: rgba(99,102,241,0.12);
   border-color: rgba(99,102,241,0.55);

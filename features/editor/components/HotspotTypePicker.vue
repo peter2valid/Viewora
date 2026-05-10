@@ -90,19 +90,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
   padding: 16px;
 }
 
 .tp-card {
-  background: rgba(14, 16, 26, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 26%, rgba(0,0,0,0.16) 100%),
+    rgba(10, 12, 20, 0.42);
+  backdrop-filter: blur(30px) saturate(1.12) brightness(1.02);
+  -webkit-backdrop-filter: blur(30px) saturate(1.12) brightness(1.02);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 24px;
   padding: 24px;
   width: 100%;
   max-width: 380px;
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 28px 70px rgba(0, 0, 0, 0.42);
 }
 
 .tp-header {
@@ -156,15 +162,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   gap: 8px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   cursor: pointer;
   text-align: left;
   transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 .tp-type:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
   transform: translateY(-1px);
 }
 .tp-type:active { transform: scale(0.97); }
