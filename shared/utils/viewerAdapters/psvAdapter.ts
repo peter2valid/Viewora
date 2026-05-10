@@ -54,6 +54,20 @@ function hotspotSignature(hs: Hotspot): string {
   ].join('|')
 }
 
+function isPowerOfTwo(value: number | null | undefined): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && (value & (value - 1)) === 0
+}
+
+function canUseTiledPanorama(scene: TourScene): boolean {
+  return !!scene.tileManifestUrl
+    && !!scene.tileCols
+    && !!scene.tileRows
+    && scene.tilesReady === true
+    && (scene.width || 0) > 4096
+    && isPowerOfTwo(scene.tileCols)
+    && isPowerOfTwo(scene.tileRows)
+}
+
 /** 
  * Custom WebComponent for Hotspots 
  * This allows us to have floating 3D cards directly above the hotspot 
@@ -260,12 +274,7 @@ export interface InitViewerOptions {
 
 /** Returns the PSV panorama config — tiles only when ALL of: url, cols, rows, tilesReady */
 function buildPanorama(scene: TourScene) {
-  const hasTiles =
-    !!scene.tileManifestUrl &&
-    !!scene.tileCols &&
-    !!scene.tileRows &&
-    scene.tilesReady === true &&
-    (scene.width || 0) > 4096
+  const hasTiles = canUseTiledPanorama(scene)
 
   if (hasTiles) {
     return {
@@ -294,11 +303,7 @@ export async function initViewer(
     ('ontouchstart' in window || navigator.maxTouchPoints > 0)
 
   const hasTiles =
-    !!scene.tileManifestUrl &&
-    !!scene.tileCols &&
-    !!scene.tileRows &&
-    scene.tilesReady === true &&
-    (scene.width || 0) > 4096
+    canUseTiledPanorama(scene)
 
   const plugins: any[] = [
     [MarkersPlugin, { clickEventOnMarker: false }],
@@ -323,7 +328,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: hasTiles ? [EquirectangularTilesAdapter, { showQueue: false, interpolation: true }] : undefined,
+    adapter: hasTiles ? [EquirectangularTilesAdapter] : undefined,
     panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -398,10 +403,7 @@ export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene
   handle.markerSignatures.clear()
 
   const hasTiles =
-    !!scene.tileManifestUrl &&
-    !!scene.tileCols &&
-    !!scene.tileRows &&
-    scene.tilesReady === true
+    canUseTiledPanorama(scene)
 
   // Swap adapter if needed when switching between tiled and non-tiled scenes
   if (hasTiles && !handle.viewer.adapter?.constructor?.name?.includes('Tiles')) {
