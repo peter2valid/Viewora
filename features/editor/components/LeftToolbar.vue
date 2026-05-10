@@ -4,19 +4,19 @@
       v-if="visible"
       class="editor-glass fixed z-20 flex gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto overflow-visible transition-all duration-300
              left-1/2 -translate-x-1/2 bottom-40 flex-row w-auto
-             sm:left-5 sm:top-1/2 sm:-translate-y-1/2 sm:translate-x-0 sm:flex-col sm:w-16"
+              sm:left-5 sm:top-1/2 sm:-translate-y-1/2 sm:translate-x-0 sm:flex-col sm:w-[64px]"
     >
       <div
         v-for="tool in tools"
         :key="tool.mode"
-        class="relative group"
+        class="relative group flex flex-col items-center"
       >
         <button
           :ref="(el) => { buttonRefs[tool.mode] = el as HTMLButtonElement }"
           @click="handleToolClick(tool.mode)"
           :aria-label="tool.label"
           :aria-pressed="isToolActive(tool.mode)"
-          class="flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+          class="flex flex-col items-center justify-center gap-0.5 w-10 h-13 sm:w-[52px] sm:h-[54px] rounded-xl hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
           :class="[
             isToolActive(tool.mode)
               ? 'bg-blue-600 text-white'
@@ -47,6 +47,8 @@
             <line x1="9" y1="8" x2="15" y2="8"/>
             <line x1="17" y1="16" x2="23" y2="16"/>
           </svg>
+
+          <span class="tool-label">{{ tool.compactLabel }}</span>
         </button>
 
         <!-- Active indicator -->
@@ -86,10 +88,10 @@ const flashedMode = ref<EditorMode | null>(null)
 const buttonRefs: Record<string, HTMLButtonElement | null> = {}
 const modeAnnouncement = ref('')
 
-const tools: { mode: EditorMode; label: string; key: string }[] = [
-  { mode: 'view',     label: 'View',        key: 'V' },
-  { mode: 'hotspot',  label: 'Add Hotspot', key: 'H' },
-  { mode: 'settings', label: 'Settings',    key: 'S' },
+const tools: { mode: EditorMode; label: string; compactLabel: string; key: string }[] = [
+  { mode: 'view',     label: 'View',        compactLabel: 'View',     key: 'V' },
+  { mode: 'hotspot',  label: 'Add Hotspot', compactLabel: 'Hotspot',  key: 'H' },
+  { mode: 'settings', label: 'Settings',    compactLabel: 'Settings', key: 'S' },
 ]
 
 const modeLabels: Record<EditorMode, string> = {
@@ -181,6 +183,26 @@ onBeforeUnmount(() => {
 
 .tool-flash {
   animation: tool-flash 120ms ease forwards;
+}
+
+.tool-label {
+  font-size: 7px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.54);
+  white-space: nowrap;
+}
+
+.group:hover .tool-label {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+@media (max-width: 639px) {
+  .tool-label {
+    font-size: 7px;
+  }
 }
 
 @keyframes tool-flash {
