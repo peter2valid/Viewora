@@ -432,10 +432,11 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.62);
+  color: rgba(255,255,255,0.92);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 4px rgba(0,0,0,0.3);
 }
 
 @media (min-width: 640px) {

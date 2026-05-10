@@ -348,9 +348,6 @@ onMounted(async () => {
 watch(
   () => props.scene,
   async (next, prev) => {
-    // Prevent concurrent scene loads
-    if (sceneLoadInProgress) return
-    
     if (!next?.imageUrl) {
       state.value = 'empty'
       return
@@ -373,15 +370,15 @@ watch(
       return
     }
     
+    // Cancel any pending load and start new one
+    if (loadAbortController) {
+      loadAbortController.abort()
+    }
+    loadAbortController = new AbortController()
+    const signal = loadAbortController.signal
+    
     sceneLoadInProgress = true
     try {
-      // Cancel any pending load
-      if (loadAbortController) {
-        loadAbortController.abort()
-      }
-      loadAbortController = new AbortController()
-      const signal = loadAbortController.signal
-      
       // Set timeout for scene load (20 seconds)
       const timeoutPromise = new Promise<void>((_, reject) => 
         setTimeout(() => reject(new Error('Scene load timeout')), 20000)
@@ -803,14 +800,19 @@ onUnmounted(() => {
 
 /* ── Compass overrides ───────────────────────────── */
 .psv-canvas :deep(.psv-compass) {
-  background: rgba(10, 12, 20, 0.6);
+  background: rgba(10, 12, 20, 0.7);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 50%;
   margin-left: 12px;
   margin-bottom: 220px; /* High enough to clear SceneDock and LeftToolbar on mobile */
   width: 80px !important;
   height: 80px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.psv-canvas :deep(.psv-compass svg) {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 
 @media (min-width: 640px) {
