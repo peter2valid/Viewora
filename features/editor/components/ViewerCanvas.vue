@@ -1,6 +1,6 @@
 <template>
   <main
-    class="absolute inset-0 z-0 overflow-hidden bg-[#0A0A0A]"
+    class="absolute inset-0 z-0 overflow-hidden bg-bg"
     :class="isHotspotMode && hasScene ? 'cursor-crosshair' : ''"
     @dragenter.prevent="onDragenter"
     @dragover.prevent

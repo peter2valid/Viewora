@@ -1934,7 +1934,8 @@ header.nav {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #0a0a0a;
+  /* Use theme variable so dark mode is exact black when enabled */
+  background: var(--bg);
 }
 
 /* ── Grid ── */
@@ -3312,11 +3313,15 @@ header.nav {
    ============================================================ */
 
 .editor-glass {
-  background: rgba(22, 22, 24, 0.86);
-  backdrop-filter: blur(24px) saturate(1.15);
-  -webkit-backdrop-filter: blur(24px) saturate(1.15);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.40);
+  /* Stronger glassmorphism for dark editor: subtle translucent gradient
+     to reveal the deep background while keeping readable contrast. */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 24%, rgba(0,0,0,0.36) 100%),
+    rgba(8,8,10,0.60);
+  backdrop-filter: blur(30px) saturate(1.12) brightness(0.9);
+  -webkit-backdrop-filter: blur(30px) saturate(1.12) brightness(0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
 }
 
 /* ============================================================

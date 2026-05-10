@@ -1,5 +1,5 @@
 <template>
-  <div class="editor-shell">
+  <div class="editor-shell editor-root">
 
     <!-- Full-screen error overlay when initial space load fails -->
     <div v-if="spaceLoadFailed" class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-gray-950 gap-4">
@@ -1003,7 +1003,8 @@ defineExpose({
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #0A0A0A;
+  /* Use theme token so editor background exactly matches dashboard deep black in dark mode */
+  background: var(--bg);
 }
 
 /* ── Toast ─────────────────────────────────────────────────── */
