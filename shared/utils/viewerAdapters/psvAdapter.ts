@@ -397,131 +397,147 @@ export async function initViewer(
 }
 
 export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene, hotspots?: Hotspot[]): Promise<void> {
-  if (!handle?.viewer || !scene.imageUrl) return
+  if (!handle?.viewer) throw new Error('Viewer handle is invalid')
+  if (!scene?.imageUrl) throw new Error('Scene image URL is required')
 
-  handle.markers.clearMarkers()
-  handle.markerSignatures.clear()
+  try {
+    handle.markers.clearMarkers()
+    handle.markerSignatures.clear()
 
-  const hasTiles =
-    canUseTiledPanorama(scene)
+    const hasTiles = canUseTiledPanorama(scene)
 
-  // Swap adapter if needed when switching between tiled and non-tiled scenes
-  if (hasTiles && !handle.viewer.adapter?.constructor?.name?.includes('Tiles')) {
-    // PSV doesn't support live adapter swap — reinit would be needed.
-    // For now fall back gracefully to full image for non-matching adapter state.
-    await handle.viewer.setPanorama(scene.imageUrl, {
-      showLoader: false,
-      position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
-      transition: { speed: 1000, rotation: true, effect: 'black' },
-    })
-  } else {
-    await handle.viewer.setPanorama(buildPanorama(scene), {
-      showLoader: false,
-      position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
-      transition: { speed: 1000, rotation: true, effect: 'black' },
-    })
-  }
+    // Swap adapter if needed when switching between tiled and non-tiled scenes
+    if (hasTiles && !handle.viewer.adapter?.constructor?.name?.includes('Tiles')) {
+      // PSV doesn't support live adapter swap — reinit would be needed.
+      // For now fall back gracefully to full image for non-matching adapter state.
+      await handle.viewer.setPanorama(scene.imageUrl, {
+        showLoader: false,
+        position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
+        transition: { speed: 1000, rotation: true, effect: 'black' },
+      })
+    } else {
+      await handle.viewer.setPanorama(buildPanorama(scene), {
+        showLoader: false,
+        position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
+        transition: { speed: 1000, rotation: true, effect: 'black' },
+      })
+    }
 
-  // Enforce hotspots after panorama is set
-  if (hotspots?.length) {
-    syncHotspots(handle, hotspots, true)
+    // Enforce hotspots after panorama is set
+    if (hotspots?.length) {
+      syncHotspots(handle, hotspots, true)
+    }
+  } catch (err) {
+    // Clean up on error
+    try { handle.markers.clearMarkers() } catch { /* noop */ }
+    throw err
   }
 }
 
 export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): void {
-  if (!handle?.markers || !hotspot) return
+  if (!handle?.markers || !hotspot || !hotspot.id) return
 
-  const isLayerType = hotspot.type === 'video' || hotspot.type === 'youtube'
-  const hasCorners = Array.isArray(hotspot.corners) && hotspot.corners.length === 4
-
-  const scale       = Number(hotspot.scale || 1)
-  const hoverAmount = Number(hotspot.hoverScale || 1.3)
-
-  if (!isLayerType) {
-    const labelText   = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
-    const baseSize    = scale * 44
-
-    // Create the custom element instance
-    const el = document.createElement('viewora-hotspot');
-    el.setAttribute('id', hotspot.id);
-    el.setAttribute('label', hotspot.label || '');
-    el.setAttribute('description', hotspot.description || '');
-    el.setAttribute('type', hotspot.type);
-    el.setAttribute('icon-url', HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY[hotspot.type === 'scene_link' ? 'nav-up' : 'info-3d-light'] || '');
-    el.setAttribute('image-url', hotspot.imageUrl || '');
-    el.setAttribute('active', 'false');
-
-    const isNav = hotspot.type === 'scene_link';
-    const markerSize = isNav ? { width: 50, height: 50 } : { width: 300, height: 400 };
-    const markerAnchor = isNav ? 'center center' : 'bottom center';
-
-    handle.markers.addMarker({
-      id: hotspot.id,
-      position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-      element: el,
-      size: markerSize,
-      anchor: markerAnchor,
-      tooltip: labelText ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
-      hoverScale: hoverAmount,
-    })
-    return
-  }
-
-  if (isLayerType && hotspot.url) {
-    const videoBaseSize = scale * 640
-    const ratio         = 360 / 640
-    const position      = hasCorners ? hotspot.corners : { yaw: hotspot.yaw, pitch: hotspot.pitch }
-    const size          = hasCorners ? undefined : { width: videoBaseSize, height: videoBaseSize * ratio }
-
-    const container = document.createElement('div')
-    container.className = `psv-hs-spatial-container ${handle.isEditing ? 'psv-hs-spatial--editable' : ''}`
-    container.style.width    = '100%'
-    container.style.height   = '100%'
-    container.style.position = 'relative'
-
-    let contentElement: HTMLElement
-
-    if (hotspot.type === 'video') {
-      const video      = document.createElement('video')
-      video.src        = hotspot.url
-      video.autoplay   = true
-      video.muted      = true
-      video.loop       = true
-      video.style.width      = '100%'
-      video.style.height     = '100%'
-      video.style.objectFit  = 'cover'
-      contentElement = video
-    } else {
-      const videoId = hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/)?.[1] ?? hotspot.url
-
-      const iframe        = document.createElement('iframe')
-      iframe.src          = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0`
-      iframe.frameBorder  = '0'
-      iframe.allow        = 'autoplay; encrypted-media'
-      iframe.style.width          = '100%'
-      iframe.style.height         = '100%'
-      iframe.style.pointerEvents  = handle.isEditing ? 'none' : 'auto'
-      contentElement = iframe
+  try {
+    // Validate hotspot data
+    if (typeof hotspot.yaw !== 'number' || typeof hotspot.pitch !== 'number') {
+      console.error('Invalid hotspot coordinates:', hotspot)
+      return
     }
 
-    container.appendChild(contentElement)
+    const isLayerType = hotspot.type === 'video' || hotspot.type === 'youtube'
+    const hasCorners = Array.isArray(hotspot.corners) && hotspot.corners.length === 4
 
-    if (handle.isEditing) {
-      const overlay       = document.createElement('div')
-      overlay.className   = 'psv-hs-spatial-overlay'
-      overlay.innerHTML   = buildMarkerHtml(hotspot)
-      if (hasCorners) overlay.classList.add('psv-hs-spatial-overlay--mapped')
-      container.appendChild(overlay)
+    const scale       = Number(hotspot.scale || 1)
+    const hoverAmount = Number(hotspot.hoverScale || 1.3)
+
+    if (!isLayerType) {
+      const labelText   = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
+      const baseSize    = scale * 44
+
+      // Create the custom element instance
+      const el = document.createElement('viewora-hotspot');
+      el.setAttribute('id', hotspot.id);
+      el.setAttribute('label', hotspot.label || '');
+      el.setAttribute('description', hotspot.description || '');
+      el.setAttribute('type', hotspot.type);
+      el.setAttribute('icon-url', HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY[hotspot.type === 'scene_link' ? 'nav-up' : 'info-3d-light'] || '');
+      el.setAttribute('image-url', hotspot.imageUrl || '');
+      el.setAttribute('active', 'false');
+
+      const isNav = hotspot.type === 'scene_link';
+      const markerSize = isNav ? { width: 50, height: 50 } : { width: 300, height: 400 };
+      const markerAnchor = isNav ? 'center center' : 'bottom center';
+
+      handle.markers.addMarker({
+        id: hotspot.id,
+        position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
+        element: el,
+        size: markerSize,
+        anchor: markerAnchor,
+        tooltip: labelText ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
+        hoverScale: hoverAmount,
+      })
+      return
     }
 
-    handle.markers.addMarker({
-      id: hotspot.id,
-      elementLayer: container,
-      position,
-      size,
-      anchor: 'center center',
-      tooltip: handle.isEditing ? { content: hotspot.label || '3D Element', position: 'top center', trigger: 'hover' } : undefined,
-    })
+    if (isLayerType && hotspot.url) {
+      const videoBaseSize = scale * 640
+      const ratio         = 360 / 640
+      const position      = hasCorners ? hotspot.corners : { yaw: hotspot.yaw, pitch: hotspot.pitch }
+      const size          = hasCorners ? undefined : { width: videoBaseSize, height: videoBaseSize * ratio }
+
+      const container = document.createElement('div')
+      container.className = `psv-hs-spatial-container ${handle.isEditing ? 'psv-hs-spatial--editable' : ''}`
+      container.style.width    = '100%'
+      container.style.height   = '100%'
+      container.style.position = 'relative'
+
+      let contentElement: HTMLElement
+
+      if (hotspot.type === 'video') {
+        const video      = document.createElement('video')
+        video.src        = hotspot.url
+        video.autoplay   = true
+        video.muted      = true
+        video.loop       = true
+        video.style.width      = '100%'
+        video.style.height     = '100%'
+        video.style.objectFit  = 'cover'
+        contentElement = video
+      } else {
+        const videoId = hotspot.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]{11})/)?.[1] ?? hotspot.url
+
+        const iframe        = document.createElement('iframe')
+        iframe.src          = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0`
+        iframe.frameBorder  = '0'
+        iframe.allow        = 'autoplay; encrypted-media'
+        iframe.style.width          = '100%'
+        iframe.style.height         = '100%'
+        iframe.style.pointerEvents  = handle.isEditing ? 'none' : 'auto'
+        contentElement = iframe
+      }
+
+      container.appendChild(contentElement)
+
+      if (handle.isEditing) {
+        const overlay       = document.createElement('div')
+        overlay.className   = 'psv-hs-spatial-overlay'
+        overlay.innerHTML   = buildMarkerHtml(hotspot)
+        if (hasCorners) overlay.classList.add('psv-hs-spatial-overlay--mapped')
+        container.appendChild(overlay)
+      }
+
+      handle.markers.addMarker({
+        id: hotspot.id,
+        elementLayer: container,
+        position,
+        size,
+        anchor: 'center center',
+        tooltip: handle.isEditing ? { content: hotspot.label || '3D Element', position: 'top center', trigger: 'hover' } : undefined,
+      })
+    }
+  } catch (err) {
+    console.error(`Error adding hotspot ${hotspot?.id}:`, err)
   }
 }
 
@@ -534,26 +550,47 @@ export function removeHotspot(handle: PsvViewerHandle | null, id: string): void 
 export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[], force = false): void {
   if (!handle?.markers) return
 
-  const nextById = new Map<string, Hotspot>()
-  hotspots.forEach(hs => { if (hs?.id) nextById.set(hs.id, hs) })
+  try {
+    // Validate input
+    if (!Array.isArray(hotspots)) return
+    
+    const nextById = new Map<string, Hotspot>()
+    hotspots.forEach(hs => { 
+      if (hs && typeof hs === 'object' && hs.id) {
+        nextById.set(hs.id, hs)
+      }
+    })
 
-  // If forced, clear signatures to ensure all markers are re-added
-  if (force) {
-    handle.markerSignatures.clear()
-  }
-
-  for (const existingId of Array.from(handle.markerSignatures.keys())) {
-    if (!nextById.has(existingId)) removeHotspot(handle, existingId)
-  }
-
-  for (const [id, hs] of nextById) {
-    const nextSig = hotspotSignature(hs)
-    const prevSig = handle.markerSignatures.get(id)
-    if (!prevSig || prevSig !== nextSig) {
-      removeHotspot(handle, id)
-      addHotspot(handle, hs)
-      handle.markerSignatures.set(id, nextSig)
+    // If forced, clear signatures to ensure all markers are re-added
+    if (force) {
+      handle.markerSignatures.clear()
     }
+
+    // Remove hotspots that are no longer in the list
+    for (const existingId of Array.from(handle.markerSignatures.keys())) {
+      if (!nextById.has(existingId)) {
+        removeHotspot(handle, existingId)
+      }
+    }
+
+    // Add or update hotspots
+    for (const [id, hs] of nextById) {
+      try {
+        const nextSig = hotspotSignature(hs)
+        const prevSig = handle.markerSignatures.get(id)
+        
+        if (prevSig !== nextSig) {
+          removeHotspot(handle, id)
+          addHotspot(handle, hs)
+          handle.markerSignatures.set(id, nextSig)
+        }
+      } catch (err) {
+        console.error(`Error syncing hotspot ${id}:`, err)
+        // Continue with next hotspot
+      }
+    }
+  } catch (err) {
+    console.error('Hotspot sync error:', err)
   }
 }
 

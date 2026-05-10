@@ -101,6 +101,8 @@ const errorMessage = ref('Unable to load panorama')
 const isFocusing = ref(false)
 let resizeObserver: ResizeObserver | null = null
 let resizeRaf: number | null = null
+let loadAbortController: AbortController | null = null
+let sceneLoadInProgress = false
 
 // ── Hotspot action menu ────────────────────────────────────
 const menu = reactive({ visible: false, locked: false, hotspotId: null as string | null, x: 0, y: 0 })
@@ -116,6 +118,13 @@ const isAdapterMismatchError = (err: unknown) => {
 async function retryCurrentScene() {
   if (!props.scene?.imageUrl) return
   closeMenu()
+  
+  // Cancel any pending load
+  if (loadAbortController) {
+    loadAbortController.abort()
+    loadAbortController = null
+  }
+  
   state.value = 'loading'
   try {
     destroy(handle.value)
@@ -213,12 +222,30 @@ function scheduleResize() {
 }
 
 async function initWithScene(scene: TourScene) {
-  if (!containerEl.value) return
+  if (!containerEl.value || !scene?.imageUrl) return
+  
+  // Prevent concurrent loads
+  if (sceneLoadInProgress) return
+  sceneLoadInProgress = true
+  
+  // Cancel any pending load
+  if (loadAbortController) {
+    loadAbortController.abort()
+  }
+  loadAbortController = new AbortController()
+  const signal = loadAbortController.signal
+  
   state.value = 'loading'
   try {
+    // Set timeout for viewer init (15 seconds)
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Viewer initialization timeout')), 15000)
+    )
+    
     const viewerOptions: InitViewerOptions = {
       isEditing: props.isEditing ?? false,
       onReady: () => {
+        if (signal.aborted) return
         state.value = 'ready'
         emit('loaded')
         if (props.hotspots?.length) {
@@ -227,13 +254,16 @@ async function initWithScene(scene: TourScene) {
         }
       },
       onError: (err) => {
+        if (signal.aborted) return
         try { destroy(handle.value) } catch { /* noop */ }
         handle.value = null
         state.value = 'error'
-        errorMessage.value = err.message || 'Failed to load panorama'
+        const errMsg = err?.message || 'Failed to load panorama'
+        errorMessage.value = errMsg.length > 80 ? errMsg.substring(0, 77) + '...' : errMsg
         emit('error', err)
       },
       onClick: (payload) => {
+        if (signal.aborted) return
         // Clear active hotspots (public viewer)
         if (handle.value && !props.isEditing) {
           props.hotspots?.forEach(h => toggleHotspotActive(handle.value, h.id, false))
@@ -252,6 +282,7 @@ async function initWithScene(scene: TourScene) {
         }
       },
       onMarkerClick: async (id) => {
+        if (signal.aborted || !handle.value) return
         if (props.isEditing) {
           // Lock the radial menu on hotspot click in editor mode
           openMenu(id)
@@ -261,14 +292,16 @@ async function initWithScene(scene: TourScene) {
           
           // Clear others first
           props.hotspots?.forEach(h => {
-             if (h.id !== id) toggleHotspotActive(handle.value, h.id, false)
+             if (h.id !== id && handle.value) toggleHotspotActive(handle.value, h.id, false)
           })
 
           // For info hotspots, we trigger cinematic focus and show the custom card
           if (hs?.type === 'info' || hs?.type === 'url' || hs?.type === 'video' || hs?.type === 'youtube') {
             isFocusing.value = true
-            toggleHotspotActive(handle.value, id, true)
-            await focusHotspot(handle.value, id)
+            if (handle.value) {
+              toggleHotspotActive(handle.value, id, true)
+              await focusHotspot(handle.value, id)
+            }
           }
           emit('hotspot-click', id)
         }
@@ -276,12 +309,21 @@ async function initWithScene(scene: TourScene) {
       onMarkerEnter: onMarkerEnterCb,
       onMarkerLeave: onMarkerLeaveCb,
     }
-    handle.value = await initViewer(containerEl.value, scene, viewerOptions)
+    
+    const initPromise = initViewer(containerEl.value, scene, viewerOptions)
+    handle.value = await Promise.race([initPromise, timeoutPromise])
     scheduleResize()
   } catch (err: any) {
+    if (signal.aborted) {
+      state.value = 'empty'
+      return
+    }
     state.value = 'error'
-    errorMessage.value = err?.message || 'Viewer initialisation failed'
+    const errMsg = err?.message || 'Viewer initialisation failed'
+    errorMessage.value = errMsg.length > 80 ? errMsg.substring(0, 77) + '...' : errMsg
     emit('error', err instanceof Error ? err : new Error(String(err)))
+  } finally {
+    sceneLoadInProgress = false
   }
 }
 
@@ -306,6 +348,9 @@ onMounted(async () => {
 watch(
   () => props.scene,
   async (next, prev) => {
+    // Prevent concurrent scene loads
+    if (sceneLoadInProgress) return
+    
     if (!next?.imageUrl) {
       state.value = 'empty'
       return
@@ -315,27 +360,58 @@ watch(
       return
     }
     if (next.id === prev?.id) return
+    
     closeMenu()
     isFocusing.value = false
+    
     // Same image already loaded (e.g. local scene ID → real scene ID mapping after upload).
     // Keep the current panorama visible — only sync markers, no reload or camera reset.
     if (next.imageUrl === prev?.imageUrl) {
-      syncHotspots(handle.value, props.hotspots ?? [])
+      if (props.hotspots?.length) {
+        syncHotspots(handle.value, props.hotspots ?? [])
+      }
       return
     }
+    
+    sceneLoadInProgress = true
     try {
-      await loadScene(handle.value, next, props.hotspots ?? [])
-      state.value = 'ready'
-      // Second enforcement check after a short delay for safety
-      setTimeout(() => {
-        if (handle.value && props.hotspots) {
-          syncHotspots(handle.value, props.hotspots, true)
+      // Cancel any pending load
+      if (loadAbortController) {
+        loadAbortController.abort()
+      }
+      loadAbortController = new AbortController()
+      const signal = loadAbortController.signal
+      
+      // Set timeout for scene load (20 seconds)
+      const timeoutPromise = new Promise<void>((_, reject) => 
+        setTimeout(() => reject(new Error('Scene load timeout')), 20000)
+      )
+      
+      const loadPromise = (async () => {
+        await loadScene(handle.value, next, props.hotspots ?? [])
+        if (!signal.aborted) {
+          state.value = 'ready'
+          // Second enforcement check after a short delay for safety
+          setTimeout(() => {
+            if (!signal.aborted && handle.value && props.hotspots) {
+              syncHotspots(handle.value, props.hotspots, true)
+            }
+          }, 300)
+          void nudgeRender(handle.value)
         }
-      }, 300)
-      void nudgeRender(handle.value)
+      })()
+      
+      await Promise.race([loadPromise, timeoutPromise])
     } catch (err: any) {
+      if (loadAbortController?.signal.aborted) {
+        state.value = 'empty'
+        return
+      }
       state.value = 'error'
-      errorMessage.value = err?.message || 'Failed to switch scene'
+      const errMsg = err?.message || 'Failed to switch scene'
+      errorMessage.value = errMsg.length > 80 ? errMsg.substring(0, 77) + '...' : errMsg
+    } finally {
+      sceneLoadInProgress = false
     }
   }
 )
@@ -345,9 +421,16 @@ watch(
   () => props.hotspots,
   (next) => {
     if (state.value !== 'ready' || !handle.value) return
+    if (!next || !Array.isArray(next)) return
+    
     if (hotspotSyncTimer) clearTimeout(hotspotSyncTimer)
     hotspotSyncTimer = setTimeout(() => {
-      syncHotspots(handle.value, next ?? [])
+      try {
+        syncHotspots(handle.value, next ?? [])
+      } catch (err) {
+        console.error('Hotspot sync error:', err)
+        // Continue without crashing
+      }
     }, 150)
   },
   { deep: true }
@@ -359,34 +442,57 @@ watch(
   ([isTracing, points]) => {
     if (!handle.value?.markers) return
     
-    // Clear old trace markers if tracing is off or starting over
-    if (!isTracing || points?.length === 0) {
-      handle.value.markers.removeMarker('trace-poly')
-      for (let i = 0; i < 4; i++) {
-        try { handle.value.markers.removeMarker(`trace-dot-${i}`) } catch { /* noop */ }
+    try {
+      // Clear old trace markers if tracing is off or starting over
+      if (!isTracing || !points?.length) {
+        try { handle.value.markers.removeMarker('trace-poly') } catch { /* noop */ }
+        for (let i = 0; i < 4; i++) {
+          try { handle.value.markers.removeMarker(`trace-dot-${i}`) } catch { /* noop */ }
+        }
+        return
       }
-      return
-    }
 
-    // Draw points
-    const safePoints = points ?? []
-    safePoints.forEach((p, i) => {
-      addTracePoint(handle.value, `trace-dot-${i}`, p)
-    })
+      // Validate and draw points
+      const safePoints = (Array.isArray(points) ? points : []).filter(p => 
+        p && typeof p === 'object' && typeof p.yaw === 'number' && typeof p.pitch === 'number'
+      )
+      
+      safePoints.forEach((p, i) => {
+        try {
+          addTracePoint(handle.value, `trace-dot-${i}`, p)
+        } catch (err) {
+          console.error(`Failed to add trace point ${i}:`, err)
+        }
+      })
 
-    // Draw polygon
-    if (safePoints.length >= 3) {
-      updateTracePolygon(handle.value, safePoints)
+      // Draw polygon if enough points
+      if (safePoints.length >= 3) {
+        try {
+          updateTracePolygon(handle.value, safePoints)
+        } catch (err) {
+          console.error('Failed to update trace polygon:', err)
+        }
+      }
+    } catch (err) {
+      console.error('Tracing error:', err)
     }
   },
   { deep: true }
 )
 
 onUnmounted(() => {
+  // Cancel any pending operations
+  if (loadAbortController) {
+    loadAbortController.abort()
+    loadAbortController = null
+  }
+  
   resizeObserver?.disconnect()
   resizeObserver = null
   if (resizeRaf != null) { window.cancelAnimationFrame(resizeRaf); resizeRaf = null }
   if (hotspotSyncTimer) { clearTimeout(hotspotSyncTimer); hotspotSyncTimer = null }
+  if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
+  if (menuRaf != null) { cancelAnimationFrame(menuRaf); menuRaf = null }
   closeMenu()
   destroy(handle.value)
   handle.value = null
