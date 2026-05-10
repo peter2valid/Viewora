@@ -639,6 +639,20 @@ function toArrayPayload<T = any>(value: any, key: string): T[] {
   return []
 }
 
+// Poll fetchScenes while scenes are still processing so a missed realtime event
+// never leaves the editor permanently stuck with a "processing" badge.
+let processingPollTimer: ReturnType<typeof setInterval> | null = null
+watch(hasProcessingScenes, (isProcessing) => {
+  if (isProcessing && !processingPollTimer) {
+    processingPollTimer = setInterval(() => {
+      if (isMounted) void fetchScenes()
+    }, 6000)
+  } else if (!isProcessing && processingPollTimer) {
+    clearInterval(processingPollTimer)
+    processingPollTimer = null
+  }
+}, { immediate: true })
+
 // Track processing completion
 watch(hasProcessingScenes, (sceneProcessing) => {
   if (sceneProcessing) {
@@ -767,6 +781,7 @@ onBeforeUnmount(() => {
   stopSceneRealtime()
   replacePendingScenePreviewMap({})
   revokeAllLocalPanoramaUrls()
+  if (processingPollTimer) { clearInterval(processingPollTimer); processingPollTimer = null }
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
 })
 

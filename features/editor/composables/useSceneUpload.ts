@@ -101,10 +101,13 @@ export function useSceneUpload(spaceId: string) {
       return record
     } catch (err: any) {
       const humanError = extractUploadErrorMessage(err, file.name)
-      updateLocalUpload(localId, { state: 'failed', error: humanError })
       if (options?.onError) {
+        // Remove the local tracking entry immediately so it doesn't leave
+        // hasProcessingScenes permanently true after a failed upload.
+        removeLocalUpload(localId)
         options.onError(err, humanError)
       } else {
+        updateLocalUpload(localId, { state: 'failed', error: humanError })
         throw err
       }
     }

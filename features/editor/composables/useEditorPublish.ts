@@ -50,7 +50,9 @@ export function useEditorPublish(
 
     const notReady = scenes.value.filter(s => {
       const state = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
-      return state !== 'ready'
+      // 'failed' scenes (e.g. image too small) are not publishable content but
+      // should not block the tour — the user can delete them separately.
+      return state !== 'ready' && state !== 'failed'
     })
     if (notReady.length > 0) {
       issues.push({
