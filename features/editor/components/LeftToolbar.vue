@@ -2,9 +2,8 @@
   <Transition name="editor-panel--left">
     <aside
       v-if="visible"
-      class="editor-glass fixed z-20 flex gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto overflow-visible transition-all duration-300
-             left-1/2 -translate-x-1/2 bottom-40 flex-row w-auto
-              sm:left-5 sm:top-1/2 sm:-translate-y-1/2 sm:translate-x-0 sm:flex-col sm:w-[64px]"
+          class="editor-glass fixed z-20 flex flex-col gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto overflow-visible transition-all duration-300 transform-gpu
+            left-4 top-1/2 -translate-y-1/2 sm:left-5 sm:w-[64px] w-[56px]"
     >
       <div
         v-for="tool in tools"
@@ -16,7 +15,7 @@
           @click="handleToolClick(tool.mode)"
           :aria-label="tool.label"
           :aria-pressed="isToolActive(tool.mode)"
-          class="flex flex-col items-center justify-center gap-0.5 w-10 h-13 sm:w-[52px] sm:h-[54px] rounded-xl hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+          class="flex flex-col items-center justify-center gap-0.5 w-[48px] h-[52px] sm:w-[52px] sm:h-[54px] rounded-xl hover:scale-[1.01] active:scale-[0.98] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
           :class="[
             isToolActive(tool.mode)
               ? 'bg-blue-600 text-white'
