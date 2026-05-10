@@ -49,14 +49,36 @@
       <main class="pt-24 pb-32">
           <!-- Hero / 360 Viewer Section -->
           <section id="experience" class="px-6 max-w-7xl mx-auto mb-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-           <PublicTourHero
-            :space="space"
-            :panorama="panorama"
-            :settings="settings"
-            :share-url="shareUrl"
-            :embed-url="embedUrl"
-            :gallery-count="gallery.length"
-           />
+            <!-- Title row -->
+            <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <h1 class="text-4xl font-black tracking-tighter text-white leading-none">{{ space.title }}</h1>
+                <p v-if="space.address" class="text-zinc-400 text-sm font-medium mt-2">{{ space.address }}</p>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <a
+                  :href="embedUrl"
+                  target="_blank"
+                  class="px-4 py-2 bg-zinc-800 text-zinc-300 text-xs font-black rounded-2xl hover:bg-zinc-700 transition-all"
+                >Embed</a>
+                <button
+                  @click="copyShare"
+                  class="px-4 py-2 bg-white text-black text-xs font-black rounded-2xl hover:bg-zinc-100 transition-all"
+                >{{ shareCopied ? 'Copied!' : 'Share' }}</button>
+              </div>
+            </div>
+
+            <!-- PSV 360 viewer -->
+            <div class="w-full rounded-[2rem] overflow-hidden bg-zinc-900" style="height: 70vh; min-height: 400px;">
+              <ClientOnly>
+                <PsvViewer :tour="tour" :share-url="shareUrl" />
+                <template #fallback>
+                  <div class="w-full h-full flex items-center justify-center">
+                    <div class="w-10 h-10 border-4 border-zinc-700 border-t-white rounded-full animate-spin"></div>
+                  </div>
+                </template>
+              </ClientOnly>
+            </div>
           </section>
 
         <!-- Main Content Grid -->
@@ -209,6 +231,7 @@ definePageMeta({ layout: false })
 import { ref, computed, onMounted } from 'vue'
 import { useSeoMeta, useHead, useRoute } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import PsvViewer from '~/components/viewer/PsvViewer.vue'
 
 const { apiFetch } = useApiFetch()
 const route = useRoute()
@@ -217,9 +240,11 @@ const slug = route.params.slug as string
 const pending = ref(true)
 const fetchError = ref('')
 const space = ref<any>(null)
+const tour = ref<any>(null)
 const lightboxImg = ref<string | null>(null)
 const shareUrl = ref('')
 const embedUrl = ref('')
+const shareCopied = ref(false)
 
 // Lead form
 const leadPending = ref(false)
@@ -227,10 +252,7 @@ const leadError = ref('')
 const leadSuccess = ref(false)
 const leadForm = ref({ name: '', email: '', phone: '', message: '' })
 
-const media = computed(() => space.value?.property_media || [])
-const gallery = computed(() => media.value.filter((m: any) => m.media_type === 'gallery_image'))
-const panorama = computed(() => media.value.find((m: any) => m.media_type === 'panorama'))
-const settings = computed(() => space.value?.property_360_settings?.[0])
+const gallery = computed<any[]>(() => [])
 const publicSlug = computed(() => space.value?.slug || space.value?.id || slug)
 
 onMounted(async () => {
@@ -242,7 +264,9 @@ async function fetchSpace() {
   pending.value = true
   try {
     const data = await apiFetch<any>(`/p/${encodeURIComponent(slug)}`)
-    const spaceData = data?.tour?.space ?? data
+    const tourData = data?.tour ?? data
+    tour.value = tourData
+    const spaceData = tourData?.space ?? tourData
     space.value = spaceData
     syncShareLinks(spaceData)
     fireViewEvent(spaceData.id)
@@ -251,6 +275,12 @@ async function fetchSpace() {
   } finally {
     pending.value = false
   }
+}
+
+function copyShare() {
+  navigator.clipboard.writeText(shareUrl.value).catch(() => {})
+  shareCopied.value = true
+  setTimeout(() => { shareCopied.value = false }, 2000)
 }
 
 function syncShareLinks(value = space.value) {
