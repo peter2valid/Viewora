@@ -292,6 +292,12 @@ watch(
     if (next.id === prev?.id) return
     closeMenu()
     isFocusing.value = false
+    // Same image already loaded (e.g. local scene ID → real scene ID mapping after upload).
+    // Keep the current panorama visible — only sync markers, no reload or camera reset.
+    if (next.imageUrl === prev?.imageUrl) {
+      syncHotspots(handle.value, props.hotspots ?? [])
+      return
+    }
     try {
       await loadScene(handle.value, next, props.hotspots ?? [])
       state.value = 'ready'

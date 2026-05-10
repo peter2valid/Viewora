@@ -383,6 +383,7 @@ const inlineEditMode = computed({
 
 const {
   pendingScenePreviewById,
+  localPanoramaUrlById,
   sceneUploadStateById,
   canvasFileInput,
   addSceneFileInput,
@@ -390,6 +391,8 @@ const {
   sceneHasRenderableImage,
   scenePreviewUrl,
   replacePendingScenePreviewMap,
+  deleteLocalPanoramaUrl,
+  revokeAllLocalPanoramaUrls,
   createOptimisticLocalScene,
   removeOptimisticLocalScene,
   setSceneUploadState,
@@ -575,14 +578,19 @@ const activeScene = computed(() => selectedScene.value)
 
 
 const activePanoramaSrc = computed(() => {
-  // pendingScenePreviewById may contain blob: or data: URLs created in-browser for dock thumbnails.
-  // PSV uses fetch() internally which CANNOT load blob: or data: URLs.
-  // Only forward real HTTPS URLs from the CDN to the 360 viewer.
-  const pending = activeScene.value?.id ? pendingScenePreviewById.value[activeScene.value.id] : null
+  const sceneId = activeScene.value?.id
+  if (!sceneId) return placeholderPanoramaUrl
+
+  // Instant preview: full-resolution blob URL kept alive while the file is uploading.
+  // PSV's default equirectangular adapter loads via <img>, which supports blob: URLs.
+  const localBlob = localPanoramaUrlById.value[sceneId]
+  if (localBlob) return localBlob
+
+  // Pending https URL pushed by the upload flow before the realtime sync arrives.
+  const pending = pendingScenePreviewById.value[sceneId]
   if (pending && pending.startsWith('https://')) return pending
 
-  // Use raw_image_url as the main texture since EquirectangularTilesAdapter
-  // does not natively support Deep Zoom pyramids without custom coordinate mapping.
+  // Server URLs (raw image or processed thumbnail).
   if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   if (activeScene.value?.thumbnail_url) return activeScene.value.thumbnail_url
   return placeholderPanoramaUrl
@@ -758,6 +766,7 @@ onBeforeUnmount(() => {
   fetchScenesController = null
   stopSceneRealtime()
   replacePendingScenePreviewMap({})
+  revokeAllLocalPanoramaUrls()
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
 })
 
@@ -808,9 +817,12 @@ async function fetchScenes() {
     const pendingPreviewNext = { ...pendingScenePreviewById.value }
 
     const hotspotTasks = loadedScenes.map(async (scene: any) => {
-      // Clear local blob:/data: previews as soon as the backend has a real HTTPS URL.
-      // Both blob: (URL.createObjectURL) and data: (canvas toDataURL) URLs cannot be
-      // fetched by the PSV viewer — only https:// URLs work for panorama loading.
+      // Release the local blob URL held for the PSV viewer once the server has a real URL.
+      if (localPanoramaUrlById.value[scene.id] && scene?.raw_image_url) {
+        deleteLocalPanoramaUrl(scene.id)
+      }
+
+      // Clear dock thumbnail blob:/data: previews once the server provides an HTTPS URL.
       const localPreview = pendingPreviewNext[scene.id]
       const isLocalPreview = localPreview?.startsWith('blob:') || localPreview?.startsWith('data:')
       if (isLocalPreview && (scene?.raw_image_url || scene?.thumbnail_url)) {
@@ -892,7 +904,7 @@ function isAbortError(err: any): boolean {
 
 const { start: startSceneRealtime, stop: stopSceneRealtime } = useEditorRealtime(
   props.spaceId,
-  () => { if (isMounted) void fetchSpace(true) },
+  () => { if (isMounted) void fetchScenes() },
   () => isMounted,
 )
 

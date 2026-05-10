@@ -42,6 +42,38 @@ export function useEditorUpload(
   const canvasFileInput = ref<HTMLInputElement | null>(null)
   const addSceneFileInput = ref<HTMLInputElement | null>(null)
 
+  // Full-resolution blob: URLs held for the PSV viewer while a file is uploading.
+  // Separate from pendingScenePreviewById (which holds small data: thumbnails for the dock).
+  const localPanoramaUrlById = ref<Record<string, string>>({})
+
+  function setLocalPanoramaUrl(sceneId: string, url: string) {
+    localPanoramaUrlById.value = { ...localPanoramaUrlById.value, [sceneId]: url }
+  }
+
+  function moveLocalPanoramaUrl(fromId: string, toId: string) {
+    const url = localPanoramaUrlById.value[fromId]
+    if (!url) return
+    const next = { ...localPanoramaUrlById.value, [toId]: url }
+    delete next[fromId]
+    localPanoramaUrlById.value = next
+  }
+
+  function deleteLocalPanoramaUrl(sceneId: string) {
+    if (!(sceneId in localPanoramaUrlById.value)) return
+    const url = localPanoramaUrlById.value[sceneId]
+    try { if (url?.startsWith('blob:')) window.URL.revokeObjectURL(url) } catch { /* best-effort */ }
+    const next = { ...localPanoramaUrlById.value }
+    delete next[sceneId]
+    localPanoramaUrlById.value = next
+  }
+
+  function revokeAllLocalPanoramaUrls() {
+    for (const url of Object.values(localPanoramaUrlById.value)) {
+      try { if (url?.startsWith('blob:')) window.URL.revokeObjectURL(url) } catch { /* best-effort */ }
+    }
+    localPanoramaUrlById.value = {}
+  }
+
   // ── Preview URL helpers ───────────────────────────────────────
 
   function isBlobPreviewUrl(url: string | null | undefined): url is string {
@@ -146,6 +178,7 @@ export function useEditorUpload(
     delete next[localSceneId]
     hotspotsByScene.value = next
     deletePendingScenePreview(localSceneId)
+    deleteLocalPanoramaUrl(localSceneId)
     removeSceneUploadState(localSceneId)
     if (selectedSceneId.value === localSceneId) {
       selectedSceneId.value = scenes.value[0]?.id || ''
@@ -244,6 +277,7 @@ export function useEditorUpload(
         }
         mapSceneLinkTargets(localSceneId, createdScene.id)
         movePendingScenePreview(localSceneId, createdScene.id)
+        moveLocalPanoramaUrl(localSceneId, createdScene.id)
         await syncPendingHotspotsForScene(createdScene.id)
       } else {
         scenes.value = [...scenes.value, createdScene]
@@ -264,8 +298,10 @@ export function useEditorUpload(
     const shouldSelectFirst = !selectedSceneId.value && scenes.value.length === 0
 
     const queued = await Promise.all(files.map(async (file, idx) => {
-      const previewUrl = URL.createObjectURL(file)
+      const previewUrl = URL.createObjectURL(file)  // for dock thumbnail (gets replaced by data: URL)
+      const psvBlobUrl = URL.createObjectURL(file)  // full-res blob kept alive for the PSV viewer
       const localSceneId = createOptimisticLocalScene(file, previewUrl, { select: shouldSelectFirst && idx === 0 })
+      setLocalPanoramaUrl(localSceneId, psvBlobUrl)
       const persistedPreview = await createPersistedScenePreview(file)
       if (persistedPreview) setPendingScenePreview(localSceneId, persistedPreview)
       return { file, localSceneId }
@@ -464,6 +500,7 @@ export function useEditorUpload(
   return {
     // State
     pendingScenePreviewById,
+    localPanoramaUrlById,
     sceneUploadStateById,
     canvasFileInput,
     addSceneFileInput,
@@ -474,6 +511,8 @@ export function useEditorUpload(
     sceneHasRenderableImage,
     scenePreviewUrl,
     replacePendingScenePreviewMap,
+    deleteLocalPanoramaUrl,
+    revokeAllLocalPanoramaUrls,
     // Scene helpers
     createOptimisticLocalScene,
     removeOptimisticLocalScene,
