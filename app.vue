@@ -5,6 +5,7 @@
 </template>
 
 <script setup lang="ts">
+// Main application entry component
 useSeoMeta({
   title: 'Dashboard | Viewora',
   ogTitle: 'Viewora Dashboard',
