@@ -119,6 +119,17 @@ const hasTourData = computed(() => (props.tour?.scenes?.length ?? 0) > 0)
 // ── Scene list from tour ───────────────────────────────────────────────────
 const tourScenes = computed<any[]>(() => props.tour?.scenes ?? [])
 const sceneCount = computed(() => tourScenes.value.length)
+const tourLoadKey = computed(() => {
+  if (!hasTourData.value) return ''
+
+  const sceneKey = tourScenes.value.map((scene: any) => scene?.id ?? '').filter(Boolean).join('|')
+  const hotspotKey = tourScenes.value
+    .map((scene: any) => `${scene?.id ?? ''}:${Array.isArray(scene?.hotspots) ? scene.hotspots.length : 0}`)
+    .join('|')
+  const spaceKey = props.tour?.space?.id ?? props.tour?.space?.slug ?? ''
+
+  return `${spaceKey}:${sceneKey}:${hotspotKey}`
+})
 
 const activeSceneId = computed(() =>
   hasTourData.value
@@ -305,7 +316,7 @@ onUnmounted(() => {
 
 // Re-init VT if the tour data changes (e.g. navigating to a different tour)
 watch(
-  () => props.tour?.id,
+  () => tourLoadKey.value,
   (next, prev) => {
     if (next && next !== prev && hasTourData.value) {
       // wait for vtContainerEl after re-render
