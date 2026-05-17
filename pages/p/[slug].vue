@@ -1,259 +1,143 @@
 <template>
-  <div class="min-h-screen bg-black font-sans text-white selection:bg-white selection:text-black">
-    <!-- Loading State -->
-    <div v-if="pending" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center gap-6">
-      <div class="w-12 h-12 border-4 border-zinc-800 border-t-white rounded-full animate-spin"></div>
-      <span class="text-sm font-black tracking-widest text-zinc-500 uppercase">Immersing...</span>
-    </div>
-
-    <!-- Error State -->
-    <div v-else-if="fetchError" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
-      <div class="w-20 h-20 bg-rose-950/50 text-rose-400 rounded-[2rem] flex items-center justify-center mb-6">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div class="tour-page">
+    <div v-if="pending" class="tour-page-loading" aria-label="Loading tour">
+      <img
+        v-if="blurCover"
+        :src="blurCover"
+        class="tour-page-loading-bg object-cover"
+        width="100"
+        height="50"
+        loading="eager"
+        aria-hidden="true"
+      />
+      <div class="tour-page-loading-scrim" aria-hidden="true" />
+      <div class="tour-page-loading-center">
+        <div class="loading-orb" />
+        <p class="loading-label">Loading Tour</p>
       </div>
-      <h1 class="text-2xl font-black mb-2">Space Unavailable</h1>
-      <p class="text-zinc-400 font-medium max-w-xs">{{ fetchError }}</p>
-      <NuxtLink to="/" class="mt-8 px-8 py-3 bg-white text-black rounded-2xl font-black text-sm transition-all hover:scale-105 active:scale-95">Return Home</NuxtLink>
     </div>
 
-    <!-- Main Space View -->
-    <template v-else-if="space">
-      <!-- Premium Navigation -->
-      <nav class="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-2xl border-b border-white/5 px-6 py-4 animate-in fade-in slide-in-from-top-4 duration-700">
-        <div class="max-w-7xl mx-auto flex items-center justify-between">
-          <div class="flex items-center gap-3">
-             <div class="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-white/20">
-                <div class="w-3 h-3 bg-black rounded-full"></div>
-             </div>
-             <div>
-                <span class="text-lg font-black tracking-tighter block leading-none text-white">VIEWORA</span>
-                <span v-if="space.profiles?.agency_name" class="text-[10px] font-black uppercase tracking-widest text-zinc-500 leading-none mt-1 block">{{ space.profiles.agency_name }}</span>
-             </div>
-          </div>
-          
-          <div class="hidden md:flex items-center gap-8 text-[11px] font-black uppercase tracking-widest text-zinc-500">
-             <a href="#experience" class="hover:text-white transition-colors">Experience</a>
-             <a href="#details" class="hover:text-white transition-colors">Details</a>
-             <a href="#gallery" class="hover:text-white transition-colors">Gallery</a>
-          </div>
-
-          <button 
-            @click="scrollToForm"
-            class="px-6 py-2.5 bg-white text-black text-xs font-black rounded-2xl hover:bg-zinc-100 transition-all shadow-xl shadow-white/10 active:scale-95"
-          >
-            Inquire Now
-          </button>
+    <div v-else-if="fetchError" class="tour-page-center p-6" role="main">
+      <div class="state-card">
+        <div class="state-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7">
+            <circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" />
+          </svg>
         </div>
-      </nav>
-
-      <main class="pt-24 pb-32">
-          <!-- Hero / 360 Viewer Section -->
-          <section id="experience" class="px-6 max-w-7xl mx-auto mb-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <!-- Title row -->
-            <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
-                <h1 class="text-4xl font-black tracking-tighter text-white leading-none">{{ space.title }}</h1>
-                <p v-if="space.address" class="text-zinc-400 text-sm font-medium mt-2">{{ space.address }}</p>
-              </div>
-              <div class="flex items-center gap-3 shrink-0">
-                <a
-                  :href="embedUrl"
-                  target="_blank"
-                  class="px-4 py-2 bg-zinc-800 text-zinc-300 text-xs font-black rounded-2xl hover:bg-zinc-700 transition-all"
-                >Embed</a>
-                <button
-                  @click="copyShare"
-                  class="px-4 py-2 bg-white text-black text-xs font-black rounded-2xl hover:bg-zinc-100 transition-all"
-                >{{ shareCopied ? 'Copied!' : 'Share' }}</button>
-              </div>
-            </div>
-
-            <!-- PSV 360 viewer -->
-            <div class="w-full rounded-[2rem] overflow-hidden bg-zinc-900" style="height: 70vh; min-height: 400px;">
-              <ClientOnly>
-                <PsvViewer :tour="tour" :share-url="shareUrl" />
-                <template #fallback>
-                  <div class="w-full h-full flex items-center justify-center">
-                    <div class="w-10 h-10 border-4 border-zinc-700 border-t-white rounded-full animate-spin"></div>
-                  </div>
-                </template>
-              </ClientOnly>
-            </div>
-          </section>
-
-        <!-- Main Content Grid -->
-        <section class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-16 md:gap-24">
-           <!-- Details & Gallery -->
-           <div class="lg:col-span-2 space-y-24">
-              <!-- About Section -->
-              <div id="details" class="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-                <div class="flex items-center gap-4 mb-8">
-                   <h2 class="text-4xl font-black tracking-tighter text-white">The Narrative</h2>
-                   <div class="h-px flex-1 bg-zinc-800"></div>
-                </div>
-                <p class="text-2xl text-zinc-400 leading-relaxed font-medium whitespace-pre-line tracking-tight">
-                  {{ space.description || 'No detailed narrative provided for this architectural masterpiece.' }}
-                </p>
-              </div>
-
-              <!-- Gallery Grid -->
-              <div id="gallery" v-if="gallery.length" class="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
-                 <div class="flex items-center justify-between mb-12">
-                    <h2 class="text-4xl font-black tracking-tighter text-white">Curation</h2>
-                    <div class="flex items-center gap-3">
-                       <span class="text-[11px] font-black text-zinc-500 uppercase tracking-widest">{{ gallery.length }} Selected Photos</span>
-                       <div class="w-2 h-2 bg-zinc-700 rounded-full"></div>
-                    </div>
-                 </div>
-                 
-                 <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div 
-                      v-for="(img, idx) in gallery" 
-                      :key="img.id" 
-                      class="group relative aspect-[4/3] bg-zinc-900 rounded-[3rem] overflow-hidden cursor-zoom-in hover:shadow-2xl hover:-translate-y-4 transition-all duration-700 animate-in fade-in"
-                      :style="{ animationDelay: `${idx * 100}ms` }"
-                      @click="lightboxImg = img.public_url"
-                    >
-                       <img :src="img.public_url" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" loading="lazy" />
-                       
-                       <!-- Premium Overlay -->
-                       <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-[2px] flex flex-col justify-end p-8">
-                          <div class="flex items-center justify-between">
-                             <div class="w-14 h-14 bg-white/20 backdrop-blur-3xl border border-white/30 rounded-2xl flex items-center justify-center text-white transform scale-90 group-hover:scale-100 transition-transform duration-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
-                             </div>
-                             <span class="text-[10px] font-black uppercase tracking-widest text-white/80">Inspect Shot</span>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-           </div>
-
-           <!-- Inquiry Sidebar -->
-           <aside v-if="space.lead_form_enabled" id="inquiry-form" class="lg:sticky lg:top-32 h-fit animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500">
-              <div class="bg-zinc-900 p-12 rounded-[4rem] text-white shadow-2xl relative overflow-hidden group border border-white/5 editor-glass">
-                 <!-- Background Polish -->
-                 <div class="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] group-hover:bg-emerald-500/10 transition-colors duration-1000"></div>
-                 
-                 <div class="relative z-10">
-                   <h3 class="text-3xl font-black tracking-tight mb-2">Request Access</h3>
-                   <p class="text-zinc-400 text-sm mb-10 font-medium">Leave your credentials for a private consultation.</p>
-                   
-                   <div v-if="leadSuccess" class="py-12 flex flex-col items-center text-center animate-in zoom-in-95 duration-500">
-                      <div class="w-20 h-20 bg-emerald-500 rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl shadow-emerald-500/40">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      </div>
-                      <h4 class="text-xl font-bold mb-2">Message Delivered</h4>
-                      <p class="text-zinc-400 text-sm">The property owners will reach out to you shortly.</p>
-                      <button @click="leadSuccess = false" class="mt-8 text-xs font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-400 underline transition-colors">Send Another</button>
-                   </div>
-
-                   <form v-else @submit.prevent="submitLead" class="space-y-4">
-                      <div class="space-y-2">
-                         <label class="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-4">Identification</label>
-                         <input v-model="leadForm.name" type="text" placeholder="Your Full Name" required class="w-full bg-white/5 border border-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-600 outline-none transition-all text-white" />
-                      </div>
-                      <div class="space-y-2">
-                         <label class="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-4">Communication</label>
-                         <input v-model="leadForm.email" type="email" placeholder="Email Address" required class="w-full bg-white/5 border border-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-600 outline-none transition-all text-white" />
-                         <input v-model="leadForm.phone" type="tel" placeholder="Phone (Optional)" class="w-full bg-white/5 border border-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-600 outline-none transition-all text-white" />
-                      </div>
-                      <div class="space-y-2">
-                         <label class="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-4">Intent</label>
-                         <textarea v-model="leadForm.message" placeholder="Special requirements or questions..." rows="4" class="w-full bg-white/5 border border-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 rounded-2xl p-4 text-sm font-bold placeholder:text-zinc-600 outline-none transition-all resize-none text-white"></textarea>
-                      </div>
-                      
-                      <button 
-                        type="submit" 
-                        class="w-full py-5 mt-4 bg-emerald-600 hover:bg-emerald-500 text-black text-base font-black rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
-                        :disabled="leadPending"
-                      >
-                        {{ leadPending ? 'Relaying...' : 'Dispatch Inquiry' }}
-                      </button>
-                      <p v-if="leadError" class="text-xs font-bold text-rose-400 text-center mt-4 italic">{{ leadError }}</p>
-                   </form>
-                 </div>
-              </div>
-           </aside>
-        </section>
-      </main>
-
-      <!-- Premium Branding -->
-      <div v-if="space.branding_enabled && space.profiles?.agency_logo_url" class="fixed bottom-8 left-8 z-40 animate-in fade-in slide-in-from-left-8 duration-1000 delay-700">
-         <div class="bg-zinc-900/80 backdrop-blur-2xl px-6 py-4 rounded-[1.5rem] border border-white/10 shadow-2xl flex items-center gap-4 group hover:bg-zinc-800 transition-colors editor-glass">
-            <img :src="space.profiles.agency_logo_url" class="h-8 w-auto opacity-75 group-hover:opacity-100 transition-all duration-500" />
-            <div class="h-6 w-px bg-zinc-700"></div>
-            <span class="text-[11px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white transition-colors">{{ space.profiles.agency_name }}</span>
-         </div>
+        <h1 class="state-card__title">Tour Unavailable</h1>
+        <p class="state-card__body">{{ fetchError }}</p>
+        <NuxtLink to="/" class="state-card__btn">Return Home</NuxtLink>
       </div>
-      <div v-else class="fixed bottom-8 left-8 z-40 pointer-events-none opacity-20">
-         <span class="text-[10px] font-black uppercase tracking-[0.4em] text-white italic">Powered by Viewora Studio</span>
+    </div>
+
+    <div v-else-if="state === 'empty'" class="tour-page-center p-6" role="main">
+      <div class="state-card">
+        <div class="state-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7">
+            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h1 class="state-card__title">No Scenes Yet</h1>
+        <p class="state-card__body">This tour is published, but no renderable scenes are available yet.</p>
+        <NuxtLink to="/" class="state-card__btn">Return Home</NuxtLink>
       </div>
+    </div>
 
-      <!-- Lightbox System -->
-      <Teleport to="body">
-        <Transition name="modal-in">
-          <div v-if="lightboxImg" class="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
-             <div class="absolute inset-0 bg-black/95 backdrop-blur-3xl" @click="lightboxImg = null"></div>
-             
-             <button 
-               class="absolute top-8 right-8 w-14 h-14 bg-white/10 hover:bg-white/20 text-white rounded-2xl flex items-center justify-center transition-all duration-300 z-10 backdrop-blur-md border border-white/20 shadow-2xl"
-               @click="lightboxImg = null"
-             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-             </button>
+    <template v-else-if="state === 'ready' && tour">
+      <PsvViewer
+        :tour="tour"
+        :share-url="shareUrl"
+      />
 
-             <div class="relative w-full h-full flex items-center justify-center animate-modal-in pointer-events-none">
-                <img 
-                  :src="lightboxImg" 
-                  class="max-w-full max-h-full object-contain rounded-[2.5rem] shadow-2xl pointer-events-auto border border-white/10 shadow-white/10" 
-                  @click.stop
-                />
-                
-                <!-- Experience Badge -->
-                <div class="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none opacity-40 select-none">
-                  <div class="w-6 h-6 bg-white rounded-lg flex items-center justify-center">
-                    <div class="w-1.5 h-1.5 bg-black rounded-full"></div>
-                  </div>
-                  <span class="text-[10px] font-black text-white tracking-[0.3em] uppercase italic">Cinematic Preview</span>
-                </div>
-             </div>
+      <div class="preview-topbar">
+        <div class="preview-topbar__left">
+          <div class="preview-logo">
+            <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4" stroke="currentColor" stroke-width="2">
+              <circle cx="10" cy="10" r="8" />
+              <path d="M10 2a8 8 0 0 1 0 16M10 2a8 8 0 0 0 0 16M2 10h16" />
+            </svg>
           </div>
-        </Transition>
-      </Teleport>
+          <div class="preview-topbar__meta">
+            <span class="preview-topbar__title">{{ tour.space.title }}</span>
+            <span class="preview-topbar__scene">
+              {{ tour.scenes.length }} scene{{ tour.scenes.length !== 1 ? 's' : '' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="preview-badge">
+          <span class="preview-badge__dot" />
+          Live Tour
+        </div>
+
+        <div class="preview-topbar__right">
+          <NuxtLink
+            to="/"
+            class="preview-exit-btn"
+            aria-label="Back home"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5">
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
+            Back Home
+          </NuxtLink>
+        </div>
+      </div>
+
+      <div class="preview-bottombar">
+        <div class="preview-bottombar__inner">
+          <div class="preview-scene-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3 opacity-60">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 4v4l2.5 2.5" />
+            </svg>
+            Use hotspots or scene dock to navigate
+          </div>
+
+          <a
+            :href="marketingUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="preview-watermark"
+            aria-label="Powered by Viewora"
+          >
+            Powered by <strong>Viewora</strong>
+          </a>
+        </div>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
-import { ref, computed, onMounted } from 'vue'
-import { useSeoMeta, useHead, useRoute } from '#imports'
+
+import { computed, onMounted, ref } from 'vue'
+import { useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 
+const { public: { marketingUrl } } = useRuntimeConfig()
 const { apiFetch } = useApiFetch()
 const route = useRoute()
 const slug = route.params.slug as string
 
 const pending = ref(true)
 const fetchError = ref('')
+const state = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const space = ref<any>(null)
 const tour = ref<any>(null)
-const lightboxImg = ref<string | null>(null)
 const shareUrl = ref('')
-const embedUrl = ref('')
-const shareCopied = ref(false)
 
-// Lead form
-const leadPending = ref(false)
-const leadError = ref('')
-const leadSuccess = ref(false)
-const leadForm = ref({ name: '', email: '', phone: '', message: '' })
-
-const gallery = computed<any[]>(() => [])
-const publicSlug = computed(() => space.value?.slug || space.value?.id || slug)
+const blurCover = computed(() => {
+  if (!tour.value) return null
+  return (
+    tour.value.scenes?.[0]?.thumbnail_url
+    ?? tour.value.scenes?.[0]?.raw_image_url
+    ?? tour.value.space?.cover_image_url
+    ?? null
+  )
+})
 
 onMounted(async () => {
   await fetchSpace()
@@ -268,93 +152,360 @@ async function fetchSpace() {
     tour.value = tourData
     const spaceData = tourData?.space ?? tourData
     space.value = spaceData
+    state.value = (tourData?.scenes?.some((scene: any) => scene.raw_image_url) ?? false) ? 'ready' : 'empty'
     syncShareLinks(spaceData)
     fireViewEvent(spaceData.id)
   } catch (err: any) {
     fetchError.value = err.data?.statusMessage || 'Space unavailable or removed.'
+    state.value = 'error'
   } finally {
     pending.value = false
   }
 }
 
-function copyShare() {
-  navigator.clipboard.writeText(shareUrl.value).catch(() => {})
-  shareCopied.value = true
-  setTimeout(() => { shareCopied.value = false }, 2000)
-}
-
 function syncShareLinks(value = space.value) {
   if (typeof window === 'undefined' || !value) return
 
-  const identifier = value.slug || value.id || publicSlug.value
+  const identifier = value.slug || value.id || slug
   const origin = window.location.origin
   shareUrl.value = `${origin}/p/${identifier}`
-  embedUrl.value = `${origin}/embed/${identifier}`
-}
-
-async function submitLead() {
-  leadError.value = ''
-  leadPending.value = true
-  try {
-    await apiFetch('/leads', {
-      method: 'POST',
-      body: {
-        spaceId: space.value.id,
-        ...leadForm.value,
-        source: route.query.src || 'direct'
-      }
-    })
-    leadSuccess.value = true
-    leadForm.value = { name: '', email: '', phone: '', message: '' }
-  } catch (err: any) {
-    leadError.value = err.data?.statusMessage || 'Failed to dispatch inquiry.'
-  } finally {
-    leadPending.value = false
-  }
 }
 
 function fireViewEvent(spaceId: string) {
   apiFetch('/analytics/view', {
     method: 'POST',
-    body: { spaceId, source: route.query.src || 'direct' }
+    body: { spaceId, source: route.query.src || 'direct' },
   }).catch(() => {})
 }
 
-function scrollToForm() {
-  const el = document.getElementById('inquiry-form')
-  if (el) el.scrollIntoView({ behavior: 'smooth' })
-}
-
-const ogImage = computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png')
-
 useSeoMeta({
-  title: computed(() => space.value ? `${space.value.title} | Viewora Studio` : 'Property Experience'),
-  ogTitle: computed(() => space.value ? `${space.value.title} | Viewora Studio` : 'Property Experience'),
-  description: computed(() => space.value?.description || 'Experience this immersive architectural vision on Viewora.'),
-  ogDescription: computed(() => space.value?.description || 'Experience this immersive architectural vision on Viewora.'),
-  ogImage: ogImage,
+  title: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
+  description: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
+  ogTitle: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
+  ogDescription: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
+  ogImage: computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png'),
   twitterCard: 'summary_large_image',
-  twitterTitle: computed(() => space.value ? `${space.value.title} | Viewora Studio` : 'Property Experience'),
-  twitterDescription: computed(() => space.value?.description || 'Experience this immersive architectural vision on Viewora.'),
-  twitterImage: ogImage
+  twitterTitle: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
+  twitterDescription: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
+  twitterImage: computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png'),
 })
 
 useHead({
-  link: [
-    { rel: 'canonical', href: computed(() => `https://viewora.software/p/${slug}`) }
-  ]
+  link: [{ rel: 'canonical', href: computed(() => `${marketingUrl}/p/${slug}`) }],
 })
 </script>
 
-<style>
-.modal-in-enter-active, .modal-in-leave-active { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-.modal-in-enter-from, .modal-in-leave-to { opacity: 0; transform: scale(0.95); filter: blur(10px); }
-
-@keyframes modal-in {
-  0% { opacity: 0; transform: scale(0.8) translateY(20px); filter: blur(20px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+<style scoped>
+.tour-page {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0a;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, sans-serif;
 }
-.animate-modal-in {
-  animation: modal-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+.tour-page-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tour-page-loading-bg {
+  position: absolute;
+  inset: -20px;
+  width: calc(100% + 40px);
+  height: calc(100% + 40px);
+  object-fit: cover;
+  filter: blur(28px) brightness(0.3) saturate(0.8);
+}
+
+.tour-page-loading-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.6);
+}
+
+.tour-page-loading-center {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-orb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 0 20px rgba(255,255,255,0.5), 0 0 40px rgba(255,255,255,0.2);
+  animation: orb-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.5; }
+}
+
+.loading-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+
+.tour-page-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.state-card {
+  max-width: 360px;
+  width: 100%;
+  background: rgba(16,16,20,0.95);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 36px 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+}
+
+.state-card__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 4px;
+}
+
+.state-card__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: -0.02em;
+}
+
+.state-card__body {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.6;
+  font-weight: 500;
+  margin: 0;
+}
+
+.state-card__btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.8);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.state-card__btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: white;
+}
+
+.preview-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.preview-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.preview-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.8);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+
+.preview-topbar__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.preview-topbar__title {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: -0.01em;
+  line-height: 1;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+}
+
+.preview-topbar__scene {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.04em;
+}
+
+.preview-badge {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: rgba(147, 197, 253, 0.9);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.preview-badge__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 8px rgba(96,165,250,0.8);
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.preview-bottombar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 0 16px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.preview-bottombar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: auto;
+}
+
+.preview-topbar__right {
+  pointer-events: auto;
+}
+
+.preview-exit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+
+.preview-exit-btn:hover {
+  background: rgba(255,255,255,0.18);
+  color: white;
+  border-color: rgba(255,255,255,0.25);
+  transform: translateY(-1px);
+}
+
+.preview-scene-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  font-size: 10px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  letter-spacing: 0.02em;
+}
+
+.preview-watermark {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: color 0.15s ease;
+}
+
+.preview-watermark strong {
+  font-weight: 800;
+  color: rgba(255,255,255,0.5);
+}
+
+.preview-watermark:hover {
+  color: rgba(255,255,255,0.6);
+}
+
+.preview-watermark:hover strong {
+  color: rgba(255,255,255,0.8);
 }
 </style>
