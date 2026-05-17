@@ -113,7 +113,7 @@
 definePageMeta({ layout: false })
 
 import { computed, onMounted, ref } from 'vue'
-import { useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#imports'
+import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 
@@ -139,29 +139,38 @@ const blurCover = computed(() => {
   )
 })
 
-onMounted(async () => {
-  await fetchSpace()
+const { data: tourPayload, error: tourError } = await useAsyncData(
+  `public-tour:${slug}`,
+  () => apiFetch<any>(`/p/${encodeURIComponent(slug)}`),
+  { server: true, lazy: false },
+)
+
+if (tourError.value) {
+  const errorData = (tourError.value as any)?.data
+  fetchError.value = errorData?.statusMessage || 'Space unavailable or removed.'
+  state.value = 'error'
+} else if (tourPayload.value) {
+  const tourData = tourPayload.value?.tour ?? tourPayload.value
+  tour.value = tourData
+  const spaceData = tourData?.space ?? tourData
+  space.value = spaceData
+
+  const hasRenderableScene = Array.isArray(tourData?.scenes) && tourData.scenes.some((scene: any) => {
+    return Boolean(scene?.raw_image_url || scene?.thumbnail_url || scene?.tile_manifest_url)
+  })
+
+  state.value = hasRenderableScene ? 'ready' : 'empty'
+  syncShareLinks(spaceData)
+}
+
+pending.value = false
+
+onMounted(() => {
+  if (space.value?.id) {
+    fireViewEvent(space.value.id)
+  }
   syncShareLinks()
 })
-
-async function fetchSpace() {
-  pending.value = true
-  try {
-    const data = await apiFetch<any>(`/p/${encodeURIComponent(slug)}`)
-    const tourData = data?.tour ?? data
-    tour.value = tourData
-    const spaceData = tourData?.space ?? tourData
-    space.value = spaceData
-    state.value = (tourData?.scenes?.some((scene: any) => scene.raw_image_url) ?? false) ? 'ready' : 'empty'
-    syncShareLinks(spaceData)
-    fireViewEvent(spaceData.id)
-  } catch (err: any) {
-    fetchError.value = err.data?.statusMessage || 'Space unavailable or removed.'
-    state.value = 'error'
-  } finally {
-    pending.value = false
-  }
-}
 
 function syncShareLinks(value = space.value) {
   if (typeof window === 'undefined' || !value) return
