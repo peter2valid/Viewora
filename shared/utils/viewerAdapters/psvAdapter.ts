@@ -714,8 +714,7 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
 
     return {
       id: scene.id,
-      // Use plain imageUrl (no tiles) — VT requires a consistent adapter across all nodes
-      panorama: scene.imageUrl,
+      panorama: buildPanorama(scene),
       name: scene.title,
       thumbnail: scene.imageUrl,
       links,
@@ -793,7 +792,7 @@ export async function initVirtualTourViewer(
 
   const viewer: any = new Viewer({
     container,
-    panorama: startScene.imageUrl,
+    adapter: [EquirectangularTilesAdapter],
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     navbar: false,

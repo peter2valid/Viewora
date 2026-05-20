@@ -90,7 +90,7 @@
 
     <!-- Preview mode: identical GlassDock to what the public viewer shows -->
     <GlassDock
-      v-if="isPreviewMode && scenes.length > 1"
+      v-if="isPreviewMode && scenes.length > 0"
       :items="glassDockItems"
       :active-id="selectedSceneId"
       :bottom-px="20"

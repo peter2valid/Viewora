@@ -39,7 +39,7 @@
 
     <!-- ── Scene dock (both modes) ── -->
     <GlassDock
-      v-if="sceneCount > 1"
+      v-if="sceneCount > 0"
       :items="dockItems"
       :active-id="activeSceneId"
       glass-class="dock-glass"
@@ -370,10 +370,7 @@ function onViewerClick() {
   justify-content: center;
   gap: 12px;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 18% 16%, rgba(59, 130, 246, 0.18), transparent 38%),
-    radial-gradient(circle at 86% 78%, rgba(148, 163, 184, 0.12), transparent 44%),
-    rgba(8, 10, 16, 0.62);
+  background: rgba(8, 10, 16, 0.85);
   backdrop-filter: blur(12px);
   z-index: 10;
 }
