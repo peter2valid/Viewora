@@ -40,7 +40,8 @@
     "photo-sphere-viewer-lensflare-plugin": "^2.1.4",
     "pinia": "^3.0.4",
     "posthog-js": "^1.371.1",
-    "sortablejs": "^1.15.7"
+    "sortablejs": "^1.15.7",
+    "vue-sonner": "^2.0.9"
   },
   "overrides": {
     "three": "0.179.1",

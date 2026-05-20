@@ -302,17 +302,7 @@
         @cancel="spaceToDelete = null"
       />
 
-      <!-- Toast -->
-      <Transition name="toast">
-        <div 
-          v-if="toast"
-          class="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-4 card-glass border-main/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] animate-in slide-in-from-bottom-5 fade-in duration-500"
-        >
-          <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-          <span class="text-xs font-bold text-main tracking-tight">{{ toast.message }}</span>
-        </div>
-      </Transition>
-    </Teleport>
+
   </div>
 </template>
 
@@ -321,6 +311,7 @@ definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, computed, onMounted } from 'vue'
 import { useSpaces } from '~/composables/useSpaces'
 import { navigateTo } from '#imports'
+import { toast } from 'vue-sonner'
 import type { Space } from '~/composables/useSpaces'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
@@ -340,8 +331,6 @@ const deleteMessage = computed(() => {
 })
 
 // Toast
-const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   fetchSpaces()
@@ -365,9 +354,11 @@ const formatDate = (d: string) => {
 }
 
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  if (toastTimer) clearTimeout(toastTimer)
-  toast.value = { message, type }
-  toastTimer = setTimeout(() => { toast.value = null }, 3200)
+  if (type === 'error') {
+    toast.error(message)
+  } else {
+    toast.success(message)
+  }
 }
 
 

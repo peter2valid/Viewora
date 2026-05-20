@@ -150,26 +150,16 @@
       </div>
     </div>
 
-    <!-- Toast -->
-    <Teleport to="body">
-      <Transition name="toast">
-        <div v-if="toast" :class="['fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold whitespace-nowrap', toast.type === 'success' ? 'bg-zinc-950 text-white' : 'bg-red-600 text-white']">
-          <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" :class="toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/20 text-white'">
-            <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          {{ toast.message }}
-        </div>
-      </Transition>
-    </Teleport>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { definePageMeta, useSeoMeta } from '#imports'
-import { usePlanStore } from '~/stores/plan'
+import { definePageMeta, useSeoMeta, useSupabaseUser } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { toast } from 'vue-sonner'
+import { usePlanStore } from '~/stores/plan'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Capture | Viewora' })
@@ -203,12 +193,12 @@ function resetForm() {
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
-const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  if (toastTimer) clearTimeout(toastTimer)
-  toast.value = { message, type }
-  toastTimer = setTimeout(() => { toast.value = null }, 3200)
+  if (type === 'error') {
+    toast.error(message)
+  } else {
+    toast.success(message)
+  }
 }
 
 async function handleRequest() {
@@ -257,7 +247,4 @@ const faqs = [
 ]
 </script>
 
-<style scoped>
-.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 12px); }
-</style>
+

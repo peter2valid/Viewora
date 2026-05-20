@@ -164,17 +164,6 @@
     <!-- Toast + Share modal teleported to body -->
     <Teleport to="body">
       <Transition name="fade-smooth">
-        <div
-          v-if="toast"
-          class="editor-toast"
-          :class="toast.type === 'error' ? 'editor-toast--error' : 'editor-toast--success'"
-        >
-          <div class="editor-toast__dot"></div>
-          <span class="editor-toast__msg">{{ toast.message }}</span>
-        </div>
-      </Transition>
-
-      <Transition name="fade-smooth">
         <div v-if="renameCandidate" class="rename-popover" role="dialog" aria-label="Rename scene">
           <span class="rename-popover__label">Scene name</span>
           <input
@@ -357,6 +346,7 @@ import { useEditorPublish } from '~/features/editor/composables/useEditorPublish
 import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 import HotspotTypePicker from '~/features/editor/components/HotspotTypePicker.vue'
 import HotspotQuickEditor from '~/features/editor/components/HotspotQuickEditor.vue'
+import { toast } from 'vue-sonner'
 
 const editorStore = useEditorStore()
 const analytics = useAnalytics()
@@ -517,8 +507,6 @@ const renameInputRef = ref<HTMLInputElement | null>(null)
 const sceneDeleteConfirm = ref<string | null>(null)
 const deletingScene = ref(false)
 
-const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
 const urlCopied = ref(false)
 
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
@@ -534,9 +522,11 @@ const glassDockItems = computed(() =>
 )
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
-  if (toastTimer) clearTimeout(toastTimer)
-  toast.value = { message, type }
-  toastTimer = setTimeout(() => { toast.value = null }, 3200)
+  if (type === 'error') {
+    toast.error(message)
+  } else {
+    toast.success(message)
+  }
 }
 
 async function copyPublicUrl() {
@@ -792,7 +782,6 @@ onBeforeUnmount(() => {
   replacePendingScenePreviewMap({})
   revokeAllLocalPanoramaUrls()
   if (processingPollTimer) { clearInterval(processingPollTimer); processingPollTimer = null }
-  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null }
 })
 
 async function fetchScenes() {
@@ -1034,30 +1023,6 @@ defineExpose({
 }
 
 /* ── Toast ─────────────────────────────────────────────────── */
-.editor-toast {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  border-radius: 10px;
-  background: rgba(10,12,20,0.92);
-  border: 1px solid rgba(255,255,255,0.08);
-  z-index: 400;
-  white-space: nowrap;
-}
-.editor-toast__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.editor-toast--success .editor-toast__dot { background: #3B82F6; }
-.editor-toast--error .editor-toast__dot { background: #ef4444; }
-.editor-toast__msg { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.9); }
 
 /* ── Animations ────────────────────────────────────────────── */
 .fade-smooth-enter-active, .fade-smooth-leave-active { transition: all 0.25s ease; }

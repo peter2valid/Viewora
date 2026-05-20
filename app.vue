@@ -2,9 +2,12 @@
   <NuxtLayout>
     <NuxtPage :keepalive="{ max: 10 }" :transition="{ name: 'fade' }" />
   </NuxtLayout>
+  <Toaster position="bottom-center" theme="dark" richColors expand />
 </template>
 
 <script setup lang="ts">
+import { Toaster } from 'vue-sonner'
+
 // Main application entry component
 useSeoMeta({
   title: 'Dashboard | Viewora',
