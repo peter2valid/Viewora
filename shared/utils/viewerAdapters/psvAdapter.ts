@@ -119,6 +119,7 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
               position: relative;
               cursor: pointer;
               transition: transform 0.2s ease;
+              pointer-events: none;
             }
             .nav-container:hover { transform: scale(1.2); }
             .nav-icon {
@@ -771,7 +772,7 @@ export async function initVirtualTourViewer(
   plugins.push([VirtualTourPlugin, {
     dataMode: 'client',
     positionMode: 'manual',
-    renderMode: '3d',
+    renderMode: 'markers',
     nodes,
     startNodeId,
     transitionOptions: {
