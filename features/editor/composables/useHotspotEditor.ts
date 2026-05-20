@@ -37,6 +37,7 @@ export function useHotspotEditor(
   showToast: (msg: string, type?: 'success' | 'error') => void,
   fetchHotspots: (sceneId: string) => Promise<void>,
 ) {
+  const { $posthog } = useNuxtApp() as any
   const editDraft = ref<EditDraft>({ label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', scale: 1, hoverScale: 1.3 })
   const savingHotspot = ref(false)
   const addingHotspot = ref(false)
@@ -230,6 +231,7 @@ export function useHotspotEditor(
         const mapped = mapDbHotspot(created)
         hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id).concat([mapped]) }
         showToast(beforeCount === 0 ? 'Your tour is now interactive' : 'Hotspot added')
+        $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
       }
     } catch (e: any) {
       hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) }
@@ -263,6 +265,7 @@ export function useHotspotEditor(
       if (created) {
         const mapped = mapDbHotspot(created)
         hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id).concat([mapped]) }
+        $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
         selectHotspot(mapped.id)
         editorStore.setPanel('hotspots')
       }

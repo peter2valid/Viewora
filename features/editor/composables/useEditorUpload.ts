@@ -36,6 +36,7 @@ export function useEditorUpload(
   inlineEditMode: Ref<boolean>,
 ) {
   const { apiFetch } = useApiFetch()
+  const { $posthog } = useNuxtApp() as any
 
   const pendingScenePreviewById = ref<Record<string, string>>({})
   const sceneUploadStateById = ref<Record<string, SceneUploadState>>({})
@@ -324,6 +325,7 @@ export function useEditorUpload(
               } else {
                 showToast(`${createdScene.name || 'Scene'} added`)
               }
+              $posthog?.capture('scene_uploaded', { space_id: spaceId, scene_count: scenes.value.length })
             }
           } catch {
             setSceneUploadState(item.localSceneId, 'failed')

@@ -140,6 +140,7 @@ const emit = defineEmits<{ (e: 'done'): void }>()
 
 const { createSpace } = useSpaces()
 const { apiFetch } = useApiFetch()
+const analytics = useAnalytics()
 
 const step = ref(1)
 const fullName = ref('')
@@ -173,6 +174,7 @@ async function handleCreate() {
       title: tourName.value.trim(),
       space_type: selectedType.value,
     })
+    analytics.track('onboarding_completed', { space_type: selectedType.value })
     emit('done')
     navigateTo(`/app/spaces/${space.id}?tab=360`)
   } catch (e: any) {
