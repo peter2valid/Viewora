@@ -102,157 +102,46 @@
 
     <!-- Main Content Area -->
     <template v-else>
-      <!-- Empty State: Type Selection -->
-      <div v-if="!filteredSpaces.length && !search">
-        <div class="mb-6">
-          <h2 class="text-base font-bold text-main">What are you creating?</h2>
-          <p class="text-sm text-dim mt-1">Choose the type of tour to get the best setup.</p>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-          <!-- Card: Property / Space -->
-          <div
-            class="bg-card border rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-200"
-            :class="selectedSpaceType === 'residential' ? 'border-main ring-1 ring-main/30' : 'border-border hover:border-main/30'"
-            @click="selectedSpaceType = 'residential'"
-          >
-            <div class="h-32 bg-surface-alt dark:bg-zinc-900 flex items-center justify-center overflow-hidden">
-              <svg width="220" height="140" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <polygon points="110,18 180,66 40,66" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="50" y="66" width="120" height="60" rx="2" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="148" y="34" width="14" height="24" rx="2" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="96" y="96" width="28" height="30" rx="3" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <circle cx="120" cy="112" r="2.5" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="62" y="76" width="24" height="20" rx="3" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <line x1="74" y1="76" x2="74" y2="96" stroke="currentColor" stroke-width="1.5" class="text-zinc-200 dark:text-zinc-700"/>
-                <line x1="62" y1="86" x2="86" y2="86" stroke="currentColor" stroke-width="1.5" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="134" y="76" width="24" height="20" rx="3" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <line x1="146" y1="76" x2="146" y2="96" stroke="currentColor" stroke-width="1.5" class="text-zinc-200 dark:text-zinc-700"/>
-                <line x1="134" y1="86" x2="158" y2="86" stroke="currentColor" stroke-width="1.5" class="text-zinc-200 dark:text-zinc-700"/>
-              </svg>
-            </div>
-            <div class="p-4">
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-500"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                <span class="text-xs font-bold tracking-widest uppercase text-orange-500">01 Property</span>
+      <!-- Empty State: No tours yet -->
+      <div v-if="!filteredSpaces.length && !search" class="flex flex-col gap-8">
+        <div class="relative group mx-auto max-w-2xl w-full mt-16 md:mt-24">
+          <div class="absolute -inset-0.5 bg-main/5 blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000"></div>
+          <div class="relative card-glass p-8 sm:p-12 md:p-16 !rounded-[3rem] border-main/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+            <div class="absolute -top-12 -right-12 w-64 h-64 bg-main/5 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="mb-4 md:mb-6 flex items-center justify-center">
+              <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-main/10 flex items-center justify-center text-main">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
               </div>
-              <h3 class="text-base font-bold text-main">Property / Space</h3>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-extrabold text-main mb-3 tracking-tight">Welcome to Viewora</h2>
+            <p class="text-dim mb-8 md:mb-10 font-medium text-sm md:text-base max-w-md">Capturing reality has never been this simple. Create your first immersive experience in minutes.</p>
+            <div class="flex items-center justify-center gap-3 sm:gap-6 mb-10 md:mb-12 w-full relative">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">1</div>
+                <p class="hidden sm:block text-[13px] font-bold text-main">Define</p>
+              </div>
+              <div class="w-4 md:w-8 h-px bg-white/10"></div>
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">2</div>
+                <p class="hidden sm:block text-[13px] font-bold text-main">Upload</p>
+              </div>
+              <div class="w-4 md:w-8 h-px bg-white/10"></div>
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">3</div>
+                <p class="hidden sm:block text-[13px] font-bold text-main">Share</p>
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
+              <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Start Creating
+              </button>
+              <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                My Portfolio
+              </button>
             </div>
           </div>
-
-          <!-- Card: Car / Vehicle -->
-          <div
-            class="bg-card border rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-200"
-            :class="selectedSpaceType === 'automotive' ? 'border-main ring-1 ring-main/30' : 'border-border hover:border-main/30'"
-            @click="selectedSpaceType = 'automotive'"
-          >
-            <div class="h-32 bg-surface-alt dark:bg-zinc-900 flex items-center justify-center overflow-hidden">
-              <svg width="220" height="140" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="22" y="68" width="176" height="40" rx="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <path d="M65 68 Q76 42 98 38 L132 38 Q154 42 160 68Z" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <path d="M72 65 Q80 50 97 46 L110 46 L110 65Z" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <path d="M122 46 L133 46 Q148 50 154 65 L122 65Z" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="112" y="46" width="8" height="18" rx="1" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="22" y="88" width="20" height="12" rx="4" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="178" y="88" width="20" height="12" rx="4" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <circle cx="70" cy="110" r="18" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <circle cx="70" cy="110" r="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <circle cx="70" cy="110" r="4" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <circle cx="152" cy="110" r="18" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <circle cx="152" cy="110" r="10" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <circle cx="152" cy="110" r="4" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-              </svg>
-            </div>
-            <div class="p-4">
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
-                <span class="text-xs font-bold tracking-widest uppercase text-indigo-500">02 Vehicle</span>
-              </div>
-              <h3 class="text-base font-bold text-main">Car / Vehicle</h3>
-            </div>
-          </div>
-
-          <!-- Card: Business / Institution -->
-          <div
-            class="bg-card border rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-200"
-            :class="selectedSpaceType === 'commercial' ? 'border-main ring-1 ring-main/30' : 'border-border hover:border-main/30'"
-            @click="selectedSpaceType = 'commercial'"
-          >
-            <div class="h-32 bg-surface-alt dark:bg-zinc-900 flex items-center justify-center overflow-hidden">
-              <svg width="220" height="140" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="48" y="28" width="124" height="98" rx="4" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="42" y="22" width="136" height="12" rx="3" fill="currentColor" class="text-zinc-300 dark:text-zinc-600"/>
-                <rect x="60" y="42" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="86" y="42" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="116" y="42" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="142" y="42" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="60" y="64" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="86" y="64" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="116" y="64" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="142" y="64" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="60" y="86" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="86" y="86" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="116" y="86" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="142" y="86" width="18" height="14" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-                <rect x="98" y="106" width="24" height="20" rx="2" fill="currentColor" class="text-zinc-400 dark:text-zinc-500"/>
-              </svg>
-            </div>
-            <div class="p-4">
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
-                <span class="text-xs font-bold tracking-widest uppercase text-purple-500">03 Business</span>
-              </div>
-              <h3 class="text-base font-bold text-main">Business / Institution</h3>
-            </div>
-          </div>
-
-          <!-- Card: Multiple Items -->
-          <div
-            class="bg-card border rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-200"
-            :class="selectedSpaceType === 'other' ? 'border-main ring-1 ring-main/30' : 'border-border hover:border-main/30'"
-            @click="selectedSpaceType = 'other'"
-          >
-            <div class="h-32 bg-surface-alt dark:bg-zinc-900 flex items-center justify-center overflow-hidden">
-              <svg width="220" height="140" viewBox="0 0 220 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="20" y="14" width="82" height="52" rx="8" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="118" y="14" width="82" height="52" rx="8" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="20" y="74" width="82" height="52" rx="8" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <rect x="118" y="74" width="82" height="52" rx="8" fill="currentColor" class="text-zinc-200 dark:text-zinc-700"/>
-                <ellipse cx="61" cy="34" rx="20" ry="12" stroke="currentColor" stroke-width="1.5" class="text-zinc-400 dark:text-zinc-500" fill="none"/>
-                <line x1="61" y1="22" x2="61" y2="46" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-                <line x1="41" y1="34" x2="81" y2="34" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-                <ellipse cx="159" cy="34" rx="20" ry="12" stroke="currentColor" stroke-width="1.5" class="text-zinc-400 dark:text-zinc-500" fill="none"/>
-                <line x1="159" y1="22" x2="159" y2="46" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-                <line x1="139" y1="34" x2="179" y2="34" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-                <ellipse cx="61" cy="94" rx="20" ry="12" stroke="currentColor" stroke-width="1.5" class="text-zinc-400 dark:text-zinc-500" fill="none"/>
-                <line x1="61" y1="82" x2="61" y2="106" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-                <line x1="41" y1="94" x2="81" y2="94" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-                <ellipse cx="159" cy="94" rx="20" ry="12" stroke="currentColor" stroke-width="1.5" class="text-zinc-400 dark:text-zinc-500" fill="none"/>
-                <line x1="159" y1="82" x2="159" y2="106" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-                <line x1="139" y1="94" x2="179" y2="94" stroke="currentColor" stroke-width="1" class="text-zinc-400 dark:text-zinc-500"/>
-              </svg>
-            </div>
-            <div class="p-4">
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="14" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="14" width="8" height="8" rx="2" ry="2"/><rect x="14" y="14" width="8" height="8" rx="2" ry="2"/></svg>
-                <span class="text-xs font-bold tracking-widest uppercase text-emerald-500">04 Multiple</span>
-              </div>
-              <h3 class="text-base font-bold text-main">Multiple Items</h3>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="mt-6 flex flex-col items-center gap-3">
-          <p class="text-sm text-dim">Not sure? Start with Property — you can change later.</p>
-          <button
-            @click="selectedSpaceType && navigateTo(`/app/create?type=${selectedSpaceType}`)"
-            :disabled="!selectedSpaceType"
-            class="btn btn-primary px-8 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Continue →
-          </button>
         </div>
       </div>
 
@@ -270,7 +159,7 @@
         <div
           v-for="space in filteredSpaces"
           :key="space.id" 
-          class="group relative flex flex-col h-[300px] bg-card rounded-2xl border border-border dark:border-transparent overflow-hidden hover:shadow-2xl transition-all duration-500 cursor-pointer"
+          class="group relative flex flex-col h-[300px] bg-card rounded-2xl border border-border overflow-hidden hover:border-main/50 hover:shadow-2xl transition-all duration-500 cursor-pointer"
           @click="navigateTo(`/app/spaces/${space.id}`)"
         >
           <!-- Thumbnail -->
@@ -286,10 +175,7 @@
             
             <!-- Badges -->
             <div class="absolute top-4 left-4 flex gap-2">
-              <span
-                class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-sm transition-all"
-                :class="space.is_published ? 'bg-emerald-600/80 text-white' : 'bg-zinc-600/90 text-zinc-100'"
-              >
+              <span :class="['px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-2xl border backdrop-blur-md transition-all', space.is_published ? 'bg-emerald-500 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
                 {{ space.is_published ? 'Published' : 'Draft' }}
               </span>
             </div>
@@ -340,7 +226,7 @@
         <div
           v-for="space in filteredSpaces"
           :key="space.id"
-          class="group px-6 py-4 flex items-center gap-6 bg-card hover:bg-card/80 rounded-[1.25rem] transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:-translate-y-0.5"
+          class="group px-6 py-4 flex items-center gap-6 bg-surface-alt/10 hover:bg-surface-alt/40 border border-border/20 hover:border-main/20 rounded-[1.25rem] transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:-translate-y-0.5"
           @click="navigateTo(`/app/spaces/${space.id}`)"
         >
           <!-- Premium Compact Thumb -->
@@ -423,13 +309,12 @@ import { navigateTo } from '#imports'
 import type { Space } from '~/composables/useSpaces'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
-const { spaces, pending, error, fetchSpaces, deleteSpace, publishSpace } = useSpaces()
+const { spaces, pending, fetchSpaces, deleteSpace, publishSpace } = useSpaces()
 
 const search = ref('')
 const searchInput = ref<HTMLInputElement>()
 const sortBy = ref<'newest' | 'oldest' | 'name'>('newest')
 const viewMode = ref<'grid' | 'list'>('grid')
-const selectedSpaceType = ref<string>('')
 // Delete
 const spaceToDelete = ref<Space | null>(null)
 const deleting = ref(false)

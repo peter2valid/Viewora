@@ -1,14 +1,11 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- Page Header -->
-    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <header class="mb-8 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-main">Welcome to Viewora!</h1>
-        <p class="text-sm text-dim mt-1">Bring your venues to life with immersive 360° experiences.</p>
+        <h1 class="text-2xl font-bold tracking-tight text-main">Dashboard</h1>
+        <p class="text-sm text-dim mt-1">Manage your tours and track performance.</p>
       </div>
-      <button v-if="!pending && hasSpaces" @click="navigateTo('/app/create')" class="btn btn-primary px-6 py-2.5 text-sm">
-        + Create Tour
-      </button>
     </header>
 
     <!-- Loading Skeleton -->
@@ -44,23 +41,44 @@
     </section>
 
     <!-- Empty State (no tours yet) -->
-    <section v-else-if="!hasSpaces" class="flex flex-col items-center justify-center py-16 gap-8">
-      <button
-        @click="navigateTo(`/app/create?type=${dashSelectedType}`)"
-        class="btn btn-primary !px-10 !py-4 text-base shadow-xl"
-      >
-        + Create Tour
-      </button>
-      <div class="flex flex-col items-center gap-3">
-        <span class="text-xs font-semibold text-dim uppercase tracking-widest">Choose type</span>
-        <div class="flex items-center gap-2 flex-wrap justify-center">
-          <button
-            v-for="opt in dashTypeOptions"
-            :key="opt.id"
-            class="px-4 py-1.5 rounded-lg text-sm font-semibold border transition-all"
-            :class="dashSelectedType === opt.id ? 'bg-main text-bg border-main' : 'bg-surface-alt border-border text-dim hover:text-main hover:border-main/40'"
-            @click="dashSelectedType = opt.id"
-          >{{ opt.label }}</button>
+    <section v-else-if="!hasSpaces" class="flex flex-col gap-8">
+      <div class="relative group mx-auto max-w-2xl w-full mt-16 md:mt-24">
+        <div class="absolute -inset-0.5 bg-main/5 blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000"></div>
+        <div class="relative card-glass p-8 sm:p-12 md:p-16 !rounded-[3rem] border-main/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+          <div class="absolute -top-12 -right-12 w-64 h-64 bg-main/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="mb-4 md:mb-6 flex items-center justify-center">
+            <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-main/10 flex items-center justify-center text-main">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            </div>
+          </div>
+          <h2 class="text-2xl md:text-3xl font-extrabold text-main mb-3 tracking-tight">Welcome to Viewora</h2>
+          <p class="text-dim mb-8 md:mb-10 font-medium text-sm md:text-base max-w-md">Capturing reality has never been this simple. Create your first immersive experience in minutes.</p>
+          <div class="flex items-center justify-center gap-3 sm:gap-6 mb-10 md:mb-12 w-full relative">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">1</div>
+              <p class="hidden sm:block text-[13px] font-bold text-main">Define</p>
+            </div>
+            <div class="w-4 md:w-8 h-px bg-white/10"></div>
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">2</div>
+              <p class="hidden sm:block text-[13px] font-bold text-main">Upload</p>
+            </div>
+            <div class="w-4 md:w-8 h-px bg-white/10"></div>
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">3</div>
+              <p class="hidden sm:block text-[13px] font-bold text-main">Share</p>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
+            <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Start Creating
+            </button>
+            <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              My Portfolio
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -195,15 +213,6 @@ const totalLeads = ref(0)
 const hasSpaces = computed(() => spaces.value.length > 0)
 const recentSpaces = computed(() => spaces.value.slice(0, 2))
 
-// Empty state type selector
-const dashSelectedType = ref('residential')
-const dashTypeOptions = [
-  { id: 'residential', label: 'Property' },
-  { id: 'automotive',  label: 'Vehicle'  },
-  { id: 'commercial',  label: 'Business' },
-  { id: 'other',       label: 'Multiple' },
-]
-
 // Analytics computeds
 const totalViews = computed(() => rawStats.value.reduce((acc, s) => acc + (s.total_views || 0), 0))
 
@@ -253,28 +262,30 @@ const maxY = computed(() => {
 })
 
 onMounted(async () => {
-  try {
-    const billingData = unwrapApiData<any>(await apiFetch<any>('/billing/status'))
+  // Billing must not block the spaces fetch — run it in parallel with spaces
+  const [billingRes] = await Promise.allSettled([
+    apiFetch<any>('/billing/status')
+  ])
+  if (billingRes.status === 'fulfilled') {
+    const billingData = unwrapApiData<any>(billingRes.value)
     usage.value = billingData?.usage ?? null
-
-    await fetchSpaces()
-    pending.value = false
-
-    const [analyticsRes, leadsRes] = await Promise.allSettled([
-      apiFetch<any[]>('/analytics/summary'),
-      apiFetch<any[]>('/leads')
-    ])
-
-    if (analyticsRes.status === 'fulfilled') {
-      rawStats.value = toArrayPayload<any>(analyticsRes.value)
-    }
-
-    const leadsData = leadsRes.status === 'fulfilled' ? toArrayPayload<any>(leadsRes.value) : []
-    totalLeads.value = leadsData.length
-
-  } catch (e) {
-    console.error('Failed to bootstrap dashboard', e)
-    pending.value = false
   }
+
+  // Spaces determine whether we show the welcome card or the active dashboard
+  await fetchSpaces()
+  pending.value = false
+
+  // Secondary data — analytics and leads load after the skeleton clears
+  const [analyticsRes, leadsRes] = await Promise.allSettled([
+    apiFetch<any[]>('/analytics/summary'),
+    apiFetch<any[]>('/leads')
+  ])
+
+  if (analyticsRes.status === 'fulfilled') {
+    rawStats.value = toArrayPayload<any>(analyticsRes.value)
+  }
+
+  const leadsData = leadsRes.status === 'fulfilled' ? toArrayPayload<any>(leadsRes.value) : []
+  totalLeads.value = leadsData.length
 })
 </script>
