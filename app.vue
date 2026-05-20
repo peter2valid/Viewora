@@ -3,7 +3,7 @@
     <NuxtPage :keepalive="{ max: 10 }" :transition="{ name: 'fade' }" />
   </NuxtLayout>
   <ClientOnly>
-    <Toaster position="bottom-center" theme="dark" richColors expand class="z-[99999]" />
+    <Toaster position="bottom-right" theme="dark" richColors expand class="z-[99999]" />
   </ClientOnly>
 </template>
 
