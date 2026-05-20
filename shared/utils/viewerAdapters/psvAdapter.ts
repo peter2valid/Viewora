@@ -287,8 +287,14 @@ function buildPanorama(scene: TourScene) {
     }
   }
 
-  // Safe fallback — works for old scenes without tiles and new scenes while tiling
-  return scene.imageUrl
+  // VirtualTour always uses the tiles adapter, so normalize single images to a 1x1 tile set.
+  return {
+    width: scene.width || 4096,
+    cols: 1,
+    rows: 1,
+    baseUrl: scene.imageUrl,
+    tileUrl: () => scene.imageUrl,
+  }
 }
 
 export async function initViewer(
