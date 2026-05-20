@@ -31,30 +31,6 @@
       @update-trace="$emit('update-trace', $event)"
     />
 
-    <!-- Hotspot mode badge -->
-    <Transition name="badge-confirm">
-      <div
-        v-if="isHotspotMode && hasScene && !isTracing"
-        class="absolute bottom-36 left-1/2 -translate-x-1/2 z-[100] inline-flex items-center gap-3 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] text-blue-400 bg-[#0a0c14]/80 border border-blue-500/30 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_20px_rgba(59,130,246,0.15)] select-none pointer-events-auto hover:bg-[#0a0c14]/90 transition-all duration-300"
-      >
-        <span class="relative flex h-2 w-2">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
-        </span>
-        Place Hotspot
-        <button
-          class="ml-2 w-6 h-6 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-rose-500 hover:text-white hover:border-rose-400 text-white/50 transition-all duration-300 cursor-pointer"
-          @click="$emit('cancel-placement')"
-          aria-label="Cancel placement"
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-    </Transition>
-
     <!-- Tracing Overlay -->
     <Transition name="badge-confirm">
       <div
@@ -160,7 +136,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { toast } from 'vue-sonner'
 import EditorCanvas from '~/features/editor/EditorCanvas.vue'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import type { TourScene } from '~/domain/scene'
@@ -226,6 +203,34 @@ function onDrop(e: DragEvent) {
   }
   emit('request-upload', file)
 }
+
+let hotspotToastId: string | number | null = null
+
+watch(() => isHotspotMode.value && hasScene.value && !props.isTracing, (isActive) => {
+  if (isActive) {
+    if (!hotspotToastId) {
+      hotspotToastId = toast.info('Click anywhere to place hotspot', {
+        duration: Number.POSITIVE_INFINITY,
+        action: {
+          label: 'Cancel',
+          onClick: () => emit('cancel-placement')
+        }
+      })
+    }
+  } else {
+    if (hotspotToastId) {
+      toast.dismiss(hotspotToastId)
+      hotspotToastId = null
+    }
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (hotspotToastId) {
+    toast.dismiss(hotspotToastId)
+    hotspotToastId = null
+  }
+})
 </script>
 
 <style scoped>

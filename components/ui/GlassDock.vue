@@ -401,7 +401,7 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 .glass-dock__thumbImg {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .glass-dock__thumbLoading {
