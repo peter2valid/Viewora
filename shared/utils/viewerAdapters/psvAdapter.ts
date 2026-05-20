@@ -334,7 +334,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: hasTiles ? [EquirectangularTilesAdapter] : undefined,
+    adapter: [EquirectangularTilesAdapter],
     panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -410,24 +410,11 @@ export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene
     handle.markers.clearMarkers()
     handle.markerSignatures.clear()
 
-    const hasTiles = canUseTiledPanorama(scene)
-
-    // Swap adapter if needed when switching between tiled and non-tiled scenes
-    if (hasTiles && !handle.viewer.adapter?.constructor?.name?.includes('Tiles')) {
-      // PSV doesn't support live adapter swap — reinit would be needed.
-      // For now fall back gracefully to full image for non-matching adapter state.
-      await handle.viewer.setPanorama(scene.imageUrl, {
-        showLoader: false,
-        position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
-        transition: { speed: 1000, rotation: true, effect: 'black' },
-      })
-    } else {
-      await handle.viewer.setPanorama(buildPanorama(scene), {
-        showLoader: false,
-        position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
-        transition: { speed: 1000, rotation: true, effect: 'black' },
-      })
-    }
+    await handle.viewer.setPanorama(buildPanorama(scene), {
+      showLoader: false,
+      position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
+      transition: { speed: 1000, rotation: true, effect: 'black' },
+    })
 
     // Enforce hotspots after panorama is set
     if (hotspots?.length) {
