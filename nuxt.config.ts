@@ -134,6 +134,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      htmlAttrs: { lang: 'en' },
       title: 'Dashboard | Viewora',
       meta: [
         { charset: 'utf-8' },

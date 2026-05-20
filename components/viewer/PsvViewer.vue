@@ -451,8 +451,8 @@ function onViewerClick() {
 /* ── Settings gear button ───────────────────────────────── */
 .vt-settings-btn {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  bottom: 24px;
+  right: 24px;
   z-index: 20;
   width: 38px;
   height: 38px;

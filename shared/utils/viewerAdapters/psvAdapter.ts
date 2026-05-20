@@ -281,7 +281,7 @@ function buildPanorama(scene: TourScene) {
       width:   scene.width || 12288,
       cols:    scene.tileCols!,
       rows:    scene.tileRows!,
-      baseUrl: scene.imageUrl,
+      baseUrl: scene.thumbnail_url || scene.imageUrl,
       tileUrl: (col: number, row: number) =>
         `${scene.tileManifestUrl}/${col}_${row}.webp`,
     }

@@ -25,7 +25,7 @@
             item.id === dragOverId ? 'glass-dock__item--drag-over' : '',
           ]"
           :aria-current="item.id === activeId ? 'true' : 'false'"
-          :aria-label="item.ariaLabel || item.label"
+          :aria-label="item.label"
           @click="emit('select', item.id)"
           @contextmenu.prevent="emit('context', item.id)"
           @dragstart="onDragStart(item.id, $event)"
