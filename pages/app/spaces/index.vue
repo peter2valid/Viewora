@@ -302,7 +302,7 @@
         @cancel="spaceToDelete = null"
       />
 
-
+    </Teleport>
   </div>
 </template>
 
