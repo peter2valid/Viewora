@@ -232,6 +232,7 @@ definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Billing | Viewora' })
 
 const { apiFetch } = useApiFetch()
+const analytics = useAnalytics()
 
 // ── State ──────────────────────────────────────────────────────────────────
 const pending = ref(true)
@@ -351,6 +352,12 @@ async function fetchBillingData() {
 
 async function subscribeTo(planId: string) {
   subscribing.value = planId
+  const targetPlan = availablePlans.value.find(p => p.id === planId)
+  analytics.track('upgrade_clicked', {
+    current_plan: plan.value?.name,
+    target_plan: targetPlan?.name,
+    billing_cycle: billingCycle.value,
+  })
   try {
     const raw = await apiFetch<any>('/billing/initialize-paystack', {
       method: 'POST',

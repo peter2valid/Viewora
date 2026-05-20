@@ -104,6 +104,8 @@ const emit = defineEmits<{
   (e: 'remove-hotspot', id: string): void
 }>()
 
+const { $posthog } = useNuxtApp()
+
 // ── VirtualTour state ──────────────────────────────────────────────────────
 const vtContainerEl = ref<HTMLElement | null>(null)
 const vtHandle = ref<PsvViewerHandle | null>(null)
@@ -241,6 +243,11 @@ async function initVT() {
         },
         onNodeChanged: (nodeId) => {
           if (version !== vtInitVersion) return
+          $posthog?.capture('scene_navigated', {
+            from_scene: vtActiveNodeId.value,
+            to_scene: nodeId,
+            via: 'hotspot',
+          })
           vtActiveNodeId.value = nodeId
           vtFocusing.value = false
           // Deactivate all info markers on scene change
@@ -253,6 +260,9 @@ async function initVT() {
         },
         onMarkerClick: (markerId, type) => {
           if (version !== vtInitVersion) return
+          $posthog?.capture('hotspot_interacted', {
+            hotspot_type: type,
+          })
           handleMarkerClick(handle, markerId, type)
         },
       }
@@ -293,6 +303,11 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
 // ── GlassDock navigation ───────────────────────────────────────────────────
 function handleDockSelect(sceneId: string) {
   if (vtHandle.value) {
+    $posthog?.capture('scene_navigated', {
+      from_scene: vtActiveNodeId.value,
+      to_scene: sceneId,
+      via: 'dock',
+    })
     vtGoToNode(vtHandle.value, sceneId)
   }
 }

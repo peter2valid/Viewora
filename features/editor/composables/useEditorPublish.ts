@@ -127,8 +127,16 @@ export function useEditorPublish(
         },
       })
       space.value = updated
-      if (!isLive) showShareModal.value = true
-      else showToast('Tour unpublished')
+      if (!isLive) {
+        const analytics = useAnalytics()
+        analytics.track('tour_published', {
+          space_id: spaceId,
+          scene_count: scenes.value.length,
+        })
+        showShareModal.value = true
+      } else {
+        showToast('Tour unpublished')
+      }
     } catch (e: any) {
       showToast(e.data?.statusMessage || 'Publishing failed', 'error')
     } finally {

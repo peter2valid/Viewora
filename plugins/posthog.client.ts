@@ -10,11 +10,22 @@ export default defineNuxtPlugin(() => {
       ui_host: 'https://us.posthog.com',
       capture_pageview: false,
       capture_pageleave: true,
+      session_recording: {
+        maskAllInputs: true,
+      },
       loaded: (ph) => {
         if (import.meta.env.DEV) ph.opt_out_capturing()
       },
     })
   }
+
+  // Fire a $pageview event on every client-side route change
+  const router = useRouter()
+  router.afterEach(() => {
+    if (typeof window !== 'undefined') {
+      posthog.capture('$pageview', { $current_url: window.location.href })
+    }
+  })
 
   return {
     provide: {

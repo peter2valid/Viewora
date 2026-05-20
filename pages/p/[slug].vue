@@ -112,13 +112,14 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 
 const { public: { marketingUrl } } = useRuntimeConfig()
 const { apiFetch } = useApiFetch()
+const { $posthog } = useNuxtApp()
 const route = useRoute()
 const slug = route.params.slug as string
 
@@ -165,11 +166,25 @@ if (tourError.value) {
 
 pending.value = false
 
+let tourStartTime = 0
+
 onMounted(() => {
+  tourStartTime = Date.now()
   if (space.value?.id) {
     fireViewEvent(space.value.id)
   }
   syncShareLinks()
+})
+
+onBeforeUnmount(() => {
+  if (space.value?.id && tourStartTime) {
+    const durationSec = Math.round((Date.now() - tourStartTime) / 1000)
+    $posthog?.capture('tour_session_ended', {
+      space_id: space.value.id,
+      slug,
+      duration_seconds: durationSec,
+    })
+  }
 })
 
 function syncShareLinks(value = space.value) {
@@ -185,6 +200,13 @@ function fireViewEvent(spaceId: string) {
     method: 'POST',
     body: { spaceId, source: route.query.src || 'direct' },
   }).catch(() => {})
+
+  $posthog?.capture('tour_viewed', {
+    space_id: spaceId,
+    source: route.query.src || 'direct',
+    referrer: typeof document !== 'undefined' ? (document.referrer || 'direct') : 'direct',
+    slug,
+  })
 }
 
 useSeoMeta({

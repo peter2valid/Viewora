@@ -133,6 +133,8 @@ const errorMsg = ref('')
 const successMsg = ref('')
 const isLoading = ref(false)
 
+const analytics = useAnalytics()
+
 const signUp = async () => {
   errorMsg.value = ''
   successMsg.value = ''
@@ -162,9 +164,11 @@ const signUp = async () => {
         }
       }
     })
-    
+
     if (error) throw error
-    
+
+    analytics.track('signup_completed', { method: 'email' })
+
     if (data.session) {
       await navigateTo('/app')
     } else {

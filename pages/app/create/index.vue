@@ -122,6 +122,7 @@ definePageMeta({
 })
 
 const { createSpace } = useSpaces()
+const analytics = useAnalytics()
 
 const step = ref(1)
 const selectedType = ref<string>('')
@@ -151,7 +152,9 @@ const handleCreateTour = async () => {
       space_type: selectedType.value,
       location_text: locationText.value || undefined
     })
-    
+
+    analytics.track('space_created', { space_type: selectedType.value })
+
     // Auto route to the UPLOAD SCREEN! (360 Tab within the Editor)
     navigateTo(`/app/spaces/${space.id}?tab=360`)
   } catch (e: any) {
