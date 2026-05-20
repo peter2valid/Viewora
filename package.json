@@ -38,11 +38,15 @@
     "nuxt": "^3.10.0",
     "photo-sphere-viewer-lensflare-plugin": "^2.1.4",
     "pinia": "^3.0.4",
-    "posthog-js": "^1.371.1"
+    "posthog-js": "^1.371.1",
+    "sortablejs": "^1.15.7"
   },
   "overrides": {
     "three": "0.179.1",
     "@photo-sphere-viewer/core": "5.14.1",
     "@photo-sphere-viewer/markers-plugin": "5.14.1"
+  },
+  "devDependencies": {
+    "@types/sortablejs": "^1.15.9"
   }
 }

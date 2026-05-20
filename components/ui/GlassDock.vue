@@ -12,28 +12,19 @@
       role="navigation"
       aria-label="Scene navigation"
     >
-      <div v-if="items.length" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
+      <div v-if="items.length" ref="stripEl" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
         <button
           v-for="item in items"
           :key="item.id"
           class="glass-dock__item"
-          data-dock-item="true"
-          draggable="true"
+          :data-dock-id="item.id"
           :class="[
             item.id === activeId ? 'glass-dock__item--active' : '',
-            item.id === dragSrcId ? 'glass-dock__item--dragging' : '',
-            item.id === dragOverId ? 'glass-dock__item--drag-over' : '',
           ]"
           :aria-current="item.id === activeId ? 'true' : 'false'"
           :aria-label="item.label"
           @click="emit('select', item.id)"
           @contextmenu.prevent="emit('context', item.id)"
-          @dragstart="onDragStart(item.id, $event)"
-          @dragenter.prevent="onDragEnter(item.id)"
-          @dragover.prevent
-          @dragleave="onDragLeave(item.id, $event)"
-          @drop.prevent="onDrop(item.id)"
-          @dragend="onDragEnd"
         >
           <span class="glass-dock__thumb">
             <span class="glass-dock__thumbNav" aria-hidden="true">
@@ -144,7 +135,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch, onBeforeUnmount } from 'vue'
+import Sortable from 'sortablejs'
 
 type DockItem = {
   id: string
@@ -192,8 +184,8 @@ const visible = ref(false)
 onMounted(() => { visible.value = true })
 
 const dockEl = ref<HTMLElement | null>(null)
-const dragSrcId = ref<string | null>(null)
-const dragOverId = ref<string | null>(null)
+const stripEl = ref<HTMLElement | null>(null)
+let sortableInstance: Sortable | null = null
 const loadedThumbUrls = reactive(new Set<string>())
 const failedThumbUrls = reactive(new Set<string>())
 
@@ -214,45 +206,37 @@ function onThumbError(url: string | null | undefined) {
   failedThumbUrls.add(url)
 }
 
-function onDragStart(id: string, e: DragEvent) {
-  dragSrcId.value = id
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', id)
+watch(stripEl, (el) => {
+  if (el && !sortableInstance) {
+    sortableInstance = Sortable.create(el, {
+      animation: 150,
+      filter: '.glass-dock__item--add',
+      draggable: '.glass-dock__item:not(.glass-dock__item--add)',
+      onEnd: (evt) => {
+        if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
+        
+        // Using the actual DOM order ensures we don't desync if items are added/removed.
+        const currentDOMIds = Array.from(el.children)
+          .map(node => node.getAttribute('data-dock-id'))
+          .filter(Boolean) as string[]
+          
+        if (currentDOMIds.length === props.items.length) {
+          emit('reorder', currentDOMIds)
+        }
+      }
+    })
+  } else if (!el && sortableInstance) {
+    sortableInstance.destroy()
+    sortableInstance = null
   }
-}
+})
 
-function onDragEnter(id: string) {
-  if (!dragSrcId.value || id === dragSrcId.value) return
-  dragOverId.value = id
-}
-
-function onDragLeave(id: string, e: DragEvent) {
-  // Ignore leave events when the cursor moves to a child element within the same button.
-  const related = e.relatedTarget as Node | null
-  if (related && (e.currentTarget as HTMLElement | null)?.contains(related)) return
-  if (dragOverId.value === id) dragOverId.value = null
-}
-
-function onDrop(id: string) {
-  if (!dragSrcId.value || id === dragSrcId.value) return
-  const ids = props.items.map((i) => i.id)
-  const fromIdx = ids.indexOf(dragSrcId.value)
-  const toIdx = ids.indexOf(id)
-  if (fromIdx !== -1 && toIdx !== -1) {
-    const newIds = [...ids]
-    newIds.splice(fromIdx, 1)
-    newIds.splice(toIdx, 0, dragSrcId.value)
-    emit('reorder', newIds)
+onBeforeUnmount(() => {
+  if (sortableInstance) {
+    sortableInstance.destroy()
+    sortableInstance = null
   }
-  dragSrcId.value = null
-  dragOverId.value = null
-}
-
-function onDragEnd() {
-  dragSrcId.value = null
-  dragOverId.value = null
-}
+})
 
 const paddedClass = computed(() => 'glass-dock--padded')
 const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
@@ -525,10 +509,6 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 
 .glass-dock__item--dragging { opacity: 0.35; cursor: grabbing; }
-.glass-dock__item--drag-over {
-  border-color: rgba(59, 130, 246, 0.55) !important;
-  background: rgba(59, 130, 246, 0.07) !important;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .glass-dock__item { transition: none; }

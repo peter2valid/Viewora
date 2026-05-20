@@ -747,7 +747,13 @@ async function handleReorderScenes(orderedIds: string[]) {
   }
   const prevScenes = scenes.value.slice()
   const idToScene = new Map(scenes.value.map((s) => [s.id, s]))
-  const reordered = orderedIds.map((id) => idToScene.get(id)).filter(Boolean) as any[]
+  const reordered = orderedIds.map((id, idx) => {
+    const scene = idToScene.get(id)
+    if (scene) {
+      return { ...scene, order_index: idx }
+    }
+    return null
+  }).filter(Boolean) as any[]
   // Preserve any scenes not present in orderedIds (e.g. added by a concurrent realtime update).
   const orderedSet = new Set(orderedIds)
   const extra = scenes.value.filter((s) => !orderedSet.has(s.id))

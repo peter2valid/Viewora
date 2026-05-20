@@ -117,7 +117,14 @@ let vtInitVersion = 0
 const hasTourData = computed(() => (props.tour?.scenes?.length ?? 0) > 0)
 
 // ── Scene list from tour ───────────────────────────────────────────────────
-const tourScenes = computed<any[]>(() => props.tour?.scenes ?? [])
+const tourScenes = computed<any[]>(() => {
+  const raw = props.tour?.scenes ?? []
+  return raw.slice().sort((a: any, b: any) => {
+    const orderDiff = Number(a.order_index || 0) - Number(b.order_index || 0)
+    if (orderDiff !== 0) return orderDiff
+    return String(a.id || '').localeCompare(String(b.id || ''))
+  })
+})
 const sceneCount = computed(() => tourScenes.value.length)
 const tourLoadKey = computed(() => {
   if (!hasTourData.value) return ''
