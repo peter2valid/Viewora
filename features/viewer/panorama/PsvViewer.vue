@@ -28,10 +28,7 @@
       <p class="psv-overlay-msg">No panorama loaded</p>
     </div>
 
-    <!-- Edit mode cursor hint -->
-    <div v-if="isEditing && state === 'ready' && !menu.visible" class="psv-edit-hint">
-      Click to place hotspot
-    </div>
+
 
     <!-- Cinematic Vignette -->
     <div :class="['psv-vignette', { 'psv-vignette--active': isFocusing }]" />
@@ -640,22 +637,6 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
-.psv-edit-hint {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.6);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 20px;
-  pointer-events: none;
-  backdrop-filter: blur(4px);
-  letter-spacing: 0.03em;
-  z-index: 20;
-}
 
 /* ── Hotspot marker base ─────────────────────────── */
 :global(.psv-marker) {

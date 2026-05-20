@@ -35,17 +35,21 @@
     <Transition name="badge-confirm">
       <div
         v-if="isHotspotMode && hasScene && !isTracing"
-        class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/[0.1] border border-blue-500/20 backdrop-blur-sm select-none pointer-events-auto"
+        class="absolute top-8 left-1/2 -translate-x-1/2 z-[100] inline-flex items-center gap-3 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] text-blue-400 bg-[#0a0c14]/80 border border-blue-500/30 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_20px_rgba(59,130,246,0.15)] select-none pointer-events-auto hover:bg-[#0a0c14]/90 transition-all duration-300"
       >
-        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-        Click to place hotspot
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
+        </span>
+        Place Hotspot
         <button
-          class="ml-1 -mr-0.5 w-4 h-4 flex items-center justify-center rounded opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
+          class="ml-2 w-6 h-6 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-rose-500 hover:text-white hover:border-rose-400 text-white/50 transition-all duration-300 cursor-pointer"
           @click="$emit('cancel-placement')"
           aria-label="Cancel placement"
         >
-          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <path d="M18 6L6 18M6 6l12 12"/>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
       </div>

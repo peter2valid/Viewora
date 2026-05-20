@@ -2,7 +2,9 @@
   <NuxtLayout>
     <NuxtPage :keepalive="{ max: 10 }" :transition="{ name: 'fade' }" />
   </NuxtLayout>
-  <Toaster position="bottom-center" theme="dark" richColors expand />
+  <ClientOnly>
+    <Toaster position="bottom-center" theme="dark" richColors expand class="z-[99999]" />
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
