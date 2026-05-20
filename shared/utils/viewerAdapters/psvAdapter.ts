@@ -109,6 +109,7 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
               display: block;
               width: 50px;
               height: 50px;
+              cursor: pointer;
             }
             .nav-container {
               width: 100%;
@@ -117,9 +118,7 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
               align-items: center;
               justify-content: center;
               position: relative;
-              cursor: pointer;
               transition: transform 0.2s ease;
-              pointer-events: none;
             }
             .nav-container:hover { transform: scale(1.2); }
             .nav-icon {
@@ -145,6 +144,14 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
             <img src="${iconUrl || '/hotspot-icons/nav-up.png'}" class="nav-icon">
           </div>
         `;
+        
+        // Forward clicks to host to ensure VirtualTourPlugin detects them properly across the Shadow DOM
+        const container = this.shadowRoot!.querySelector('.nav-container') as HTMLElement;
+        container.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+        });
         return;
       }
 
@@ -775,6 +782,7 @@ export async function initVirtualTourViewer(
     renderMode: 'markers',
     nodes,
     startNodeId,
+    preload: false,
     transitionOptions: {
       showLoader: true,
       speed: '20rpm',
