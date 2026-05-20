@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nuxt dev --port 3001",
     "build": "nuxt build",
-    "start": "node .output/server/index.mjs"
+    "start": "node .output/server/index.mjs",
+    "postinstall": "node scripts/patch-pinia-nuxt.js"
   },
   "dependencies": {
     "@cloudimage/360-view": "^4.10.0",

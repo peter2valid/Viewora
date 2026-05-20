@@ -10,7 +10,7 @@
       </div>
 
       <!-- Range Selector -->
-      <div class="p-1 bg-surface-alt border border-border rounded-xl flex items-center shadow-sm">
+      <div class="p-1 bg-surface-alt rounded-xl flex items-center shadow-sm self-start md:self-auto">
         <button
           v-for="r in ranges"
           :key="r.value"
@@ -23,121 +23,196 @@
       </div>
     </header>
 
-    <!-- ── Dashboard Grid ──────────────────────────────────────────────── -->
-    <div class="space-y-6">
-      
-      <!-- Metrics Row -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div v-for="metric in [
-          { label: 'Total Views', value: totalViews, sub: `${viewsToday} today`, icon: 'eye' },
-          { label: 'Leads Captured', value: totalLeads, sub: 'High intent', icon: 'users' },
-          { label: 'Top Source', value: topSource, sub: `${topSourceViews} views`, icon: 'link' },
-          { label: 'Optimal Space', value: topTourName, sub: `${topTourViews} views`, icon: 'home' }
-        ]" :key="metric.label" class="card-glass p-8 group hover:scale-[1.02] transition-all duration-500 shadow-xl border-main/5 hover:border-main/20">
+    <!-- Loading Skeleton -->
+    <div v-if="pending" class="space-y-6 animate-pulse">
+      <!-- Chart + metric tiles row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Chart skeleton (2/3) -->
+        <div class="lg:col-span-2 bg-card rounded-2xl p-6">
           <div class="flex items-center justify-between mb-6">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60">{{ metric.label }}</span>
-            <div class="text-main/20 group-hover:text-main transition-all duration-500">
-               <svg v-if="metric.icon === 'eye'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-               <svg v-else-if="metric.icon === 'users'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-               <svg v-else-if="metric.icon === 'link'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-               <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <div>
+              <div class="h-4 w-40 bg-surface-alt rounded mb-2"></div>
+              <div class="h-2 w-24 bg-surface-alt/60 rounded"></div>
             </div>
+            <div class="h-6 w-12 bg-surface-alt rounded-lg"></div>
           </div>
-          <div class="text-3xl font-black text-main tracking-tighter leading-none mb-3 drop-shadow-sm">{{ metric.value }}</div>
-          <div class="text-[10px] font-black uppercase tracking-widest text-dim/60">{{ metric.sub }}</div>
+          <div class="h-[240px] bg-surface-alt/50 rounded-xl"></div>
+        </div>
+        <!-- Metric tiles skeleton (1/3) — 2×2 -->
+        <div class="grid grid-cols-2 grid-rows-2 gap-3">
+          <div v-for="n in 4" :key="n" class="bg-card rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="h-2 w-14 bg-surface-alt rounded"></div>
+              <div class="w-3.5 h-3.5 bg-surface-alt rounded"></div>
+            </div>
+            <div class="h-7 w-12 bg-surface-alt rounded mb-1"></div>
+            <div class="h-2 w-16 bg-surface-alt/60 rounded"></div>
+          </div>
         </div>
       </div>
-
-      <!-- Main Chart Card -->
-      <div class="card-glass p-6 md:p-8 flex flex-col gap-10">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-lg font-bold text-main tracking-tight">Visitor Intelligence</h3>
-            <p class="text-[11px] font-bold uppercase tracking-wider text-dim mt-0.5">{{ activeRangeLabel }}</p>
-          </div>
-          <div class="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border border-emerald-500/20">
-             <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgb(16,185,129)]"></div>
-             Live
-          </div>
-        </div>
-
-        <!-- Custom Bar Chart Visualization -->
-        <div class="h-[240px] flex items-end gap-2 px-2 relative group/chart">
-          <!-- Empty State Overlay -->
-          <div v-if="!pending && chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-xl z-20 rounded-2xl border border-border/50">
-             <div class="relative mb-6">
-                <div class="w-16 h-16 bg-surface-alt text-main rounded-2xl flex items-center justify-center border border-border shadow-inner relative z-10">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="opacity-20"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
-                </div>
-                <div class="absolute -inset-4 bg-main/5 blur-2xl rounded-full"></div>
-             </div>
-             <p class="text-base font-black text-main tracking-tight">Signal Loss Detected</p>
-             <p class="text-[11px] text-dim font-bold mt-1 uppercase tracking-widest opacity-60">Waiting for inbound telemetry...</p>
-          </div>
-
-          <!-- Loading State Overlay -->
-          <div v-if="pending" class="absolute inset-0 flex flex-col items-center justify-center bg-surface/50 backdrop-blur-sm z-20 rounded-2xl">
-             <div class="w-8 h-8 border-4 border-main/10 border-t-main rounded-full animate-spin"></div>
-          </div>
-
-          <!-- Y Axis (Minimal) -->
-          <div class="absolute -left-2 inset-y-0 w-8 flex flex-col justify-between text-[10px] font-black text-dim dark:text-dim/30 pointer-events-none pr-3 text-right">
-            <span>{{ maxY }}</span>
-            <span>0</span>
-          </div>
-
-          <!-- Vertical Bars -->
-          <div v-for="(day, i) in chartDays" :key="i" class="flex-1 flex flex-col items-center justify-end h-full gap-2 group/bar z-10">
-            <div class="relative w-full group/tip">
-              <!-- Tooltip on hover -->
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-main text-bg rounded-lg text-[10px] font-bold opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none shadow-xl z-30 whitespace-nowrap border border-border">
-                 {{ day.views }} views
-              </div>
-              
-              <!-- The Bar -->
-              <div 
-                class="w-full min-h-[4px] rounded-t-lg transition-all duration-500 ease-out group-hover:bg-main"
-                :class="day.views > 0 ? 'bg-main/20' : 'bg-surface-alt'"
-                :style="{ height: (day.views / (maxY || 1) * 100) + '%' }"
-              ></div>
+      <!-- Bottom 2-col row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="bg-card rounded-2xl p-6 md:p-8">
+          <div class="flex items-center justify-between mb-8">
+            <div>
+              <div class="h-4 w-36 bg-surface-alt rounded mb-2"></div>
+              <div class="h-2 w-24 bg-surface-alt/60 rounded"></div>
             </div>
-            <span class="text-[10px] font-bold text-dim/50 transition-colors group-hover/bar:text-main hidden md:block">{{ day.label }}</span>
+            <div class="w-9 h-9 bg-surface-alt rounded-xl"></div>
+          </div>
+          <div class="h-24 bg-surface-alt/40 rounded-2xl mb-4"></div>
+          <div class="h-10 bg-surface-alt rounded-xl"></div>
+        </div>
+        <div class="bg-card rounded-2xl p-6 md:p-8">
+          <div class="flex items-center justify-between mb-8">
+            <div>
+              <div class="h-4 w-32 bg-surface-alt rounded mb-2"></div>
+              <div class="h-2 w-40 bg-surface-alt/60 rounded"></div>
+            </div>
+            <div class="w-9 h-9 bg-surface-alt rounded-xl"></div>
+          </div>
+          <div class="space-y-4">
+            <div v-for="n in 3" :key="n">
+              <div class="flex items-center justify-between mb-2">
+                <div class="h-3 w-16 bg-surface-alt rounded"></div>
+                <div class="h-3 w-12 bg-surface-alt rounded"></div>
+              </div>
+              <div class="h-1.5 w-full bg-surface-alt/60 rounded-full"></div>
+            </div>
           </div>
         </div>
+      </div>
+      <!-- Table card -->
+      <div class="bg-card rounded-2xl overflow-hidden">
+        <div class="p-6 border-b border-border">
+          <div class="h-4 w-48 bg-surface-alt rounded mb-2"></div>
+          <div class="h-2 w-32 bg-surface-alt/60 rounded"></div>
+        </div>
+        <div class="p-6 space-y-4">
+          <div v-for="n in 4" :key="n" class="flex items-center gap-8">
+            <div class="flex-1 h-3 bg-surface-alt rounded"></div>
+            <div class="w-16 h-3 bg-surface-alt rounded"></div>
+            <div class="w-10 h-3 bg-surface-alt/60 rounded"></div>
+            <div class="w-10 h-3 bg-surface-alt/60 rounded"></div>
+            <div class="w-10 h-3 bg-surface-alt/60 rounded"></div>
+            <div class="w-16 h-3 bg-surface-alt rounded"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Dashboard Grid ──────────────────────────────────────────────── -->
+    <div v-else class="space-y-6">
+      
+      <!-- Chart + Metric Tiles Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Main Chart Card (2/3) -->
+        <div class="lg:col-span-2 bg-card rounded-2xl border border-border dark:border-transparent p-6 flex flex-col gap-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-main tracking-tight">Visitor Intelligence</h3>
+              <p class="text-[11px] font-bold uppercase tracking-wider text-dim mt-0.5">{{ activeRangeLabel }}</p>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
+               <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgb(16,185,129)]"></div>
+               Live
+            </div>
+          </div>
+
+          <!-- Custom Bar Chart Visualization -->
+          <div class="h-[240px] flex items-end gap-2 px-2 relative group/chart">
+            <!-- Empty State Overlay -->
+            <div v-if="chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-surface-alt/60 dark:bg-surface/80 backdrop-blur-xl z-20 rounded-2xl border border-black/[0.08] dark:border-white/20">
+               <div class="relative mb-6">
+                  <div class="w-16 h-16 bg-surface-alt text-main rounded-2xl flex items-center justify-center shadow-inner relative z-10">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="opacity-20"><rect x="4" y="16" width="4" height="4"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="2" width="4" height="18"/></svg>
+                  </div>
+                  <div class="absolute -inset-4 bg-main/5 blur-2xl rounded-full"></div>
+               </div>
+               <p class="text-base font-black text-main tracking-tight">Signal Loss Detected</p>
+               <p class="text-[11px] text-dim font-bold mt-1 uppercase tracking-widest opacity-60">Waiting for inbound telemetry...</p>
+            </div>
+
+            <!-- Y Axis (Minimal) -->
+            <div class="absolute -left-2 inset-y-0 w-8 flex flex-col justify-between text-[10px] font-black text-dim dark:text-dim/30 pointer-events-none pr-3 text-right">
+              <span>{{ maxY }}</span>
+              <span>0</span>
+            </div>
+
+            <!-- Vertical Bars -->
+            <div v-for="(day, i) in chartDays" :key="i" class="flex-1 flex flex-col items-center justify-end h-full gap-2 group/bar z-10">
+              <div class="relative w-full group/tip">
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-main text-bg rounded-lg text-[10px] font-bold opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none shadow-xl z-30 whitespace-nowrap">
+                   {{ day.views }} views
+                </div>
+                <div
+                  class="w-full min-h-[4px] rounded-t-lg transition-all duration-500 ease-out group-hover:bg-main"
+                  :class="day.views > 0 ? 'bg-main/20' : 'bg-surface-alt'"
+                  :style="{ height: (day.views / (maxY || 1) * 100) + '%' }"
+                ></div>
+              </div>
+              <span class="text-[10px] font-bold text-dim/50 transition-colors group-hover/bar:text-main hidden md:block">{{ day.label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Tiles (1/3) — 2×2 grid, fills chart height -->
+        <div class="grid grid-cols-2 grid-rows-2 gap-3">
+          <div v-for="metric in [
+            { label: 'Total Views', value: totalViews, sub: `${viewsToday} today`, icon: 'eye' },
+            { label: 'Leads Captured', value: totalLeads, sub: 'High intent', icon: 'users' },
+            { label: 'Top Source', value: topSource, sub: `${topSourceViews} views`, icon: 'link' },
+            { label: 'Optimal Space', value: topTourName, sub: `${topTourViews} views`, icon: 'home' }
+          ]" :key="metric.label" class="bg-card rounded-2xl border border-border dark:border-transparent p-4 group flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[9px] font-black uppercase tracking-[0.15em] text-dim/60 leading-tight">{{ metric.label }}</span>
+              <div class="text-main/20 group-hover:text-main transition-all duration-500">
+                 <svg v-if="metric.icon === 'eye'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                 <svg v-else-if="metric.icon === 'users'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                 <svg v-else-if="metric.icon === 'link'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+            </div>
+            <div class="text-2xl font-black text-main tracking-tighter leading-none mb-1 truncate">{{ metric.value }}</div>
+            <div class="text-[9px] font-bold uppercase tracking-widest text-dim/60 truncate">{{ metric.sub }}</div>
+          </div>
+        </div>
+
       </div>
 
       <!-- Bottom Insights Row -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Lead Intensity -->
-        <div class="card-glass p-6 md:p-8 flex flex-col h-full">
+        <div class="bg-card rounded-2xl border border-border dark:border-transparent p-6 md:p-8 flex flex-col h-full">
            <div class="flex items-center justify-between mb-8">
              <div>
                <h3 class="text-base font-bold text-main tracking-tight">Lead Capture Intensity</h3>
                <p class="text-xs text-dim">Total lead form submissions</p>
              </div>
-             <div class="p-2 bg-surface-alt rounded-xl border border-border">
+             <div class="p-2 bg-surface-alt rounded-xl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-main"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
              </div>
            </div>
            
-           <div class="flex-1 flex items-center justify-center text-center p-8 bg-surface-alt/20 rounded-2xl border border-dashed border-border mb-4">
+           <div class="flex-1 flex items-center justify-center text-center p-8 bg-surface-alt/20 rounded-2xl border border-black/[0.08] dark:border-white/20 mb-4">
               <div>
                 <div class="text-4xl font-extrabold text-main mb-2">{{ totalLeads }}</div>
                 <div class="text-[10px] font-bold uppercase tracking-widest text-dim italic">Verified Lead entries</div>
               </div>
            </div>
            
-           <button @click="navigateTo('/app/leads')" class="w-full py-3.5 text-xs font-bold text-main hover:bg-surface-alt transition-colors rounded-xl border border-border">View Lead CRM</button>
+           <button @click="navigateTo('/app/leads')" class="w-full py-3.5 text-xs font-bold text-main hover:bg-surface-alt transition-colors rounded-xl border border-black/[0.08] dark:border-white/20">View Lead CRM</button>
         </div>
 
         <!-- Top Sources -->
-        <div class="card-glass p-6 md:p-8 flex flex-col h-full">
+        <div class="bg-card rounded-2xl border border-border dark:border-transparent p-6 md:p-8 flex flex-col h-full">
            <div class="flex items-center justify-between mb-8">
              <div>
                 <h3 class="text-base font-bold text-main tracking-tight">Traffic Sources</h3>
                 <p class="text-xs text-dim">Where your visitors are coming from</p>
              </div>
-             <div class="p-2 bg-surface-alt rounded-xl border border-border">
+             <div class="p-2 bg-surface-alt rounded-xl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-main"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
              </div>
            </div>
@@ -148,7 +223,7 @@
                     <span class="text-xs font-bold text-main">{{ source.name }}</span>
                     <span class="text-xs font-bold text-main">{{ source.views }} views</span>
                  </div>
-                 <div class="h-1.5 w-full bg-surface-alt rounded-full overflow-hidden border border-border">
+                 <div class="h-1.5 w-full bg-surface-alt rounded-full overflow-hidden">
                     <div class="h-full bg-main rounded-full transition-all duration-1000" :style="{ width: totalViews > 0 ? (source.views / totalViews * 100) + '%' : '0%' }"></div>
                  </div>
               </div>
@@ -160,8 +235,8 @@
       </div>
 
       <!-- performance Table Card -->
-      <div class="card-glass overflow-hidden flex flex-col">
-          <header class="p-6 border-b border-border flex items-center justify-between">
+      <div class="bg-card rounded-2xl border border-border dark:border-transparent overflow-hidden flex flex-col">
+          <header class="p-6 border-b border-black/[0.08] dark:border-white/20 flex items-center justify-between">
              <div>
                 <h3 class="text-base font-bold text-main tracking-tight">Performance Leaderboard</h3>
                 <p class="text-xs text-dim">Ranking by total engagement.</p>
@@ -169,14 +244,14 @@
           </header>
 
           <div v-if="tourStats.length === 0" class="p-12 flex flex-col items-center justify-center text-center">
-             <div class="w-10 h-10 bg-surface-alt text-dim rounded-lg flex items-center justify-center mb-3 border border-border">
+             <div class="w-10 h-10 bg-surface-alt text-dim rounded-lg flex items-center justify-center mb-3">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
              </div>
              <p class="text-xs font-medium text-dim">No data available for the selected range.</p>
           </div>
           <div v-else class="overflow-x-auto scrollbar-premium">
             <table class="w-full text-left border-collapse table-fixed min-w-[800px]">
-              <thead class="border-b border-border bg-surface-alt/50">
+              <thead class="border-b border-black/[0.08] dark:border-white/20 bg-surface-alt/50">
                 <tr class="text-[10px] font-black uppercase tracking-[0.2em] text-dim/60">
                   <th class="w-[40%] px-8 py-5">Property Domain</th>
                   <th class="w-[15%] px-8 py-5 text-right">Atmospheres</th>

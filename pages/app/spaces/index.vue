@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- Page header -->
-    <header class="mb-8 flex items-center justify-between">
+    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-main">Tours</h1>
         <p class="text-sm text-dim mt-1">Manage and organize your virtual tours.</p>
@@ -10,7 +10,7 @@
       <!-- Filters & Actions -->
       <div class="flex flex-col md:flex-row md:items-center gap-4">
         <!-- View Toggle: Panoee-style Sliding Segmented Control -->
-        <div v-if="spaces.length > 0 || search" class="relative flex items-center p-1 bg-surface-alt border border-border rounded-xl w-24 h-10 overflow-hidden">
+        <div v-if="spaces.length > 0 || search" class="relative flex items-center p-1 bg-surface-alt rounded-xl w-24 h-10 overflow-hidden">
           <!-- Sliding Backdrop -->
           <div 
             class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-main rounded-lg shadow-sm transition-all duration-300 ease-out"
@@ -47,7 +47,7 @@
     </header>
 
     <!-- Toolbar (Only if we have spaces) -->
-    <div v-if="spaces.length > 0 || search" @click="searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between card-glass p-1 !rounded-2xl border border-border shadow-sm mb-12 cursor-pointer group/search hover:border-main/20 transition-colors">
+    <div v-if="spaces.length > 0 || search" @click="searchInput?.focus()" class="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card border border-border dark:border-transparent p-1 !rounded-2xl shadow-sm mb-12 cursor-pointer group/search transition-colors">
       <div class="relative w-full sm:w-80 group h-12 flex items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="absolute left-4 text-dim group-focus-within:text-main transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input 
@@ -58,12 +58,12 @@
           placeholder="Search your property domain..." 
         />
       </div>
-      <div class="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-border h-12 sm:pl-3">
+      <div class="flex items-center gap-3 w-full sm:w-auto sm:border-l border-black/[0.08] dark:border-white/20 h-12 sm:pl-3" @click.stop>
         <div class="relative w-full sm:w-auto">
-          <select v-model="sortBy" class="w-full sm:w-auto pl-4 pr-10 py-2 bg-transparent border-transparent text-[11px] font-black uppercase tracking-[0.1em] outline-none appearance-none cursor-pointer text-main hover:opacity-70 transition-all">
-            <option value="newest" class="bg-surface text-main">Chronological</option>
-            <option value="oldest" class="bg-surface text-main">Legacy Records</option>
-            <option value="name" class="bg-surface text-main">Alphabetical</option>
+          <select v-model="sortBy" class="w-full sm:w-auto pl-4 pr-7 py-2 bg-transparent border-transparent text-[11px] font-black uppercase tracking-normal outline-none appearance-none cursor-pointer text-main hover:opacity-70 transition-all">
+            <option value="newest" class="bg-surface text-main">Newest</option>
+            <option value="oldest" class="bg-surface text-main">Oldest</option>
+            <option value="name" class="bg-surface text-main">A–Z</option>
           </select>
           <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dim/60">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
@@ -73,104 +73,77 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="pending" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <div v-for="n in 4" :key="n" class="h-64 card-glass overflow-hidden animate-pulse">
-         <div class="h-2/3 bg-surface-alt"></div>
-         <div class="p-4 space-y-3">
-            <div class="h-4 bg-surface-alt rounded-lg w-3/4"></div>
-            <div class="h-3 bg-surface-alt rounded-lg w-1/2"></div>
-         </div>
+    <div v-if="pending" class="flex flex-col animate-pulse">
+      <!-- Toolbar skeleton -->
+      <div class="bg-card rounded-2xl mb-12 h-14 flex items-center px-4 gap-4">
+        <div class="w-4 h-4 bg-surface-alt rounded-full shrink-0"></div>
+        <div class="h-3 w-48 bg-surface-alt rounded flex-1 max-w-xs"></div>
+        <div class="w-px h-6 bg-white/20 shrink-0 ml-auto"></div>
+        <div class="h-3 w-16 bg-surface-alt rounded"></div>
+        <div class="w-3 h-3 bg-surface-alt rounded shrink-0"></div>
+      </div>
+      <!-- Cards grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div v-for="n in 4" :key="n" class="h-[300px] bg-card rounded-2xl overflow-hidden flex flex-col">
+          <div class="h-[180px] w-full bg-surface-alt shrink-0"></div>
+          <div class="flex-1 p-5 flex flex-col justify-between">
+            <div>
+              <div class="h-3 w-3/4 bg-surface-alt rounded mb-2"></div>
+              <div class="h-2 w-1/3 bg-surface-alt/60 rounded"></div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="w-7 h-7 bg-surface-alt rounded-lg"></div>
+              <div class="w-7 h-7 bg-surface-alt rounded-lg"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Main Content Area -->
     <template v-else>
-      <!-- Empty State: Panoee-style Dashboard -->
-      <div v-if="!filteredSpaces.length && !search" class="flex-1 py-12 lg:py-20 animate-in fade-in zoom-in-95 duration-700">
-        <div class="max-w-6xl mx-auto px-4 flex flex-col items-center">
-          <!-- Main Welcome -->
-          <div class="text-center mb-16 relative">
-            <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-main/5 blur-[120px] rounded-full -z-10"></div>
-            <h2 class="text-4xl md:text-5xl font-black text-main mb-6 tracking-tight">Welcome to Viewora</h2>
-            <p class="text-lg text-dim font-bold max-w-2xl mx-auto mb-10 leading-relaxed">
-              Upload 360 photos and build your immersive project in minutes.
-            </p>
-            <button @click="navigateTo('/app/create')" class="btn btn-primary !px-12 !py-6 !rounded-[2rem] text-lg shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] active:scale-95 transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Create Your First Tour
-          </button>
-        </div>
-          </div>
-
-          <!-- 3-Step Process Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full mb-16 relative">
-            <!-- Step 1 -->
-            <div class="flex flex-col items-center group/step">
-              <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <NuxtImg
-                  src="/assets/images/Upload_Panoramas.png"
-                  alt="Upload 360 Panoramas"
-                  class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
-                  loading="lazy"
-                  format="webp"
-                  quality="90"
-                />
-                <div class="absolute inset-0 bg-zinc-950/20 group-hover/step:bg-zinc-950/10 transition-colors"></div>
-                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg z-10">1</div>
+      <!-- Empty State: No tours yet -->
+      <div v-if="!filteredSpaces.length && !search" class="flex flex-col gap-8">
+        <div class="relative group mx-auto max-w-2xl w-full mt-16 md:mt-24">
+          <div class="absolute -inset-0.5 bg-main/5 blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000"></div>
+          <div class="relative card-glass p-8 sm:p-12 md:p-16 !rounded-[3rem] border-main/10 shadow-2xl flex flex-col items-center text-center overflow-hidden">
+            <div class="absolute -top-12 -right-12 w-64 h-64 bg-main/5 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="mb-4 md:mb-6 flex items-center justify-center">
+              <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-main/10 flex items-center justify-center text-main">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
               </div>
-              <h3 class="text-lg font-bold text-main mb-2">Upload</h3>
-              <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Drag your 360 photos and start building in minutes.</p>
             </div>
-
-            <!-- Step 2 -->
-            <div class="flex flex-col items-center group/step">
-              <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <NuxtImg
-                  src="/assets/images/Visual_Editor.png"
-                  alt="Visual 360 Editor"
-                  class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
-                  loading="lazy"
-                  format="webp"
-                  quality="90"
-                />
-                <div class="absolute inset-0 bg-zinc-950/20 group-hover/step:bg-zinc-950/10 transition-colors"></div>
-                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg z-10">2</div>
+            <h2 class="text-2xl md:text-3xl font-extrabold text-main mb-3 tracking-tight">Welcome to Viewora</h2>
+            <p class="text-dim mb-8 md:mb-10 font-medium text-sm md:text-base max-w-md">Capturing reality has never been this simple. Create your first immersive experience in minutes.</p>
+            <div class="flex items-center justify-center gap-3 sm:gap-6 mb-10 md:mb-12 w-full relative">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">1</div>
+                <p class="hidden sm:block text-[13px] font-bold text-main">Define</p>
               </div>
-              <h3 class="text-lg font-bold text-main mb-2">Edit</h3>
-              <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Connect scenes with hotspots and customize your experience.</p>
-            </div>
-
-            <!-- Step 3 -->
-            <div class="flex flex-col items-center group/step">
-              <div class="w-full aspect-video rounded-3xl bg-surface-alt border border-border mb-6 overflow-hidden relative shadow-lg group-hover/step:border-main/20 transition-all duration-500">
-                <NuxtImg
-                  src="/assets/images/Publish_Virtual_Tour.png"
-                  alt="Publish and Share anywhere"
-                  class="absolute inset-0 w-full h-full object-cover group-hover/step:scale-105 transition-transform duration-700"
-                  loading="lazy"
-                  format="webp"
-                  quality="85"
-                />
-                <div class="absolute inset-0 bg-zinc-950/20 group-hover/step:bg-zinc-950/10 transition-colors"></div>
-                <div class="absolute top-4 left-4 w-8 h-8 rounded-full bg-main text-bg text-sm font-black flex items-center justify-center shadow-lg z-10">3</div>
+              <div class="w-4 md:w-8 h-px bg-white/10"></div>
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">2</div>
+                <p class="hidden sm:block text-[13px] font-bold text-main">Upload</p>
               </div>
-              <h3 class="text-lg font-bold text-main mb-2">Publish</h3>
-              <p class="text-xs text-dim font-bold text-center leading-relaxed px-4">Publish and share your tour in seconds with your audience.</p>
+              <div class="w-4 md:w-8 h-px bg-white/10"></div>
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 flex items-center justify-center text-[10px] md:text-xs font-bold text-main">3</div>
+                <p class="hidden sm:block text-[13px] font-bold text-main">Share</p>
+              </div>
             </div>
-          </div>
-
-          <!-- Secondary Actions -->
-          <div class="flex flex-col sm:flex-row items-center gap-6">
-            <button @click="generateDemoTour" :disabled="creatingDemo" class="flex items-center gap-3 px-8 py-4 bg-surface-alt border border-border rounded-2xl text-dim font-bold hover:text-main hover:bg-surface transition-all disabled:opacity-50">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              {{ creatingDemo ? 'Creating...' : 'Watch demo tour' }}
-            </button>
-            <button class="flex items-center gap-3 px-8 py-4 bg-surface-alt border border-border rounded-2xl text-dim font-bold hover:text-main hover:bg-surface transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-              Read Tutorial
-            </button>
+            <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
+              <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Start Creating
+              </button>
+              <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                My Portfolio
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
       <!-- Empty State: search results -->
       <div v-else-if="!filteredSpaces.length && search" class="flex-1 flex flex-col items-center justify-center text-center p-12">
@@ -351,7 +324,7 @@ import { navigateTo } from '#imports'
 import type { Space } from '~/composables/useSpaces'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
-const { spaces, pending, error, fetchSpaces, createSpace, deleteSpace, publishSpace } = useSpaces()
+const { spaces, pending, fetchSpaces, deleteSpace, publishSpace } = useSpaces()
 
 const search = ref('')
 const searchInput = ref<HTMLInputElement>()
@@ -360,24 +333,6 @@ const viewMode = ref<'grid' | 'list'>('grid')
 // Delete
 const spaceToDelete = ref<Space | null>(null)
 const deleting = ref(false)
-
-// Demo tour
-const creatingDemo = ref(false)
-const generateDemoTour = async () => {
-  creatingDemo.value = true
-  try {
-    const space = await createSpace({
-      title: 'Sample Apartment Tour',
-      description: 'A pre-generated virtual tour to help you explore Viewora.',
-      space_type: 'other'
-    })
-    navigateTo(`/app/spaces/${space.id}?tab=360`)
-  } catch (e: any) {
-    showToast(e.data?.statusMessage ?? e.message ?? 'Failed to create demo tour.', 'error')
-  } finally {
-    creatingDemo.value = false
-  }
-}
 
 const deleteMessage = computed(() => {
   if (!spaceToDelete.value) return ''

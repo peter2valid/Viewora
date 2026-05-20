@@ -8,8 +8,8 @@
 
     <div class="space-y-8">
       <!-- Profile Section -->
-      <section class="card-glass overflow-hidden">
-        <div class="p-6 border-b border-border">
+      <section class="bg-card rounded-2xl border border-border dark:border-transparent overflow-hidden">
+        <div class="p-6 border-b border-black/[0.08] dark:border-white/20">
           <h3 class="text-base font-bold text-main">Account Profile</h3>
           <p class="text-sm text-dim mt-1">Information about your professional identity.</p>
         </div>
@@ -38,8 +38,8 @@
       </section>
 
       <!-- Agency Branding -->
-      <section class="card-glass overflow-hidden" :class="!planStore.entitlements?.branding_customization_enabled ? 'opacity-75' : ''">
-        <div class="p-6 border-b border-border flex items-center justify-between">
+      <section class="bg-card rounded-2xl border border-border dark:border-transparent overflow-hidden" :class="!planStore.entitlements?.branding_customization_enabled ? 'opacity-75' : ''">
+        <div class="p-6 border-b border-black/[0.08] dark:border-white/20 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 class="text-base font-bold text-main">Agency Branding</h3>
             <p class="text-sm text-dim mt-1">Customize how your agency appears on virtual tours.</p>
@@ -66,8 +66,8 @@
           <!-- Logo Upload -->
           <div class="space-y-3">
             <label class="text-sm font-bold text-main">Agency Logo</label>
-            <div class="flex items-center gap-6">
-              <div class="w-20 h-20 bg-surface-alt rounded-xl border border-border flex items-center justify-center overflow-hidden shadow-inner">
+            <div class="flex flex-wrap items-center gap-6">
+              <div class="w-20 h-20 bg-surface-alt rounded-xl border border-black/[0.08] dark:border-white/20 flex items-center justify-center overflow-hidden shadow-inner">
                 <img v-if="profileForm.agencyLogoUrl" :src="profileForm.agencyLogoUrl" alt="Logo" class="w-full h-full object-contain p-2" />
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-dim/50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </div>
@@ -110,7 +110,7 @@
       </div>
 
       <!-- Danger zone -->
-      <section class="mt-12 pt-12 border-t border-border">
+      <section class="mt-12 pt-12 border-t border-black/[0.08] dark:border-white/20">
         <h3 class="text-[11px] font-black text-rose-500/80 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">
           Infrastructure Destruction
         </h3>
