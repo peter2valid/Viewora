@@ -248,12 +248,10 @@ async function initVT() {
             }
           }
         },
-        onMarkerClick: (markerId, type) => {
+        onMarkerClick: (markerId, type, url) => {
           if (version !== vtInitVersion) return
-          $posthog?.capture('hotspot_interacted', {
-            hotspot_type: type,
-          })
-          handleMarkerClick(handle, markerId, type)
+          $posthog?.capture('hotspot_interacted', { hotspot_type: type })
+          handleMarkerClick(handle, markerId, type, url)
         },
       }
     )
@@ -266,41 +264,56 @@ async function initVT() {
   }
 }
 
-async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type: string) {
+async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type: string, url = '') {
   if (vtTransitioning.value) return
 
-  // Deactivate any previously active marker
+  // Deactivate any previously active info card first
   const all = buildAllHotspots()
   for (const hotspots of Object.values(all)) {
     for (const h of hotspots) {
       if (h.id !== markerId) vtToggleMarkerActive(handle, h.id, false)
     }
   }
+  vtFocusing.value = false
 
   if (type === 'info') {
+    // Show the floating info card and pan the viewer to it
     vtFocusing.value = true
     vtToggleMarkerActive(handle, markerId, true)
     await focusHotspot(handle, markerId)
+
   } else if (type === 'url') {
-    // Find the hotspot url across all scenes
-    for (const hotspots of Object.values(all)) {
-      const h = hotspots.find(x => x.id === markerId)
-      if (h?.url) { window.open(h.url, '_blank', 'noopener,noreferrer'); break }
-    }
-  } else if (type === 'scene_link') {
-    // Manually trigger VirtualTour node transition
-    for (const hotspots of Object.values(all)) {
-      const h = hotspots.find(x => x.id === markerId)
-      if (h?.targetSceneId) {
-        vtTransitioning.value = true
-        try {
-          const success = await vtGoToNode(handle, h.targetSceneId)
-          if (!success) vtTransitioning.value = false // release immediately if it failed to start
-        } catch {
-          vtTransitioning.value = false
-        }
-        break
+    // Open external link — url comes directly from the marker data attribute
+    const target = url || (() => {
+      for (const hotspots of Object.values(all)) {
+        const h = hotspots.find(x => x.id === markerId)
+        if (h?.url) return h.url
       }
+      return ''
+    })()
+    if (target) window.open(target, '_blank', 'noopener,noreferrer')
+
+  } else if (type === 'scene_link') {
+    // Navigate to the target scene. We read targetSceneId from marker.data
+    // (set in buildTourNodes) so we never need to scan the entire hotspot list.
+    try {
+      const marker = handle.markers?.getMarker(markerId)
+      const targetSceneId = marker?.config?.data?.targetSceneId
+        || (() => {
+          for (const hotspots of Object.values(all)) {
+            const h = hotspots.find(x => x.id === markerId)
+            if (h?.targetSceneId) return h.targetSceneId
+          }
+          return null
+        })()
+
+      if (targetSceneId) {
+        vtTransitioning.value = true
+        const success = await vtGoToNode(handle, targetSceneId)
+        if (!success) vtTransitioning.value = false
+      }
+    } catch {
+      vtTransitioning.value = false
     }
   }
 
@@ -546,88 +559,146 @@ function onViewerClick() {
 
 /* ── Plain-DOM hotspot styles ───────────────────────────── */
 
-/* Navigation / scene_link hotspot */
+/* ── NAV hotspot: indigo circle + pulse ring + label ──── */
 :global(.vhs-nav) {
   position: relative;
   width: 52px;
-  height: 52px;
+  height: 72px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   cursor: pointer;
   transition: transform 0.2s ease;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
 }
-:global(.vhs-nav:hover) { transform: scale(1.15); }
+:global(.vhs-nav:hover) { transform: scale(1.18); }
 
 :global(.vhs-nav__pulse) {
   position: absolute;
-  inset: -12px;
+  top: 0; left: 0; right: 0; bottom: 20px;
+  margin: auto;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  border: 2.5px solid rgba(99, 102, 241, 0.65);
-  animation: vhs-pulse 2s ease-out infinite;
+  border: 2px solid rgba(99, 102, 241, 0.75);
+  animation: vhs-nav-pulse 2s ease-out infinite;
   pointer-events: none;
 }
-@keyframes vhs-pulse {
+@keyframes vhs-nav-pulse {
   0%   { transform: scale(1);   opacity: 0.8; }
-  100% { transform: scale(1.7); opacity: 0;   }
+  100% { transform: scale(1.9); opacity: 0;   }
 }
 
 :global(.vhs-nav__icon) {
   width: 48px;
   height: 48px;
   object-fit: contain;
-  filter: drop-shadow(0 3px 8px rgba(0,0,0,0.5));
   pointer-events: none;
 }
 
 :global(.vhs-nav__arrow) {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: rgba(99, 102, 241, 0.85);
-  backdrop-filter: blur(8px);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.65), inset 0 1px 0 rgba(255,255,255,0.25);
 }
-:global(.vhs-nav__arrow svg) { width: 20px; height: 20px; }
+:global(.vhs-nav__arrow svg) { width: 22px; height: 22px; }
 
-/* Info / url / video hotspot */
+:global(.vhs-nav__label) {
+  margin-top: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.85);
+  white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.95);
+  background: rgba(0,0,0,0.55);
+  padding: 2px 7px;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── INFO hotspot: colored pin trigger + animated card ── */
 :global(.vhs-info) {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   align-items: center;
-  gap: 0;
   cursor: pointer;
   pointer-events: auto;
 }
 
-:global(.vhs-info__pin) {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 12px rgba(255,255,255,0.7);
+:global(.vhs-info__trigger) {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  transition: transform 0.2s ease;
+  z-index: 2;
+}
+:global(.vhs-info:hover .vhs-info__trigger) { transform: scale(1.25); }
+
+:global(.vhs-info__pin-ring) {
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 2px solid var(--vhs-color, #6366f1);
+  opacity: 0.6;
+  animation: vhs-info-ring 2.5s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes vhs-info-ring {
+  0%   { transform: scale(1);   opacity: 0.65; }
+  100% { transform: scale(2.1); opacity: 0;    }
 }
 
+:global(.vhs-info__pin-dot) {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px var(--vhs-color, #6366f1), 0 2px 6px rgba(0,0,0,0.5);
+  border: 2.5px solid rgba(255,255,255,0.95);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+:global(.vhs-info--active .vhs-info__pin-dot) {
+  box-shadow: 0 0 20px var(--vhs-color, #6366f1), 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* Card hidden by default — slides in on .vhs-info--active */
 :global(.vhs-info__card) {
   width: 220px;
-  background: rgba(10, 12, 20, 0.92);
-  backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(6, 8, 16, 0.97);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.11);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.07);
   color: #fff;
   font-family: -apple-system, 'Inter', sans-serif;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  /* Hidden state */
+  opacity: 0;
+  transform: translateY(12px) scale(0.93);
+  pointer-events: none;
+  transition: opacity 0.32s cubic-bezier(0.23,1,0.32,1), transform 0.32s cubic-bezier(0.23,1,0.32,1);
 }
-:global(.vhs-info:hover .vhs-info__card) {
-  transform: translateY(-3px);
-  box-shadow: 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
+/* Active: card visible */
+:global(.vhs-info--active .vhs-info__card) {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
 
 :global(.vhs-info__img) {
@@ -638,22 +709,20 @@ function onViewerClick() {
   background-color: rgba(255,255,255,0.04);
 }
 
-:global(.vhs-info__body) {
-  padding: 12px 14px 14px;
-}
+:global(.vhs-info__body) { padding: 12px 14px 14px; }
 
-:global(.vhs-info__icon-row) {
+:global(.vhs-info__header) {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 7px;
 }
 
 :global(.vhs-info__icon) {
-  width: 16px;
-  height: 16px;
+  width: 14px; height: 14px;
   object-fit: contain;
   opacity: 0.9;
+  flex-shrink: 0;
 }
 
 :global(.vhs-info__tag) {
@@ -661,11 +730,10 @@ function onViewerClick() {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(99, 102, 241, 0.9);
 }
 
 :global(.vhs-info__title) {
-  margin: 0 0 4px;
+  margin: 0 0 5px;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.35;
@@ -673,13 +741,21 @@ function onViewerClick() {
 }
 
 :global(.vhs-info__desc) {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 11px;
   color: rgba(255,255,255,0.5);
   line-height: 1.55;
 }
 
-/* Remove default PSV marker border/bg */
+:global(.vhs-info__link) {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  margin-top: 2px;
+}
+:global(.vhs-info__link:hover) { text-decoration: underline; }
+
+/* Reset PSV marker defaults */
 :global(.psv-marker) { overflow: visible !important; background: none !important; border: none !important; }
 </style>
-

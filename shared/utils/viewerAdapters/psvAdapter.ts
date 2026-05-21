@@ -72,16 +72,21 @@ function canUseTiledPanorama(scene: TourScene): boolean {
 
 function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY['nav-up'] || ''
+  const label = esc(hotspot.label || 'Move to next scene')
   const wrap = document.createElement('div')
   wrap.className = 'vhs-nav'
+  wrap.setAttribute('data-vhs-type', 'scene_link')
+  wrap.setAttribute('data-vhs-id', hotspot.id)
   wrap.innerHTML = `
     <div class="vhs-nav__pulse"></div>
-    ${iconUrl ? `<img class="vhs-nav__icon" src="${iconUrl}" alt="" draggable="false" />` : `
-      <div class="vhs-nav__arrow">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
-          <path d="M12 19V5M5 12l7-7 7 7"/>
-        </svg>
-      </div>`}
+    ${iconUrl
+      ? `<img class="vhs-nav__icon" src="${iconUrl}" alt="${label}" draggable="false" />`
+      : `<div class="vhs-nav__arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19V5M5 12l7-7 7 7"/>
+          </svg>
+        </div>`}
+    <span class="vhs-nav__label">${label}</span>
   `
   return wrap
 }
@@ -91,22 +96,37 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   const label = esc(hotspot.label || 'Point of Interest')
   const desc = esc(hotspot.description || '')
   const imageUrl = hotspot.imageUrl ? esc(hotspot.imageUrl) : ''
+  const url = hotspot.url ? esc(hotspot.url) : ''
 
-  let typeTag = 'Info'
-  if (hotspot.type === 'url') typeTag = 'Link'
-  else if (hotspot.type === 'video') typeTag = 'Video'
-  else if (hotspot.type === 'youtube') typeTag = 'YouTube'
+  const typeMap: Record<string, { tag: string; color: string }> = {
+    info:    { tag: 'Info',    color: '#6366f1' },
+    url:     { tag: 'Link',   color: '#10b981' },
+    video:   { tag: 'Video',  color: '#ef4444' },
+    youtube: { tag: 'YouTube',color: '#ef4444' },
+  }
+  const meta = typeMap[hotspot.type] ?? typeMap['info']
 
   const wrap = document.createElement('div')
   wrap.className = 'vhs-info'
+  wrap.setAttribute('data-vhs-type', hotspot.type)
+  wrap.setAttribute('data-vhs-id', hotspot.id)
+  if (url) wrap.setAttribute('data-vhs-url', url)
+
   wrap.innerHTML = `
-    <div class="vhs-info__pin"></div>
+    <div class="vhs-info__trigger">
+      <div class="vhs-info__pin-ring" style="--vhs-color:${meta.color}"></div>
+      <div class="vhs-info__pin-dot" style="background:${meta.color}"></div>
+    </div>
     <div class="vhs-info__card">
       ${imageUrl ? `<div class="vhs-info__img" style="background-image:url('${imageUrl}')"></div>` : ''}
       <div class="vhs-info__body">
-        ${iconUrl ? `<div class="vhs-info__icon-row"><img class="vhs-info__icon" src="${iconUrl}" alt="" /><span class="vhs-info__tag">${typeTag}</span></div>` : ''}
+        <div class="vhs-info__header">
+          ${iconUrl ? `<img class="vhs-info__icon" src="${iconUrl}" alt="" />` : ''}
+          <span class="vhs-info__tag" style="color:${meta.color}">${meta.tag}</span>
+        </div>
         <p class="vhs-info__title">${label}</p>
         ${desc ? `<p class="vhs-info__desc">${desc}</p>` : ''}
+        ${url ? `<a class="vhs-info__link" href="${url}" target="_blank" rel="noopener noreferrer" style="color:${meta.color}">Open link ↗</a>` : ''}
       </div>
     </div>
   `
@@ -465,10 +485,13 @@ export function toggleHotspotActive(handle: PsvViewerHandle | null, id: string, 
   if (!handle?.markers) return
   try {
     const marker = handle.markers.getMarker(id)
-    if (!marker || !marker.element) return
-    const customEl = marker.element.querySelector('viewora-hotspot')
-    if (customEl) {
-      customEl.setAttribute('active', active ? 'true' : 'false')
+    if (!marker?.element) return
+    // Works for both plain-DOM .vhs-info elements and any fallback
+    const el: HTMLElement = marker.element.querySelector?.('[data-vhs-type]') || marker.element
+    if (active) {
+      el.classList.add('vhs-info--active')
+    } else {
+      el.classList.remove('vhs-info--active')
     }
   } catch { /* marker not in scene — safe to ignore */ }
 }
@@ -509,51 +532,38 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
   return scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
 
-    // We deduplicate links to prevent VirtualTourPlugin from crashing if there are
-    // multiple hotspots pointing to the same target scene. The VT Plugin natively
-    // uses these unique links to draw the 3D arrows on the floor.
+    // Deduplicate scene_link targets — VT Plugin uses these for its 3D floor arrows.
     const uniqueLinksMap = new Map<string, any>()
     hotspots.forEach(h => {
       if (h.type === 'scene_link' && h.targetSceneId) {
         if (!uniqueLinksMap.has(h.targetSceneId)) {
           uniqueLinksMap.set(h.targetSceneId, {
             nodeId: h.targetSceneId,
-            position: { yaw: h.yaw, pitch: h.pitch }
+            position: { yaw: h.yaw, pitch: h.pitch },
           })
         }
       }
     })
     const links = Array.from(uniqueLinksMap.values())
 
-    // We render ALL hotspots (including duplicate scene_links) as standard markers.
-    // This provides the "floating" WebComponent arrows at the exact user-clicked height,
-    // complementing the VT Plugin's floor arrows.
-    const markers = hotspots.map(h => {
-      const el = document.createElement('viewora-hotspot')
-      el.setAttribute('id', h.id)
-      el.setAttribute('label', h.label || '')
-      el.setAttribute('description', h.description || '')
-      el.setAttribute('type', h.type)
-      
-      const isNav = h.type === 'scene_link'
-      el.setAttribute('icon-url',
-        HOTSPOT_ICONS_BY_KEY[h.icon || ''] ||
-        HOTSPOT_ICONS_BY_KEY[isNav ? 'nav-up' : 'info-3d-light'] || ''
-      )
-      el.setAttribute('image-url', h.imageUrl || '')
-      el.setAttribute('active', 'false')
-
-      return {
-        id: h.id,
-        position: { yaw: h.yaw, pitch: h.pitch },
-        element: el,
-        size: isNav ? { width: 50, height: 50 } : { width: 300, height: 400 },
-        anchor: 'bottom center',
-        scale: isNav ? [0.6, 1.4] : undefined, // Scales based on zoom like Google Maps
-        hoverScale: Number(h.hoverScale || 1.3),
-        data: { type: h.type, targetSceneId: h.targetSceneId },
-      }
-    })
+    // Render ALL hotspots as MarkersPlugin markers using plain-DOM builders.
+    // scene_link → floating nav arrow (blue pulse), others → info card.
+    const markers = hotspots
+      .filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number')
+      .map(h => {
+        const isNav = h.type === 'scene_link'
+        const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
+        return {
+          id: h.id,
+          position: { yaw: h.yaw, pitch: h.pitch },
+          element: el,
+          size: isNav ? { width: 60, height: 80 } : { width: 240, height: 300 },
+          anchor: isNav ? 'bottom center' : 'bottom center',
+          scale: isNav ? [0.5, 1.3] : [0.7, 1.0], // size varies with zoom like Google Maps
+          hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
+          data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
+        }
+      })
 
     return {
       id: scene.id,
@@ -570,7 +580,7 @@ export interface VirtualTourInitOptions {
   onReady?: () => void
   onError?: (err: Error) => void
   onNodeChanged?: (nodeId: string) => void
-  onMarkerClick?: (hotspotId: string, type: string) => void
+  onMarkerClick?: (hotspotId: string, type: string, url?: string) => void
   autoRotate?: boolean
 }
 
@@ -694,8 +704,11 @@ export async function initVirtualTourViewer(
   cleanupFns.push(() => virtualTour.removeEventListener('node-changed', handleNodeChanged))
 
   const handleMarkerSelect = (e: any) => {
-    const type = e.marker?.element?.querySelector?.('viewora-hotspot')?.getAttribute?.('type') || 'info'
-    onMarkerClick?.(e.marker.id, type)
+    // Read type from data attribute (plain-DOM builders) or fallback to marker.data
+    const el: HTMLElement | null = e.marker?.element?.querySelector?.('[data-vhs-type]') || null
+    const type = el?.getAttribute('data-vhs-type') || e.marker?.config?.data?.type || 'info'
+    const url = el?.getAttribute('data-vhs-url') || e.marker?.config?.data?.url || ''
+    onMarkerClick?.(e.marker.id, type, url)
   }
   markers.addEventListener('select-marker', handleMarkerSelect)
   cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
@@ -734,8 +747,12 @@ export function vtToggleMarkerActive(handle: PsvViewerHandle | null, markerId: s
   try {
     const marker = handle.markers.getMarker(markerId)
     if (!marker?.element) return
-    const el = marker.element.querySelector?.('viewora-hotspot') || marker.element
-    if (el) el.setAttribute('active', active ? 'true' : 'false')
+    const el: HTMLElement = marker.element.querySelector?.('[data-vhs-type]') || marker.element
+    if (active) {
+      el.classList.add('vhs-info--active')
+    } else {
+      el.classList.remove('vhs-info--active')
+    }
   } catch { /* noop */ }
 }
 
