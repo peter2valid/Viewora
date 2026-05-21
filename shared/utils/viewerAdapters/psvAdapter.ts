@@ -656,9 +656,25 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
   return scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
 
-    // We bypass VirtualTourPlugin's native links system because it creates ID collisions
-    // if multiple hotspots point to the same target scene. Instead, we render ALL hotspots
-    // as standard markers, and manually trigger `setCurrentNode` on click.
+    // We deduplicate links to prevent VirtualTourPlugin from crashing if there are
+    // multiple hotspots pointing to the same target scene. The VT Plugin natively
+    // uses these unique links to draw the 3D arrows on the floor.
+    const uniqueLinksMap = new Map<string, any>()
+    hotspots.forEach(h => {
+      if (h.type === 'scene_link' && h.targetSceneId) {
+        if (!uniqueLinksMap.has(h.targetSceneId)) {
+          uniqueLinksMap.set(h.targetSceneId, {
+            nodeId: h.targetSceneId,
+            position: { yaw: h.yaw, pitch: h.pitch }
+          })
+        }
+      }
+    })
+    const links = Array.from(uniqueLinksMap.values())
+
+    // We render ALL hotspots (including duplicate scene_links) as standard markers.
+    // This provides the "floating" WebComponent arrows at the exact user-clicked height,
+    // complementing the VT Plugin's floor arrows.
     const markers = hotspots.map(h => {
       const el = document.createElement('viewora-hotspot')
       el.setAttribute('id', h.id)
@@ -680,6 +696,7 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
         element: el,
         size: isNav ? { width: 50, height: 50 } : { width: 300, height: 400 },
         anchor: 'bottom center',
+        scale: isNav ? [0.6, 1.4] : undefined, // Scales based on zoom like Google Maps
         hoverScale: Number(h.hoverScale || 1.3),
         data: { type: h.type, targetSceneId: h.targetSceneId },
       }
@@ -690,7 +707,7 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
       panorama: buildPanorama(scene),
       name: scene.title,
       thumbnail: scene.imageUrl,
-      links: [], // Bypass native VT links
+      links,
       markers,
     }
   })
@@ -751,7 +768,7 @@ export async function initVirtualTourViewer(
   plugins.push([VirtualTourPlugin, {
     dataMode: 'client',
     positionMode: 'manual',
-    renderMode: 'markers',
+    renderMode: '3d', // 3d mode natively renders floor arrows for the links
     nodes,
     startNodeId,
     preload: false,
