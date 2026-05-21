@@ -543,5 +543,143 @@ function onViewerClick() {
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -1px 0 rgba(255, 255, 255, 0.05) !important;
 }
+
+/* ── Plain-DOM hotspot styles ───────────────────────────── */
+
+/* Navigation / scene_link hotspot */
+:global(.vhs-nav) {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+:global(.vhs-nav:hover) { transform: scale(1.15); }
+
+:global(.vhs-nav__pulse) {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(99, 102, 241, 0.65);
+  animation: vhs-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes vhs-pulse {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  100% { transform: scale(1.7); opacity: 0;   }
+}
+
+:global(.vhs-nav__icon) {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 8px rgba(0,0,0,0.5));
+  pointer-events: none;
+}
+
+:global(.vhs-nav__arrow) {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+}
+:global(.vhs-nav__arrow svg) { width: 20px; height: 20px; }
+
+/* Info / url / video hotspot */
+:global(.vhs-info) {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+:global(.vhs-info__pin) {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255,255,255,0.7);
+  flex-shrink: 0;
+}
+
+:global(.vhs-info__card) {
+  width: 220px;
+  background: rgba(10, 12, 20, 0.92);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+  color: #fff;
+  font-family: -apple-system, 'Inter', sans-serif;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 8px;
+}
+:global(.vhs-info:hover .vhs-info__card) {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+:global(.vhs-info__img) {
+  width: 100%;
+  height: 110px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(255,255,255,0.04);
+}
+
+:global(.vhs-info__body) {
+  padding: 12px 14px 14px;
+}
+
+:global(.vhs-info__icon-row) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+:global(.vhs-info__icon) {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
+:global(.vhs-info__tag) {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(99, 102, 241, 0.9);
+}
+
+:global(.vhs-info__title) {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+:global(.vhs-info__desc) {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.55;
+}
+
+/* Remove default PSV marker border/bg */
+:global(.psv-marker) { overflow: visible !important; background: none !important; border: none !important; }
 </style>
 

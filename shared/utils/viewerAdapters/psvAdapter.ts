@@ -66,186 +66,53 @@ function canUseTiledPanorama(scene: TourScene): boolean {
     && isPowerOfTwo(scene.tileRows)
 }
 
-/** 
- * Custom WebComponent for Hotspots 
- * This allows us to have floating 3D cards directly above the hotspot 
- * without using the clunky right-side panel.
- */
-if (typeof window !== 'undefined' && window.customElements && !window.customElements.get('viewora-hotspot')) {
-  class VieworaHotspot extends HTMLElement {
-    constructor() {
-      super();
-      this.attachShadow({ mode: 'open' });
-    }
+// ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
+// These create standard divs that PSV MarkersPlugin handles reliably
+// across all browsers without any WebComponent registration fragility.
 
-    static get observedAttributes() {
-      return ['label', 'description', 'icon-url', 'type', 'active', 'image-url'];
-    }
-
-    attributeChangedCallback() {
-      this.render();
-    }
-
-    updateMarker(properties: any) {
-      // Optional: Handle scale based on distance/zoom if needed
-    }
-
-    render() {
-      const type = this.getAttribute('type') || 'info';
-      const label = this.getAttribute('label') || '';
-      const desc = this.getAttribute('description') || '';
-      const iconUrl = this.getAttribute('icon-url') || '';
-      const imageUrl = this.getAttribute('image-url') || '';
-      const isActive = this.getAttribute('active') === 'true';
-
-      // ── LOGIC 1: NAVIGATION (MOVE) ──────────────────────────
-      // Navigation must be stable, fast, and icon-based.
-      if (type === 'scene_link' || type === 'nav') {
-        this.shadowRoot!.innerHTML = `
-          <style>
-            :host {
-              display: block;
-              width: 50px;
-              height: 50px;
-              cursor: pointer;
-            }
-            .nav-container {
-              width: 100%;
-              height: 100%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              position: relative;
-              transition: transform 0.2s ease;
-            }
-            .nav-container:hover { transform: scale(1.2); }
-            .nav-icon {
-              width: 100%;
-              height: 100%;
-              object-fit: contain;
-              filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
-            }
-            .pulse {
-              position: absolute;
-              inset: -15%;
-              border-radius: 50%;
-              border: 3px solid rgba(99, 102, 241, 0.6);
-              animation: nav-pulse 2s ease-out infinite;
-            }
-            @keyframes nav-pulse {
-              0% { transform: scale(1); opacity: 0.8; }
-              100% { transform: scale(1.6); opacity: 0; }
-            }
-          </style>
-          <div class="nav-container">
-            <div class="pulse"></div>
-            <img src="${iconUrl || '/hotspot-icons/nav-up.png'}" class="nav-icon">
-          </div>
-        `;
-        return;
-      }
-
-      // ── LOGIC 2: INFO (BIG CARD) ────────────────────────────
-      const iconUrl2 = this.getAttribute('icon-url') || '';
-      this.shadowRoot!.innerHTML = `
-        <style>
-          :host {
-            display: block;
-            width: 260px;
-            pointer-events: none;
-          }
-          .card-container {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transform: translateY(-20px);
-            pointer-events: auto;
-          }
-          .card {
-            width: 100%;
-            background: rgba(12, 14, 22, 0.97);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 18px;
-            overflow: hidden;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
-            opacity: ${isActive ? '1' : '0.12'};
-            transform: scale(${isActive ? '1' : '0.78'}) translateY(${isActive ? '0' : '24px'});
-            transition: all 0.45s cubic-bezier(0.23, 1, 0.32, 1);
-            color: white;
-          }
-          .img-header {
-            width: 100%;
-            height: 130px;
-            background: url('${imageUrl}') center/cover no-repeat;
-            background-color: rgba(255,255,255,0.04);
-          }
-          .icon-strip {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 16px 0;
-          }
-          .icon-wrap {
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            background: rgba(99,102,241,0.12);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-          }
-          .icon-wrap img { width: 18px; height: 18px; object-fit: contain; }
-          .type-label {
-            font-size: 9px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: rgba(99,102,241,0.8);
-          }
-          .padding { padding: 10px 16px 16px; }
-          .title { font-size: 15px; font-weight: 800; margin: 0 0 5px 0; line-height: 1.3; letter-spacing: -0.01em; }
-          .desc { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.6; margin: 0; }
-          .anchor {
-            width: 10px;
-            height: 10px;
-            background: rgba(255,255,255,0.9);
-            border-radius: 50%;
-            margin-top: 10px;
-            box-shadow: 0 0 16px rgba(255,255,255,0.6);
-          }
-        </style>
-        <div class="card-container">
-          <div class="card">
-            ${imageUrl ? `<div class="img-header"></div>` : ''}
-            ${iconUrl2 ? `<div class="icon-strip"><div class="icon-wrap"><img src="${iconUrl2}" /></div><span class="type-label">Info</span></div>` : ''}
-            <div class="padding">
-              <h3 class="title">${label || 'Information'}</h3>
-              ${desc ? `<p class="desc">${desc}</p>` : ''}
-            </div>
-          </div>
-          <div class="anchor"></div>
-        </div>
-      `;
-    }
-  }
-  window.customElements.define('viewora-hotspot', VieworaHotspot);
+function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
+  const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY['nav-up'] || ''
+  const wrap = document.createElement('div')
+  wrap.className = 'vhs-nav'
+  wrap.innerHTML = `
+    <div class="vhs-nav__pulse"></div>
+    ${iconUrl ? `<img class="vhs-nav__icon" src="${iconUrl}" alt="" draggable="false" />` : `
+      <div class="vhs-nav__arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 19V5M5 12l7-7 7 7"/>
+        </svg>
+      </div>`}
+  `
+  return wrap
 }
 
-function buildMarkerHtml(hotspot: Hotspot, isActive = false): string {
-  // We no longer use buildMarkerHtml for the actual element, 
-  // but we keep it as a fallback if needed.
-  return `<viewora-hotspot 
-    id="${hotspot.id}"
-    label="${esc(hotspot.label || '')}" 
-    description="${esc(hotspot.description || '')}" 
-    icon-url="${HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || ''}" 
-    type="${hotspot.type}"
-    active="${isActive}"
-  ></viewora-hotspot>`
+function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
+  const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || ''
+  const label = esc(hotspot.label || 'Point of Interest')
+  const desc = esc(hotspot.description || '')
+  const imageUrl = hotspot.imageUrl ? esc(hotspot.imageUrl) : ''
+
+  let typeTag = 'Info'
+  if (hotspot.type === 'url') typeTag = 'Link'
+  else if (hotspot.type === 'video') typeTag = 'Video'
+  else if (hotspot.type === 'youtube') typeTag = 'YouTube'
+
+  const wrap = document.createElement('div')
+  wrap.className = 'vhs-info'
+  wrap.innerHTML = `
+    <div class="vhs-info__pin"></div>
+    <div class="vhs-info__card">
+      ${imageUrl ? `<div class="vhs-info__img" style="background-image:url('${imageUrl}')"></div>` : ''}
+      <div class="vhs-info__body">
+        ${iconUrl ? `<div class="vhs-info__icon-row"><img class="vhs-info__icon" src="${iconUrl}" alt="" /><span class="vhs-info__tag">${typeTag}</span></div>` : ''}
+        <p class="vhs-info__title">${label}</p>
+        ${desc ? `<p class="vhs-info__desc">${desc}</p>` : ''}
+      </div>
+    </div>
+  `
+  return wrap
 }
+
 
 export function getHotspotScreenPos(
   handle: PsvViewerHandle | null,
@@ -441,31 +308,20 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     const hoverAmount = Number(hotspot.hoverScale || 1.3)
 
     if (!isLayerType) {
-      const labelText   = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
-      const baseSize    = scale * 44
+      const labelText = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
+      const hoverAmount = Number(hotspot.hoverScale || 1.3)
+      const isNav = hotspot.type === 'scene_link'
 
-      // Create the custom element instance
-      const el = document.createElement('viewora-hotspot');
-      el.setAttribute('id', hotspot.id);
-      el.setAttribute('label', hotspot.label || '');
-      el.setAttribute('description', hotspot.description || '');
-      el.setAttribute('type', hotspot.type);
-      el.setAttribute('icon-url', HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY[hotspot.type === 'scene_link' ? 'nav-up' : 'info-3d-light'] || '');
-      el.setAttribute('image-url', hotspot.imageUrl || '');
-      el.setAttribute('active', 'false');
-
-      const isNav = hotspot.type === 'scene_link';
-      const markerSize = isNav ? { width: 50, height: 50 } : { width: 300, height: 400 };
-      const markerAnchor = isNav ? 'center center' : 'bottom center';
+      const el = isNav ? buildNavMarkerEl(hotspot) : buildInfoMarkerEl(hotspot)
 
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
         element: el,
-        size: markerSize,
-        anchor: markerAnchor,
-        tooltip: labelText ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
-        hoverScale: hoverAmount,
+        size: isNav ? { width: 52, height: 52 } : { width: 240, height: 'auto' as any },
+        anchor: isNav ? 'center center' : 'bottom center',
+        tooltip: labelText && isNav ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
+        hoverScale: isNav ? hoverAmount : 1,
       })
       return
     }
