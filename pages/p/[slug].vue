@@ -103,7 +103,7 @@ const blurCover = computed(() => {
 const { data: tourPayload, error: tourError } = await useAsyncData(
   `public-tour:${slug}`,
   () => apiFetch<any>(`/p/${encodeURIComponent(slug)}`),
-  { server: true, lazy: false },
+  { server: true, lazy: false, getCachedData: () => null },
 )
 
 if (tourError.value) {

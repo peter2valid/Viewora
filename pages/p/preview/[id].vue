@@ -196,7 +196,7 @@ const errorMessage = ref('This preview is unavailable.')
 const { data: _tourPayload, error: _tourError } = await useAsyncData(
   `preview:${id}`,
   () => apiFetch<{ tour: TourData }>(`/p/preview/${id}`),
-  { server: true, lazy: false }
+  { server: true, lazy: false, getCachedData: () => null }
 )
 
 if (_tourError.value) {

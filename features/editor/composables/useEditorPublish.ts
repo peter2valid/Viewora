@@ -134,6 +134,7 @@ export function useEditorPublish(
         if (warnings.length > 0) { showToast(warnings[0].message, 'error'); return }
       }
 
+      const prevSettings = space.value?.property_360_settings
       const updated = await apiFetch(`/spaces/${spaceId}/publish`, {
         method: 'POST',
         body: {
@@ -143,7 +144,8 @@ export function useEditorPublish(
           branding_enabled: space.value.branding_enabled,
         },
       })
-      space.value = updated
+      // Publish endpoint returns flat columns — restore property_360_settings from local state
+      space.value = { ...updated, property_360_settings: prevSettings }
       if (!isLive) {
         const analytics = useAnalytics()
         analytics.track('tour_published', {
@@ -174,12 +176,12 @@ export function useEditorPublish(
 
     const spacePatch: Record<string, any> = {
       title: settingsDraft.value.title.trim() || space.value?.title,
-      description: settingsDraft.value.description,
-      location_text: settingsDraft.value.locationText,
+      description: settingsDraft.value.description || null,
+      location_text: settingsDraft.value.locationText || null,
+      logo_url: settingsDraft.value.logoUrl || null,
     }
     if (settingsDraft.value.locationLat !== null) spacePatch.location_lat = settingsDraft.value.locationLat
     if (settingsDraft.value.locationLng !== null) spacePatch.location_lng = settingsDraft.value.locationLng
-    if (settingsDraft.value.logoUrl) spacePatch.logo_url = settingsDraft.value.logoUrl
 
     const prevSettings = space.value?.property_360_settings?.[0]
     const prevSpace = { ...space.value }
@@ -196,7 +198,7 @@ export function useEditorPublish(
     try {
       await Promise.all([
         apiFetch(`/spaces/${spaceId}/settings`, { method: 'PATCH', body: viewerPatch }),
-        apiFetch(`/spaces/${spaceId}`, { method: 'PATCH', body: spacePatch }).catch(() => {}),
+        apiFetch(`/spaces/${spaceId}`, { method: 'PATCH', body: spacePatch }),
       ])
       showToast('Settings saved')
     } catch (e: any) {
