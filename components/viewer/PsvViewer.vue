@@ -295,6 +295,15 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
       const h = hotspots.find(x => x.id === markerId)
       if (h?.url) { window.open(h.url, '_blank', 'noopener,noreferrer'); break }
     }
+  } else if (type === 'scene_link') {
+    // Manually trigger VirtualTour node transition
+    for (const hotspots of Object.values(all)) {
+      const h = hotspots.find(x => x.id === markerId)
+      if (h?.targetSceneId) {
+        vtGoToNode(handle, h.targetSceneId)
+        break
+      }
+    }
   }
 
   emit('hotspot-click', markerId)

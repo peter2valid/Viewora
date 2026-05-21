@@ -144,14 +144,6 @@ if (typeof window !== 'undefined' && window.customElements && !window.customElem
             <img src="${iconUrl || '/hotspot-icons/nav-up.png'}" class="nav-icon">
           </div>
         `;
-        
-        // Forward clicks to host to ensure VirtualTourPlugin detects them properly across the Shadow DOM
-        const container = this.shadowRoot!.querySelector('.nav-container') as HTMLElement;
-        container.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
-        });
         return;
       }
 
@@ -664,61 +656,41 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
   return scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
 
-    // scene_link hotspots become VirtualTour navigation links (native arrows)
-    const links = hotspots
-      .filter(h => h.type === 'scene_link' && h.targetSceneId)
-      .map(h => ({
-        nodeId: h.targetSceneId!,
+    // We bypass VirtualTourPlugin's native links system because it creates ID collisions
+    // if multiple hotspots point to the same target scene. Instead, we render ALL hotspots
+    // as standard markers, and manually trigger `setCurrentNode` on click.
+    const markers = hotspots.map(h => {
+      const el = document.createElement('viewora-hotspot')
+      el.setAttribute('id', h.id)
+      el.setAttribute('label', h.label || '')
+      el.setAttribute('description', h.description || '')
+      el.setAttribute('type', h.type)
+      
+      const isNav = h.type === 'scene_link'
+      el.setAttribute('icon-url',
+        HOTSPOT_ICONS_BY_KEY[h.icon || ''] ||
+        HOTSPOT_ICONS_BY_KEY[isNav ? 'nav-up' : 'info-3d-light'] || ''
+      )
+      el.setAttribute('image-url', h.imageUrl || '')
+      el.setAttribute('active', 'false')
+
+      return {
+        id: h.id,
         position: { yaw: h.yaw, pitch: h.pitch },
-        arrowStyle: {
-          element: () => {
-            const el = document.createElement('viewora-hotspot')
-            el.setAttribute('type', 'scene_link')
-            el.setAttribute('label', h.label || '')
-            el.setAttribute('icon-url',
-              HOTSPOT_ICONS_BY_KEY[h.icon || ''] ||
-              HOTSPOT_ICONS_BY_KEY['nav-up'] || ''
-            )
-            el.setAttribute('active', 'false')
-            return el
-          },
-          size: { width: 50, height: 50 },
-        },
-        data: { hotspotId: h.id, label: h.label || '' },
-      }))
-
-    // All other hotspot types become MarkersPlugin markers on the node
-    const markers = hotspots
-      .filter(h => h.type !== 'scene_link')
-      .map(h => {
-        const el = document.createElement('viewora-hotspot')
-        el.setAttribute('id', h.id)
-        el.setAttribute('label', h.label || '')
-        el.setAttribute('description', h.description || '')
-        el.setAttribute('type', h.type)
-        el.setAttribute('icon-url',
-          HOTSPOT_ICONS_BY_KEY[h.icon || ''] ||
-          HOTSPOT_ICONS_BY_KEY['info-3d-light'] || ''
-        )
-        el.setAttribute('image-url', h.imageUrl || '')
-        el.setAttribute('active', 'false')
-
-        return {
-          id: h.id,
-          position: { yaw: h.yaw, pitch: h.pitch },
-          element: el,
-          size: { width: 300, height: 400 },
-          anchor: 'bottom center',
-          hoverScale: Number(h.hoverScale || 1.3),
-        }
-      })
+        element: el,
+        size: isNav ? { width: 50, height: 50 } : { width: 300, height: 400 },
+        anchor: 'bottom center',
+        hoverScale: Number(h.hoverScale || 1.3),
+        data: { type: h.type, targetSceneId: h.targetSceneId },
+      }
+    })
 
     return {
       id: scene.id,
       panorama: buildPanorama(scene),
       name: scene.title,
       thumbnail: scene.imageUrl,
-      links,
+      links: [], // Bypass native VT links
       markers,
     }
   })
@@ -786,7 +758,7 @@ export async function initVirtualTourViewer(
     transitionOptions: {
       showLoader: true,
       speed: '20rpm',
-      effect: 'black',
+      effect: 'fade',
       rotation: true,
     },
     showLinkTooltip: false,
