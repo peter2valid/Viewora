@@ -47,6 +47,7 @@ import { ref, watch, onMounted } from 'vue'
 
 const user = useSupabaseUser()
 const route = useRoute()
+const { apiFetch } = useApiFetch()
 
 const loading = ref(true)
 const errorMsg = ref('')
@@ -59,6 +60,8 @@ const unwatch = watch(
     if (u) {
       loading.value = false
       unwatch()
+      // Fire-and-forget: send welcome email (idempotent on the backend)
+      apiFetch('/profile/welcome', { method: 'POST' }).catch(() => {})
       navigateTo('/app/spaces')
     }
   },

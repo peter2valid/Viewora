@@ -170,6 +170,9 @@ const signUp = async () => {
     analytics.track('signup_completed', { method: 'email' })
 
     if (data.session) {
+      // Email confirmation disabled — user is immediately logged in, send welcome now.
+      // (If confirmation is required, welcome fires in confirm.vue instead.)
+      useApiFetch().apiFetch('/profile/welcome', { method: 'POST' }).catch(() => {})
       await navigateTo('/app')
     } else {
       successMsg.value = 'Account created! Check your email for the confirmation link.'
