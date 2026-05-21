@@ -289,7 +289,7 @@
                   <div class="ts-logo-area" @click="logoFileInput?.click()">
                     <template v-if="settingsDraft.logoUrl">
                       <img :src="settingsDraft.logoUrl" class="ts-logo-preview" alt="Logo" />
-                      <button class="ts-logo-remove" @click.stop="settingsDraft.logoUrl = ''" aria-label="Remove logo">
+                      <button class="ts-logo-remove" @click.stop="clearLogo()" aria-label="Remove logo">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
                       </button>
                     </template>
@@ -303,6 +303,25 @@
                       </div>
                     </template>
                   </div>
+                  <button
+                    v-if="settingsDraft.logoUrl"
+                    class="ts-bg-remove-btn"
+                    :class="{ 'ts-bg-remove-btn--done': bgRemoved }"
+                    :disabled="bgRemoving"
+                    @click.prevent="handleRemoveBg"
+                  >
+                    <span v-if="bgRemoving" class="ts-spin ts-spin--invert" />
+                    <template v-else-if="bgRemoved">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                      Background removed
+                    </template>
+                    <template v-else>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                      </svg>
+                      Remove background
+                    </template>
+                  </button>
                 </div>
               </div>
 
@@ -666,11 +685,25 @@ const mapEmbedUrl = computed(() => {
 // ── Settings panel: logo upload ──────────────────────────────────────────────
 const logoFileInput = ref<HTMLInputElement | null>(null)
 const logoUploading = ref(false)
+const localLogoDataUrl = ref('')
+const bgRemoving = ref(false)
+const bgRemoved = ref(false)
+
+function clearLogo() {
+  settingsDraft.value.logoUrl = ''
+  localLogoDataUrl.value = ''
+  bgRemoved.value = false
+}
 
 async function handleLogoFileChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
   if (!file.type.startsWith('image/')) { showToast('Select an image file', 'error'); return }
+  bgRemoved.value = false
+  // Read as DataURL for background removal (no CORS restriction)
+  const reader = new FileReader()
+  reader.onload = (e) => { localLogoDataUrl.value = (e.target?.result as string) || '' }
+  reader.readAsDataURL(file)
   logoUploading.value = true
   try {
     const { uploadUrl, publicUrl } = await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
@@ -689,6 +722,94 @@ async function handleLogoFileChange(event: Event) {
   } finally {
     logoUploading.value = false
     if (logoFileInput.value) logoFileInput.value.value = ''
+  }
+}
+
+function removeImageBackground(dataUrl: string, tolerance = 40): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { reject(new Error('no 2d ctx')); return }
+      ctx.drawImage(img, 0, 0)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const pixels = imageData.data
+      const w = canvas.width
+      const h = canvas.height
+
+      const getPixelRgb = (x: number, y: number): [number, number, number] => {
+        const i = (y * w + x) * 4
+        return [pixels[i], pixels[i + 1], pixels[i + 2]]
+      }
+
+      const colorDist = (a: [number, number, number], b: [number, number, number]) =>
+        Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
+
+      // Sample the four corners to estimate the background colour
+      const samples = [getPixelRgb(0,0), getPixelRgb(w-1,0), getPixelRgb(0,h-1), getPixelRgb(w-1,h-1)]
+      const bg: [number, number, number] = [
+        Math.round(samples.reduce((s,c)=>s+c[0],0)/4),
+        Math.round(samples.reduce((s,c)=>s+c[1],0)/4),
+        Math.round(samples.reduce((s,c)=>s+c[2],0)/4),
+      ]
+
+      // BFS flood-fill from every edge pixel
+      const visited = new Uint8Array(w * h)
+      const qx: number[] = []
+      const qy: number[] = []
+
+      const tryEnqueue = (x: number, y: number) => {
+        if (x < 0 || y < 0 || x >= w || y >= h) return
+        const idx = y * w + x
+        if (visited[idx]) return
+        visited[idx] = 1
+        if (colorDist(getPixelRgb(x, y), bg) <= tolerance) { qx.push(x); qy.push(y) }
+      }
+
+      for (let x = 0; x < w; x++) { tryEnqueue(x, 0); tryEnqueue(x, h-1) }
+      for (let y = 0; y < h; y++) { tryEnqueue(0, y); tryEnqueue(w-1, y) }
+
+      for (let i = 0; i < qx.length; i++) {
+        const x = qx[i], y = qy[i]
+        pixels[(y * w + x) * 4 + 3] = 0
+        tryEnqueue(x-1, y); tryEnqueue(x+1, y); tryEnqueue(x, y-1); tryEnqueue(x, y+1)
+      }
+
+      ctx.putImageData(imageData, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = () => reject(new Error('image load failed'))
+    if (dataUrl.startsWith('http')) img.crossOrigin = 'anonymous'
+    img.src = dataUrl
+  })
+}
+
+async function handleRemoveBg() {
+  if (bgRemoving.value) return
+  const source = localLogoDataUrl.value || settingsDraft.value.logoUrl
+  if (!source) return
+  bgRemoving.value = true
+  try {
+    const resultDataUrl = await removeImageBackground(source)
+    const res = await fetch(resultDataUrl)
+    const blob = await res.blob()
+    const file = new File([blob], 'logo.png', { type: 'image/png' })
+    const { uploadUrl, publicUrl } = await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
+      method: 'POST',
+      body: { contentType: 'image/png', fileName: 'logo.png' },
+    })
+    await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/png' } })
+    settingsDraft.value.logoUrl = publicUrl
+    localLogoDataUrl.value = resultDataUrl
+    bgRemoved.value = true
+    showToast('Background removed')
+  } catch {
+    showToast('Background removal failed', 'error')
+  } finally {
+    bgRemoving.value = false
   }
 }
 
@@ -1883,7 +2004,29 @@ defineExpose({
   color: rgba(255,255,255,0.3); min-height: 80px;
 }
 .ts-logo-hint { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
-.ts-logo-preview { width: 100%; height: 80px; object-fit: contain; object-position: center; background: rgba(255,255,255,0.03); display: block; }
+.ts-logo-preview {
+  width: 100%; height: 80px; object-fit: contain; object-position: center; display: block;
+  background-color: rgba(255,255,255,0.03);
+  background-image:
+    linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255,255,255,0.06) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.06) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.06) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
+}
+.ts-bg-remove-btn {
+  margin-top: 7px;
+  width: 100%; height: 30px; border-radius: 6px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background 140ms, border-color 140ms, color 140ms; font-family: inherit;
+}
+.ts-bg-remove-btn:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.8); }
+.ts-bg-remove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ts-bg-remove-btn--done { border-color: rgba(34,197,94,0.3); color: rgba(134,239,172,0.85); }
+.ts-spin--invert { border-color: rgba(255,255,255,0.18); border-top-color: rgba(255,255,255,0.75); }
 .ts-logo-remove {
   position: absolute; top: 6px; right: 6px; width: 22px; height: 22px;
   border-radius: 5px; background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.15);

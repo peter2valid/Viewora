@@ -33,8 +33,8 @@
     <!-- Cinematic Vignette -->
     <div :class="['psv-vignette', { 'psv-vignette--active': isFocusing }]" />
 
-    <!-- Hotspot action menu (editor only) -->
-    <div v-if="isEditing" class="psv-menu-layer" aria-hidden="true">
+    <!-- Hotspot action menu — always available in editor context -->
+    <div class="psv-menu-layer" aria-hidden="true">
       <HotspotActionMenu
         :visible="menu.visible"
         :x="menu.x"
@@ -162,14 +162,13 @@ function closeMenu() {
 }
 
 function onMarkerEnterCb(id: string) {
-  if (!props.isEditing) return
   if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
   if (menu.locked && menu.hotspotId !== id) return
   openMenu(id)
 }
 
 function onMarkerLeaveCb(id: string) {
-  if (!props.isEditing || menu.locked) return
+  if (menu.locked) return
   if (menu.hotspotId !== id) return
   menuCloseTimer = setTimeout(() => {
     if (!menuHovered) closeMenu()
@@ -266,8 +265,8 @@ async function initWithScene(scene: TourScene) {
           props.hotspots?.forEach(h => toggleHotspotActive(handle.value, h.id, false))
         }
 
-        // Close editor menu but DON'T return — continue to allow adding the hotspot
-        if (menu.locked) { closeMenu() }
+        // Dismiss the locked action menu; skip placement for this click
+        if (menu.locked) { closeMenu(); return }
         
         isFocusing.value = false
         
@@ -280,28 +279,10 @@ async function initWithScene(scene: TourScene) {
       },
       onMarkerClick: async (id) => {
         if (signal.aborted || !handle.value) return
-        if (props.isEditing) {
-          // Lock the radial menu on hotspot click in editor mode
-          openMenu(id)
-          menu.locked = true
-        } else {
-          const hs = props.hotspots?.find(h => h.id === id)
-          
-          // Clear others first
-          props.hotspots?.forEach(h => {
-             if (h.id !== id && handle.value) toggleHotspotActive(handle.value, h.id, false)
-          })
-
-          // For info hotspots, we trigger cinematic focus and show the custom card
-          if (hs?.type === 'info' || hs?.type === 'url' || hs?.type === 'video' || hs?.type === 'youtube') {
-            isFocusing.value = true
-            if (handle.value) {
-              toggleHotspotActive(handle.value, id, true)
-              await focusHotspot(handle.value, id)
-            }
-          }
-          emit('hotspot-click', id)
-        }
+        // This component is editor-only — always open the action menu
+        openMenu(id)
+        menu.locked = true
+        emit('hotspot-click', id)
       },
       onMarkerEnter: onMarkerEnterCb,
       onMarkerLeave: onMarkerLeaveCb,

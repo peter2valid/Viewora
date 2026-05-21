@@ -338,8 +338,10 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
         element: el,
-        size: isNav ? { width: 52, height: 52 } : { width: 240, height: 'auto' as any },
-        anchor: isNav ? 'center center' : 'bottom center',
+        // Info markers: 40×40 — the card is position:absolute so it doesn't bloat the hit zone.
+        // Nav markers: 52×52 — icon + pulse ring only.
+        size: isNav ? { width: 52, height: 52 } : { width: 40, height: 40 },
+        anchor: 'center center',
         tooltip: labelText && isNav ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
         hoverScale: isNav ? hoverAmount : 1,
       })
@@ -557,8 +559,8 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
           id: h.id,
           position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          size: isNav ? { width: 60, height: 80 } : { width: 240, height: 300 },
-          anchor: isNav ? 'bottom center' : 'bottom center',
+          size: isNav ? { width: 52, height: 52 } : { width: 40, height: 40 },
+          anchor: 'center center',
           scale: isNav ? [0.5, 1.3] : [0.7, 1.0], // size varies with zoom like Google Maps
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },

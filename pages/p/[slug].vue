@@ -59,6 +59,7 @@
         />
         <div class="brand-card__body">
           <p class="brand-card__name">{{ tour.space.title }}</p>
+          <p v-if="tour.space?.description" class="brand-card__desc">{{ tour.space.description }}</p>
           <p v-if="tour.space?.location_text" class="brand-card__line">{{ tour.space.location_text }}</p>
           <p v-if="tour.space?.phone" class="brand-card__line">{{ tour.space.phone }}</p>
           <p v-if="tour.space?.email" class="brand-card__line">{{ tour.space.email }}</p>
@@ -535,6 +536,19 @@ useHead({
   letter-spacing: -0.01em;
   line-height: 1.2;
   margin: 0;
+}
+
+.brand-card__desc {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.55);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+  line-height: 1.45;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .brand-card__line {

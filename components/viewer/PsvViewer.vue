@@ -629,9 +629,12 @@ function onViewerClick() {
 
 /* ── INFO hotspot: colored pin trigger + animated card ── */
 :global(.vhs-info) {
+  position: relative;
+  width: 40px;
+  height: 40px;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
   pointer-events: auto;
 }
@@ -675,8 +678,11 @@ function onViewerClick() {
   box-shadow: 0 0 20px var(--vhs-color, #6366f1), 0 2px 8px rgba(0,0,0,0.6);
 }
 
-/* Card hidden by default — slides in on .vhs-info--active */
+/* Card hidden by default — floats above the pin, slides in on .vhs-info--active */
 :global(.vhs-info__card) {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
   width: 220px;
   background: rgba(6, 8, 16, 0.97);
   backdrop-filter: blur(28px) saturate(180%);
@@ -687,17 +693,16 @@ function onViewerClick() {
   box-shadow: 0 24px 64px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.07);
   color: #fff;
   font-family: -apple-system, 'Inter', sans-serif;
-  margin-bottom: 10px;
   /* Hidden state */
   opacity: 0;
-  transform: translateY(12px) scale(0.93);
+  transform: translateX(-50%) translateY(8px) scale(0.93);
   pointer-events: none;
   transition: opacity 0.32s cubic-bezier(0.23,1,0.32,1), transform 0.32s cubic-bezier(0.23,1,0.32,1);
 }
 /* Active: card visible */
 :global(.vhs-info--active .vhs-info__card) {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateX(-50%) translateY(0) scale(1);
   pointer-events: auto;
 }
 
