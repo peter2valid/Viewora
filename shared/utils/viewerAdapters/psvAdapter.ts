@@ -73,10 +73,15 @@ function canUseTiledPanorama(scene: TourScene): boolean {
 function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY['nav-up'] || ''
   const label = esc(hotspot.label || 'Move to next scene')
+  const scale = Number(hotspot.scale || 1)
   const wrap = document.createElement('div')
   wrap.className = 'vhs-nav'
   wrap.setAttribute('data-vhs-type', 'scene_link')
   wrap.setAttribute('data-vhs-id', hotspot.id)
+  if (scale !== 1) {
+    wrap.style.transform = `scale(${scale})`
+    wrap.style.transformOrigin = 'center center'
+  }
   wrap.innerHTML = `
     <div class="vhs-nav__pulse"></div>
     ${iconUrl
@@ -97,6 +102,7 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   const desc = esc(hotspot.description || '')
   const imageUrl = hotspot.imageUrl ? esc(hotspot.imageUrl) : ''
   const url = hotspot.url ? esc(hotspot.url) : ''
+  const scale = Number(hotspot.scale || 1)
 
   const typeMap: Record<string, { tag: string; color: string }> = {
     info:    { tag: 'Info',    color: '#6366f1' },
@@ -111,6 +117,10 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   wrap.setAttribute('data-vhs-type', hotspot.type)
   wrap.setAttribute('data-vhs-id', hotspot.id)
   if (url) wrap.setAttribute('data-vhs-url', url)
+  if (scale !== 1) {
+    wrap.style.transform = `scale(${scale})`
+    wrap.style.transformOrigin = 'center center'
+  }
 
   wrap.innerHTML = `
     <div class="vhs-info__trigger">
@@ -337,13 +347,13 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 
       const el = isNav ? buildNavMarkerEl(hotspot) : buildInfoMarkerEl(hotspot)
 
+      const baseSize = isNav ? 52 : 40
+      const scaledSize = Math.round(baseSize * scale)
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
         element: el,
-        // Info markers: 40×40 — the card is position:absolute so it doesn't bloat the hit zone.
-        // Nav markers: 52×52 — icon + pulse ring only.
-        size: isNav ? { width: 52, height: 52 } : { width: 40, height: 40 },
+        size: { width: scaledSize, height: scaledSize },
         anchor: 'center center',
         tooltip: labelText && isNav ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
         hoverScale: isNav ? hoverAmount : 1,
@@ -558,11 +568,14 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
       .map(h => {
         const isNav = h.type === 'scene_link'
         const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
+        const hScale = Number(h.scale || 1)
+        const hBaseSize = isNav ? 52 : 40
+        const hScaledSize = Math.round(hBaseSize * hScale)
         return {
           id: h.id,
           position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          size: isNav ? { width: 52, height: 52 } : { width: 40, height: 40 },
+          size: { width: hScaledSize, height: hScaledSize },
           anchor: 'center center',
           scale: isNav ? [0.5, 1.3] : [0.7, 1.0], // size varies with zoom like Google Maps
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,

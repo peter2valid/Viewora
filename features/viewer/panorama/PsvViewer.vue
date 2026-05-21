@@ -411,6 +411,12 @@ watch(
   { deep: true }
 )
 
+// When placement mode is activated, dismiss any open action menu so menu.locked
+// doesn't swallow the first placement click.
+watch(() => props.isEditing, (isEditing) => {
+  if (isEditing) closeMenu()
+})
+
 // Tracing visualization
 watch(
   [() => props.isTracing, () => props.tracePoints],
