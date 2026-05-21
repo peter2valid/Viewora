@@ -115,7 +115,10 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   wrap.innerHTML = `
     <div class="vhs-info__trigger">
       <div class="vhs-info__pin-ring" style="--vhs-color:${meta.color}"></div>
-      <div class="vhs-info__pin-dot" style="background:${meta.color}"></div>
+      ${iconUrl
+        ? `<img class="vhs-info__trigger-icon" src="${iconUrl}" alt="" draggable="false" />`
+        : `<div class="vhs-info__pin-dot" style="background:${meta.color}"></div>`
+      }
     </div>
     <div class="vhs-info__card">
       ${imageUrl ? `<div class="vhs-info__img" style="background-image:url('${imageUrl}')"></div>` : ''}

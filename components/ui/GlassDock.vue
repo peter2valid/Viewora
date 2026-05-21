@@ -52,7 +52,11 @@
               class="glass-dock__thumbLoading"
               aria-hidden="true"
             />
-            <span v-else class="glass-dock__thumbFallback" aria-hidden="true">
+            <span
+              v-if="!item.imageUrl || failedThumbUrls.has(item.imageUrl)"
+              class="glass-dock__thumbFallback"
+              aria-hidden="true"
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="2" y1="12" x2="22" y2="12" />
@@ -403,7 +407,8 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 .glass-dock__thumbImg {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 
 .glass-dock__thumbLoading {

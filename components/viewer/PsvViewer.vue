@@ -666,6 +666,17 @@ function onViewerClick() {
   100% { transform: scale(2.1); opacity: 0;    }
 }
 
+:global(.vhs-info__trigger-icon) {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.6));
+  position: relative;
+  z-index: 1;
+}
+:global(.vhs-info:hover .vhs-info__trigger-icon) { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.7)) brightness(1.08); }
+
 :global(.vhs-info__pin-dot) {
   width: 14px;
   height: 14px;
