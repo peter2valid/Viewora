@@ -151,6 +151,7 @@ const props = withDefaults(defineProps<{
   activeId?: string
   showAdd?: boolean
   addDisabled?: boolean
+  sortable?: boolean
   glassClass?: string
   bottomPx?: number
   edgeInsetPx?: number
@@ -163,6 +164,7 @@ const props = withDefaults(defineProps<{
   activeId: '',
   showAdd: false,
   addDisabled: false,
+  sortable: true,
   glassClass: 'dock-glass',
   bottomPx: 20,
   edgeInsetPx: 20,
@@ -207,7 +209,7 @@ function onThumbError(url: string | null | undefined) {
 }
 
 watch(stripEl, (el) => {
-  if (el && !sortableInstance) {
+  if (el && !sortableInstance && props.sortable) {
     sortableInstance = Sortable.create(el, {
       animation: 150,
       filter: '.glass-dock__item--add',
