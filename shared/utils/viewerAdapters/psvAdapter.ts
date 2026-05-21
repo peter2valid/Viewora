@@ -1,6 +1,5 @@
 import { Viewer } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
-import { CompassPlugin } from '@photo-sphere-viewer/compass-plugin'
 import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
 import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
 import { SettingsPlugin } from '@photo-sphere-viewer/settings-plugin'

@@ -42,7 +42,7 @@
       v-if="sceneCount > 0"
       :items="dockItems"
       :active-id="activeSceneId"
-      glass-class="dock-glass"
+      glass-class="dock-glass-superdark"
       :bottom-px="20"
       :edge-inset-px="16"
       :max-strip-vw="80"
@@ -547,4 +547,12 @@ function onViewerClick() {
 :global(.psv-settings-item--active .psv-settings-item-icon) {
   color: #3b82f6 !important;
 }
+:global(.dock-glass-superdark) {
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(24px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
 </style>
+

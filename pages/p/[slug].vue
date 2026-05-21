@@ -48,63 +48,6 @@
         :tour="tour"
         :share-url="shareUrl"
       />
-
-      <div class="preview-topbar">
-        <div class="preview-topbar__left">
-          <div class="preview-logo">
-            <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4" stroke="currentColor" stroke-width="2">
-              <circle cx="10" cy="10" r="8" />
-              <path d="M10 2a8 8 0 0 1 0 16M10 2a8 8 0 0 0 0 16M2 10h16" />
-            </svg>
-          </div>
-          <div class="preview-topbar__meta">
-            <span class="preview-topbar__title">{{ tour.space.title }}</span>
-            <span class="preview-topbar__scene">
-              {{ tour.scenes.length }} scene{{ tour.scenes.length !== 1 ? 's' : '' }}
-            </span>
-          </div>
-        </div>
-
-        <div class="preview-badge">
-          <span class="preview-badge__dot" />
-          Live Tour
-        </div>
-
-        <div class="preview-topbar__right">
-          <NuxtLink
-            to="/"
-            class="preview-exit-btn"
-            aria-label="Back home"
-          >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5">
-              <path d="M4 4l8 8M12 4l-8 8" />
-            </svg>
-            Back Home
-          </NuxtLink>
-        </div>
-      </div>
-
-      <div class="preview-bottombar">
-        <div class="preview-bottombar__inner">
-          <div class="preview-scene-chip">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3 opacity-60">
-              <circle cx="8" cy="8" r="6" />
-              <path d="M8 4v4l2.5 2.5" />
-            </svg>
-            Use hotspots or scene dock to navigate
-          </div>
-
-          <a
-            :href="marketingUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="preview-watermark"
-            aria-label="Powered by Viewora"
-          >
-            Powered by <strong>Viewora</strong>
-          </a>
-        </div>
-      </div>
     </template>
   </div>
 </template>
