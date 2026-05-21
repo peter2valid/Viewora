@@ -5,7 +5,6 @@ import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
 import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
 import { SettingsPlugin } from '@photo-sphere-viewer/settings-plugin'
 import { StereoPlugin } from '@photo-sphere-viewer/stereo-plugin'
-import { VisibleRangePlugin } from '@photo-sphere-viewer/visible-range-plugin'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import '@photo-sphere-viewer/virtual-tour-plugin/index.css'
@@ -330,7 +329,7 @@ export async function initViewer(
   }
 
   // Prevent looking at poles — keeps the tour feeling grounded
-  plugins.push([VisibleRangePlugin, { verticalRange: ['-75deg', '55deg'] }])
+  
 
   const viewer: any = new Viewer({
     container,
@@ -762,7 +761,7 @@ export async function initVirtualTourViewer(
   // Always include Gyroscope — StereoPlugin (VR mode) requires it for head tracking
   plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
   plugins.push([StereoPlugin])
-  plugins.push([VisibleRangePlugin, { verticalRange: ['-75deg', '55deg'] }])
+  
 
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
   plugins.push([VirtualTourPlugin, {
