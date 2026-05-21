@@ -206,7 +206,7 @@ export function useHotspotEditor(
     editorStore.setMode('view')
   }
 
-  async function onQuickEditDone() {
+  function onQuickEditDone() {
     const id = quickEditHotspotId.value
     quickEditHotspotId.value = null
     if (!id) return
@@ -223,26 +223,39 @@ export function useHotspotEditor(
     const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
     if (!hs) return
     const beforeCount = hotspotCount.value
-    addingHotspot.value = true
-    try {
-      const response = await apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(editDraft.value, hs) })
-      const created = unwrap<any>(response)?.hotspot || response?.hotspot
-      if (created) {
-        const mapped = mapDbHotspot(created)
-        hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id).concat([mapped]) }
-        showToast(beforeCount === 0 ? 'Your tour is now interactive' : 'Hotspot added')
-        $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
-      }
-    } catch (e: any) {
-      hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) }
-      showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
-    } finally {
-      addingHotspot.value = false
-      editorStore.selectHotspot(null)
+
+    // Optimistic update: instantly apply to UI and close editor
+    const d = editDraft.value
+    hotspotsByScene.value = { 
+      ...hotspotsByScene.value, 
+      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, ...d, _pending: true } : h) 
     }
+    editorStore.selectHotspot(null)
+
+    // Fire and forget background request
+    apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(d, hs) })
+      .then(response => {
+        const created = unwrap<any>(response)?.hotspot || response?.hotspot
+        if (created) {
+          const mapped = mapDbHotspot(created)
+          hotspotsByScene.value = { 
+            ...hotspotsByScene.value, 
+            [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h) 
+          }
+          showToast(beforeCount === 0 ? 'Your tour is now interactive' : 'Hotspot added')
+          $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
+        }
+      })
+      .catch(e => {
+        hotspotsByScene.value = { 
+          ...hotspotsByScene.value, 
+          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) 
+        }
+        showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
+      })
   }
 
-  async function onQuickEditMore() {
+  function onQuickEditMore() {
     const id = quickEditHotspotId.value
     quickEditHotspotId.value = null
     if (!id) return
@@ -258,24 +271,42 @@ export function useHotspotEditor(
 
     const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
     if (!hs) return
-    addingHotspot.value = true
-    try {
-      const response = await apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(editDraft.value, hs) })
-      const created = unwrap<any>(response)?.hotspot || response?.hotspot
-      if (created) {
-        const mapped = mapDbHotspot(created)
-        hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id).concat([mapped]) }
-        $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
-        selectHotspot(mapped.id)
-        editorStore.setPanel('hotspots')
-      }
-    } catch (e: any) {
-      hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) }
-      showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
-      editorStore.selectHotspot(null)
-    } finally {
-      addingHotspot.value = false
+
+    // Optimistic update
+    const d = editDraft.value
+    hotspotsByScene.value = { 
+      ...hotspotsByScene.value, 
+      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, ...d, _pending: true } : h) 
     }
+    editorStore.selectHotspot(id)
+    editorStore.setPanel('hotspots')
+
+    apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(d, hs) })
+      .then(response => {
+        const created = unwrap<any>(response)?.hotspot || response?.hotspot
+        if (created) {
+          const mapped = mapDbHotspot(created)
+          hotspotsByScene.value = { 
+            ...hotspotsByScene.value, 
+            [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h) 
+          }
+          $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
+          if (editorStore.selectedHotspotId === id) {
+            editorStore.selectHotspot(mapped.id)
+          }
+        }
+      })
+      .catch(e => {
+        hotspotsByScene.value = { 
+          ...hotspotsByScene.value, 
+          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) 
+        }
+        showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
+        if (editorStore.selectedHotspotId === id) {
+          editorStore.selectHotspot(null)
+          editorStore.setPanel('scenes')
+        }
+      })
   }
 
   function handleHotspotClick(id: string, isPreviewMode: boolean, selectSceneFn: (id: string) => void) {
@@ -296,21 +327,21 @@ export function useHotspotEditor(
     editorStore.setMode('view')
   }
 
-  async function deleteHotspot(id: string) {
+  function deleteHotspot(id: string) {
     if (!id || deletingHotspot.value) return
     const sceneId = selectedSceneId.value
-    deletingHotspot.value = true
+    
+    // Optimistic UI update
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) }
     editorStore.selectHotspot(null)
-    try {
-      await apiFetch(`/hotspots/${id}`, { method: 'DELETE' })
-      showToast('Hotspot deleted')
-    } catch (e: any) {
-      await fetchHotspots(sceneId)
-      showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
-    } finally {
-      deletingHotspot.value = false
-    }
+    showToast('Hotspot deleted')
+
+    // Fire and forget background request
+    apiFetch(`/hotspots/${id}`, { method: 'DELETE' })
+      .catch(e => {
+        fetchHotspots(sceneId)
+        showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
+      })
   }
 
   function handleHotspotReposition(id: string) {
@@ -319,18 +350,21 @@ export function useHotspotEditor(
     showToast('Click anywhere to reposition the hotspot')
   }
 
-  async function repositionHotspot(id: string, yaw: number, pitch: number) {
+  function repositionHotspot(id: string, yaw: number, pitch: number) {
     const sceneId = selectedSceneId.value
     repositioningHotspotId.value = null
     editorStore.setMode('view')
+    
+    // Optimistic UI update
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, yaw, pitch } : h) }
-    try {
-      await apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch } })
-      showToast('Hotspot repositioned')
-    } catch (e: any) {
-      await fetchHotspots(sceneId)
-      showToast(e?.data?.statusMessage || 'Failed to reposition hotspot', 'error')
-    }
+    showToast('Hotspot repositioned')
+
+    // Fire and forget background request
+    apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch } })
+      .catch(e => {
+        fetchHotspots(sceneId)
+        showToast(e?.data?.statusMessage || 'Failed to reposition hotspot', 'error')
+      })
   }
 
   function selectHotspot(id: string | null) {
@@ -366,10 +400,9 @@ export function useHotspotEditor(
     if (id) deleteHotspot(id)
   }
 
-  async function saveHotspotEdit() {
+  function saveHotspotEdit() {
     const id = editorStore.selectedHotspotId
     if (!id || savingHotspot.value) return
-    savingHotspot.value = true
     const sceneId = selectedSceneId.value
     const d = editDraft.value
     const newType = d.type
@@ -387,6 +420,7 @@ export function useHotspotEditor(
     if (d.imageUrl) patch.content = { ...(patch.content ?? {}), image_url: d.imageUrl }
     patch.type = newType
 
+    // Optimistic UI update
     hotspotsByScene.value = {
       ...hotspotsByScene.value,
       [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h =>
@@ -394,20 +428,21 @@ export function useHotspotEditor(
       ),
     }
 
-    try {
-      const res = await apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: patch })
-      const updated = unwrap<any>(res)?.hotspot || res?.hotspot
-      if (updated) {
-        const mapped = mapDbHotspot(updated)
-        hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h) }
-      }
-      showToast('Hotspot updated')
-    } catch (e: any) {
-      await fetchHotspots(sceneId)
-      showToast(e?.data?.statusMessage || 'Failed to update hotspot', 'error')
-    } finally {
-      savingHotspot.value = false
-    }
+    showToast('Hotspot updated')
+
+    // Fire and forget
+    apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: patch })
+      .then(res => {
+        const updated = unwrap<any>(res)?.hotspot || res?.hotspot
+        if (updated) {
+          const mapped = mapDbHotspot(updated)
+          hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h) }
+        }
+      })
+      .catch(e => {
+        fetchHotspots(sceneId)
+        showToast(e?.data?.statusMessage || 'Failed to update hotspot', 'error')
+      })
   }
 
   return {
