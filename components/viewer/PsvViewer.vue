@@ -112,6 +112,7 @@ const vtHandle = ref<PsvViewerHandle | null>(null)
 const vtReady = ref(false)
 const vtError = ref('')
 const vtFocusing = ref(false)
+const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
 let vtInitVersion = 0
 
@@ -238,11 +239,14 @@ async function initVT() {
         },
         onError: (err) => {
           if (version !== vtInitVersion) return
+          vtTransitioning.value = false
           vtError.value = err.message || 'Panorama load failed'
           emit('error', err)
         },
         onNodeChanged: (nodeId) => {
           if (version !== vtInitVersion) return
+          vtTransitioning.value = false
+          vtFocusing.value = false
           $posthog?.capture('scene_navigated', {
             from_scene: vtActiveNodeId.value,
             to_scene: nodeId,
@@ -277,6 +281,8 @@ async function initVT() {
 }
 
 async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type: string) {
+  if (vtTransitioning.value) return
+
   // Deactivate any previously active marker
   const all = buildAllHotspots()
   for (const hotspots of Object.values(all)) {
@@ -300,7 +306,13 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
     for (const hotspots of Object.values(all)) {
       const h = hotspots.find(x => x.id === markerId)
       if (h?.targetSceneId) {
-        vtGoToNode(handle, h.targetSceneId)
+        vtTransitioning.value = true
+        try {
+          const success = await vtGoToNode(handle, h.targetSceneId)
+          if (!success) vtTransitioning.value = false // release immediately if it failed to start
+        } catch {
+          vtTransitioning.value = false
+        }
         break
       }
     }
@@ -310,14 +322,20 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
 }
 
 // ── GlassDock navigation ───────────────────────────────────────────────────
-function handleDockSelect(sceneId: string) {
-  if (vtHandle.value) {
+async function handleDockSelect(sceneId: string) {
+  if (vtHandle.value && !vtTransitioning.value && vtActiveNodeId.value !== sceneId) {
+    vtTransitioning.value = true
     $posthog?.capture('scene_navigated', {
       from_scene: vtActiveNodeId.value,
       to_scene: sceneId,
       via: 'dock',
     })
-    vtGoToNode(vtHandle.value, sceneId)
+    try {
+      const success = await vtGoToNode(vtHandle.value, sceneId)
+      if (!success) vtTransitioning.value = false
+    } catch {
+      vtTransitioning.value = false
+    }
   }
 }
 

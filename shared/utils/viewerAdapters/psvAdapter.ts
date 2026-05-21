@@ -858,12 +858,13 @@ export async function initVirtualTourViewer(
 }
 
 /** Navigate VirtualTour to a specific node (public viewer GlassDock) */
-export function vtGoToNode(handle: PsvViewerHandle | null, nodeId: string): void {
-  if (!handle?.viewer) return
+export async function vtGoToNode(handle: PsvViewerHandle | null, nodeId: string): Promise<boolean> {
+  if (!handle?.viewer) return false
   try {
     const vt = handle.viewer.getPlugin(VirtualTourPlugin)
-    vt?.setCurrentNode(nodeId)
-  } catch { /* noop */ }
+    if (!vt) return false
+    return await vt.setCurrentNode(nodeId)
+  } catch { return false }
 }
 
 /** Get the currently displayed VirtualTour node id */
