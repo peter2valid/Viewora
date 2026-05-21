@@ -24,8 +24,8 @@
       <!-- Scrollable body -->
       <div class="qe-body qe-scrollbar">
 
-        <!-- ══ MOVE ══ -->
-        <template v-if="userType === 'move'">
+        <!-- ══ NAV ══ -->
+        <template v-if="userType === 'nav'">
           <!-- Destination room selector with thumbnails -->
           <div class="qe-section">
             <span class="qe-section-label">Destination Room</span>
@@ -135,17 +135,17 @@
             />
           </div>
 
-          <!-- Image URL -->
+          <!-- Optional link URL -->
           <div class="qe-section">
-            <span class="qe-section-label">Cover Image URL <span class="qe-optional">optional</span></span>
-            <div class="qe-image-field">
-              <div v-if="draft.imageUrl" class="qe-image-preview" :style="`background-image: url('${draft.imageUrl}')`" />
-              <input
-                class="qe-input"
-                :value="draft.imageUrl"
-                placeholder="https://…image.jpg"
-                @input="emit('update-draft', { imageUrl: ($event.target as HTMLInputElement).value })"
-              />
+            <span class="qe-section-label">Link URL <span class="qe-optional">optional</span></span>
+            <input
+              class="qe-input"
+              :value="draft.url"
+              placeholder="https://… or tel: or mailto:"
+              @input="onInfoUrlInput(($event.target as HTMLInputElement).value)"
+            />
+            <div class="qe-shortcuts">
+              <button v-for="sc in LINK_SHORTCUTS" :key="sc.label" class="qe-shortcut" @click="applyShortcut(sc.prefix)">{{ sc.label }}</button>
             </div>
           </div>
 
@@ -189,124 +189,6 @@
           </div>
         </template>
 
-        <!-- ══ MEDIA ══ -->
-        <template v-else-if="userType === 'media'">
-          <div class="qe-section">
-            <span class="qe-section-label">
-              Video URL
-              <span v-if="isYouTube" class="qe-youtube-tag">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0 12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24 15.96 24 12 24 12s0-3.96-.5-5.81zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z"/></svg>
-                YouTube
-              </span>
-            </span>
-            <input
-              class="qe-input"
-              :value="draft.url"
-              placeholder="Paste YouTube or video URL…"
-              @input="onMediaInput(($event.target as HTMLInputElement).value)"
-            />
-          </div>
-
-          <div class="qe-section">
-            <span class="qe-section-label">Size</span>
-            <div class="qe-slider-row">
-              <label class="qe-slider-label">Scale</label>
-              <span class="qe-slider-val">{{ Math.round(draft.scale * 100) }}%</span>
-            </div>
-            <input class="qe-range" type="range" :value="draft.scale" min="0.5" max="2.5" step="0.05"
-              @input="emit('update-draft', { scale: Number(($event.target as HTMLInputElement).value) })" />
-          </div>
-
-          <!-- Advanced: 3D surface trace -->
-          <div class="qe-section">
-            <button class="qe-adv-toggle" @click="showAdvanced = !showAdvanced">
-              <span class="qe-section-label" style="margin: 0">Advanced</span>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                :style="{ transform: showAdvanced ? 'rotate(180deg)' : '', transition: 'transform 180ms' }">
-                <path d="M6 9l6 6 6-6"/>
-              </svg>
-            </button>
-            <Transition name="adv">
-              <div v-if="showAdvanced" class="qe-spatial-box">
-                <p class="qe-spatial-title">3D Surface Mapping</p>
-                <p class="qe-spatial-hint">Pin this video to a wall or screen by clicking 4 corners on the scene.</p>
-                <div class="qe-spatial-row">
-                  <button class="qe-btn-trace" @click="$emit('start-tracing')">
-                    {{ draft.corners?.length === 4 ? 'Re-trace surface' : 'Trace surface' }}
-                  </button>
-                  <button
-                    v-if="draft.corners?.length === 4"
-                    class="qe-btn-clear-trace"
-                    @click="emit('update-draft', { corners: undefined })"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                      <path d="M18 6L6 18M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </div>
-                <span class="qe-spatial-status" :class="draft.corners?.length === 4 ? 'qe-spatial-status--ok' : ''">
-                  {{ draft.corners?.length === 4 ? '✓ Mapped to 3D surface' : 'Floating (no surface pinned)' }}
-                </span>
-              </div>
-            </Transition>
-          </div>
-        </template>
-
-        <!-- ══ LINK ══ -->
-        <template v-else-if="userType === 'link'">
-          <div class="qe-section">
-            <span class="qe-section-label">Link URL</span>
-            <input
-              class="qe-input"
-              :value="draft.url"
-              placeholder="https://…"
-              @input="emit('update-draft', { url: ($event.target as HTMLInputElement).value })"
-            />
-            <div class="qe-shortcuts">
-              <button v-for="sc in LINK_SHORTCUTS" :key="sc.label" class="qe-shortcut" @click="applyShortcut(sc.prefix)">
-                {{ sc.label }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Icon style for link -->
-          <div class="qe-section">
-            <span class="qe-section-label">Hotspot Icon</span>
-            <div class="qe-icon-scroll">
-              <template v-for="group in ICON_GROUPS" :key="group.key">
-                <span class="qe-icon-group-label">{{ group.label }}</span>
-                <div class="qe-icon-row">
-                  <button
-                    v-for="iconDef in HOTSPOT_ICON_DEFS.filter(d => d.group === group.key)"
-                    :key="iconDef.key"
-                    class="qe-icon-btn"
-                    :class="effectiveIcon === iconDef.key ? 'qe-icon-btn--active' : ''"
-                    :title="iconDef.label"
-                    @click="emit('update-draft', { icon: iconDef.key })"
-                  >
-                    <img :src="iconDef.url" :alt="iconDef.label" />
-                  </button>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <div class="qe-section">
-            <span class="qe-section-label">Size & Hover</span>
-            <div class="qe-slider-row">
-              <label class="qe-slider-label">Size</label>
-              <span class="qe-slider-val">{{ Math.round(draft.scale * 100) }}%</span>
-            </div>
-            <input class="qe-range" type="range" :value="draft.scale" min="0.5" max="2.5" step="0.05"
-              @input="emit('update-draft', { scale: Number(($event.target as HTMLInputElement).value) })" />
-            <div class="qe-slider-row" style="margin-top: 8px">
-              <label class="qe-slider-label">Hover zoom</label>
-              <span class="qe-slider-val">{{ draft.hoverScale }}×</span>
-            </div>
-            <input class="qe-range" type="range" :value="draft.hoverScale" min="1" max="2.5" step="0.1"
-              @input="emit('update-draft', { hoverScale: Number(($event.target as HTMLInputElement).value) })" />
-          </div>
-        </template>
 
       </div><!-- end scrollable body -->
 
@@ -368,13 +250,11 @@ const showAdvanced = ref(false)
 const CARD_W = 330
 
 const TYPE_LABELS: Record<string, string> = {
-  move: 'Move', info: 'Info', media: 'Media', link: 'Link',
+  nav: 'Navigate', info: 'Info',
 }
 const TYPE_HINTS: Record<string, string> = {
-  move: 'Navigate to another room',
-  info: 'Show information card',
-  media: 'Play a video',
-  link: 'Open a URL',
+  nav: 'Navigate to another scene',
+  info: 'Show info + optional link',
 }
 const LINK_SHORTCUTS = [
   { label: 'WhatsApp', prefix: 'https://wa.me/' },
@@ -383,14 +263,9 @@ const LINK_SHORTCUTS = [
 ]
 
 const userType = computed(() => {
-  const t = props.draft.type
-  if (t === 'scene_link') return 'move'
-  if (t === 'video' || t === 'youtube') return 'media'
-  if (t === 'url') return 'link'
+  if (props.draft.type === 'scene_link') return 'nav'
   return 'info'
 })
-
-const isYouTube = computed(() => props.draft.type === 'youtube')
 
 const effectiveIcon = computed(() =>
   props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info-3d-light'
@@ -422,9 +297,8 @@ function selectRoom(id: string) {
   roomDropOpen.value = false
 }
 
-function onMediaInput(val: string) {
-  const isYT = /youtu(\.be|be\.com)/.test(val)
-  emit('update-draft', { url: val, type: isYT ? 'youtube' : 'video' })
+function onInfoUrlInput(val: string) {
+  emit('update-draft', { url: val, type: val.trim() ? 'url' : 'info' })
 }
 
 function applyShortcut(prefix: string) {
@@ -486,10 +360,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   display: inline-block;
   width: fit-content;
 }
-.qe-type-badge--move  { background: rgba(99,102,241,0.15); color: #818cf8; }
-.qe-type-badge--info  { background: rgba(59,130,246,0.15); color: #60a5fa; }
-.qe-type-badge--media { background: rgba(239,68,68,0.15);  color: #f87171; }
-.qe-type-badge--link  { background: rgba(16,185,129,0.15); color: #34d399; }
+.qe-type-badge--nav  { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.qe-type-badge--info { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
 
 .qe-header-hint {
   font-size: 10px;

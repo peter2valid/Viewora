@@ -84,7 +84,10 @@
 
     <LeftToolbar
       v-if="editorStore.mode !== 'preview'"
-      @open-type-picker="onOpenTypePicker"
+      :active-placement-type="activePlacementType"
+      :settings-open="showSettingsPanel"
+      @place-hotspot="handlePlaceHotspot"
+      @open-settings="showSettingsPanel = !showSettingsPanel"
       @cancel-placement="onCancelPlacement"
     />
 
@@ -198,63 +201,167 @@
         </div>
       </Transition>
 
-      <Transition name="share-modal">
-        <div v-if="showSettingsPanel" class="share-overlay" @click.self="showSettingsPanel = false">
-          <div class="settings-modal" role="dialog" aria-modal="true" aria-label="Tour settings">
-            <div class="settings-modal__header">
-              <span class="settings-modal__title">Tour settings</span>
-              <button class="share-modal__close" @click="showSettingsPanel = false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <!-- ── Tour Settings Panel ─────────────────────────────────────────── -->
+      <Transition name="ts-slide">
+        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Tour settings">
+          <div class="ts-panel">
+
+            <!-- Header -->
+            <div class="ts-header">
+              <span class="ts-header__title">Tour Settings</span>
+              <button class="ts-close" @click="showSettingsPanel = false" aria-label="Close settings">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
 
-            <div class="settings-modal__field">
-              <div class="settings-modal__field-header">
-                <span class="settings-modal__label">Field of view</span>
-                <span class="settings-modal__value">{{ settingsDraft.hfov }}°</span>
-              </div>
-              <input type="range" v-model.number="settingsDraft.hfov" min="30" max="120" step="1" class="settings-modal__range" />
-            </div>
+            <!-- Scrollable body -->
+            <div class="ts-body ts-scroll">
 
-            <div class="settings-modal__field">
-              <div class="settings-modal__field-header">
-                <span class="settings-modal__label">Starting yaw</span>
-                <span class="settings-modal__value">{{ settingsDraft.yaw }}°</span>
-              </div>
-              <input type="range" v-model.number="settingsDraft.yaw" min="-180" max="180" step="1" class="settings-modal__range" />
-            </div>
+              <!-- SECTION: Tour Info -->
+              <div class="ts-section">
+                <div class="ts-section__label">Tour Info</div>
 
-            <div class="settings-modal__field">
-              <div class="settings-modal__field-header">
-                <span class="settings-modal__label">Starting pitch</span>
-                <span class="settings-modal__value">{{ settingsDraft.pitch }}°</span>
-              </div>
-              <input type="range" v-model.number="settingsDraft.pitch" min="-90" max="90" step="1" class="settings-modal__range" />
-            </div>
+                <div class="ts-field">
+                  <label class="ts-field__label">Name</label>
+                  <input
+                    class="ts-input"
+                    v-model="settingsDraft.title"
+                    placeholder="Enter tour name"
+                    maxlength="120"
+                  />
+                </div>
 
-            <div class="settings-modal__toggle-row">
-              <div>
-                <div class="settings-modal__label">Auto-rotate</div>
-                <div class="settings-modal__sublabel">Slowly pan the view on load</div>
+                <div class="ts-field">
+                  <label class="ts-field__label">Description <span class="ts-field__opt">optional</span></label>
+                  <textarea
+                    class="ts-textarea"
+                    v-model="settingsDraft.description"
+                    placeholder="Describe this tour…"
+                    rows="3"
+                  />
+                </div>
+
+                <!-- Location with map -->
+                <div class="ts-field">
+                  <label class="ts-field__label">
+                    Location
+                    <span class="ts-field__opt">optional</span>
+                  </label>
+                  <div class="ts-location-wrap">
+                    <div class="ts-location-input-row">
+                      <input
+                        class="ts-input"
+                        :value="settingsDraft.locationText"
+                        placeholder="Search a location…"
+                        @input="onLocationInput(($event.target as HTMLInputElement).value)"
+                      />
+                      <div v-if="locationSearching" class="ts-location-spin" />
+                    </div>
+                    <div v-if="locationDropOpen && locationResults.length" class="ts-location-drop">
+                      <button
+                        v-for="r in locationResults"
+                        :key="r.lat + r.lon"
+                        class="ts-location-result"
+                        @click="selectLocation(r)"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ts-location-pin" aria-hidden="true">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                          <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <span class="ts-location-text">{{ r.display_name }}</span>
+                      </button>
+                    </div>
+                    <iframe
+                      v-if="mapEmbedUrl"
+                      :src="mapEmbedUrl"
+                      class="ts-map"
+                      frameborder="0"
+                      scrolling="no"
+                      title="Location map"
+                    />
+                  </div>
+                </div>
+
+                <!-- Logo upload -->
+                <div class="ts-field">
+                  <label class="ts-field__label">Brand Logo <span class="ts-field__opt">shows in viewer</span></label>
+                  <input ref="logoFileInput" type="file" accept="image/*" class="ts-hidden-file" @change="handleLogoFileChange" />
+                  <div class="ts-logo-area" @click="logoFileInput?.click()">
+                    <template v-if="settingsDraft.logoUrl">
+                      <img :src="settingsDraft.logoUrl" class="ts-logo-preview" alt="Logo" />
+                      <button class="ts-logo-remove" @click.stop="settingsDraft.logoUrl = ''" aria-label="Remove logo">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </template>
+                    <template v-else>
+                      <div class="ts-logo-placeholder">
+                        <svg v-if="!logoUploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span v-if="logoUploading" class="ts-spin" />
+                        <span class="ts-logo-hint">{{ logoUploading ? 'Uploading…' : 'Click to upload logo' }}</span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
               </div>
-              <button
-                class="settings-modal__toggle"
-                :class="{ 'settings-modal__toggle--on': settingsDraft.autoRotate }"
-                role="switch"
-                :aria-checked="settingsDraft.autoRotate"
-                @click="settingsDraft.autoRotate = !settingsDraft.autoRotate"
-              >
-                <span class="settings-modal__toggle-thumb" />
+
+              <!-- SECTION: Viewer -->
+              <div class="ts-section">
+                <div class="ts-section__label">Viewer</div>
+
+                <div class="ts-field">
+                  <div class="ts-slider-header">
+                    <label class="ts-field__label">Field of View</label>
+                    <span class="ts-slider-val">{{ settingsDraft.hfov }}°</span>
+                  </div>
+                  <input type="range" class="ts-range" v-model.number="settingsDraft.hfov" min="30" max="120" step="1" />
+                </div>
+
+                <div class="ts-field">
+                  <div class="ts-slider-header">
+                    <label class="ts-field__label">Starting Yaw</label>
+                    <span class="ts-slider-val">{{ settingsDraft.yaw }}°</span>
+                  </div>
+                  <input type="range" class="ts-range" v-model.number="settingsDraft.yaw" min="-180" max="180" step="1" />
+                </div>
+
+                <div class="ts-field">
+                  <div class="ts-slider-header">
+                    <label class="ts-field__label">Starting Pitch</label>
+                    <span class="ts-slider-val">{{ settingsDraft.pitch }}°</span>
+                  </div>
+                  <input type="range" class="ts-range" v-model.number="settingsDraft.pitch" min="-90" max="90" step="1" />
+                </div>
+
+                <div class="ts-toggle-row">
+                  <div>
+                    <div class="ts-field__label">Auto-rotate</div>
+                    <div class="ts-toggle-sub">Slowly pan the view on load</div>
+                  </div>
+                  <button
+                    class="ts-toggle"
+                    :class="{ 'ts-toggle--on': settingsDraft.autoRotate }"
+                    role="switch"
+                    :aria-checked="settingsDraft.autoRotate"
+                    @click="settingsDraft.autoRotate = !settingsDraft.autoRotate"
+                  >
+                    <span class="ts-toggle-thumb" />
+                  </button>
+                </div>
+              </div>
+
+            </div><!-- end ts-body -->
+
+            <!-- Footer -->
+            <div class="ts-footer">
+              <button class="ts-btn-save" :disabled="settingsSaving" @click="saveSettings">
+                <span v-if="settingsSaving" class="ts-spin" />
+                <template v-else>Save Changes</template>
               </button>
+              <button class="ts-btn-cancel" @click="showSettingsPanel = false">Cancel</button>
             </div>
 
-            <div class="settings-modal__actions">
-              <button class="settings-modal__save" :disabled="settingsSaving" @click="saveSettings">
-                <span v-if="settingsSaving" class="hs-edit-panel__spin" />
-                <template v-else>Save settings</template>
-              </button>
-              <button class="settings-modal__cancel" @click="showSettingsPanel = false">Cancel</button>
-            </div>
           </div>
         </div>
       </Transition>
@@ -448,6 +555,7 @@ const {
   otherScenesForHotspot,
   startTracing,
   handleUpdateTrace,
+  placeHotspotDirect,
   onOpenTypePicker,
   onTypePicked,
   onCancelPlacement,
@@ -508,6 +616,81 @@ const sceneDeleteConfirm = ref<string | null>(null)
 const deletingScene = ref(false)
 
 const urlCopied = ref(false)
+
+// ── Settings panel: location geocoding ──────────────────────────────────────
+type NominatimResult = { display_name: string; lat: string; lon: string }
+const locationResults = ref<NominatimResult[]>([])
+const locationDropOpen = ref(false)
+const locationSearching = ref(false)
+let locationTimer: ReturnType<typeof setTimeout> | null = null
+
+function onLocationInput(val: string) {
+  settingsDraft.value.locationText = val
+  locationDropOpen.value = false
+  locationResults.value = []
+  if (locationTimer) clearTimeout(locationTimer)
+  if (!val.trim()) return
+  locationTimer = setTimeout(() => fetchLocationResults(val), 600)
+}
+
+async function fetchLocationResults(query: string) {
+  locationSearching.value = true
+  try {
+    const data: NominatimResult[] = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
+      { headers: { 'Accept-Language': 'en-US,en' } }
+    ).then(r => r.json())
+    locationResults.value = data
+    if (data.length) locationDropOpen.value = true
+  } catch { /* ignore */ } finally {
+    locationSearching.value = false
+  }
+}
+
+function selectLocation(result: NominatimResult) {
+  settingsDraft.value.locationText = result.display_name
+  settingsDraft.value.locationLat = parseFloat(result.lat)
+  settingsDraft.value.locationLng = parseFloat(result.lon)
+  locationDropOpen.value = false
+  locationResults.value = []
+}
+
+const mapEmbedUrl = computed(() => {
+  const lat = settingsDraft.value.locationLat
+  const lng = settingsDraft.value.locationLng
+  if (!lat || !lng) return null
+  const d = 0.015
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d},${lat - d},${lng + d},${lat + d}&layer=mapnik&marker=${lat},${lng}`
+})
+
+// ── Settings panel: logo upload ──────────────────────────────────────────────
+const logoFileInput = ref<HTMLInputElement | null>(null)
+const logoUploading = ref(false)
+
+async function handleLogoFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) { showToast('Select an image file', 'error'); return }
+  logoUploading.value = true
+  try {
+    const { uploadUrl, publicUrl } = await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
+      method: 'POST',
+      body: { contentType: file.type, fileName: file.name },
+    })
+    await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+    settingsDraft.value.logoUrl = publicUrl
+    showToast('Logo uploaded')
+  } catch (e: any) {
+    if (e?.status === 404 || e?.statusCode === 404) {
+      showToast('Logo upload requires backend update — coming soon', 'error')
+    } else {
+      showToast('Logo upload failed', 'error')
+    }
+  } finally {
+    logoUploading.value = false
+    if (logoFileInput.value) logoFileInput.value.value = ''
+  }
+}
 
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
@@ -728,11 +911,17 @@ function handleKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return
   if (editorStore.isModalOpen) return
-  if (e.key === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-    e.preventDefault()
-    inlineEditMode.value = !inlineEditMode.value
-  }
 }
+
+function handlePlaceHotspot(type: 'info' | 'nav') {
+  placeHotspotDirect(type)
+}
+
+const activePlacementType = computed<'info' | 'nav' | null>(() => {
+  if (editorStore.mode !== 'hotspot') return null
+  if (hotspotDraftType.value === 'scene_link') return 'nav'
+  return 'info'
+})
 
 async function handleReorderScenes(orderedIds: string[]) {
   if (orderedIds.some(isLocalSceneId)) {
@@ -1413,7 +1602,7 @@ defineExpose({
 }
 .share-modal__embed-code { font-family: monospace; }
 
-/* ── Settings modal ─────────────────────────────────────── */
+/* ── Settings modal (legacy — replaced by ts-* below) ───── */
 .settings-modal {
   width: 100%;
   max-width: 380px;
@@ -1595,4 +1784,172 @@ defineExpose({
   transition: background 120ms, color 120ms;
 }
 .rename-popover__del-abort:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); }
+
+/* ── Tour Settings Panel (ts-*) ─────────────────────────── */
+.ts-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.ts-panel {
+  width: 100%; max-width: 480px; max-height: 88vh;
+  background: #0e0e12;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.7);
+}
+.ts-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.ts-header__title { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.9); letter-spacing: -0.01em; }
+.ts-close {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: transparent; border: none; color: rgba(255,255,255,0.3);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: color 120ms, background 120ms;
+}
+.ts-close:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.07); }
+.ts-body { flex: 1; overflow-y: auto; min-height: 0; }
+.ts-scroll::-webkit-scrollbar { width: 3px; }
+.ts-scroll::-webkit-scrollbar-track { background: transparent; }
+.ts-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.ts-section { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.ts-section:last-child { border-bottom: none; }
+.ts-section__label {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 16px;
+}
+.ts-field { margin-bottom: 16px; }
+.ts-field:last-child { margin-bottom: 0; }
+.ts-field__label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,0.55); margin-bottom: 7px; letter-spacing: 0.01em;
+}
+.ts-field__opt { font-weight: 400; color: rgba(255,255,255,0.22); margin-left: 4px; font-size: 10px; }
+.ts-input {
+  width: 100%; height: 38px; padding: 0 12px; border-radius: 7px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.88); font-size: 13px; font-weight: 500;
+  outline: none; transition: border-color 140ms, background 140ms;
+  box-sizing: border-box; font-family: inherit;
+}
+.ts-input:focus { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+.ts-input::placeholder { color: rgba(255,255,255,0.2); }
+.ts-textarea {
+  width: 100%; padding: 10px 12px; border-radius: 7px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.88); font-size: 13px; font-weight: 500;
+  outline: none; resize: none; font-family: inherit; line-height: 1.5;
+  box-sizing: border-box; transition: border-color 140ms;
+}
+.ts-textarea:focus { border-color: rgba(255,255,255,0.22); }
+.ts-textarea::placeholder { color: rgba(255,255,255,0.2); }
+.ts-location-wrap { display: flex; flex-direction: column; gap: 8px; }
+.ts-location-input-row { position: relative; display: flex; align-items: center; }
+.ts-location-input-row .ts-input { padding-right: 36px; }
+.ts-location-spin {
+  position: absolute; right: 12px;
+  width: 12px; height: 12px;
+  border: 1.5px solid rgba(255,255,255,0.15); border-top-color: rgba(255,255,255,0.6);
+  border-radius: 50%; animation: ts-spin-anim 0.6s linear infinite; pointer-events: none;
+}
+.ts-location-drop { border-radius: 7px; background: #1a1a20; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
+.ts-location-result {
+  width: 100%; display: flex; align-items: flex-start; gap: 8px;
+  padding: 9px 12px; background: transparent; border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer; text-align: left; transition: background 120ms;
+}
+.ts-location-result:last-child { border-bottom: none; }
+.ts-location-result:hover { background: rgba(255,255,255,0.05); }
+.ts-location-pin { color: rgba(255,255,255,0.3); flex-shrink: 0; margin-top: 1px; }
+.ts-location-text { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 500; line-height: 1.4; }
+.ts-map { width: 100%; height: 150px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08); display: block; }
+.ts-hidden-file { display: none; }
+.ts-logo-area {
+  position: relative; min-height: 80px; border-radius: 7px;
+  border: 1px dashed rgba(255,255,255,0.15); cursor: pointer;
+  transition: border-color 140ms, background 140ms; overflow: hidden;
+}
+.ts-logo-area:hover { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.03); }
+.ts-logo-placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; padding: 20px;
+  color: rgba(255,255,255,0.3); min-height: 80px;
+}
+.ts-logo-hint { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
+.ts-logo-preview { width: 100%; height: 80px; object-fit: contain; object-position: center; background: rgba(255,255,255,0.03); display: block; }
+.ts-logo-remove {
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px;
+  border-radius: 5px; background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 120ms, color 120ms;
+}
+.ts-logo-remove:hover { background: rgba(220,38,38,0.7); color: #fff; border-color: transparent; }
+.ts-slider-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.ts-slider-val { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); font-family: ui-monospace, monospace; }
+.ts-range {
+  width: 100%; height: 3px; appearance: none;
+  background: rgba(255,255,255,0.12); border-radius: 2px; cursor: pointer; outline: none;
+}
+.ts-range::-webkit-slider-thumb {
+  appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; border: 2px solid rgba(0,0,0,0.4);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5); cursor: pointer;
+}
+.ts-toggle-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05);
+}
+.ts-toggle-sub { font-size: 10px; color: rgba(255,255,255,0.28); font-weight: 500; margin-top: 2px; }
+.ts-toggle {
+  width: 38px; height: 22px; border-radius: 11px;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1);
+  padding: 2px; cursor: pointer; display: flex; align-items: center;
+  justify-content: flex-start; flex-shrink: 0;
+  transition: background 200ms, border-color 200ms;
+}
+.ts-toggle--on { background: rgba(255,255,255,0.9); border-color: transparent; justify-content: flex-end; }
+.ts-toggle-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(255,255,255,0.6); box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  transition: background 200ms;
+}
+.ts-toggle--on .ts-toggle-thumb { background: #111; }
+.ts-footer {
+  display: flex; gap: 8px; padding: 14px 20px;
+  border-top: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+}
+.ts-btn-save {
+  flex: 1; height: 38px; border-radius: 7px;
+  background: #ffffff; border: none; color: #0e0e12;
+  font-size: 12px; font-weight: 800; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  letter-spacing: 0.02em; transition: background 130ms; font-family: inherit;
+}
+.ts-btn-save:hover { background: rgba(255,255,255,0.88); }
+.ts-btn-save:active { transform: scale(0.98); }
+.ts-btn-save:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.ts-btn-cancel {
+  height: 38px; padding: 0 16px; border-radius: 7px;
+  background: transparent; border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.45); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: border-color 130ms, color 130ms; font-family: inherit;
+}
+.ts-btn-cancel:hover { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.75); }
+.ts-spin {
+  display: inline-block; width: 12px; height: 12px;
+  border: 1.5px solid rgba(0,0,0,0.3); border-top-color: #000;
+  border-radius: 50%; animation: ts-spin-anim 0.6s linear infinite;
+}
+@keyframes ts-spin-anim { to { transform: rotate(360deg); } }
+.ts-slide-enter-active { animation: ts-panel-in 220ms cubic-bezier(0.34,1.4,0.64,1) forwards; }
+.ts-slide-leave-active { animation: ts-panel-out 160ms ease-in forwards; }
+@keyframes ts-panel-in  { from { opacity:0; transform:scale(0.94) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+@keyframes ts-panel-out { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(0.96); } }
 </style>

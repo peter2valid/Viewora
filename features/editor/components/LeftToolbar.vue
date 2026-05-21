@@ -1,41 +1,60 @@
 <template>
-  <Transition name="editor-panel--left">
-    <aside
-      v-if="visible"
-          class="editor-glass fixed z-20 flex flex-col gap-1 p-1.5 sm:p-2 rounded-2xl pointer-events-auto overflow-visible transition-all duration-300 transform-gpu
-            left-4 top-1/2 -translate-y-1/2 sm:left-5 sm:w-[64px] w-[56px]"
-    >
-      <div
-        v-for="tool in tools"
-        :key="tool.mode"
-        class="relative group flex flex-col items-center"
-      >
+  <Transition name="lt-slide">
+    <aside v-if="visible" class="lt-bar">
+
+      <!-- Info hotspot -->
+      <div class="lt-item">
         <button
-          :ref="(el) => { buttonRefs[tool.mode] = el as HTMLButtonElement }"
-          @click="handleToolClick(tool.mode)"
-          :aria-label="tool.label"
-          :aria-pressed="isToolActive(tool.mode)"
-          class="flex flex-col items-center justify-center gap-0.5 w-[48px] h-[52px] sm:w-[52px] sm:h-[54px] rounded-xl hover:scale-[1.01] active:scale-[0.98] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
-          :class="[
-            isToolActive(tool.mode)
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.08]',
-            flashedMode === tool.mode ? 'tool-flash' : ''
-          ]"
+          class="lt-btn"
+          :class="{ 'lt-btn--on': activePlacementType === 'info' }"
+          aria-label="Add info hotspot (I)"
+          @click="handleInfo"
         >
-          <!-- View (cursor) -->
-          <svg v-if="tool.mode === 'view'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m5 3 14 9-7 1-4 7z"/>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
+          <span class="lt-label">Info</span>
+        </button>
+        <div class="lt-tip">
+          <span class="lt-tip__text">Info Hotspot</span>
+          <kbd class="lt-tip__key">I</kbd>
+        </div>
+      </div>
 
-          <!-- Hotspot (map pin) -->
-          <svg v-else-if="tool.mode === 'hotspot'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
+      <!-- Navigation hotspot -->
+      <div class="lt-item">
+        <button
+          class="lt-btn"
+          :class="{ 'lt-btn--on': activePlacementType === 'nav' }"
+          aria-label="Add navigation hotspot (N)"
+          @click="handleNav"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 8 16 12 12 16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
           </svg>
+          <span class="lt-label">Navigate</span>
+        </button>
+        <div class="lt-tip">
+          <span class="lt-tip__text">Navigation Hotspot</span>
+          <kbd class="lt-tip__key">N</kbd>
+        </div>
+      </div>
 
-          <!-- Settings (sliders) -->
-          <svg v-else-if="tool.mode === 'settings'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <div class="lt-divider"/>
+
+      <!-- Settings -->
+      <div class="lt-item">
+        <button
+          class="lt-btn"
+          :class="{ 'lt-btn--on': settingsOpen }"
+          aria-label="Tour settings (S)"
+          @click="handleSettings"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="4" y1="21" x2="4" y2="14"/>
             <line x1="4" y1="10" x2="4" y2="3"/>
             <line x1="12" y1="21" x2="12" y2="12"/>
@@ -46,92 +65,67 @@
             <line x1="9" y1="8" x2="15" y2="8"/>
             <line x1="17" y1="16" x2="23" y2="16"/>
           </svg>
-
-          <span class="tool-label">{{ tool.compactLabel }}</span>
+          <span class="lt-label">Settings</span>
         </button>
-
-        <!-- Active indicator -->
-        <span
-          v-if="isToolActive(tool.mode)"
-          class="absolute -right-[5px] top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-blue-400 pointer-events-none sm:block hidden"
-        ></span>
-
-        <!-- Tooltip (right side, desktop only) -->
-        <div class="tooltip" role="tooltip">
-          <span class="tooltip__label">{{ tool.label }}</span>
-          <kbd class="tooltip__key">{{ tool.key }}</kbd>
+        <div class="lt-tip">
+          <span class="lt-tip__text">Tour Settings</span>
+          <kbd class="lt-tip__key">S</kbd>
         </div>
       </div>
 
-      <!-- Screen reader announcement region -->
-      <div aria-live="polite" aria-atomic="true" class="sr-only">{{ modeAnnouncement }}</div>
+      <div aria-live="polite" aria-atomic="true" class="sr-only">{{ announcement }}</div>
     </aside>
   </Transition>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from '#imports'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
-import type { EditorMode } from '~/features/editor/store/useEditorStore'
+
+const props = defineProps<{
+  activePlacementType?: 'info' | 'nav' | null
+  settingsOpen?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'place-hotspot', type: 'info' | 'nav'): void
+  (e: 'open-settings'): void
+  (e: 'cancel-placement'): void
+}>()
 
 const route = useRoute()
 const store = useEditorStore()
-
-const emit = defineEmits<{
-  (e: 'open-type-picker'): void
-  (e: 'cancel-placement'): void
-}>()
 const visible = ref(false)
-const flashedMode = ref<EditorMode | null>(null)
-const buttonRefs: Record<string, HTMLButtonElement | null> = {}
-const modeAnnouncement = ref('')
+const announcement = ref('')
 
-const tools: { mode: EditorMode; label: string; compactLabel: string; key: string }[] = [
-  { mode: 'view',     label: 'View',        compactLabel: 'View',     key: 'V' },
-  { mode: 'hotspot',  label: 'Add Hotspot', compactLabel: 'Hotspot',  key: 'H' },
-  { mode: 'settings', label: 'Settings',    compactLabel: 'Settings', key: 'S' },
-]
-
-const modeLabels: Record<EditorMode, string> = {
-  view:     'View mode',
-  hotspot:  'Hotspot placement mode',
-  settings: 'Settings',
-  preview:  'Preview mode',
-}
-
-const keyMap: Record<string, EditorMode> = { v: 'view', h: 'hotspot', s: 'settings' }
-let flashTimer: ReturnType<typeof setTimeout> | null = null
-
-function isToolActive(mode: EditorMode): boolean {
-  if (mode === 'hotspot') {
-    return store.mode === 'hotspot' || store.activePanel === 'hotspots'
+function handleInfo() {
+  if (props.activePlacementType === 'info') {
+    emit('cancel-placement')
+  } else {
+    emit('place-hotspot', 'info')
+    announcement.value = 'Info hotspot placement mode'
   }
-  return store.mode === mode
 }
 
-function handleToolClick(next: EditorMode) {
-  if (next === 'hotspot') {
-    if (store.activePanel === 'hotspots') {
-      store.setPanel(null)
-      store.setMode('view')
-    } else if (store.mode === 'hotspot') {
-      store.setMode('view')
-      emit('cancel-placement')
-    } else {
-      emit('open-type-picker')
-    }
-    return
+function handleNav() {
+  if (props.activePlacementType === 'nav') {
+    emit('cancel-placement')
+  } else {
+    emit('place-hotspot', 'nav')
+    announcement.value = 'Navigation hotspot placement mode'
   }
-
-  store.setMode(next)
-  store.setPanel(null)
 }
 
-// Announce mode changes
-watch(() => store.mode, (mode) => {
-  modeAnnouncement.value = modeLabels[mode]
-})
+function handleSettings() {
+  emit('open-settings')
+}
+
+const keyMap: Record<string, () => void> = {
+  i: handleInfo,
+  n: handleNav,
+  s: handleSettings,
+}
 
 function onKeydown(e: KeyboardEvent) {
   if (document.visibilityState !== 'visible') return
@@ -145,17 +139,11 @@ function onKeydown(e: KeyboardEvent) {
     target.tagName === 'SELECT' ||
     target.isContentEditable
   ) return
-  
-  const key = e.key.toLowerCase()
-  const next = keyMap[key]
-  if (!next) return
-  
-  handleToolClick(next)
-  
-  if (flashTimer) clearTimeout(flashTimer)
-  flashedMode.value = next
-  flashTimer = setTimeout(() => { flashedMode.value = null }, 120)
-  nextTick(() => { buttonRefs[next]?.focus() })
+
+  const fn = keyMap[e.key.toLowerCase()]
+  if (!fn) return
+  e.preventDefault()
+  fn()
 }
 
 onMounted(() => {
@@ -165,54 +153,93 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
-  if (flashTimer) clearTimeout(flashTimer)
 })
 </script>
 
 <style scoped>
-.editor-panel--left-enter-active  { transition: opacity 180ms ease, transform 180ms ease; }
-.editor-panel--left-enter-from    { opacity: 0; transform: translate(-50%, 6px); }
-.editor-panel--left-leave-active  { transition: opacity 140ms ease, transform 140ms ease; }
-.editor-panel--left-leave-to      { opacity: 0; transform: translate(-50%, 6px); }
-
-@media (min-width: 640px) {
-  .editor-panel--left-enter-from    { opacity: 0; transform: translateY(calc(-50% + 6px)); }
-  .editor-panel--left-leave-to      { opacity: 0; transform: translateY(calc(-50% + 6px)); }
+.lt-bar {
+  position: fixed;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: rgba(14, 14, 18, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.tool-flash {
-  animation: tool-flash 120ms ease forwards;
+.lt-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 3px 4px;
 }
 
-.tool-label {
+.lt-item {
+  position: relative;
+}
+
+.lt-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 52px;
+  height: 52px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: color 140ms, background 140ms;
+  padding: 0;
+}
+
+.lt-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.lt-btn:active {
+  transform: scale(0.95);
+}
+
+.lt-btn--on {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.lt-btn--on::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 2px;
+}
+
+.lt-label {
   font-size: 7px;
-  line-height: 1;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.54);
+  line-height: 1;
   white-space: nowrap;
 }
 
-.group:hover .tool-label {
-  color: rgba(255, 255, 255, 0.82);
-}
-
-@media (max-width: 639px) {
-  .tool-label {
-    font-size: 7px;
-  }
-}
-
-@keyframes tool-flash {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(0.88); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.tooltip {
+/* Tooltip */
+.lt-tip {
   position: absolute;
-  z-index: 40;
   left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%) translateX(-4px);
@@ -220,38 +247,32 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   padding: 5px 9px;
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 28%, rgba(0,0,0,0.14) 100%),
-    rgba(10, 12, 20, 0.42);
-  backdrop-filter: blur(24px) saturate(1.08) brightness(1.02);
-  -webkit-backdrop-filter: blur(24px) saturate(1.08) brightness(1.02);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  background: rgba(14, 14, 18, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease, transform 120ms ease;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.12),
-    0 16px 34px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-.group:hover .tooltip {
+.lt-item:hover .lt-tip {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
 
 @media (hover: none) {
-  .tooltip { display: none; }
+  .lt-tip { display: none; }
 }
 
-.tooltip__label {
+.lt-tip__text {
   font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
 }
 
-.tooltip__key {
+.lt-tip__key {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -259,11 +280,17 @@ onBeforeUnmount(() => {
   height: 18px;
   padding: 0 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 10px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.4);
   font-family: ui-monospace, monospace;
 }
+
+/* Transition */
+.lt-slide-enter-active { transition: opacity 180ms ease, transform 180ms ease; }
+.lt-slide-enter-from   { opacity: 0; transform: translateY(-50%) translateX(-8px); }
+.lt-slide-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
+.lt-slide-leave-to     { opacity: 0; transform: translateY(-50%) translateX(-8px); }
 </style>

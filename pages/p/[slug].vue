@@ -48,6 +48,22 @@
         :tour="tour"
         :share-url="shareUrl"
       />
+
+      <!-- Brand card — top-left, shows tour logo + name + contact info -->
+      <div v-if="tour.space?.title" class="brand-card" aria-label="Tour branding">
+        <img
+          v-if="tour.space?.logo_url"
+          :src="tour.space.logo_url"
+          class="brand-card__logo"
+          :alt="tour.space.title"
+        />
+        <div class="brand-card__body">
+          <p class="brand-card__name">{{ tour.space.title }}</p>
+          <p v-if="tour.space?.location_text" class="brand-card__line">{{ tour.space.location_text }}</p>
+          <p v-if="tour.space?.phone" class="brand-card__line">{{ tour.space.phone }}</p>
+          <p v-if="tour.space?.email" class="brand-card__line">{{ tour.space.email }}</p>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -481,5 +497,52 @@ useHead({
 
 .preview-watermark:hover strong {
   color: rgba(255,255,255,0.8);
+}
+
+/* ── Brand card (top-left of viewer) ───────────────────── */
+.brand-card {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 200px;
+  pointer-events: none;
+}
+
+.brand-card__logo {
+  width: auto;
+  max-width: 140px;
+  max-height: 52px;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+}
+
+.brand-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand-card__name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 10px rgba(0,0,0,0.8);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.brand-card__line {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.75);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+  line-height: 1.4;
+  margin: 0;
 }
 </style>

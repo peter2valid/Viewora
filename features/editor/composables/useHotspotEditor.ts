@@ -166,6 +166,12 @@ export function useHotspotEditor(
     editorStore.setMode('hotspot')
   }
 
+  function placeHotspotDirect(userType: 'info' | 'nav') {
+    showTypePicker.value = false
+    hotspotDraftType.value = userType === 'nav' ? 'scene_link' : 'info'
+    editorStore.setMode('hotspot')
+  }
+
   function onCancelPlacement() { editorStore.setMode('view') }
 
   function onQuickEditCancel() {
@@ -465,6 +471,7 @@ export function useHotspotEditor(
     otherScenesForHotspot,
     startTracing,
     handleUpdateTrace,
+    placeHotspotDirect,
     onOpenTypePicker,
     onTypePicked,
     onCancelPlacement,

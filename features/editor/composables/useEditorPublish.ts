@@ -19,7 +19,20 @@ export function useEditorPublish(
 ) {
   const publishing = ref(false)
   const showSettingsPanel = ref(false)
-  const settingsDraft = ref({ hfov: 90, yaw: 0, pitch: 0, autoRotate: false })
+  const settingsDraft = ref({
+    // 360 viewer
+    hfov: 90,
+    yaw: 0,
+    pitch: 0,
+    autoRotate: false,
+    // space info
+    title: '',
+    description: '',
+    locationText: '',
+    locationLat: null as number | null,
+    locationLng: null as number | null,
+    logoUrl: '',
+  })
   const settingsSaving = ref(false)
   const showShareModal = ref(false)
 
@@ -33,6 +46,12 @@ export function useEditorPublish(
         yaw: s?.yaw_default ?? 0,
         pitch: s?.pitch_default ?? 0,
         autoRotate: s?.auto_rotate_enabled ?? false,
+        title: space.value?.title ?? '',
+        description: space.value?.description ?? '',
+        locationText: space.value?.location_text ?? '',
+        locationLat: space.value?.location_lat ?? null,
+        locationLng: space.value?.location_lng ?? null,
+        logoUrl: space.value?.logo_url ?? '',
       }
       editorStore.openModal()
     } else {
@@ -50,8 +69,6 @@ export function useEditorPublish(
 
     const notReady = scenes.value.filter(s => {
       const state = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
-      // 'failed' scenes (e.g. image too small) are not publishable content but
-      // should not block the tour — the user can delete them separately.
       return state !== 'ready' && state !== 'failed'
     })
     if (notReady.length > 0) {
@@ -147,24 +164,43 @@ export function useEditorPublish(
   async function saveSettings() {
     if (settingsSaving.value) return
     settingsSaving.value = true
-    const patch = {
+
+    const viewerPatch = {
       hfov_default: settingsDraft.value.hfov,
       yaw_default: settingsDraft.value.yaw,
       pitch_default: settingsDraft.value.pitch,
       auto_rotate_enabled: settingsDraft.value.autoRotate,
     }
+
+    const spacePatch: Record<string, any> = {
+      title: settingsDraft.value.title.trim() || space.value?.title,
+      description: settingsDraft.value.description,
+      location_text: settingsDraft.value.locationText,
+    }
+    if (settingsDraft.value.locationLat !== null) spacePatch.location_lat = settingsDraft.value.locationLat
+    if (settingsDraft.value.locationLng !== null) spacePatch.location_lng = settingsDraft.value.locationLng
+    if (settingsDraft.value.logoUrl) spacePatch.logo_url = settingsDraft.value.logoUrl
+
     const prevSettings = space.value?.property_360_settings?.[0]
+    const prevSpace = { ...space.value }
+
     if (space.value) {
-      space.value = { ...space.value, property_360_settings: [{ ...(prevSettings ?? {}), ...patch }] }
+      space.value = {
+        ...space.value,
+        ...spacePatch,
+        property_360_settings: [{ ...(prevSettings ?? {}), ...viewerPatch }],
+      }
     }
     showSettingsPanel.value = false
+
     try {
-      await apiFetch(`/spaces/${spaceId}/settings`, { method: 'PATCH', body: patch })
+      await Promise.all([
+        apiFetch(`/spaces/${spaceId}/settings`, { method: 'PATCH', body: viewerPatch }),
+        apiFetch(`/spaces/${spaceId}`, { method: 'PATCH', body: spacePatch }).catch(() => {}),
+      ])
       showToast('Settings saved')
     } catch (e: any) {
-      if (space.value) {
-        space.value = { ...space.value, property_360_settings: prevSettings !== undefined ? [prevSettings] : [] }
-      }
+      if (space.value) space.value = prevSpace
       showToast(e?.data?.statusMessage || 'Failed to save settings', 'error')
     } finally {
       settingsSaving.value = false
