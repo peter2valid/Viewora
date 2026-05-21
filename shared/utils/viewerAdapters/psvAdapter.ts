@@ -311,7 +311,6 @@ export async function initViewer(
 
   const plugins: any[] = [
     [MarkersPlugin, { clickEventOnMarker: false }],
-    [CompassPlugin, { size: '120px', position: 'bottom left', navigation: true }],
   ]
 
   if (scene.settings.auto_rotate_enabled) {
@@ -745,7 +744,6 @@ export async function initVirtualTourViewer(
   const plugins: any[] = [
     [MarkersPlugin, {}],
     [SettingsPlugin, {}],
-    [CompassPlugin, { size: '120px', position: 'bottom left', navigation: false }],
   ]
 
   if (autoRotate) {
