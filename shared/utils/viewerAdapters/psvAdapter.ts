@@ -656,6 +656,7 @@ export async function initVirtualTourViewer(
     dataMode: 'client',
     positionMode: 'manual',
     renderMode: '3d', // 3d mode natively renders floor arrows for the links
+    arrowPosition: 'front', // renders upright instead of flat on floor, helping clear the bottom dock
     nodes,
     startNodeId,
     preload: false,
