@@ -552,19 +552,9 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
   return scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
 
-    // Deduplicate scene_link targets — VT Plugin uses these for its 3D floor arrows.
-    const uniqueLinksMap = new Map<string, any>()
-    hotspots.forEach(h => {
-      if (h.type === 'scene_link' && h.targetSceneId) {
-        if (!uniqueLinksMap.has(h.targetSceneId)) {
-          uniqueLinksMap.set(h.targetSceneId, {
-            nodeId: h.targetSceneId,
-            position: { yaw: h.yaw, pitch: h.pitch },
-          })
-        }
-      }
-    })
-    const links = Array.from(uniqueLinksMap.values())
+    // (We no longer generate native scene_link targets for VT Plugin.
+    // Instead we rely exclusively on our custom vhs-nav MarkersPlugin markers
+    // which float above the dock and support drag-and-drop natively.)
 
     // Render ALL hotspots as MarkersPlugin markers using plain-DOM builders.
     // scene_link → floating nav arrow (blue pulse), others → info card.
@@ -595,7 +585,7 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
       panorama: buildPanorama(scene),
       name: scene.title,
       thumbnail: scene.imageUrl,
-      links,
+      links: [], // Disabled native 3D floor arrows; we use custom markers instead
       markers,
     }
   })
