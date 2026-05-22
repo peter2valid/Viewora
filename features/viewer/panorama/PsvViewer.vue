@@ -278,7 +278,11 @@ async function initWithScene(scene: TourScene) {
         }
 
         // Dismiss the locked action menu; skip placement for this click
-        if (menu.locked) { closeMenu(); return }
+        if (menu.locked) { 
+          closeMenu()
+          isFocusing.value = false
+          return 
+        }
         
         isFocusing.value = false
         
@@ -607,7 +611,7 @@ defineExpose({ refreshSettings })
   transition: filter 0.5s ease;
 }
 
-.psv-canvas--focused {
+.psv-canvas--focused :deep(.psv-canvas-container) {
   filter: blur(3px) brightness(0.7);
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="public-viewer">
+  <div class="public-viewer" @click="onViewerClick">
     <!-- ── VirtualTour mode: full multi-scene tour ── -->
     <ClientOnly v-if="hasTourData">
       <div
@@ -401,7 +401,7 @@ function onViewerClick() {
   transition: opacity 0.9s ease, filter 0.5s ease;
 }
 .vt-canvas--ready { opacity: 1; }
-.vt-canvas--focused { filter: blur(3px) brightness(0.7); }
+.vt-canvas--focused :deep(.psv-canvas-container) { filter: blur(3px) brightness(0.7); }
 
 .vt-canvas :deep(.psv-container) {
   width: 100% !important;

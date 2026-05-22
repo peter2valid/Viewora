@@ -140,11 +140,11 @@ export function useHotspotEditor(
     else if (d.type === 'scene_link') payload.target_scene_id = d.targetSceneId
     payload.content = {
       ...(payload.content ?? {}),
-      icon: d.icon || null,
+      icon: d.icon || undefined,
       scale: Number(d.scale || 1),
       hoverScale: Number(d.hoverScale || 1.3),
-      corners: d.corners?.length === 4 ? d.corners : null,
-      image_url: d.imageUrl || null
+      corners: d.corners?.length === 4 ? d.corners : undefined,
+      image_url: d.imageUrl || undefined
     }
     return payload
   }
@@ -424,11 +424,11 @@ export function useHotspotEditor(
     else if (newType === 'scene_link' && d.targetSceneId) patch.target_scene_id = d.targetSceneId
     patch.content = {
       ...(patch.content ?? {}),
-      icon: d.icon || null,
+      icon: d.icon || undefined,
       scale: Number(d.scale || 1),
       hoverScale: Number(d.hoverScale || 1.3),
-      corners: d.corners?.length === 4 ? d.corners : null,
-      image_url: d.imageUrl || null
+      corners: d.corners?.length === 4 ? d.corners : undefined,
+      image_url: d.imageUrl || undefined
     }
     patch.type = newType
 
