@@ -49,10 +49,26 @@
         :share-url="shareUrl"
       />
 
-      <!-- Brand card — top-left, shows tour logo + name + contact info -->
-      <div v-if="tour.space?.title" class="brand-card" aria-label="Tour branding">
+      <!-- Free/Standard tier: Viewora branding -->
+      <a
+        v-if="!tour.space?.logo_url"
+        :href="marketingUrl || 'https://viewora.software/'"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="viewora-free-brand"
+        aria-label="Visit Viewora"
+      >
         <img
-          v-if="tour.space?.logo_url"
+          src="/globe-icon.png"
+          class="viewora-free-brand__logo"
+          alt=""
+        />
+        <span class="viewora-free-brand__name">Viewora</span>
+      </a>
+
+      <!-- Premium tier: User's custom branding -->
+      <div v-else-if="tour.space?.title" class="brand-card" aria-label="Tour branding">
+        <img
           :src="tour.space.logo_url"
           class="brand-card__logo"
           :alt="tour.space.title"
@@ -558,5 +574,51 @@ useHead({
   text-shadow: 0 1px 6px rgba(0,0,0,0.7);
   line-height: 1.4;
   margin: 0;
+}
+
+.viewora-free-brand {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px 6px 6px;
+  background: rgba(10, 12, 20, 0.45);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: #ffffff;
+  text-decoration: none;
+  font-family: 'Inter', -apple-system, sans-serif;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.viewora-free-brand:hover {
+  background: rgba(10, 12, 20, 0.65);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.viewora-free-brand__logo {
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+  margin-left: -4px;
+  margin-right: -4px;
+  object-fit: contain;
+}
+
+.viewora-free-brand__name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1;
 }
 </style>
