@@ -205,7 +205,8 @@ export function useHotspotEditor(
     if (type === 'scene_link' && !targetSceneId) { showToast('Add another scene first, then place a scene-link hotspot.', 'error'); return }
 
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const optimisticEntry: EditorHotspot = { id: tempId, yaw, pitch, type, label: type === 'scene_link' ? 'Go to next room' : '', url: '', targetSceneId, description: '', _pending: true }
+    const finalPitch = type === 'scene_link' ? -0.8 : pitch
+    const optimisticEntry: EditorHotspot = { id: tempId, yaw, pitch: finalPitch, type, label: type === 'scene_link' ? 'Go to next room' : '', url: '', targetSceneId, description: '', _pending: true }
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), optimisticEntry] }
 
     editDraft.value = { label: optimisticEntry.label || '', description: '', url: '', targetSceneId, type, icon: '', scale: 1, hoverScale: 1.3, imageUrl: '' }
@@ -364,12 +365,15 @@ export function useHotspotEditor(
     repositioningHotspotId.value = null
     editorStore.setMode('view')
     
+    const hotspot = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
+    const finalPitch = hotspot?.type === 'scene_link' ? -0.8 : pitch
+
     // Optimistic UI update
-    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, yaw, pitch } : h) }
+    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, yaw, pitch: finalPitch } : h) }
     showToast('Hotspot repositioned')
 
     // Fire and forget background request
-    apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch } })
+    apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch: finalPitch } })
       .catch(e => {
         fetchHotspots(sceneId)
         showToast(e?.data?.statusMessage || 'Failed to reposition hotspot', 'error')

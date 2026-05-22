@@ -383,6 +383,10 @@ function onPointerMove(e: PointerEvent) {
       y: e.clientY - rect.top
     })
     if (coords) {
+      const hotspot = props.hotspots?.find(h => h.id === dragTracker.hotspotId)
+      if (hotspot?.type === 'scene_link') {
+        coords.pitch = -0.8
+      }
       handle.value.markers.updateMarker({ id: dragTracker.hotspotId, position: coords })
     }
   }
@@ -399,7 +403,9 @@ function onPointerUp(e: PointerEvent) {
       y: e.clientY - rect.top
     })
     if (coords) {
-      emit('hotspot-drag-drop', { id: dragTracker.hotspotId, yaw: coords.yaw, pitch: coords.pitch })
+      const hotspot = props.hotspots?.find(h => h.id === dragTracker.hotspotId)
+      const pitch = hotspot?.type === 'scene_link' ? -0.8 : coords.pitch
+      emit('hotspot-drag-drop', { id: dragTracker.hotspotId, yaw: coords.yaw, pitch })
     }
   }
   

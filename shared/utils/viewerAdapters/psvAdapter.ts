@@ -561,7 +561,7 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
         if (!uniqueLinksMap.has(h.targetSceneId)) {
           uniqueLinksMap.set(h.targetSceneId, {
             nodeId: h.targetSceneId,
-            position: { yaw: h.yaw, pitch: h.pitch },
+            position: { yaw: h.yaw, pitch: -0.8 }, // Force pitch to -0.8 (Zillow-style floor level)
           })
         }
       }
@@ -580,7 +580,7 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
         const hScaledSize = Math.round(hBaseSize * hScale)
         return {
           id: h.id,
-          position: { yaw: h.yaw, pitch: h.pitch },
+          position: { yaw: h.yaw, pitch: isNav ? -0.8 : h.pitch }, // Force nav marker to floor level
           element: el,
           // Info card height must be 'auto' — hardcoding 300 clips cards with images/long text.
           // Nav arrows are fixed-size so they remain consistent regardless of label length.
@@ -658,7 +658,6 @@ export async function initVirtualTourViewer(
     dataMode: 'client',
     positionMode: 'manual',
     renderMode: '3d', // 3d mode natively renders floor arrows for the links
-    arrowPosition: 'front', // renders upright instead of flat on floor, helping clear the bottom dock
     nodes,
     startNodeId,
     preload: false,
