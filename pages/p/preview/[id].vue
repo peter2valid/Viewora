@@ -17,7 +17,9 @@
       />
       <div class="tour-page-loading-scrim" aria-hidden="true" />
       <div class="tour-page-loading-center">
-        <div class="loading-orb" />
+        <div class="loading-logo-container">
+          <img src="/globe-icon.png" class="loading-logo" alt="" />
+        </div>
         <p class="loading-label">Loading Preview</p>
       </div>
     </div>
@@ -333,18 +335,44 @@ useHead({
   gap: 16px;
 }
 
-.loading-orb {
-  width: 10px;
-  height: 10px;
+.loading-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.9);
-  box-shadow: 0 0 20px rgba(255,255,255,0.5), 0 0 40px rgba(255,255,255,0.2);
-  animation: orb-pulse 1.6s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.05), inset 0 0 15px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  margin-bottom: 8px;
+  animation: logo-glow 2s ease-in-out infinite alternate;
 }
 
-@keyframes orb-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.6); opacity: 0.5; }
+.loading-logo {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  filter: invert(1);
+  animation: logo-spin 6s linear infinite;
+}
+
+@keyframes logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes logo-glow {
+  from {
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.03), inset 0 0 10px rgba(255, 255, 255, 0.03);
+  }
+  to {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 40px rgba(255, 255, 255, 0.1), inset 0 0 20px rgba(255, 255, 255, 0.1);
+  }
 }
 
 .loading-label {
