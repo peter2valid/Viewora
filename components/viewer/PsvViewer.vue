@@ -16,13 +16,8 @@
         <p class="vt-overlay-msg">{{ vtError }}</p>
       </div>
 
-      <!-- VT loading -->
-      <div v-if="!vtReady && !vtError" class="vt-overlay">
-        <div class="vt-loading-ring" />
-      </div>
-
       <template #fallback>
-        <div class="vt-overlay"><div class="vt-loading-ring" /></div>
+        <div class="vt-overlay-fallback" />
       </template>
     </ClientOnly>
 
