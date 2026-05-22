@@ -1,94 +1,136 @@
 <template>
-  <Transition name="glass-dock">
-    <div
-      v-if="visible && (items.length || showAdd)"
-      ref="dockEl"
-      class="glass-dock pointer-events-auto fixed left-1/2 -translate-x-1/2 z-30"
-      :class="[glassClass, paddedClass, isSoloAdd ? 'glass-dock--solo' : '']"
-      :style="{
-        bottom: `${bottomPx}px`,
-        maxWidth: `calc(100vw - ${edgeInsetPx}px)`,
-      }"
-      role="navigation"
-      aria-label="Scene navigation"
-    >
-      <div v-if="items.length" ref="stripEl" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
+  <div style="display: contents;">
+    <Transition name="glass-dock">
+      <div
+        v-if="visible && (items.length || showAdd)"
+        ref="dockEl"
+        class="glass-dock pointer-events-auto fixed left-1/2 -translate-x-1/2 z-30"
+        :class="[glassClass, paddedClass, isSoloAdd ? 'glass-dock--solo' : '', isCollapsed ? 'glass-dock--collapsed' : '']"
+        :style="{
+          bottom: `${bottomPx}px`,
+          maxWidth: `calc(100vw - ${edgeInsetPx}px)`,
+        }"
+        role="navigation"
+        aria-label="Scene navigation"
+      >
+        <!-- Collapse Handle Tab -->
         <button
-          v-for="item in items"
-          :key="item.id"
-          class="glass-dock__item"
-          :data-dock-id="item.id"
-          :class="[
-            item.id === activeId ? 'glass-dock__item--active' : '',
-          ]"
-          :aria-current="item.id === activeId ? 'true' : 'false'"
-          :aria-label="item.label"
-          @click="emit('select', item.id)"
-          @contextmenu.prevent="emit('context', item.id)"
+          class="glass-dock__collapse-btn"
+          aria-label="Hide scenes"
+          @click="isCollapsed = true"
         >
-          <span class="glass-dock__thumb">
-            <span class="glass-dock__thumbNav" aria-hidden="true">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 11.5 21 3l-8.5 18-1.8-7.7z" />
-              </svg>
-            </span>
-            <NuxtImg
-              v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl)"
-              :src="item.imageUrl"
-              :alt="item.label"
-              class="glass-dock__thumbImg"
-              width="108"
-              height="58"
-              format="webp"
-              quality="80"
-              loading="lazy"
-              decoding="async"
-              draggable="false"
-              @load="onThumbLoad(item.imageUrl)"
-              @error="onThumbError(item.imageUrl)"
-            />
-            <span
-              v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl) && !loadedThumbUrls.has(item.imageUrl)"
-              class="glass-dock__thumbLoading"
-              aria-hidden="true"
-            />
-            <span
-              v-if="!item.imageUrl || failedThumbUrls.has(item.imageUrl)"
-              class="glass-dock__thumbFallback"
-              aria-hidden="true"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-            </span>
-          </span>
-
-          <span class="glass-dock__label" :title="item.label">
-            {{ item.label }}
-          </span>
-
-          <span
-            v-if="item.badge"
-            class="glass-dock__badge"
-            :class="item.badge === 'failed' ? 'glass-dock__badge--failed' : ''"
-            aria-hidden="true"
-          />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
         </button>
+
+        <div v-if="items.length" ref="stripEl" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
+          <button
+            v-for="item in items"
+            :key="item.id"
+            class="glass-dock__item"
+            :data-dock-id="item.id"
+            :class="[
+              item.id === activeId ? 'glass-dock__item--active' : '',
+            ]"
+            :aria-current="item.id === activeId ? 'true' : 'false'"
+            :aria-label="item.label"
+            @click="emit('select', item.id)"
+            @contextmenu.prevent="emit('context', item.id)"
+          >
+            <span class="glass-dock__thumb">
+              <span class="glass-dock__thumbNav" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 11.5 21 3l-8.5 18-1.8-7.7z" />
+                </svg>
+              </span>
+              <NuxtImg
+                v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl)"
+                :src="item.imageUrl"
+                :alt="item.label"
+                class="glass-dock__thumbImg"
+                width="108"
+                height="58"
+                format="webp"
+                quality="80"
+                loading="lazy"
+                decoding="async"
+                draggable="false"
+                @load="onThumbLoad(item.imageUrl)"
+                @error="onThumbError(item.imageUrl)"
+              />
+              <span
+                v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl) && !loadedThumbUrls.has(item.imageUrl)"
+                class="glass-dock__thumbLoading"
+                aria-hidden="true"
+              />
+              <span
+                v-if="!item.imageUrl || failedThumbUrls.has(item.imageUrl)"
+                class="glass-dock__thumbFallback"
+                aria-hidden="true"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+              </span>
+            </span>
+
+            <span class="glass-dock__label" :title="item.label">
+              {{ item.label }}
+            </span>
+
+            <span
+              v-if="item.badge"
+              class="glass-dock__badge"
+              :class="item.badge === 'failed' ? 'glass-dock__badge--failed' : ''"
+              aria-hidden="true"
+            />
+          </button>
+          <button
+            v-if="showAdd"
+            class="glass-dock__item glass-dock__item--add"
+            data-dock-item="true"
+            :disabled="addDisabled"
+            aria-label="Add scene"
+            @click="emit('add')"
+          >
+            <span class="glass-dock__thumb glass-dock__thumb--dashed">
+              <svg
+                v-if="!addDisabled"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="glass-dock__addIcon"
+                aria-hidden="true"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span v-else class="glass-dock__spinner" aria-hidden="true" />
+            </span>
+            <span class="glass-dock__label">{{ addDisabled ? 'Adding…' : 'Add scene' }}</span>
+          </button>
+        </div>
+
         <button
-          v-if="showAdd"
-          class="glass-dock__item glass-dock__item--add"
-          data-dock-item="true"
+          v-else-if="showAdd"
+          class="glass-dock__soloAdd"
           :disabled="addDisabled"
           aria-label="Add scene"
           @click="emit('add')"
         >
-          <span class="glass-dock__thumb glass-dock__thumb--dashed">
+          <span class="glass-dock__soloThumb">
             <svg
               v-if="!addDisabled"
-              width="14"
-              height="14"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -103,39 +145,26 @@
             </svg>
             <span v-else class="glass-dock__spinner" aria-hidden="true" />
           </span>
-          <span class="glass-dock__label">{{ addDisabled ? 'Adding…' : 'Add scene' }}</span>
         </button>
       </div>
+    </Transition>
 
+    <!-- Expand Button -->
+    <Transition name="fade-smooth">
       <button
-        v-else-if="showAdd"
-        class="glass-dock__soloAdd"
-        :disabled="addDisabled"
-        aria-label="Add scene"
-        @click="emit('add')"
+        v-if="isCollapsed && visible"
+        class="glass-dock-expand-trigger dock-glass pointer-events-auto fixed left-1/2 -translate-x-1/2 z-30"
+        :style="{ bottom: `${bottomPx}px` }"
+        aria-label="Show scenes"
+        @click="isCollapsed = false"
       >
-        <span class="glass-dock__soloThumb">
-          <svg
-            v-if="!addDisabled"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="glass-dock__addIcon"
-            aria-hidden="true"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span v-else class="glass-dock__spinner" aria-hidden="true" />
-        </span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m18 15-6-6-6 6"/>
+        </svg>
+        <span>Show Scenes</span>
       </button>
-    </div>
-  </Transition>
+    </Transition>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -187,6 +216,7 @@ const emit = defineEmits<{
 }>()
 
 const visible = ref(false)
+const isCollapsed = ref(false)
 onMounted(() => { visible.value = true })
 
 const dockEl = ref<HTMLElement | null>(null)
@@ -259,6 +289,7 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   align-items: center;
   gap: 10px;
   border-radius: 18px;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
 }
 
 .dock-glass {
@@ -521,5 +552,70 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   .glass-dock__item { transition: none; }
   .glass-dock__badge { animation: none; }
   .glass-dock__spinner { animation: none; }
+}
+
+.glass-dock--collapsed {
+  transform: translate(-50%, calc(100% + 40px)) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.glass-dock__collapse-btn {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 14px;
+  border-radius: 8px 8px 0 0;
+  background: rgba(10, 12, 20, 0.4);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.52);
+  cursor: pointer;
+  z-index: 10;
+  transition: color 140ms ease, background-color 140ms ease;
+  padding: 0;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.glass-dock__collapse-btn:hover {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.glass-dock-expand-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.glass-dock-expand-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fade-smooth-enter-active,
+.fade-smooth-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+.fade-smooth-enter-from,
+.fade-smooth-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 8px);
 }
 </style>
