@@ -5,7 +5,11 @@
       <div
         ref="vtContainerEl"
         class="vt-canvas"
-        :class="{ 'vt-canvas--ready': vtReady, 'vt-canvas--focused': vtFocusing }"
+        :class="{
+          'vt-canvas--ready': vtReady,
+          'vt-canvas--focused': vtFocusing,
+          'hide-nav-arrows': !dockCollapsed
+        }"
       />
 
       <!-- VT error -->
@@ -35,6 +39,7 @@
     <!-- ── Scene dock (both modes) ── -->
     <GlassDock
       v-if="sceneCount > 0"
+      v-model:collapsed="dockCollapsed"
       :items="dockItems"
       :active-id="activeSceneId"
       glass-class="dock-glass-superdark"
@@ -95,6 +100,7 @@ const vtError = ref('')
 const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
+const dockCollapsed = ref(false)
 let vtInitVersion = 0
 
 // ── Determines which mode we're in ────────────────────────────────────────
@@ -769,4 +775,10 @@ function onViewerClick() {
 
 /* Reset PSV marker defaults */
 :global(.psv-marker) { overflow: visible !important; background: none !important; border: none !important; }
+
+/* Hide arrows when dock is open */
+:global(.hide-nav-arrows .vhs-nav),
+:global(.hide-nav-arrows .psv-virtual-tour-arrow) {
+  display: none !important;
+}
 </style>

@@ -1,7 +1,10 @@
 <template>
   <main
     class="absolute inset-0 z-0 overflow-hidden bg-bg"
-    :class="isHotspotMode && hasScene ? 'cursor-crosshair' : ''"
+    :class="[
+      isHotspotMode && hasScene ? 'cursor-crosshair' : '',
+      hideNavArrows ? 'hide-nav-arrows' : ''
+    ]"
     @dragenter.prevent="onDragenter"
     @dragover.prevent
     @dragleave="onDragleave"
@@ -152,6 +155,7 @@ const props = defineProps<{
   hotspots?: Hotspot[]
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
+  hideNavArrows?: boolean
 }>()
 
 const editorStore = useEditorStore()

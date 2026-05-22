@@ -37,6 +37,7 @@
     <ViewerCanvas
       ref="viewerCanvasRef"
       :active-scene="activeViewerScene"
+      :hide-nav-arrows="isPreviewMode && !dockCollapsed"
       :space-type="space?.space_type"
       :hotspots="activeSceneHotspotsWithPreview"
       :is-tracing="isTracing"
@@ -96,6 +97,7 @@
     <!-- Preview mode: identical GlassDock to what the public viewer shows -->
     <GlassDock
       v-if="isPreviewMode && scenes.length > 0"
+      v-model:collapsed="dockCollapsed"
       :items="glassDockItems"
       :active-id="selectedSceneId"
       :bottom-px="20"
@@ -495,6 +497,7 @@ const space = ref<any>(null)
 const placeholderPanoramaUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23111627"/><stop offset="55%" stop-color="%231f2a44"/><stop offset="100%" stop-color="%232a4365"/></linearGradient></defs><rect width="1600" height="800" fill="url(%23g)"/><circle cx="1220" cy="230" r="180" fill="rgba(255,255,255,0.08)"/><circle cx="360" cy="600" r="260" fill="rgba(255,255,255,0.06)"/><g fill="none" stroke="rgba(255,255,255,0.35)"><path d="M0 540h1600"/><path d="M0 480h1600"/></g><text x="120" y="170" fill="rgba(255,255,255,0.88)" font-family="Arial" font-size="48" font-weight="700">Viewora 360 Tour Preview</text><text x="120" y="235" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="28">Upload your panorama to replace this placeholder instantly.</text></svg>'
 const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
+const dockCollapsed = ref(false)
 const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
 const inlineEditMode = computed({
   get: () => editorStore.mode === 'hotspot',
@@ -713,10 +716,10 @@ async function handleLogoFileChange(event: Event) {
   reader.readAsDataURL(file)
   logoUploading.value = true
   try {
-    const { uploadUrl, publicUrl } = await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
+    const { uploadUrl, publicUrl } = (await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
       method: 'POST',
       body: { contentType: file.type, fileName: file.name },
-    })
+    })) as { uploadUrl: string; publicUrl: string }
     await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
     settingsDraft.value.logoUrl = publicUrl
     showToast('Logo uploaded')
@@ -804,10 +807,10 @@ async function handleRemoveBg() {
     const res = await fetch(resultDataUrl)
     const blob = await res.blob()
     const file = new File([blob], 'logo.png', { type: 'image/png' })
-    const { uploadUrl, publicUrl } = await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
+    const { uploadUrl, publicUrl } = (await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
       method: 'POST',
       body: { contentType: 'image/png', fileName: 'logo.png' },
-    })
+    })) as { uploadUrl: string; publicUrl: string }
     await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/png' } })
     settingsDraft.value.logoUrl = publicUrl
     localLogoDataUrl.value = resultDataUrl
