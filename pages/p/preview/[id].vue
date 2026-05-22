@@ -61,7 +61,7 @@
 
       <!-- Free/Standard tier: Viewora branding -->
       <a
-        v-if="!tour.space?.logo_url"
+        v-if="!hasBrandingDetails"
         :href="marketingUrl || 'https://viewora.software/'"
         target="_blank"
         rel="noopener noreferrer"
@@ -77,8 +77,9 @@
       </a>
 
       <!-- Premium tier: User's custom branding -->
-      <div v-else-if="tour.space?.title" class="brand-card" aria-label="Tour branding">
+      <div v-else class="brand-card" aria-label="Tour branding">
         <img
+          v-if="tour.space?.logo_url"
           :src="tour.space.logo_url"
           class="brand-card__logo"
           :alt="tour.space.title"
@@ -261,6 +262,18 @@ const blurCover = computed(() => {
     ?? tour.value.scenes[0]?.raw_image_url
     ?? tour.value.space.cover_image_url
     ?? null
+  )
+})
+
+const hasBrandingDetails = computed(() => {
+  const spaceData = tour.value?.space
+  if (!spaceData) return false
+  return !!(
+    spaceData.logo_url ||
+    spaceData.description ||
+    spaceData.location_text ||
+    spaceData.phone ||
+    spaceData.email
   )
 })
 
@@ -665,42 +678,42 @@ useHead({
   z-index: 30;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 6px 12px 6px 6px;
-  background: rgba(10, 12, 20, 0.45);
-  backdrop-filter: blur(20px) saturate(120%);
-  -webkit-backdrop-filter: blur(20px) saturate(120%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  gap: 0px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 0;
   color: #ffffff;
   text-decoration: none;
   font-family: 'Inter', -apple-system, sans-serif;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: none;
   pointer-events: auto;
-  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+  transition: opacity 150ms ease, transform 150ms ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
 
 .viewora-free-brand:hover {
-  background: rgba(10, 12, 20, 0.65);
-  border-color: rgba(255, 255, 255, 0.2);
+  opacity: 0.8;
   transform: translateY(-1px);
 }
 
 .viewora-free-brand__logo {
-  width: 32px;
-  height: 32px;
-  margin-top: 2px;
-  margin-left: -4px;
-  margin-right: -4px;
+  width: 76px;
+  height: 76px;
   object-fit: contain;
+  margin-top: 3px;
+  margin-left: -15px;
+  margin-right: -12px;
+  filter: invert(1);
 }
 
 .viewora-free-brand__name {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: 1.25rem; /* 20px */
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: #ffffff;
   line-height: 1;
 }
 </style>
