@@ -271,7 +271,7 @@ async function initWithScene(scene: TourScene) {
         emit('error', err)
       },
       onClick: (payload) => {
-        if (signal.aborted) return
+        if (sceneLoadInProgress) return
         // Clear active hotspots (public viewer)
         if (handle.value && !props.isEditing) {
           props.hotspots?.forEach(h => toggleHotspotActive(handle.value, h.id, false))
@@ -294,7 +294,7 @@ async function initWithScene(scene: TourScene) {
         }
       },
       onMarkerClick: async (id) => {
-        if (signal.aborted || !handle.value) return
+        if (sceneLoadInProgress || !handle.value) return
         if (props.isEditing) {
           // Lock the radial menu on hotspot click in editor mode
           openMenu(id)
