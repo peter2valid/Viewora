@@ -54,7 +54,8 @@
       <!-- Free/Standard tier: Viewora branding -->
       <a
         v-if="!hasBrandingDetails"
-        :href="marketingUrl || 'https://viewora.software/'"
+        :href="watermarkUrl"
+        @click="trackWatermarkClick"
         target="_blank"
         rel="noopener"
         class="viewora-free-brand"
@@ -97,10 +98,26 @@ import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#
 import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 
-const { public: { appUrl, marketingUrl } } = useRuntimeConfig()
+const { public: { appUrl, marketingUrl, gaMeasurementId } } = useRuntimeConfig()
 const { apiFetch } = useApiFetch()
 const { $posthog } = useNuxtApp()
 const route = useRoute()
+
+const watermarkUrl = computed(() => {
+  const base = marketingUrl || 'https://viewora.software'
+  const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base
+  return `${cleanBase}/?utm_source=viewer&utm_medium=watermark&utm_campaign=platform_branding`
+})
+
+function trackWatermarkClick() {
+  if (typeof window !== 'undefined' && (window as any).gtag) {
+    (window as any).gtag('event', 'click', {
+      event_category: 'outbound',
+      event_label: watermarkUrl.value,
+      transport_type: 'beacon'
+    })
+  }
+}
 const slug = route.params.slug as string
 
 const pending = ref(true)
@@ -214,9 +231,32 @@ useSeoMeta({
   twitterImage: computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png'),
 })
 
-useHead({
-  link: [{ rel: 'canonical', href: computed(() => `${appUrl}/p/${slug}`) }],
-})
+useHead(computed(() => {
+  const scripts: any[] = []
+  if (gaMeasurementId) {
+    scripts.push(
+      {
+        src: `https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`,
+        async: true,
+      },
+      {
+        children: `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${gaMeasurementId}', {
+            page_path: window.location.pathname,
+          });
+        `,
+      }
+    )
+  }
+
+  return {
+    link: [{ rel: 'canonical', href: `${appUrl}/p/${slug}` }],
+    script: scripts
+  }
+}))
 </script>
 
 <style scoped>

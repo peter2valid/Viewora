@@ -35,7 +35,7 @@
       </div>
 
       <!-- Watermark -->
-      <a v-if="!space.branding_enabled" :href="runtimeConfig.public.marketingUrl" target="_blank" rel="noopener" class="embed-watermark" title="Viewora Virtual Tour Software">
+      <a v-if="!space.branding_enabled" :href="watermarkUrl" @click="trackWatermarkClick" target="_blank" rel="noopener" class="embed-watermark" title="Viewora Virtual Tour Software">
         Viewora
       </a>
     </template>
@@ -68,15 +68,55 @@ const tour = computed(() => _payload.value?.tour || _payload.value || null)
 const space = computed(() => tour.value?.space ?? null)
 const shareUrl = computed(() => `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.value?.slug || space.value?.id || slug}`)
 
+const watermarkUrl = computed(() => {
+  const base = runtimeConfig.public.marketingUrl || 'https://viewora.software'
+  const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base
+  return `${cleanBase}/?utm_source=embed&utm_medium=watermark&utm_campaign=platform_branding`
+})
+
+function trackWatermarkClick() {
+  if (typeof window !== 'undefined' && (window as any).gtag) {
+    (window as any).gtag('event', 'click', {
+      event_category: 'outbound',
+      event_label: watermarkUrl.value,
+      transport_type: 'beacon'
+    })
+  }
+}
+
 useSeoMeta({
   title: computed(() => space.value?.title ? `${space.value.title} — Viewora` : 'Virtual Tour — Viewora'),
   description: computed(() => space.value?.description || 'Experience this immersive virtual tour on Viewora.'),
   robots: 'index, follow',
 })
 
-useHead({
-  link: [{ rel: 'canonical', href: computed(() => `${runtimeConfig.public.appUrl}/p/${slug}`) }],
-})
+useHead(computed(() => {
+  const scripts: any[] = []
+  const gaId = runtimeConfig.public.gaMeasurementId
+  if (gaId) {
+    scripts.push(
+      {
+        src: `https://www.googletagmanager.com/gtag/js?id=${gaId}`,
+        async: true,
+      },
+      {
+        children: `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${gaId}', {
+            page_path: window.location.pathname,
+          });
+        `,
+      }
+    )
+  }
+
+  return {
+    link: [{ rel: 'canonical', href: `${runtimeConfig.public.appUrl}/p/${slug}` }],
+    script: scripts
+  }
+}))
 </script>
 
 <style scoped>

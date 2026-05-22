@@ -23,6 +23,7 @@ export default defineNuxtConfig({
       marketingUrl: process.env.NUXT_PUBLIC_MARKETING_URL || 'https://viewora.software',
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
+      gaMeasurementId: process.env.NUXT_PUBLIC_GA_MEASUREMENT_ID || '',
     },
   },
 
