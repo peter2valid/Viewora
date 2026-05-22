@@ -56,14 +56,15 @@
         v-if="!hasBrandingDetails"
         :href="marketingUrl || 'https://viewora.software/'"
         target="_blank"
-        rel="noopener noreferrer"
+        rel="noopener"
         class="viewora-free-brand"
-        aria-label="Visit Viewora"
+        aria-label="Visit Viewora Virtual Tour Software"
+        title="Viewora Virtual Tour Software"
       >
         <img
           src="/globe-icon.png"
           class="viewora-free-brand__logo"
-          alt=""
+          alt="Viewora Virtual Tour Software Logo"
         />
         <span class="viewora-free-brand__name">Viewora</span>
       </a>
@@ -96,7 +97,7 @@ import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#
 import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 
-const { public: { marketingUrl } } = useRuntimeConfig()
+const { public: { appUrl, marketingUrl } } = useRuntimeConfig()
 const { apiFetch } = useApiFetch()
 const { $posthog } = useNuxtApp()
 const route = useRoute()
@@ -203,6 +204,7 @@ function fireViewEvent(spaceId: string) {
 useSeoMeta({
   title: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
   description: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
+  robots: 'index, follow',
   ogTitle: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
   ogDescription: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
   ogImage: computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png'),
@@ -213,7 +215,7 @@ useSeoMeta({
 })
 
 useHead({
-  link: [{ rel: 'canonical', href: computed(() => `${marketingUrl}/p/${slug}`) }],
+  link: [{ rel: 'canonical', href: computed(() => `${appUrl}/p/${slug}`) }],
 })
 </script>
 

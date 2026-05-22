@@ -438,9 +438,9 @@
 
             <div class="share-modal__actions">
               <a
-                :href="`https://wa.me/?text=${encodeURIComponent('Check out my virtual tour: ' + publicUrl)}`"
+                :href="`https://wa.me/?text=${encodeURIComponent('Check out this immersive virtual tour created with Viewora: ' + publicUrl)}`"
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 class="share-modal__whatsapp"
                 @click="analytics.track('tour_shared', { method: 'whatsapp', space_id: space?.id })"
               >
@@ -855,7 +855,11 @@ async function copyPublicUrl() {
 }
 
 async function copyEmbedCode() {
-  const code = `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen style="border-radius:8px"></iframe>`
+  const brandingEnabled = space.value?.branding_enabled || false
+  const backlink = brandingEnabled
+    ? ''
+    : `\n<div style="text-align: center; margin-top: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: #64748b;">\n  Created with <a href="https://viewora.software/" target="_blank" rel="noopener" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Viewora Virtual Tour Software</a>\n</div>`
+  const code = `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen style="border-radius:8px; border:none;"></iframe>${backlink}`
   try {
     await navigator.clipboard.writeText(code)
     embedCopied.value = true

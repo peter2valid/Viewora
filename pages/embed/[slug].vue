@@ -35,7 +35,7 @@
       </div>
 
       <!-- Watermark -->
-      <a v-if="!space.branding_enabled" :href="runtimeConfig.public.marketingUrl" target="_blank" class="embed-watermark">
+      <a v-if="!space.branding_enabled" :href="runtimeConfig.public.marketingUrl" target="_blank" rel="noopener" class="embed-watermark" title="Viewora Virtual Tour Software">
         Viewora
       </a>
     </template>
@@ -45,6 +45,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 import { computed } from 'vue'
+import { useHead, useSeoMeta } from '#imports'
 
 const { apiFetch } = useApiFetch()
 const runtimeConfig = useRuntimeConfig()
@@ -66,6 +67,16 @@ const fetchError = computed(() => {
 const tour = computed(() => _payload.value?.tour || _payload.value || null)
 const space = computed(() => tour.value?.space ?? null)
 const shareUrl = computed(() => `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.value?.slug || space.value?.id || slug}`)
+
+useSeoMeta({
+  title: computed(() => space.value?.title ? `${space.value.title} — Viewora` : 'Virtual Tour — Viewora'),
+  description: computed(() => space.value?.description || 'Experience this immersive virtual tour on Viewora.'),
+  robots: 'index, follow',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: computed(() => `${runtimeConfig.public.appUrl}/p/${slug}`) }],
+})
 </script>
 
 <style scoped>
