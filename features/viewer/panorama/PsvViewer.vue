@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import '@photo-sphere-viewer/compass-plugin/index.css'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
@@ -88,6 +88,7 @@ const emit = defineEmits<{
   (e: 'hotspot-edit', id: string): void
   (e: 'hotspot-delete', id: string): void
   (e: 'hotspot-reposition', id: string): void
+  (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()
 
@@ -102,6 +103,15 @@ let resizeObserver: ResizeObserver | null = null
 let resizeRaf: number | null = null
 let loadAbortController: AbortController | null = null
 let sceneLoadInProgress = false
+
+// Drag state
+const dragTracker = {
+  active: false,
+  hotspotId: null as string | null,
+  startX: 0,
+  startY: 0,
+  moved: false
+}
 
 // ── Hotspot action menu ────────────────────────────────────
 const menu = reactive({ visible: false, locked: false, hotspotId: null as string | null, x: 0, y: 0 })
@@ -335,24 +345,99 @@ async function initWithScene(scene: TourScene) {
   }
 }
 
-onMounted(async () => {
-  if (containerEl.value && typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(() => {
-      scheduleResize()
+// ── Custom Drag-and-Drop Repositioning ──────────────────────────
+function onPointerDown(e: PointerEvent) {
+  if (!props.isEditing) return
+  const markerEl = (e.target as HTMLElement).closest('[data-vhs-id]')
+  if (!markerEl) return
+
+  dragTracker.hotspotId = markerEl.getAttribute('data-vhs-id')
+  dragTracker.startX = e.clientX
+  dragTracker.startY = e.clientY
+  dragTracker.moved = false
+  dragTracker.active = true
+  
+  // Prevent PSV from starting a camera pan
+  e.stopPropagation()
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (!dragTracker.active || !dragTracker.hotspotId || !handle.value) return
+  
+  const dx = e.clientX - dragTracker.startX
+  const dy = e.clientY - dragTracker.startY
+  
+  if (!dragTracker.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+    dragTracker.moved = true
+  }
+  
+  if (dragTracker.moved) {
+    e.stopPropagation()
+    const rect = containerEl.value!.getBoundingClientRect()
+    const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
     })
+    if (coords) {
+      handle.value.markers.updateMarker({ id: dragTracker.hotspotId, position: coords })
+    }
+  }
+}
+
+function onPointerUp(e: PointerEvent) {
+  if (!dragTracker.active) return
+  
+  if (dragTracker.moved && dragTracker.hotspotId && handle.value) {
+    e.stopPropagation()
+    const rect = containerEl.value!.getBoundingClientRect()
+    const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    })
+    if (coords) {
+      emit('hotspot-drag-drop', { id: dragTracker.hotspotId, yaw: coords.yaw, pitch: coords.pitch })
+    }
+  }
+  
+  dragTracker.active = false
+  dragTracker.hotspotId = null
+  dragTracker.moved = false
+}
+
+// ── Lifecycle ──────────────────────────────────────────────────────────
+
+onMounted(() => {
+  if (containerEl.value) {
+    resizeObserver = new ResizeObserver(scheduleResize)
     resizeObserver.observe(containerEl.value)
+    containerEl.value.addEventListener('pointerdown', onPointerDown, { capture: true })
   }
-
-  if (!props.scene?.imageUrl) {
-    state.value = 'empty'
-    return
-  }
-
-  await initWithScene(props.scene)
+  window.addEventListener('pointermove', onPointerMove, { capture: true })
+  window.addEventListener('pointerup', onPointerUp, { capture: true })
+  if (props.scene) void initWithScene(props.scene)
 })
 
-    // Scene change → keep current panorama visible and switch smoothly.
-    // PSV can load the next panorama without showing a blocking loader.
+onBeforeUnmount(() => {
+  if (containerEl.value) {
+    containerEl.value.removeEventListener('pointerdown', onPointerDown, { capture: true })
+  }
+  window.removeEventListener('pointermove', onPointerMove, { capture: true })
+  window.removeEventListener('pointerup', onPointerUp, { capture: true })
+  if (resizeObserver) resizeObserver.disconnect()
+  if (resizeRaf) cancelAnimationFrame(resizeRaf)
+  if (menuRaf) cancelAnimationFrame(menuRaf)
+  if (menuCloseTimer) clearTimeout(menuCloseTimer)
+  if (hotspotSyncTimer) clearTimeout(hotspotSyncTimer)
+  
+  if (loadAbortController) {
+    loadAbortController.abort()
+  }
+  destroy(handle.value)
+  handle.value = null
+})
+
+// Scene change → keep current panorama visible and switch smoothly.
+// PSV can load the next panorama without showing a blocking loader.
 watch(
   () => props.scene,
   async (next, prev) => {
@@ -494,24 +579,6 @@ watch(
   },
   { deep: true }
 )
-
-onUnmounted(() => {
-  // Cancel any pending operations
-  if (loadAbortController) {
-    loadAbortController.abort()
-    loadAbortController = null
-  }
-  
-  resizeObserver?.disconnect()
-  resizeObserver = null
-  if (resizeRaf != null) { window.cancelAnimationFrame(resizeRaf); resizeRaf = null }
-  if (hotspotSyncTimer) { clearTimeout(hotspotSyncTimer); hotspotSyncTimer = null }
-  if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
-  if (menuRaf != null) { cancelAnimationFrame(menuRaf); menuRaf = null }
-  closeMenu()
-  destroy(handle.value)
-  handle.value = null
-})
 
 /**
  * Apply tour settings to the live viewer immediately.

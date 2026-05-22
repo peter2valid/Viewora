@@ -371,6 +371,7 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 
       const container = document.createElement('div')
       container.className = `psv-hs-spatial-container ${handle.isEditing ? 'psv-hs-spatial--editable' : ''}`
+      container.setAttribute('data-vhs-id', hotspot.id)
       container.style.width    = '100%'
       container.style.height   = '100%'
       container.style.position = 'relative'

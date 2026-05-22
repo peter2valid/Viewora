@@ -29,6 +29,7 @@
       @hotspot-edit="$emit('hotspot-edit', $event)"
       @hotspot-delete="$emit('hotspot-delete', $event)"
       @hotspot-reposition="$emit('hotspot-reposition', $event)"
+      @hotspot-drag-drop="$emit('hotspot-drag-drop', $event)"
       @update-trace="$emit('update-trace', $event)"
     />
 
@@ -164,6 +165,7 @@ const emit = defineEmits<{
   (e: 'hotspot-edit', id: string): void
   (e: 'hotspot-delete', id: string): void
   (e: 'hotspot-reposition', id: string): void
+  (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'request-upload', file?: File): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()

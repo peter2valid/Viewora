@@ -47,6 +47,7 @@
       @hotspot-edit="handleHotspotEdit"
       @hotspot-delete="deleteHotspot"
       @hotspot-reposition="handleHotspotReposition"
+      @hotspot-drag-drop="handleHotspotDragDrop"
       @request-upload="handleViewerCanvasUpload"
       @update-trace="handleUpdateTrace"
       @cancel-placement="onCancelPlacement"
@@ -586,6 +587,7 @@ const {
   handleHotspotEdit,
   deleteHotspot,
   handleHotspotReposition,
+  handleHotspotDragDrop,
   selectHotspot,
   patchHotspotDraft,
   closeHotspotPanel,

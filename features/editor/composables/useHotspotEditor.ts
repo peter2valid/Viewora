@@ -138,11 +138,14 @@ export function useHotspotEditor(
     else if (d.type === 'url') payload.content = { url: d.url.trim(), button_label: 'Open link' }
     else if (d.type === 'video' || d.type === 'youtube') payload.content = { url: d.url.trim() }
     else if (d.type === 'scene_link') payload.target_scene_id = d.targetSceneId
-    if (d.icon) payload.content = { ...(payload.content ?? {}), icon: d.icon }
-    if (d.scale !== 1) payload.content = { ...(payload.content ?? {}), scale: Number(d.scale) }
-    if (d.hoverScale !== 1.3) payload.content = { ...(payload.content ?? {}), hoverScale: Number(d.hoverScale) }
-    if (d.corners?.length === 4) payload.content = { ...(payload.content ?? {}), corners: d.corners }
-    if (d.imageUrl) payload.content = { ...(payload.content ?? {}), image_url: d.imageUrl }
+    payload.content = {
+      ...(payload.content ?? {}),
+      icon: d.icon || null,
+      scale: Number(d.scale || 1),
+      hoverScale: Number(d.hoverScale || 1.3),
+      corners: d.corners?.length === 4 ? d.corners : null,
+      image_url: d.imageUrl || null
+    }
     return payload
   }
 
@@ -419,11 +422,14 @@ export function useHotspotEditor(
     else if (newType === 'url') patch.content = { url: d.url.trim(), button_label: 'Open link' }
     else if (newType === 'video' || newType === 'youtube') patch.content = { url: d.url.trim() }
     else if (newType === 'scene_link' && d.targetSceneId) patch.target_scene_id = d.targetSceneId
-    if (d.icon) patch.content = { ...(patch.content ?? {}), icon: d.icon }
-    if (d.scale !== 1) patch.content = { ...(patch.content ?? {}), scale: Number(d.scale) }
-    if (d.hoverScale !== 1.3) patch.content = { ...(patch.content ?? {}), hoverScale: Number(d.hoverScale) }
-    if (d.corners) patch.content = { ...(patch.content ?? {}), corners: d.corners }
-    if (d.imageUrl) patch.content = { ...(patch.content ?? {}), image_url: d.imageUrl }
+    patch.content = {
+      ...(patch.content ?? {}),
+      icon: d.icon || null,
+      scale: Number(d.scale || 1),
+      hoverScale: Number(d.hoverScale || 1.3),
+      corners: d.corners?.length === 4 ? d.corners : null,
+      image_url: d.imageUrl || null
+    }
     patch.type = newType
 
     // Optimistic UI update
@@ -449,6 +455,10 @@ export function useHotspotEditor(
         fetchHotspots(sceneId)
         showToast(e?.data?.statusMessage || 'Failed to update hotspot', 'error')
       })
+  }
+
+  function handleHotspotDragDrop(payload: { id: string; yaw: number; pitch: number }) {
+    void repositionHotspot(payload.id, payload.yaw, payload.pitch)
   }
 
   return {
@@ -477,6 +487,7 @@ export function useHotspotEditor(
     onCancelPlacement,
     onQuickEditCancel,
     handleViewerAddHotspot,
+    handleHotspotDragDrop,
     onQuickEditDone,
     onQuickEditMore,
     handleHotspotClick,
