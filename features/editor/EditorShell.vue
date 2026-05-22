@@ -1260,13 +1260,20 @@ async function selectScene(sceneId: string) {
 }
 
 function handleHotspotClick(id: string) {
-  if (!isPreviewMode.value) return
   const hotspot = activeSceneHotspots.value.find(h => h.id === id)
   if (!hotspot) return
+
+  // Scene-link hotspots always navigate — exactly like tapping a chip in the dock.
+  // No preview-mode gate: if you can see a nav arrow, clicking it should move you there.
   if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
     void selectScene(hotspot.targetSceneId)
-    showToast('Moved to linked scene')
-  } else if (hotspot.type === 'url' && hotspot.url) {
+    return
+  }
+
+  // URL / info / media hotspots only act in preview mode so editing clicks don't
+  // accidentally open browser tabs or trigger content panels.
+  if (!isPreviewMode.value) return
+  if (hotspot.type === 'url' && hotspot.url) {
     window.open(hotspot.url, '_blank', 'noopener,noreferrer')
   }
 }
