@@ -371,9 +371,7 @@ header.nav {
 .vhs-info__link:hover { text-decoration: underline; }
 
 /* Hide scene link markers when the dock is open */
-.hide-nav-arrows .vhs-nav,
-.hide-nav-arrows .psv-virtual-tour-arrow,
-.hide-nav-arrows .psv-marker[data-id^="scene_link"] {
+.hide-nav-arrows .psv-virtual-tour-arrow {
   display: none !important;
 }
 
@@ -3618,9 +3616,7 @@ header.nav {
 .vhs-info__link:hover { text-decoration: underline; }
 
 /* Hide scene link markers when the dock is open */
-.hide-nav-arrows .vhs-nav,
-.hide-nav-arrows .psv-virtual-tour-arrow,
-.hide-nav-arrows .psv-marker[data-id^="scene_link"] {
+.hide-nav-arrows .psv-virtual-tour-arrow {
   display: none !important;
 }
 

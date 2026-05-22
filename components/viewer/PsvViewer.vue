@@ -777,7 +777,6 @@ function onViewerClick() {
 :global(.psv-marker) { overflow: visible !important; background: none !important; border: none !important; }
 
 /* Hide arrows when dock is open */
-:global(.hide-nav-arrows .vhs-nav),
 :global(.hide-nav-arrows .psv-virtual-tour-arrow) {
   display: none !important;
 }
