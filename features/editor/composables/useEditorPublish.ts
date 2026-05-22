@@ -16,6 +16,8 @@ export function useEditorPublish(
   fetchHotspots: (sceneId: string) => Promise<void>,
   showToast: (msg: string, type?: 'success' | 'error') => void,
   editorStore: EditorStore,
+  /** Called after settings are saved to backend so the caller can apply them to the live viewer */
+  onSettingsApplied?: (settings: { hfov: number; yaw: number; pitch: number }) => void,
 ) {
   const publishing = ref(false)
   const showSettingsPanel = ref(false)
@@ -201,6 +203,12 @@ export function useEditorPublish(
         apiFetch(`/spaces/${spaceId}`, { method: 'PATCH', body: spacePatch }),
       ])
       showToast('Settings saved')
+      // Apply to the live viewer immediately — no page reload needed
+      onSettingsApplied?.({
+        hfov: settingsDraft.value.hfov,
+        yaw:  settingsDraft.value.yaw,
+        pitch: settingsDraft.value.pitch,
+      })
     } catch (e: any) {
       if (space.value) space.value = prevSpace
       showToast(e?.data?.statusMessage || 'Failed to save settings', 'error')

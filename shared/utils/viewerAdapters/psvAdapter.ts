@@ -179,15 +179,17 @@ function buildPanorama(scene: TourScene) {
       width:   scene.width || 12288,
       cols:    scene.tileCols!,
       rows:    scene.tileRows!,
-      baseUrl: scene.thumbnail_url || scene.imageUrl,
+      baseUrl: scene.imageUrl,
       tileUrl: (col: number, row: number) =>
         `${scene.tileManifestUrl}/${col}_${row}.webp`,
     }
   }
 
   // VirtualTour always uses the tiles adapter, so normalize single images to a 1x1 tile set.
+  // Use 8192 as the default width — modern panoramas are commonly 6000–8000px and PSV uses
+  // this value for internal texture mapping; 4096 causes blurring on high-res sources.
   return {
-    width: scene.width || 4096,
+    width: scene.width || 8192,
     cols: 1,
     rows: 1,
     baseUrl: scene.imageUrl,
@@ -231,7 +233,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter],
+    adapter: [EquirectangularTilesAdapter, {}] as any,
     panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -403,7 +405,9 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       if (handle.isEditing) {
         const overlay       = document.createElement('div')
         overlay.className   = 'psv-hs-spatial-overlay'
-        overlay.innerHTML   = buildMarkerHtml(hotspot)
+        // Show a simple label in the spatial overlay for video markers while editing
+        const labelText = esc(hotspot.label || hotspot.type || '3D Element')
+        overlay.innerHTML = `<span style="font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.9);background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:6px;">${labelText}</span>`
         if (hasCorners) overlay.classList.add('psv-hs-spatial-overlay--mapped')
         container.appendChild(overlay)
       }
@@ -575,8 +579,10 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
           id: h.id,
           position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          size: { width: hScaledSize, height: hScaledSize },
-          anchor: 'center center',
+          // Info card height must be 'auto' — hardcoding 300 clips cards with images/long text.
+          // Nav arrows are fixed-size so they remain consistent regardless of label length.
+          size: isNav ? { width: 60, height: 80 } : { width: 240, height: 'auto' as any },
+          anchor: isNav ? 'bottom center' : 'bottom center',
           scale: isNav ? [0.5, 1.3] : [0.7, 1.0], // size varies with zoom like Google Maps
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
@@ -663,7 +669,7 @@ export async function initVirtualTourViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter],
+    adapter: [EquirectangularTilesAdapter, {}] as any,
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     navbar: false,
@@ -780,4 +786,58 @@ export function openSettings(handle: PsvViewerHandle | null): void {
   try {
     handle.viewer.getPlugin(SettingsPlugin)?.toggleSettings()
   } catch { /* noop */ }
+}
+
+export interface LiveViewerSettings {
+  /** Horizontal field of view in degrees (30–120) */
+  hfov?: number
+  /** Starting yaw in degrees (-180 to 180) */
+  yaw?: number
+  /** Starting pitch in degrees (-90 to 90) */
+  pitch?: number
+}
+
+/**
+ * Apply viewer settings immediately to a live PSV instance without requiring a page reload.
+ * Called by the editor after saving tour settings to the backend.
+ * `animate` controls whether the camera smoothly moves to the new yaw/pitch (default: true).
+ */
+export function applyLiveSettings(
+  handle: PsvViewerHandle | null,
+  settings: LiveViewerSettings,
+  animate = true,
+): void {
+  if (!handle?.viewer) return
+  try {
+    const { hfov, yaw, pitch } = settings
+
+    // Map hfov (horizontal field of view degrees) → PSV zoom level (0–100)
+    // PSV default zoom 50 ≈ 90° HFOV. We use a simple linear approximation:
+    // zoom = clamp(100 - (hfov - 30) * (100 / 90), 0, 100)
+    if (typeof hfov === 'number') {
+      const zoom = Math.round(Math.max(0, Math.min(100, 100 - (hfov - 30) * (100 / 90))))
+      handle.viewer.zoom(zoom)
+    }
+
+    const targetYaw   = typeof yaw   === 'number' ? yaw   : undefined
+    const targetPitch = typeof pitch === 'number' ? pitch : undefined
+
+    if (targetYaw !== undefined || targetPitch !== undefined) {
+      const currentPos = handle.viewer.getPosition?.()
+      if (animate) {
+        handle.viewer.animate({
+          yaw:   targetYaw   ?? currentPos?.yaw   ?? 0,
+          pitch: targetPitch ?? currentPos?.pitch ?? 0,
+          speed: '3rpm',
+        })
+      } else {
+        handle.viewer.rotate({
+          yaw:   targetYaw   ?? currentPos?.yaw   ?? 0,
+          pitch: targetPitch ?? currentPos?.pitch ?? 0,
+        })
+      }
+    }
+  } catch (err) {
+    console.warn('[psvAdapter] applyLiveSettings failed:', err)
+  }
 }

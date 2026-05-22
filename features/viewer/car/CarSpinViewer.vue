@@ -11,21 +11,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
-import { initCarViewer, destroyCar, type CarViewerHandle } from '~/shared/utils/viewerAdapters/carAdapter'
+import { ref } from 'vue'
 
-const props = defineProps<{
+defineProps<{
   frames: string[]
 }>()
 
+// Car viewer integration is pending — placeholder component only.
+// When @cloudimage/360-view is ready, restore initCarViewer / destroyCar from a new adapter.
 const containerEl = ref<HTMLElement | null>(null)
-const handle = ref<CarViewerHandle>(null)
-
-// initCarViewer wired once real @cloudimage/360-view integration begins
-onUnmounted(() => {
-  destroyCar(handle.value)
-  handle.value = null
-})
 </script>
 
 <style scoped>

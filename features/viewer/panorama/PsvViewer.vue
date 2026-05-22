@@ -65,8 +65,10 @@ import {
   getHotspotScreenPos,
   focusHotspot,
   toggleHotspotActive,
+  applyLiveSettings,
   type PsvViewerHandle,
   type InitViewerOptions,
+  type LiveViewerSettings,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 import HotspotActionMenu from '~/features/viewer/panorama/HotspotActionMenu.vue'
 
@@ -345,6 +347,8 @@ watch(
       if (props.hotspots?.length) {
         syncHotspots(handle.value, props.hotspots ?? [])
       }
+      // IMPORTANT: reset the flag so the next real scene change isn't silently blocked.
+      sceneLoadInProgress = false
       return
     }
     
@@ -391,7 +395,9 @@ watch(
   }
 )
 
-// Hotspot sync whenever the list changes — debounced to prevent flicker on fast keystrokes
+// Hotspot sync whenever the list changes.
+// 50ms debounce: fast enough to feel instant, still batches rapid successive updates
+// (e.g. during undo/redo or multi-hotspot imports) to avoid redundant marker rebuilds.
 watch(
   () => props.hotspots,
   (next) => {
@@ -406,7 +412,7 @@ watch(
         console.error('Hotspot sync error:', err)
         // Continue without crashing
       }
-    }, 150)
+    }, 50)
   },
   { deep: true }
 )
@@ -478,6 +484,17 @@ onUnmounted(() => {
   destroy(handle.value)
   handle.value = null
 })
+
+/**
+ * Apply tour settings to the live viewer immediately.
+ * Called by EditorShell after saving settings to the backend so the
+ * user sees the effect without a page reload.
+ */
+function refreshSettings(settings: LiveViewerSettings, animate = true) {
+  applyLiveSettings(handle.value, settings, animate)
+}
+
+defineExpose({ refreshSettings })
 </script>
 
 <style scoped>

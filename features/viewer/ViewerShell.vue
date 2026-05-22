@@ -4,6 +4,7 @@
       <!-- Panorama viewer (all non-automotive spaces) — always mounted to preserve WebGL context -->
       <div v-if="viewerType !== 'car'" class="h-full">
         <PsvViewer
+          ref="psvViewerRef"
           :scene="activeScene"
           :hotspots="safeHotspots(hotspots ?? [])"
           :is-editing="isEditing"
@@ -35,11 +36,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
 import { safeHotspots } from '~/shared/utils/guards'
 import PsvViewer from '~/features/viewer/panorama/PsvViewer.vue'
+import type { LiveViewerSettings } from '~/shared/utils/viewerAdapters/psvAdapter'
 
 const props = defineProps<{
   // Active scene to render
@@ -71,6 +73,15 @@ const viewerType = computed((): 'panorama' | 'car' | 'empty' => {
   if (props.spaceType === 'automotive') return 'car'
   return 'panorama'
 })
+
+const psvViewerRef = ref<InstanceType<typeof PsvViewer> | null>(null)
+
+/** Proxy refreshSettings to the inner PsvViewer — called by the editor after saving settings */
+function refreshSettings(settings: LiveViewerSettings, animate = true) {
+  psvViewerRef.value?.refreshSettings(settings, animate)
+}
+
+defineExpose({ refreshSettings })
 </script>
 
 <style scoped>

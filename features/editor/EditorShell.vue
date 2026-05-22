@@ -35,6 +35,7 @@
 
     <!-- ── Full-viewport viewer ── -->
     <ViewerCanvas
+      ref="viewerCanvasRef"
       :active-scene="activeViewerScene"
       :space-type="space?.space_type"
       :hotspots="activeSceneHotspotsWithPreview"
@@ -601,6 +602,8 @@ const {
   fetchHotspots,
 )
 
+const viewerCanvasRef = ref<InstanceType<typeof ViewerCanvas> | null>(null)
+
 const {
   publishing,
   showSettingsPanel,
@@ -620,6 +623,8 @@ const {
   fetchHotspots,
   showToast,
   editorStore,
+  // Apply settings to the live viewer immediately after a successful save
+  (settings) => viewerCanvasRef.value?.refreshSettings(settings),
 )
 
 let isMounted = false

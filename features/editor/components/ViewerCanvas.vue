@@ -14,6 +14,7 @@
     -->
     <!-- Panorama viewer — always mounted so PSV instance survives scene switches -->
     <EditorCanvas
+      ref="editorCanvasRef"
       :visible="hasScene"
       :active-scene="activeScene"
       :space-type="spaceType"
@@ -142,6 +143,7 @@ import EditorCanvas from '~/features/editor/EditorCanvas.vue'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
+import type { LiveViewerSettings } from '~/shared/utils/viewerAdapters/psvAdapter'
 
 const props = defineProps<{
   activeScene: TourScene | null
@@ -231,6 +233,14 @@ onBeforeUnmount(() => {
     hotspotToastId = null
   }
 })
+
+const editorCanvasRef = ref<InstanceType<typeof EditorCanvas> | null>(null)
+
+function refreshSettings(settings: LiveViewerSettings, animate = true) {
+  editorCanvasRef.value?.refreshSettings(settings, animate)
+}
+
+defineExpose({ refreshSettings })
 </script>
 
 <style scoped>

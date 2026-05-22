@@ -2,6 +2,7 @@
   <!-- canvas is always mounted — v-show only toggles display, never destroys PSV -->
   <div v-show="visible" class="canvas">
     <ViewerShell
+      ref="viewerShellRef"
       :active-scene="activeScene"
       :space-type="spaceType"
       :hotspots="hotspots"
@@ -21,9 +22,11 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
+import type { LiveViewerSettings } from '~/shared/utils/viewerAdapters/psvAdapter'
 
 defineProps<{
   visible: boolean
@@ -45,6 +48,14 @@ const emit = defineEmits<{
   (e: 'hotspot-reposition', id: string): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
 }>()
+
+const viewerShellRef = ref<InstanceType<typeof ViewerShell> | null>(null)
+
+function refreshSettings(settings: LiveViewerSettings, animate = true) {
+  viewerShellRef.value?.refreshSettings(settings, animate)
+}
+
+defineExpose({ refreshSettings })
 </script>
 
 <style scoped>
