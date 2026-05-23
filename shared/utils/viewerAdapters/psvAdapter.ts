@@ -29,6 +29,34 @@ export interface PsvClickPayload {
   screenY: number
 }
 
+export type ViewerPerformanceMode = 'auto' | 'full' | 'lite'
+
+export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'auto'> {
+  if (typeof window === 'undefined') return 'full'
+
+  const nav = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string; downlink?: number }
+    mozConnection?: { saveData?: boolean; effectiveType?: string; downlink?: number }
+    webkitConnection?: { saveData?: boolean; effectiveType?: string; downlink?: number }
+    deviceMemory?: number
+    hardwareConcurrency?: number
+  }
+
+  const connection = nav.connection || nav.mozConnection || nav.webkitConnection
+  const saveData = !!connection?.saveData
+  const effectiveType = connection?.effectiveType || ''
+  const slowConnection = effectiveType === 'slow-2g' || effectiveType === '2g' || (typeof connection?.downlink === 'number' && connection.downlink < 1.2)
+  const lowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory > 0 && nav.deviceMemory <= 4
+  const lowCores = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 4
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+
+  if (saveData || slowConnection) return 'lite'
+  if (reducedMotion && (lowMemory || lowCores)) return 'lite'
+  if (lowMemory && lowCores) return 'lite'
+
+  return 'full'
+}
+
 /** Centralized Signature: Every visual property must be represented here */
 function esc(s: string): string {
   if (!s) return ''
@@ -168,6 +196,7 @@ export interface InitViewerOptions {
   isEditing?: boolean
   onMarkerEnter?: (id: string) => void
   onMarkerLeave?: (id: string) => void
+  performanceMode?: ViewerPerformanceMode
 }
 
 /** Returns the PSV panorama config — tiles only when ALL of: url, cols, rows, tilesReady */
@@ -202,7 +231,7 @@ export async function initViewer(
   scene: TourScene,
   options: InitViewerOptions = {},
 ): Promise<PsvViewerHandle> {
-  const { onReady, onError, onClick, onMarkerClick, isEditing = false, onMarkerEnter, onMarkerLeave } = options
+  const { onReady, onError, onClick, onMarkerClick, isEditing = false, onMarkerEnter, onMarkerLeave, performanceMode = 'auto' } = options
 
   const isTouchDevice =
     typeof window !== 'undefined' &&
@@ -211,20 +240,24 @@ export async function initViewer(
   const hasTiles =
     canUseTiledPanorama(scene)
 
+  const resolvedPerformanceMode = performanceMode === 'auto' ? detectViewerPerformanceMode() : performanceMode
+  const isLiteMode = resolvedPerformanceMode === 'lite'
+
   const plugins: any[] = [
     [MarkersPlugin, { clickEventOnMarker: false }],
   ]
 
   plugins.push([SettingsPlugin, {}])
-  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
-  plugins.push([AutorotatePlugin, {
-    autorotateSpeed: '2rpm',
-    autorotatePitch: scene.settings.pitch_default ?? 0,
-    autostartDelay: 3000,
-    autostartOnIdle: false,
-  }])
-
-  plugins.push([StereoPlugin, {}])
+  if (!isLiteMode) {
+    plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
+    plugins.push([AutorotatePlugin, {
+      autorotateSpeed: '2rpm',
+      autorotatePitch: scene.settings.pitch_default ?? 0,
+      autostartDelay: 3000,
+      autostartOnIdle: false,
+    }])
+    plugins.push([StereoPlugin, {}])
+  }
 
   // Prevent looking at poles — keeps the tour feeling grounded
   
@@ -248,7 +281,7 @@ export async function initViewer(
   viewer.addEventListener('ready', () => {
     onReady?.()
     if (!isEditing) {
-      if (scene.settings.auto_rotate_enabled) {
+      if (!isLiteMode && scene.settings.auto_rotate_enabled) {
         viewer.getPlugin(AutorotatePlugin)?.start?.()
       }
       viewer.animate({
@@ -610,6 +643,7 @@ export interface VirtualTourInitOptions {
   onNodeChanged?: (nodeId: string) => void
   onMarkerClick?: (hotspotId: string, type: string, url?: string) => void
   autoRotate?: boolean
+  performanceMode?: ViewerPerformanceMode
 }
 
 /**
@@ -623,7 +657,7 @@ export async function initVirtualTourViewer(
   startNodeId: string,
   options: VirtualTourInitOptions = {},
 ): Promise<PsvViewerHandle> {
-  const { onReady, onError, onNodeChanged, onMarkerClick, autoRotate } = options
+  const { onReady, onError, onNodeChanged, onMarkerClick, autoRotate, performanceMode = 'auto' } = options
 
   const startScene = scenes.find(s => s.id === startNodeId) || scenes[0]
   if (!startScene) throw new Error('No scenes to display')
@@ -631,6 +665,9 @@ export async function initVirtualTourViewer(
   const isTouchDevice =
     typeof window !== 'undefined' &&
     ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+
+  const resolvedPerformanceMode = performanceMode === 'auto' ? detectViewerPerformanceMode() : performanceMode
+  const isLiteMode = resolvedPerformanceMode === 'lite'
 
   const nodes = buildTourNodes(scenes, hotspotsByScene)
 
@@ -640,7 +677,7 @@ export async function initVirtualTourViewer(
     [SettingsPlugin, {}],
   ]
 
-  if (autoRotate) {
+  if (autoRotate && !isLiteMode) {
     plugins.push([AutorotatePlugin, {
       autorotateSpeed: '2rpm',
       autorotatePitch: 0,
@@ -649,9 +686,11 @@ export async function initVirtualTourViewer(
     }])
   }
 
-  // Always include Gyroscope — StereoPlugin (VR mode) requires it for head tracking
-  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
-  plugins.push([StereoPlugin])
+  // Only include gyro/stereo in the full viewer. Lite mode skips VR to stay smooth on weak devices.
+  if (!isLiteMode) {
+    plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
+    plugins.push([StereoPlugin])
+  }
   
 
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
@@ -687,9 +726,9 @@ export async function initVirtualTourViewer(
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
   const settings: any = viewer.getPlugin(SettingsPlugin)
-  const gyroscope: any = viewer.getPlugin(GyroscopePlugin)
-  const stereo: any = viewer.getPlugin(StereoPlugin)
-  const autorotate: any = autoRotate ? viewer.getPlugin(AutorotatePlugin) : null
+  const gyroscope: any = !isLiteMode ? viewer.getPlugin(GyroscopePlugin) : null
+  const stereo: any = !isLiteMode ? viewer.getPlugin(StereoPlugin) : null
+  const autorotate: any = autoRotate && !isLiteMode ? viewer.getPlugin(AutorotatePlugin) : null
 
   // ── Wire Settings panel toggles ────────────────────────────
   if (settings) {

@@ -2,7 +2,7 @@
   <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden }" @click="onViewerClick">
     <!-- Floating viewer rail (CloudPano-style controls) -->
     <div class="viewer-rail" aria-label="Viewer controls">
-      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" @click.stop="toggleAutoRotate">
+      <button v-if="!isLiteMode" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" @click.stop="toggleAutoRotate">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 5v4" />
           <path d="M12 15v4" />
@@ -42,12 +42,22 @@
         </svg>
       </button>
 
-      <button class="viewer-rail__btn" type="button" aria-label="VR mode" @click.stop="toggleStereoView">
+      <button v-if="!isLiteMode" class="viewer-rail__btn" type="button" aria-label="VR mode" @click.stop="toggleStereoView">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
           <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
           <path d="M11 13h2" />
         </svg>
+      </button>
+    </div>
+
+    <div v-if="isLiteMode" class="viewer-quality-banner" role="status" aria-live="polite">
+      <div class="viewer-quality-banner__copy">
+        <p class="viewer-quality-banner__title">Low bandwidth mode</p>
+        <p class="viewer-quality-banner__msg">Showing reduced quality so the viewer stays responsive.</p>
+      </div>
+      <button class="viewer-quality-banner__btn" type="button" @click.stop="loadFullQuality">
+        Load full quality
       </button>
     </div>
 
@@ -90,7 +100,6 @@
       @loaded="emit('loaded')"
       @error="emit('error', $event)"
       @hotspot-click="emit('hotspot-click', $event)"
-      @loaded="autoRotateActive = props.imageUrl ? false : autoRotateActive"
     />
 
     <!-- ── Scene dock (both modes) ── -->
@@ -127,6 +136,7 @@ import {
   vtToggleMarkerActive,
   focusHotspot,
   destroy,
+  detectViewerPerformanceMode,
   toggleStereo,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
@@ -165,11 +175,13 @@ const dockCollapsed = ref(false)
 const chromeHidden = ref(false)
 const actionMessage = ref('')
 const autoRotateActive = ref(false)
+const viewerPerformanceMode = ref<'lite' | 'full'>('full')
 let actionTimer: ReturnType<typeof setTimeout> | null = null
 let vtInitVersion = 0
 
 // ── Determines which mode we're in ────────────────────────────────────────
 const hasTourData = computed(() => (props.tour?.scenes?.length ?? 0) > 0)
+const isLiteMode = computed(() => viewerPerformanceMode.value === 'lite')
 
 // ── Scene list from tour ───────────────────────────────────────────────────
 const tourScenes = computed<any[]>(() => {
@@ -185,12 +197,18 @@ const tourLoadKey = computed(() => {
   if (!hasTourData.value) return ''
 
   const sceneKey = tourScenes.value.map((scene: any) => scene?.id ?? '').filter(Boolean).join('|')
+  const sceneImageKey = tourScenes.value.map((scene: any) => {
+    if (!scene) return ''
+    return isLiteMode.value
+      ? (scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || '')
+      : (scene.raw_image_url || scene.tile_manifest_url || scene.thumbnail_url || '')
+  }).join('|')
   const hotspotKey = tourScenes.value
     .map((scene: any) => `${scene?.id ?? ''}:${Array.isArray(scene?.hotspots) ? scene.hotspots.length : 0}`)
     .join('|')
   const spaceKey = props.tour?.space?.id ?? props.tour?.space?.slug ?? ''
 
-  return `${spaceKey}:${sceneKey}:${hotspotKey}`
+  return `${spaceKey}:${sceneKey}:${sceneImageKey}:${hotspotKey}:${viewerPerformanceMode.value}`
 })
 
 const activeSceneId = computed(() =>
@@ -221,12 +239,19 @@ const singleScene = computed<TourScene | null>(() => {
   }
 })
 
+function sceneImageUrl(scene: any): string {
+  if (!scene) return ''
+  return isLiteMode.value
+    ? (scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || '')
+    : (scene.raw_image_url || scene.tile_manifest_url || scene.thumbnail_url || '')
+}
+
 // ── Map raw API scene → TourScene (for passing to initVirtualTourViewer) ──
 function mapRawScene(s: any): TourScene {
   const settings360 = props.tour?.space?.property_360_settings?.[0]
   return {
     id: s.id,
-    imageUrl: s.raw_image_url || s.thumbnail_url || '',
+    imageUrl: sceneImageUrl(s),
     tileManifestUrl: s.tile_manifest_url || undefined,
     tileCols: s.tile_cols ?? undefined,
     tileRows: s.tile_rows ?? undefined,
@@ -283,6 +308,7 @@ async function initVT() {
       startNodeId,
       {
         autoRotate,
+        performanceMode: viewerPerformanceMode.value,
         onReady: () => {
           if (version !== vtInitVersion) return
           vtReady.value = true
@@ -328,6 +354,18 @@ async function initVT() {
     if (version !== vtInitVersion) return
     vtError.value = err?.message || 'Viewer initialisation failed'
     emit('error', err instanceof Error ? err : new Error(String(err)))
+  }
+}
+
+function loadFullQuality() {
+  viewerPerformanceMode.value = 'full'
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage.setItem('viewora-viewer-performance-mode', 'full')
+    } catch { /* noop */ }
+  }
+  if (hasTourData.value) {
+    setTimeout(() => initVT(), 0)
   }
 }
 
@@ -407,6 +445,19 @@ async function handleDockSelect(sceneId: string) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 onMounted(() => {
+  if (typeof window !== 'undefined') {
+    try {
+      const savedMode = window.sessionStorage.getItem('viewora-viewer-performance-mode')
+      viewerPerformanceMode.value = savedMode === 'lite' || savedMode === 'full'
+        ? savedMode
+        : detectViewerPerformanceMode()
+    } catch {
+      viewerPerformanceMode.value = detectViewerPerformanceMode()
+    }
+  } else {
+    viewerPerformanceMode.value = detectViewerPerformanceMode()
+  }
+
   if (hasTourData.value) {
     // wait one tick for vtContainerEl to be rendered by ClientOnly
     setTimeout(() => initVT(), 0)
@@ -598,6 +649,64 @@ watch(
   transform: scale(0.96);
 }
 
+.viewer-quality-banner {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  z-index: 36;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(100vw - 24px, 680px);
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(7, 10, 16, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.viewer-quality-banner__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.viewer-quality-banner__title {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 2px;
+}
+
+.viewer-quality-banner__msg {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.viewer-quality-banner__btn {
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.viewer-quality-banner__btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
 .viewer-action-badge {
   position: absolute;
   right: 18px;
@@ -644,6 +753,28 @@ watch(
     top: auto;
     bottom: 42px;
     max-width: 180px;
+  }
+
+  .viewer-quality-banner {
+    top: 10px;
+    width: calc(100vw - 20px);
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 14px;
+  }
+
+  .viewer-quality-banner__title {
+    font-size: 11px;
+  }
+
+  .viewer-quality-banner__msg {
+    font-size: 10px;
+  }
+
+  .viewer-quality-banner__btn {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 10px;
   }
 }
 
