@@ -8,8 +8,8 @@
         v-if="blurCover"
         :src="blurCover"
         class="tour-page-loading-bg object-cover"
-        width="100"
-        height="50"
+        width="400"
+        height="200"
         format="webp"
         quality="30"
         loading="eager"
@@ -18,7 +18,7 @@
       <div class="tour-page-loading-scrim" aria-hidden="true" />
       <div class="tour-page-loading-center">
         <div class="loading-logo-container">
-          <img src="/globe-icon.png" class="loading-logo" alt="" />
+          <NuxtImg src="/globe-icon.png" width="76" height="76" class="loading-logo" alt="" />
         </div>
         <p class="loading-label">Loading Preview</p>
       </div>
@@ -56,7 +56,7 @@
     <template v-else-if="state === 'ready' && tour">
 
       <!-- 360 Viewer — fills the screen -->
-      <ViewerPsvViewer
+      <LazyViewerPsvViewer
         :tour="tour"
         :share-url="shareUrl"
       />
@@ -70,8 +70,10 @@
         class="viewora-free-brand"
         aria-label="Visit Viewora"
       >
-        <img
+        <NuxtImg
           src="/globe-icon.png"
+          width="76"
+          height="76"
           class="viewora-free-brand__logo"
           alt=""
         />
@@ -80,9 +82,12 @@
 
       <!-- Premium tier: User's custom branding -->
       <div v-else class="brand-card" aria-label="Tour branding">
-        <img
+        <NuxtImg
           v-if="tour.space?.logo_url"
           :src="tour.space.logo_url"
+          width="140"
+          height="52"
+          fit="contain"
           class="brand-card__logo"
           :alt="tour.space.title"
         />

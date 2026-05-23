@@ -1,19 +1,21 @@
 <template>
   <div class="tour-page">
     <div v-if="pending" class="tour-page-loading" aria-label="Loading tour">
-      <img
+      <NuxtImg
         v-if="blurCover"
         :src="blurCover"
         class="tour-page-loading-bg object-cover"
-        width="100"
-        height="50"
+        width="400"
+        height="200"
+        format="webp"
+        quality="30"
         loading="eager"
         aria-hidden="true"
       />
       <div class="tour-page-loading-scrim" aria-hidden="true" />
       <div class="tour-page-loading-center">
         <div class="loading-logo-container">
-          <img src="/globe-icon.png" class="loading-logo" alt="" />
+          <NuxtImg src="/globe-icon.png" width="76" height="76" class="loading-logo" alt="" />
         </div>
         <p class="loading-label">Loading Tour</p>
       </div>
@@ -46,7 +48,7 @@
     </div>
 
     <template v-else-if="state === 'ready' && tour">
-      <PsvViewer
+      <LazyViewerPsvViewer
         :tour="tour"
         :share-url="shareUrl"
         @chrome-toggle="viewerChromeHidden = $event"
@@ -63,8 +65,10 @@
         aria-label="Visit Viewora Virtual Tour Software"
         title="Viewora Virtual Tour Software"
       >
-        <img
+        <NuxtImg
           src="/globe-icon.png"
+          width="76"
+          height="76"
           class="viewora-free-brand__logo"
           alt="Viewora Virtual Tour Software Logo"
         />
@@ -73,9 +77,12 @@
 
       <!-- Premium tier: User's custom branding -->
       <div v-else-if="!viewerChromeHidden" class="brand-card" aria-label="Tour branding">
-        <img
+        <NuxtImg
           v-if="tour.space?.logo_url"
           :src="tour.space.logo_url"
+          width="140"
+          height="52"
+          fit="contain"
           class="brand-card__logo"
           :alt="tour.space.title"
         />
@@ -97,7 +104,7 @@ definePageMeta({ layout: false })
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
-import PsvViewer from '~/components/viewer/PsvViewer.vue'
+// PsvViewer is auto-imported as LazyPsvViewer by Nuxt when used in template
 
 const { public: { appUrl, marketingUrl, gaMeasurementId } } = useRuntimeConfig()
 const { apiFetch } = useApiFetch()

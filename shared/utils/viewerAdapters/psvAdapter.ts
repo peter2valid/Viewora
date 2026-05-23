@@ -197,6 +197,7 @@ export interface InitViewerOptions {
   onMarkerEnter?: (id: string) => void
   onMarkerLeave?: (id: string) => void
   performanceMode?: ViewerPerformanceMode
+  loadingImg?: string
 }
 
 /** Returns the PSV panorama config — tiles only when ALL of: url, cols, rows, tilesReady */
@@ -231,7 +232,17 @@ export async function initViewer(
   scene: TourScene,
   options: InitViewerOptions = {},
 ): Promise<PsvViewerHandle> {
-  const { onReady, onError, onClick, onMarkerClick, isEditing = false, onMarkerEnter, onMarkerLeave, performanceMode = 'auto' } = options
+  const { 
+    onReady, 
+    onError, 
+    onClick, 
+    onMarkerClick, 
+    isEditing = false, 
+    onMarkerEnter, 
+    onMarkerLeave, 
+    performanceMode = 'auto',
+    loadingImg = '/images/viewora-logo.png'
+  } = options
 
   const isTouchDevice =
     typeof window !== 'undefined' &&
@@ -269,7 +280,7 @@ export async function initViewer(
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     loadingTxt: 'Loading...',
-    loadingImg: '/images/viewora-logo.png',
+    loadingImg,
     navbar: false,
     touchmoveTwoFingers: false,
     fisheye: false,
@@ -644,6 +655,7 @@ export interface VirtualTourInitOptions {
   onMarkerClick?: (hotspotId: string, type: string, url?: string) => void
   autoRotate?: boolean
   performanceMode?: ViewerPerformanceMode
+  loadingImg?: string
 }
 
 /**
@@ -657,7 +669,15 @@ export async function initVirtualTourViewer(
   startNodeId: string,
   options: VirtualTourInitOptions = {},
 ): Promise<PsvViewerHandle> {
-  const { onReady, onError, onNodeChanged, onMarkerClick, autoRotate, performanceMode = 'auto' } = options
+  const { 
+    onReady, 
+    onError, 
+    onNodeChanged, 
+    onMarkerClick, 
+    autoRotate, 
+    performanceMode = 'auto',
+    loadingImg = '/images/viewora-logo.png'
+  } = options
 
   const startScene = scenes.find(s => s.id === startNodeId) || scenes[0]
   if (!startScene) throw new Error('No scenes to display')
@@ -716,7 +736,7 @@ export async function initVirtualTourViewer(
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     loadingTxt: 'Loading...',
-    loadingImg: '/images/viewora-logo.png',
+    loadingImg,
     navbar: false,
     touchmoveTwoFingers: false,
     fisheye: false,

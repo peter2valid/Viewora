@@ -125,6 +125,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useImage } from '#imports'
 import type { Hotspot } from '~/domain/hotspot'
 import type { TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
@@ -148,6 +149,9 @@ const props = defineProps<{
   isEditing?: boolean
   hotspots?: Hotspot[]
 }>()
+
+const img = useImage()
+const optimizedLoadingLogo = computed(() => img('/globe-icon.png', { width: 80, height: 80, format: 'webp' }))
 
 const emit = defineEmits<{
   (e: 'loaded'): void
@@ -309,6 +313,7 @@ async function initVT() {
       {
         autoRotate,
         performanceMode: viewerPerformanceMode.value,
+        loadingImg: optimizedLoadingLogo.value,
         onReady: () => {
           if (version !== vtInitVersion) return
           vtReady.value = true
