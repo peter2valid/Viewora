@@ -1,5 +1,47 @@
 <template>
-  <div class="public-viewer" @click="onViewerClick">
+  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden }" @click="onViewerClick">
+    <!-- Floating viewer rail (CloudPano-style controls) -->
+    <div class="viewer-rail" aria-label="Viewer controls">
+      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': chromeHidden }" type="button" aria-label="Toggle viewer chrome" :aria-pressed="chromeHidden" @click.stop="toggleChrome">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3.2" />
+        </svg>
+      </button>
+
+      <button class="viewer-rail__btn" type="button" aria-label="Share tour" @click.stop="shareTour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 8a3 3 0 1 0-2.83-4" />
+          <path d="M8 12l8-4" />
+          <path d="M8 12l8 4" />
+          <circle cx="6" cy="12" r="2.5" />
+          <circle cx="18" cy="6" r="2.5" />
+          <circle cx="18" cy="18" r="2.5" />
+        </svg>
+      </button>
+
+      <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" @click.stop="toggleFullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 3H3v5" />
+          <path d="M16 3h5v5" />
+          <path d="M21 16v5h-5" />
+          <path d="M3 16v5h5" />
+        </svg>
+      </button>
+
+      <button class="viewer-rail__btn" type="button" aria-label="VR mode" @click.stop="toggleStereoView">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
+          <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
+          <path d="M11 13h2" />
+        </svg>
+      </button>
+    </div>
+
+    <div v-if="actionMessage" class="viewer-action-badge" role="status" aria-live="polite">
+      {{ actionMessage }}
+    </div>
+
     <!-- ── VirtualTour mode: full multi-scene tour ── -->
     <ClientOnly v-if="hasTourData">
       <div
@@ -28,6 +70,7 @@
     <!-- ── Single panorama mode: direct imageUrl prop ── -->
     <ViewerShell
       v-if="!hasTourData"
+      ref="viewerShellRef"
       :active-scene="singleScene"
       :hotspots="props.hotspots"
       :is-editing="false"
@@ -38,7 +81,7 @@
 
     <!-- ── Scene dock (both modes) ── -->
     <GlassDock
-      v-if="sceneCount > 0"
+      v-if="sceneCount > 0 && !chromeHidden"
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
       :active-id="activeSceneId"
@@ -68,9 +111,9 @@ import {
   initVirtualTourViewer,
   vtGoToNode,
   vtToggleMarkerActive,
-  openSettings,
   focusHotspot,
   destroy,
+  toggleStereo,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 
@@ -92,6 +135,9 @@ const emit = defineEmits<{
 
 const { $posthog } = useNuxtApp()
 
+const viewerRootEl = ref<HTMLElement | null>(null)
+const viewerShellRef = ref<InstanceType<typeof ViewerShell> | null>(null)
+
 // ── VirtualTour state ──────────────────────────────────────────────────────
 const vtContainerEl = ref<HTMLElement | null>(null)
 const vtHandle = ref<PsvViewerHandle | null>(null)
@@ -101,6 +147,9 @@ const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
 const dockCollapsed = ref(false)
+const chromeHidden = ref(false)
+const actionMessage = ref('')
+let actionTimer: ReturnType<typeof setTimeout> | null = null
 let vtInitVersion = 0
 
 // ── Determines which mode we're in ────────────────────────────────────────
@@ -383,6 +432,74 @@ function onViewerClick() {
     for (const h of hotspots) vtToggleMarkerActive(vtHandle.value, h.id, false)
   }
 }
+
+function showActionMessage(message: string) {
+  actionMessage.value = message
+  if (actionTimer) clearTimeout(actionTimer)
+  actionTimer = setTimeout(() => {
+    actionMessage.value = ''
+    actionTimer = null
+  }, 1800)
+}
+
+function toggleChrome() {
+  chromeHidden.value = !chromeHidden.value
+  showActionMessage(chromeHidden.value ? 'Controls hidden' : 'Controls shown')
+}
+
+async function shareTour() {
+  if (typeof window === 'undefined') return
+  const shareTarget = props.shareUrl || window.location.href
+  const title = props.tour?.space?.title || 'Viewora tour'
+
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, url: shareTarget })
+      showActionMessage('Share sheet opened')
+      return
+    }
+  } catch { /* user cancelled or share failed */ }
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareTarget)
+      showActionMessage('Link copied')
+      return
+    }
+  } catch { /* noop */ }
+
+  showActionMessage('Share unavailable')
+}
+
+async function toggleFullscreen() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+      showActionMessage('Exited fullscreen')
+      return
+    }
+
+    const target = viewerRootEl.value
+    if (target?.requestFullscreen) {
+      await target.requestFullscreen()
+      showActionMessage('Entered fullscreen')
+    } else {
+      showActionMessage('Fullscreen unavailable')
+    }
+  } catch {
+    showActionMessage('Fullscreen unavailable')
+  }
+}
+
+function toggleStereoView() {
+  if (hasTourData.value) {
+    if (vtHandle.value) toggleStereo(vtHandle.value)
+    return
+  }
+
+  viewerShellRef.value?.toggleStereo?.()
+}
 </script>
 
 <style scoped>
@@ -392,6 +509,105 @@ function onViewerClick() {
   height: 100%;
   background: #0a0a0a;
   overflow: hidden;
+}
+
+.viewer-rail {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.viewer-rail__btn {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(10, 12, 20, 0.66);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  color: rgba(255, 255, 255, 0.68);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, color 140ms ease, border-color 140ms ease;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.viewer-rail__btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.viewer-rail__btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.viewer-rail__btn--active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.viewer-rail__btn:active {
+  transform: scale(0.96);
+}
+
+.viewer-action-badge {
+  position: absolute;
+  right: 18px;
+  top: calc(50% + 210px);
+  z-index: 36;
+  max-width: 220px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(8, 10, 16, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.public-viewer--chrome-hidden :deep(.dock-glass-superdark) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .viewer-rail {
+    right: 10px;
+    top: auto;
+    bottom: 92px;
+    transform: none;
+    gap: 8px;
+  }
+
+  .viewer-rail__btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .viewer-action-badge {
+    right: 10px;
+    top: auto;
+    bottom: 42px;
+    max-width: 180px;
+  }
 }
 
 /* ── VirtualTour canvas ─────────────────────────────────── */

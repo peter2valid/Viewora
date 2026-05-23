@@ -81,7 +81,15 @@ function refreshSettings(settings: LiveViewerSettings, animate = true) {
   psvViewerRef.value?.refreshSettings(settings, animate)
 }
 
-defineExpose({ refreshSettings })
+function toggleSettings() {
+  psvViewerRef.value?.toggleViewerSettings()
+}
+
+function toggleStereo() {
+  psvViewerRef.value?.toggleViewerStereo()
+}
+
+defineExpose({ refreshSettings, toggleSettings, toggleStereo })
 </script>
 
 <style scoped>

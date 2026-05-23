@@ -215,6 +215,8 @@ export async function initViewer(
     [MarkersPlugin, { clickEventOnMarker: false }],
   ]
 
+  plugins.push([SettingsPlugin, {}])
+
   if (scene.settings.auto_rotate_enabled) {
     plugins.push([AutorotatePlugin, {
       autorotateSpeed: '2rpm',
@@ -227,6 +229,8 @@ export async function initViewer(
   if (isTouchDevice) {
     plugins.push([GyroscopePlugin, { touchmove: true, absolutePosition: true }])
   }
+
+  plugins.push([StereoPlugin, {}])
 
   // Prevent looking at poles — keeps the tour feeling grounded
   
@@ -791,6 +795,22 @@ export function openSettings(handle: PsvViewerHandle | null): void {
   try {
     handle.viewer.getPlugin(SettingsPlugin)?.toggleSettings()
   } catch { /* noop */ }
+}
+
+export function toggleStereo(handle: PsvViewerHandle | null): void {
+  if (!handle?.viewer) return
+  try {
+    handle.viewer.getPlugin(StereoPlugin)?.toggle()
+  } catch { /* noop */ }
+}
+
+export function isStereoEnabled(handle: PsvViewerHandle | null): boolean {
+  if (!handle?.viewer) return false
+  try {
+    return !!handle.viewer.getPlugin(StereoPlugin)?.isEnabled?.()
+  } catch {
+    return false
+  }
 }
 
 export interface LiveViewerSettings {

@@ -66,6 +66,8 @@ import {
   focusHotspot,
   toggleHotspotActive,
   applyLiveSettings,
+  openSettings,
+  toggleStereo,
   type PsvViewerHandle,
   type InitViewerOptions,
   type LiveViewerSettings,
@@ -599,7 +601,15 @@ function refreshSettings(settings: LiveViewerSettings, animate = true) {
   applyLiveSettings(handle.value, settings, animate)
 }
 
-defineExpose({ refreshSettings })
+function toggleViewerSettings() {
+  openSettings(handle.value)
+}
+
+function toggleViewerStereo() {
+  toggleStereo(handle.value)
+}
+
+defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerStereo })
 </script>
 
 <style scoped>
