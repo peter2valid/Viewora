@@ -67,6 +67,7 @@ import {
   toggleHotspotActive,
   applyLiveSettings,
   openSettings,
+  toggleAutorotate,
   toggleStereo,
   type PsvViewerHandle,
   type InitViewerOptions,
@@ -605,11 +606,15 @@ function toggleViewerSettings() {
   openSettings(handle.value)
 }
 
+function toggleViewerAutorotate() {
+  toggleAutorotate(handle.value)
+}
+
 function toggleViewerStereo() {
   toggleStereo(handle.value)
 }
 
-defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerStereo })
+defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, toggleViewerStereo })
 </script>
 
 <style scoped>

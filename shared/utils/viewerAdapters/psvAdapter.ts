@@ -216,15 +216,12 @@ export async function initViewer(
   ]
 
   plugins.push([SettingsPlugin, {}])
-
-  if (scene.settings.auto_rotate_enabled) {
-    plugins.push([AutorotatePlugin, {
-      autorotateSpeed: '2rpm',
-      autorotatePitch: scene.settings.pitch_default ?? 0,
-      autostartDelay: 3000,
-      autostartOnIdle: true,
-    }])
-  }
+  plugins.push([AutorotatePlugin, {
+    autorotateSpeed: '2rpm',
+    autorotatePitch: scene.settings.pitch_default ?? 0,
+    autostartDelay: 3000,
+    autostartOnIdle: false,
+  }])
 
   if (isTouchDevice) {
     plugins.push([GyroscopePlugin, { touchmove: true, absolutePosition: true }])
@@ -254,6 +251,9 @@ export async function initViewer(
   viewer.addEventListener('ready', () => {
     onReady?.()
     if (!isEditing) {
+      if (scene.settings.auto_rotate_enabled) {
+        viewer.getPlugin(AutorotatePlugin)?.start?.()
+      }
       viewer.animate({
         yaw: scene.settings.yaw_default,
         pitch: scene.settings.pitch_default,
@@ -808,6 +808,22 @@ export function isStereoEnabled(handle: PsvViewerHandle | null): boolean {
   if (!handle?.viewer) return false
   try {
     return !!handle.viewer.getPlugin(StereoPlugin)?.isEnabled?.()
+  } catch {
+    return false
+  }
+}
+
+export function toggleAutorotate(handle: PsvViewerHandle | null): void {
+  if (!handle?.viewer) return
+  try {
+    handle.viewer.getPlugin(AutorotatePlugin)?.toggle()
+  } catch { /* noop */ }
+}
+
+export function isAutorotateEnabled(handle: PsvViewerHandle | null): boolean {
+  if (!handle?.viewer) return false
+  try {
+    return !!handle.viewer.getPlugin(AutorotatePlugin)?.isEnabled?.()
   } catch {
     return false
   }

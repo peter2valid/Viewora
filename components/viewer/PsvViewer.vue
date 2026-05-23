@@ -2,6 +2,19 @@
   <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden }" @click="onViewerClick">
     <!-- Floating viewer rail (CloudPano-style controls) -->
     <div class="viewer-rail" aria-label="Viewer controls">
+      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" @click.stop="toggleAutoRotate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 5v4" />
+          <path d="M12 15v4" />
+          <path d="M5 12h4" />
+          <path d="M15 12h4" />
+          <path d="M8 8l2.8 2.8" />
+          <path d="M13.2 13.2 16 16" />
+          <path d="M8 16l2.8-2.8" />
+          <path d="M13.2 10.8 16 8" />
+        </svg>
+      </button>
+
       <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': chromeHidden }" type="button" aria-label="Toggle viewer chrome" :aria-pressed="chromeHidden" @click.stop="toggleChrome">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
@@ -77,6 +90,7 @@
       @loaded="emit('loaded')"
       @error="emit('error', $event)"
       @hotspot-click="emit('hotspot-click', $event)"
+      @loaded="autoRotateActive = props.imageUrl ? false : autoRotateActive"
     />
 
     <!-- ── Scene dock (both modes) ── -->
@@ -150,6 +164,7 @@ const vtActiveNodeId = ref('')
 const dockCollapsed = ref(false)
 const chromeHidden = ref(false)
 const actionMessage = ref('')
+const autoRotateActive = ref(false)
 let actionTimer: ReturnType<typeof setTimeout> | null = null
 let vtInitVersion = 0
 
@@ -271,6 +286,7 @@ async function initVT() {
         onReady: () => {
           if (version !== vtInitVersion) return
           vtReady.value = true
+          autoRotateActive.value = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
           vtActiveNodeId.value = startNodeId
           emit('loaded')
         },
@@ -449,6 +465,18 @@ function toggleChrome() {
   showActionMessage(chromeHidden.value ? 'Controls hidden' : 'Controls shown')
 }
 
+function toggleAutoRotate() {
+  autoRotateActive.value = !autoRotateActive.value
+
+  if (hasTourData.value) {
+    if (vtHandle.value) toggleAutorotate(vtHandle.value)
+  } else {
+    viewerShellRef.value?.toggleAutorotate?.()
+  }
+
+  showActionMessage(autoRotateActive.value ? 'Auto rotate on' : 'Auto rotate off')
+}
+
 async function shareTour() {
   if (typeof window === 'undefined') return
   const shareTarget = props.shareUrl || window.location.href
@@ -502,6 +530,13 @@ function toggleStereoView() {
 
   viewerShellRef.value?.toggleStereo?.()
 }
+
+watch(
+  () => hasTourData.value,
+  () => {
+    autoRotateActive.value = false
+  },
+)
 </script>
 
 <style scoped>

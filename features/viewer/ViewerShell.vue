@@ -85,11 +85,15 @@ function toggleSettings() {
   psvViewerRef.value?.toggleViewerSettings()
 }
 
+function toggleAutorotate() {
+  psvViewerRef.value?.toggleViewerAutorotate()
+}
+
 function toggleStereo() {
   psvViewerRef.value?.toggleViewerStereo()
 }
 
-defineExpose({ refreshSettings, toggleSettings, toggleStereo })
+defineExpose({ refreshSettings, toggleSettings, toggleAutorotate, toggleStereo })
 </script>
 
 <style scoped>
