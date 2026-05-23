@@ -216,16 +216,13 @@ export async function initViewer(
   ]
 
   plugins.push([SettingsPlugin, {}])
+  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
   plugins.push([AutorotatePlugin, {
     autorotateSpeed: '2rpm',
     autorotatePitch: scene.settings.pitch_default ?? 0,
     autostartDelay: 3000,
     autostartOnIdle: false,
   }])
-
-  if (isTouchDevice) {
-    plugins.push([GyroscopePlugin, { touchmove: true, absolutePosition: true }])
-  }
 
   plugins.push([StereoPlugin, {}])
 

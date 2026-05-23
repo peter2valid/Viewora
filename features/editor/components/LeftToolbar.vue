@@ -190,6 +190,56 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+
+@media (max-width: 768px) {
+  .lt-bar {
+    left: 50%;
+    top: auto;
+    bottom: 18px;
+    transform: translateX(-50%);
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 18px;
+    width: calc(100vw - 24px);
+    max-width: 420px;
+    justify-content: space-between;
+  }
+
+  .lt-item {
+    flex: 1;
+  }
+
+  .lt-btn {
+    width: 100%;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .lt-label,
+  .lt-tip,
+  .lt-btn--on::after {
+    display: none;
+  }
+
+  .lt-divider {
+    width: 1px;
+    height: auto;
+    margin: 4px 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .lt-bar {
+    gap: 4px;
+    max-width: none;
+  }
+
+  .lt-btn {
+    height: 42px;
+  }
+}
   gap: 4px;
   width: 52px;
   height: 52px;

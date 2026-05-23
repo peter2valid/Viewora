@@ -2116,4 +2116,74 @@ defineExpose({
 .ts-slide-leave-active { animation: ts-panel-out 160ms ease-in forwards; }
 @keyframes ts-panel-in  { from { opacity:0; transform:scale(0.94) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
 @keyframes ts-panel-out { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(0.96); } }
+
+@media (max-width: 768px) {
+  .editor-shell {
+    overflow: hidden;
+  }
+
+  .ts-overlay,
+  .share-overlay {
+    padding: 12px;
+  }
+
+  .ts-panel,
+  .share-modal,
+  .hs-edit-panel,
+  .rename-popover {
+    width: calc(100vw - 24px);
+    max-width: none;
+  }
+
+  .ts-panel {
+    max-height: calc(100vh - 24px);
+  }
+
+  .ts-body,
+  .ts-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  .hs-edit-panel,
+  .rename-popover {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    transform: none;
+  }
+
+  .share-modal {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .share-modal__header {
+    align-items: flex-start;
+  }
+
+  .share-modal__url-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .share-modal__copy {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .ts-header,
+  .ts-section,
+  .ts-footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .ts-panel {
+    border-radius: 18px;
+  }
+}
 </style>

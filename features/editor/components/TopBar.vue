@@ -173,4 +173,41 @@ onMounted(() => { visible.value = true })
   font-weight: 700;
   color: rgba(255,255,255,0.65);
 }
+
+@media (max-width: 768px) {
+  header {
+    top: 8px;
+    height: auto;
+    min-height: 48px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .topbar-tour-pill {
+    max-width: 40vw;
+  }
+
+  .topbar-tour-pill__label {
+    max-width: 26vw;
+  }
+
+  .flex.items-center.gap-2.flex-shrink-0 {
+    gap: 6px;
+  }
+
+  .flex.items-center.gap-2.flex-shrink-0 > button {
+    height: 34px;
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-tour-pill {
+    max-width: 34vw;
+  }
+
+  .topbar-tour-pill__label {
+    max-width: 20vw;
+  }
+}
 </style>
