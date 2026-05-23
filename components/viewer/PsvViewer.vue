@@ -131,6 +131,7 @@ const emit = defineEmits<{
   (e: 'add-hotspot', payload: { yaw: number; pitch: number }): void
   (e: 'hotspot-click', id: string): void
   (e: 'remove-hotspot', id: string): void
+  (e: 'chrome-toggle', hidden: boolean): void
 }>()
 
 const { $posthog } = useNuxtApp()
@@ -444,6 +445,7 @@ function showActionMessage(message: string) {
 
 function toggleChrome() {
   chromeHidden.value = !chromeHidden.value
+  emit('chrome-toggle', chromeHidden.value)
   showActionMessage(chromeHidden.value ? 'Controls hidden' : 'Controls shown')
 }
 

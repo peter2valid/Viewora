@@ -49,11 +49,12 @@
       <PsvViewer
         :tour="tour"
         :share-url="shareUrl"
+        @chrome-toggle="viewerChromeHidden = $event"
       />
 
       <!-- Free/Standard tier: Viewora branding -->
       <a
-        v-if="!hasBrandingDetails"
+        v-if="!hasBrandingDetails && !viewerChromeHidden"
         :href="watermarkUrl"
         @click="trackWatermarkClick"
         target="_blank"
@@ -71,7 +72,7 @@
       </a>
 
       <!-- Premium tier: User's custom branding -->
-      <div v-else class="brand-card" aria-label="Tour branding">
+      <div v-else-if="!viewerChromeHidden" class="brand-card" aria-label="Tour branding">
         <img
           v-if="tour.space?.logo_url"
           :src="tour.space.logo_url"
@@ -126,6 +127,7 @@ const state = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const space = ref<any>(null)
 const tour = ref<any>(null)
 const shareUrl = ref('')
+const viewerChromeHidden = ref(false)
 
 const blurCover = computed(() => {
   if (!tour.value) return null
