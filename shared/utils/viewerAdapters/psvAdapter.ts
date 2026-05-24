@@ -257,6 +257,14 @@ export async function initViewer(
   const resolvedPerformanceMode = performanceMode === 'auto' ? detectViewerPerformanceMode() : performanceMode
   const isLiteMode = resolvedPerformanceMode === 'lite'
 
+  const startAutorotate = (viewerInstance: any) => {
+    try {
+      viewerInstance.getPlugin(AutorotatePlugin)?.start?.()
+    } catch {
+      // noop
+    }
+  }
+
   const plugins: any[] = [
     [MarkersPlugin, { clickEventOnMarker: false }],
   ]
@@ -293,15 +301,20 @@ export async function initViewer(
   viewer.addEventListener('ready', () => {
     onReady?.()
     if (!isEditing) {
-      if (scene.settings.auto_rotate_enabled) {
-        viewer.getPlugin(AutorotatePlugin)?.start?.()
-      }
-      viewer.animate({
-        yaw: scene.settings.yaw_default,
-        pitch: scene.settings.pitch_default,
-        zoom: 50,
-        fisheye: 0,
-      }, 2000)
+      void (async () => {
+        try {
+          await Promise.resolve(viewer.animate({
+            yaw: scene.settings.yaw_default,
+            pitch: scene.settings.pitch_default,
+            zoom: 50,
+            fisheye: 0,
+          }, 2000))
+        } finally {
+          if (scene.settings.auto_rotate_enabled) {
+            startAutorotate(viewer)
+          }
+        }
+      })()
     }
   }, { once: true })
 
@@ -702,7 +715,7 @@ export async function initVirtualTourViewer(
     autorotateSpeed: '2rpm',
     autorotatePitch: 0,
     autostartDelay: 2000,
-    autostartOnIdle: !!autoRotate,
+    autostartOnIdle: false,
   }])
 
   plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
@@ -779,7 +792,18 @@ export async function initVirtualTourViewer(
 
   const cleanupFns: Array<() => void> = []
 
-  viewer.addEventListener('ready', () => onReady?.(), { once: true })
+  viewer.addEventListener('ready', () => {
+    onReady?.()
+    if (!isLiteMode && autoRotate) {
+      requestAnimationFrame(() => {
+        try {
+          viewer.getPlugin(AutorotatePlugin)?.start?.()
+        } catch {
+          // noop
+        }
+      })
+    }
+  }, { once: true })
   viewer.addEventListener('panorama-error', (e: any) => {
     onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'))
   })
