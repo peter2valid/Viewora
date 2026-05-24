@@ -1,5 +1,7 @@
 // Sentry error monitoring — activates when NUXT_PUBLIC_SENTRY_DSN is set.
 // Uses dynamic import with any-typing so the build works without @sentry/vue installed.
+import { errorLogger } from '~/utils/errorLogger'
+
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const dsn = (config.public as any).sentryDsn as string | undefined
@@ -12,18 +14,50 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       app: nuxtApp.vueApp,
       dsn,
       environment: process.env.NODE_ENV ?? 'production',
-      integrations: [Sentry.browserTracingIntegration()],
+      integrations: [
+        Sentry.browserTracingIntegration(),
+        Sentry.replayIntegration({
+          maskAllText: true,
+          blockAllMedia: true,
+        }),
+      ],
       tracesSampleRate: 0.1,
       replaysOnErrorSampleRate: 1.0,
+      beforeSend(event: any, hint: any) {
+        // Don't send errors in development
+        if (process.env.NODE_ENV === 'development') {
+          return null
+        }
+        return event
+      },
     })
-    nuxtApp.vueApp.config.errorHandler = (err: unknown, _instance: any, info: any) => {
-      Sentry.withScope((scope: any) => {
-        scope.setExtra('componentInfo', info)
-        Sentry.captureException(err)
+
+    // Connect errorLogger to Sentry
+    errorLogger.setSentryInstance(Sentry)
+
+    // Capture all Vue component errors
+    nuxtApp.vueApp.config.errorHandler = (err: unknown, instance: any, info: any) => {
+      errorLogger.logError(err, {
+        component: instance?.$options?.name || 'Unknown',
+        action: info || 'component_error',
+        severity: 'high',
       })
-      console.error(err)
     }
-  } catch {
+
+    // Capture unhandled promise rejections
+    if (typeof window !== 'undefined') {
+      window.addEventListener('unhandledrejection', (event) => {
+        errorLogger.logError(event.reason, {
+          component: 'GlobalPromiseHandler',
+          action: 'unhandled_rejection',
+          severity: 'high',
+        })
+      })
+    }
+  } catch (err) {
     // @sentry/vue not installed — run: npm install @sentry/vue
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Sentry not configured. Run: npm install @sentry/vue')
+    }
   }
 })

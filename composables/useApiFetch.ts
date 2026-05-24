@@ -5,6 +5,8 @@
  * When NUXT_PUBLIC_API_BASE_URL is set (pointing to the Railway Fastify backend),
  * all API calls go there. Otherwise falls back to same-origin Nitro routes (/api/*).
  */
+import { errorLogger } from '~/utils/errorLogger'
+
 export const useApiFetch = () => {
   const session = useSupabaseSession()
   const config = useRuntimeConfig()
@@ -22,6 +24,8 @@ export const useApiFetch = () => {
     const fullUrl = baseURL
       ? `${baseURL.replace(/\/$/, '')}${normalizedUrl}`
       : `/api${normalizedUrl}`
+
+    const method = (options.method as string) || 'GET'
 
     return $fetch<T>(fullUrl, {
       ...options,
@@ -48,7 +52,32 @@ export const useApiFetch = () => {
         if (response._data?.message && !response._data?.statusMessage) {
           response._data.statusMessage = response._data.message
         }
-      }
+
+        // Log API errors
+        errorLogger.logApiError(
+          response._data?.statusMessage || response.statusText || 'Unknown API error',
+          normalizedUrl,
+          method,
+          response.status,
+          {
+            component: 'API',
+            metadata: {
+              response: response._data,
+              fullUrl,
+            },
+          }
+        )
+      },
+    }).catch((error) => {
+      // Catch network errors, timeouts, etc.
+      errorLogger.logApiError(error, normalizedUrl, method, undefined, {
+        component: 'API',
+        metadata: {
+          errorType: 'network_error',
+          fullUrl,
+        },
+      })
+      throw error
     })
   }
 

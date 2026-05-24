@@ -54,6 +54,7 @@ import { ref, reactive, watch, onMounted, onUnmounted, onBeforeUnmount } from 'v
 import '@photo-sphere-viewer/compass-plugin/index.css'
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
+import { errorLogger } from '~/utils/errorLogger'
 import {
   initViewer,
   loadScene,
@@ -271,6 +272,15 @@ async function initWithScene(scene: TourScene) {
         state.value = 'error'
         const errMsg = err?.message || 'Failed to load panorama'
         errorMessage.value = errMsg.length > 80 ? errMsg.substring(0, 77) + '...' : errMsg
+        
+        // Log viewer error
+        errorLogger.logViewerError(err, {
+          component: 'PsvViewer',
+          action: 'panorama_load',
+          sceneId: scene.id,
+          metadata: { imageUrl: scene.imageUrl },
+        })
+        
         emit('error', err)
       },
       onClick: (payload) => {
@@ -346,6 +356,16 @@ async function initWithScene(scene: TourScene) {
     state.value = 'error'
     const errMsg = err?.message || 'Viewer initialisation failed'
     errorMessage.value = errMsg.length > 80 ? errMsg.substring(0, 77) + '...' : errMsg
+    
+    // Log initialization error
+    errorLogger.logViewerError(err instanceof Error ? err : new Error(errMsg), {
+      component: 'PsvViewer',
+      action: 'init',
+      sceneId: scene.id,
+      metadata: { imageUrl: scene.imageUrl },
+      severity: 'high',
+    })
+    
     emit('error', err instanceof Error ? err : new Error(String(err)))
   } finally {
     sceneLoadInProgress = false
@@ -379,18 +399,26 @@ function onPointerMove(e: PointerEvent) {
   }
   
   if (dragTracker.moved) {
-    e.stopPropagation()
-    const rect = containerEl.value!.getBoundingClientRect()
-    const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    })
-    if (coords) {
-      const hotspot = props.hotspots?.find(h => h.id === dragTracker.hotspotId)
-      if (hotspot?.type === 'scene_link') {
-        coords.pitch = -0.8
+    try {
+      e.stopPropagation()
+      const rect = containerEl.value!.getBoundingClientRect()
+      const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      })
+      if (coords) {
+        const hotspot = props.hotspots?.find(h => h.id === dragTracker.hotspotId)
+        if (hotspot?.type === 'scene_link') {
+          coords.pitch = -0.8
+        }
+        handle.value.markers.updateMarker({ id: dragTracker.hotspotId, position: coords })
       }
-      handle.value.markers.updateMarker({ id: dragTracker.hotspotId, position: coords })
+    } catch (err) {
+      errorLogger.logHotspotError(err, {
+        component: 'PsvViewer',
+        action: 'hotspot_drag',
+        hotspotId: dragTracker.hotspotId,
+      })
     }
   }
 }
@@ -515,6 +543,15 @@ watch(
       state.value = 'error'
       const errMsg = err?.message || 'Failed to switch scene'
       errorMessage.value = errMsg.length > 80 ? errMsg.substring(0, 77) + '...' : errMsg
+      
+      // Log scene load error
+      errorLogger.logViewerError(err instanceof Error ? err : new Error(errMsg), {
+        component: 'PsvViewer',
+        action: 'scene_load',
+        sceneId: next.id,
+        metadata: { imageUrl: next.imageUrl, previousSceneId: prev?.id },
+        severity: 'high',
+      })
     } finally {
       sceneLoadInProgress = false
     }
@@ -535,6 +572,11 @@ watch(
       try {
         syncHotspots(handle.value, next ?? [])
       } catch (err) {
+        errorLogger.logHotspotError(err, {
+          component: 'PsvViewer',
+          action: 'sync_hotspots',
+          metadata: { hotspotCount: next?.length },
+        })
         console.error('Hotspot sync error:', err)
         // Continue without crashing
       }
@@ -574,6 +616,11 @@ watch(
         try {
           addTracePoint(handle.value, `trace-dot-${i}`, p)
         } catch (err) {
+          errorLogger.logViewerError(err, {
+            component: 'PsvViewer',
+            action: 'trace_point_add',
+            metadata: { pointIndex: i },
+          })
           console.error(`Failed to add trace point ${i}:`, err)
         }
       })
@@ -583,10 +630,20 @@ watch(
         try {
           updateTracePolygon(handle.value, safePoints)
         } catch (err) {
+          errorLogger.logViewerError(err, {
+            component: 'PsvViewer',
+            action: 'trace_polygon_update',
+            metadata: { pointCount: safePoints.length },
+          })
           console.error('Failed to update trace polygon:', err)
         }
       }
     } catch (err) {
+      errorLogger.logViewerError(err, {
+        component: 'PsvViewer',
+        action: 'tracing',
+        metadata: { isTracing, pointCount: points?.length },
+      })
       console.error('Tracing error:', err)
     }
   },
