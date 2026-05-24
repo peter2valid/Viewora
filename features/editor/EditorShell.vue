@@ -1471,7 +1471,7 @@ defineExpose({
 }
 .share-modal {
   width: 100%;
-  max-width: 452px;
+  max-width: 560px;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 8px 24px rgba(60, 64, 67, 0.18);
@@ -1552,7 +1552,7 @@ defineExpose({
   background: #fff;
 }
 .share-modal__link-row--code {
-  align-items: stretch;
+  align-items: center;
   padding: 10px 12px;
 }
 .share-modal__link {
@@ -1561,11 +1561,15 @@ defineExpose({
   font-size: 13px;
   color: #3c4043;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
+  overflow-y: hidden;
   font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 }
-.share-modal__link--code { white-space: normal; word-break: break-word; }
+.share-modal__link--scroll { scrollbar-width: thin; }
+.share-modal__link--code {
+  white-space: nowrap;
+  word-break: normal;
+}
 .share-modal__copy {
   display: inline-flex;
   align-items: center;
@@ -1623,7 +1627,7 @@ defineExpose({
 .share-modal__preview-frame {
   display: block;
   width: 100%;
-  height: 258px;
+  height: 300px;
   border: 0;
   background: #fff;
 }

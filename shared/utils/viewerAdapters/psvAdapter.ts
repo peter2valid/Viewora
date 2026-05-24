@@ -259,16 +259,14 @@ export async function initViewer(
   ]
 
   plugins.push([SettingsPlugin, {}])
-  if (!isLiteMode) {
-    plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
-    plugins.push([AutorotatePlugin, {
-      autorotateSpeed: '2rpm',
-      autorotatePitch: scene.settings.pitch_default ?? 0,
-      autostartDelay: 3000,
-      autostartOnIdle: false,
-    }])
-    plugins.push([StereoPlugin, {}])
-  }
+  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
+  plugins.push([AutorotatePlugin, {
+    autorotateSpeed: '2rpm',
+    autorotatePitch: scene.settings.pitch_default ?? 0,
+    autostartDelay: 3000,
+    autostartOnIdle: false,
+  }])
+  plugins.push([StereoPlugin, {}])
 
   // Prevent looking at poles — keeps the tour feeling grounded
   
@@ -292,7 +290,7 @@ export async function initViewer(
   viewer.addEventListener('ready', () => {
     onReady?.()
     if (!isEditing) {
-      if (!isLiteMode && scene.settings.auto_rotate_enabled) {
+      if (scene.settings.auto_rotate_enabled) {
         viewer.getPlugin(AutorotatePlugin)?.start?.()
       }
       viewer.animate({
@@ -697,20 +695,15 @@ export async function initVirtualTourViewer(
     [SettingsPlugin, {}],
   ]
 
-  if (autoRotate && !isLiteMode) {
-    plugins.push([AutorotatePlugin, {
-      autorotateSpeed: '2rpm',
-      autorotatePitch: 0,
-      autostartDelay: 2000,
-      autostartOnIdle: true,
-    }])
-  }
+  plugins.push([AutorotatePlugin, {
+    autorotateSpeed: '2rpm',
+    autorotatePitch: 0,
+    autostartDelay: 2000,
+    autostartOnIdle: !!autoRotate,
+  }])
 
-  // Only include gyro/stereo in the full viewer. Lite mode skips VR to stay smooth on weak devices.
-  if (!isLiteMode) {
-    plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
-    plugins.push([StereoPlugin])
-  }
+  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
+  plugins.push([StereoPlugin])
   
 
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
