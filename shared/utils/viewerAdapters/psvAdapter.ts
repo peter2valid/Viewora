@@ -49,7 +49,10 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
   const lowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory > 0 && nav.deviceMemory <= 4
   const lowCores = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 4
   const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches ?? false
+  const mobileViewport = window.innerWidth < 1024
 
+  if (mobileViewport && (coarsePointer || navigator.maxTouchPoints > 0)) return 'lite'
   if (saveData || slowConnection) return 'lite'
   if (reducedMotion && (lowMemory || lowCores)) return 'lite'
   if (lowMemory && lowCores) return 'lite'

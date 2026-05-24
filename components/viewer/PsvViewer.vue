@@ -755,6 +755,7 @@ watch(
   height: 100%;
   background: #0a0a0a;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .viewer-rail {
@@ -1212,6 +1213,8 @@ watch(
   inset: 0;
   opacity: 0;
   transition: opacity 0.9s ease, filter 0.5s ease;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 .vt-canvas--ready { opacity: 1; }
 .vt-canvas--focused :deep(.psv-canvas-container) { filter: blur(3px) brightness(0.7); }
