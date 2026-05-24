@@ -681,12 +681,15 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
   height: 100%;
   background: #0a0a0a;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .psv-canvas {
   position: absolute;
   inset: 0;
   transition: filter 0.5s ease;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .psv-canvas--focused :deep(.psv-canvas-container) {

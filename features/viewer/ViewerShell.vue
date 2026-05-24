@@ -103,6 +103,7 @@ defineExpose({ refreshSettings, toggleSettings, toggleAutorotate, toggleStereo }
   height: 100%;
   background: var(--bg, #000000);
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .viewer-car-stub,
