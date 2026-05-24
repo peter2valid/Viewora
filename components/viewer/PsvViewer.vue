@@ -703,7 +703,7 @@ async function toggleFullscreen() {
       return
     }
 
-    const target = viewerRootEl.value
+    const target = viewerRootEl.value?.parentElement || viewerRootEl.value
     if (target?.requestFullscreen) {
       await target.requestFullscreen()
     }
