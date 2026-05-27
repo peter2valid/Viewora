@@ -328,6 +328,54 @@ function onThumbError(url: string | null | undefined) {
   failedThumbUrls.add(url)
 }
 
+// ── Touch-scroll the strip on mobile (PSV intercepts touch events, so we
+//    manually handle horizontal swipes and stop their propagation) ──────────
+let touchStartX = 0
+let touchStartY = 0
+let touchStartScrollLeft = 0
+let touchScrolling = false
+
+function onStripTouchStart(e: TouchEvent) {
+  if (!stripEl.value) return
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+  touchStartScrollLeft = stripEl.value.scrollLeft
+  touchScrolling = false
+}
+
+function onStripTouchMove(e: TouchEvent) {
+  if (!stripEl.value) return
+  const dx = touchStartX - e.touches[0].clientX
+  const dy = touchStartY - e.touches[0].clientY
+  const absDx = Math.abs(dx)
+  const absDy = Math.abs(dy)
+  // Wait until gesture is clear enough to classify
+  if (!touchScrolling && absDx < 5 && absDy < 5) return
+  // Vertical dominance — let the panorama handle it
+  if (!touchScrolling && absDy > absDx) return
+  touchScrolling = true
+  e.stopPropagation()
+  e.preventDefault()
+  stripEl.value.scrollLeft = touchStartScrollLeft + dx
+}
+
+function onStripTouchEnd() {
+  touchScrolling = false
+}
+
+watch(stripEl, (el, oldEl) => {
+  if (oldEl) {
+    oldEl.removeEventListener('touchstart', onStripTouchStart)
+    oldEl.removeEventListener('touchmove', onStripTouchMove)
+    oldEl.removeEventListener('touchend', onStripTouchEnd)
+  }
+  if (el) {
+    el.addEventListener('touchstart', onStripTouchStart, { passive: true })
+    el.addEventListener('touchmove', onStripTouchMove, { passive: false })
+    el.addEventListener('touchend', onStripTouchEnd, { passive: true })
+  }
+}, { immediate: true })
+
 watch(stripEl, (el) => {
   if (el && !sortableInstance && props.sortable) {
     sortableInstance = Sortable.create(el, {
@@ -357,6 +405,11 @@ onBeforeUnmount(() => {
   if (sortableInstance) {
     sortableInstance.destroy()
     sortableInstance = null
+  }
+  if (stripEl.value) {
+    stripEl.value.removeEventListener('touchstart', onStripTouchStart)
+    stripEl.value.removeEventListener('touchmove', onStripTouchMove)
+    stripEl.value.removeEventListener('touchend', onStripTouchEnd)
   }
 })
 
@@ -473,6 +526,9 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (min-width: 640px) {

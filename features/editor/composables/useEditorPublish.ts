@@ -34,6 +34,13 @@ export function useEditorPublish(
     locationLat: null as number | null,
     locationLng: null as number | null,
     logoUrl: '',
+    // contact & lead capture
+    phone: '',
+    email: '',
+    ctaEnabled: false,
+    ctaButtonText: 'Book a Viewing',
+    ctaAction: 'link' as 'link' | 'email' | 'phone',
+    ctaDestination: '',
   })
   const settingsSaving = ref(false)
   const showShareModal = ref(false)
@@ -54,6 +61,12 @@ export function useEditorPublish(
         locationLat: space.value?.location_lat ?? null,
         locationLng: space.value?.location_lng ?? null,
         logoUrl: space.value?.logo_url ?? '',
+        phone: space.value?.phone ?? '',
+        email: space.value?.email ?? '',
+        ctaEnabled: space.value?.cta_enabled ?? false,
+        ctaButtonText: space.value?.cta_button_text ?? 'Book a Viewing',
+        ctaAction: (space.value?.cta_action as 'link' | 'email' | 'phone') ?? 'link',
+        ctaDestination: space.value?.cta_destination ?? '',
       }
       editorStore.openModal()
     } else {
@@ -181,6 +194,12 @@ export function useEditorPublish(
       description: settingsDraft.value.description || null,
       location_text: settingsDraft.value.locationText || null,
       logo_url: settingsDraft.value.logoUrl || null,
+      phone: settingsDraft.value.phone || null,
+      email: settingsDraft.value.email || null,
+      cta_enabled: settingsDraft.value.ctaEnabled,
+      cta_button_text: settingsDraft.value.ctaButtonText || 'Book a Viewing',
+      cta_action: settingsDraft.value.ctaAction,
+      cta_destination: settingsDraft.value.ctaDestination || null,
     }
     if (settingsDraft.value.locationLat !== null) spacePatch.location_lat = settingsDraft.value.locationLat
     if (settingsDraft.value.locationLng !== null) spacePatch.location_lng = settingsDraft.value.locationLng

@@ -28,10 +28,29 @@
         <div v-if="props.tour?.space?.title || props.tour?.space?.description" class="info-panel__divider" />
         <div class="info-panel__rows">
           <span v-if="sceneCount > 0" class="info-panel__row">
-            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
             {{ sceneCount }} scene{{ sceneCount !== 1 ? 's' : '' }}
           </span>
+          <a v-if="props.tour?.space?.phone" :href="`tel:${props.tour.space.phone}`" class="info-panel__row" @click.stop>
+            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 17z"/></svg>
+            {{ props.tour.space.phone }}
+          </a>
+          <a v-if="props.tour?.space?.email" :href="`mailto:${props.tour.space.email}`" class="info-panel__row" @click.stop>
+            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            {{ props.tour.space.email }}
+          </a>
+          <span v-if="props.tour?.space?.location_text" class="info-panel__row">
+            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {{ props.tour.space.location_text }}
+          </span>
         </div>
+        <template v-if="ctaEnabled">
+          <div class="info-panel__divider" />
+          <a :href="ctaHref" class="info-panel__cta" target="_blank" rel="noopener noreferrer" @click.stop="showInfoPanel = false">
+            {{ ctaButtonText }}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </template>
       </div>
     </Transition>
 
@@ -152,6 +171,44 @@
       <button class="zoom-widget__btn" type="button" title="Zoom In" aria-label="Zoom in" @click.stop="doZoomIn">+</button>
       <button class="zoom-widget__btn" type="button" title="Zoom Out" aria-label="Zoom out" @click.stop="doZoomOut">−</button>
     </div>
+
+    <!-- Floating CTA button (bottom-left, always above dock) -->
+    <Transition name="viewer-cta-fade">
+      <a
+        v-if="ctaEnabled && !chromeHidden"
+        :href="ctaHref"
+        class="viewer-cta-btn"
+        target="_blank"
+        rel="noopener noreferrer"
+        @click.stop
+        aria-label="Call to action"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        {{ ctaButtonText }}
+      </a>
+    </Transition>
+
+    <!-- Post-guided-tour modal -->
+    <Transition name="post-tour">
+      <div v-if="showPostTourModal" class="post-tour-overlay" @click.self="showPostTourModal = false">
+        <div class="post-tour-card">
+          <button class="post-tour__close" aria-label="Close" @click="showPostTourModal = false">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+          <img v-if="props.tour?.space?.logo_url" :src="props.tour.space.logo_url" class="post-tour__logo" alt="" />
+          <div class="post-tour__body">
+            <p class="post-tour__eyebrow">Tour complete</p>
+            <h2 class="post-tour__title">{{ props.tour?.space?.title }}</h2>
+            <p v-if="props.tour?.space?.description" class="post-tour__desc">{{ props.tour.space.description }}</p>
+          </div>
+          <a :href="ctaHref" class="post-tour__cta" target="_blank" rel="noopener noreferrer" @click="showPostTourModal = false">
+            {{ ctaButtonText }}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <button class="post-tour__dismiss" @click="showPostTourModal = false">Maybe later</button>
+        </div>
+      </div>
+    </Transition>
 
     <Transition name="share-modal">
       <div v-if="showShareModal" class="share-overlay" @click.self="showShareModal = false">
@@ -398,6 +455,7 @@ const autoRotateActive = ref(false)
 const gyroscopeActive = ref(false)
 const autoplaying = ref(false)
 const showInfoPanel = ref(false)
+const showPostTourModal = ref(false)
 const sceneToastText = ref('')
 const sceneToastVisible = ref(false)
 const loadProgressValue = ref(0)
@@ -467,6 +525,21 @@ const dockItems = computed(() =>
     badge: (s.status && s.status !== 'ready' ? 'loading' : null) as 'loading' | 'failed' | null,
   }))
 )
+
+const ctaEnabled = computed(() =>
+  !!(props.tour?.space?.cta_enabled && props.tour?.space?.cta_destination)
+)
+const ctaButtonText = computed(() =>
+  (props.tour?.space?.cta_button_text as string) || 'Book a Viewing'
+)
+const ctaHref = computed(() => {
+  const action = props.tour?.space?.cta_action as string
+  const dest = (props.tour?.space?.cta_destination as string) || ''
+  if (!dest) return '#'
+  if (action === 'email') return `mailto:${dest}`
+  if (action === 'phone') return `tel:${dest}`
+  return dest.startsWith('http') ? dest : `https://${dest}`
+})
 
 // ── Single-scene mode (no tour) ────────────────────────────────────────────
 const singleScene = computed<TourScene | null>(() => {
@@ -900,7 +973,14 @@ function scheduleNextAutoplayScene() {
   autoplayTimer = setTimeout(async () => {
     if (!autoplaying.value || !vtHandle.value) return
     const idx = tourScenes.value.findIndex((s: any) => s.id === vtActiveNodeId.value)
-    const next = tourScenes.value[(idx + 1) % tourScenes.value.length]
+    const isLast = idx === tourScenes.value.length - 1
+    if (isLast) {
+      autoplaying.value = false
+      if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null }
+      showPostTourModal.value = true
+      return
+    }
+    const next = tourScenes.value[idx + 1]
     if (!next) return
     vtTransitioning.value = true
     autoplayFromButton = false
@@ -2075,5 +2155,150 @@ watch(() => vtTransitioning.value, (loading) => {
   }
   .zoom-widget__btn { width: 30px; height: 30px; border-radius: 8px; font-size: 15px; }
   .scene-toast { font-size: 11px; padding: 6px 12px 6px 10px; top: 12px; }
+}
+
+/* ── Floating CTA button ──────────────────────────────── */
+.viewer-cta-btn {
+  position: absolute;
+  left: 20px;
+  bottom: 26px;
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5), 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  backdrop-filter: blur(12px);
+}
+.viewer-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.65), 0 4px 12px rgba(0,0,0,0.3);
+}
+.viewer-cta-btn:active { transform: scale(0.97); }
+.viewer-cta-fade-enter-active, .viewer-cta-fade-leave-active { transition: opacity 220ms ease, transform 220ms ease; }
+.viewer-cta-fade-enter-from, .viewer-cta-fade-leave-to { opacity: 0; transform: translateY(8px); }
+
+/* ── Info panel CTA ───────────────────────────────────────────────────────── */
+.info-panel__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: opacity 140ms ease, transform 140ms ease;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+.info-panel__cta:hover { opacity: 0.9; transform: translateY(-1px); }
+
+/* ── Post-tour modal ──────────────────────────────────────────────────────── */
+.post-tour-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  background: rgba(4, 5, 10, 0.72);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.post-tour-card {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  background: rgba(8, 10, 20, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+  text-align: center;
+}
+.post-tour__close {
+  position: absolute;
+  top: 14px; right: 14px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: none; cursor: pointer;
+  color: rgba(255,255,255,0.45);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 120ms, color 120ms;
+}
+.post-tour__close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.post-tour__logo {
+  max-width: 120px; max-height: 44px;
+  object-fit: contain; filter: brightness(1.15);
+}
+.post-tour__body { display: flex; flex-direction: column; gap: 6px; }
+.post-tour__eyebrow {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(99, 102, 241, 0.9);
+}
+.post-tour__title {
+  font-size: 20px; font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: -0.02em; line-height: 1.2; margin: 0;
+}
+.post-tour__desc {
+  font-size: 13px; color: rgba(255,255,255,0.48);
+  line-height: 1.55; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.post-tour__cta {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; font-size: 14px; font-weight: 700;
+  text-decoration: none; letter-spacing: 0.01em;
+  box-shadow: 0 8px 24px rgba(99,102,241,0.45);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.post-tour__cta:hover { opacity: 0.92; transform: translateY(-1px); }
+.post-tour__dismiss {
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,0.3); letter-spacing: 0.04em;
+  transition: color 120ms;
+}
+.post-tour__dismiss:hover { color: rgba(255,255,255,0.6); }
+.post-tour-enter-active { transition: opacity 240ms ease, transform 240ms cubic-bezier(0.34,1.2,0.64,1); }
+.post-tour-leave-active  { transition: opacity 200ms ease, transform 200ms ease; }
+.post-tour-enter-from    { opacity: 0; }
+.post-tour-enter-from .post-tour-card { transform: scale(0.88) translateY(20px); }
+.post-tour-leave-to      { opacity: 0; }
+
+@media (max-width: 640px) {
+  .viewer-cta-btn {
+    left: 12px;
+    bottom: 88px;
+    height: 36px;
+    font-size: 11px;
+    padding: 0 13px;
+  }
+  .post-tour-card { padding: 22px 18px 18px; gap: 13px; }
+  .post-tour__title { font-size: 18px; }
 }
 </style>

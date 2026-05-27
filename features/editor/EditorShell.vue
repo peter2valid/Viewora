@@ -245,6 +245,16 @@
                   />
                 </div>
 
+                <div class="ts-field">
+                  <label class="ts-field__label">Phone <span class="ts-field__opt">optional</span></label>
+                  <input class="ts-input" v-model="settingsDraft.phone" placeholder="+1 (555) 000-0000" type="tel" />
+                </div>
+
+                <div class="ts-field">
+                  <label class="ts-field__label">Email <span class="ts-field__opt">optional</span></label>
+                  <input class="ts-input" v-model="settingsDraft.email" placeholder="contact@example.com" type="email" />
+                </div>
+
                 <!-- Location with map -->
                 <div class="ts-field">
                   <label class="ts-field__label">
@@ -372,6 +382,60 @@
                     <span class="ts-toggle-thumb" />
                   </button>
                 </div>
+              </div>
+
+              <!-- SECTION: Lead Capture -->
+              <div class="ts-section">
+                <div class="ts-section__label">Lead Capture</div>
+
+                <div class="ts-toggle-row">
+                  <div>
+                    <div class="ts-field__label">CTA Button</div>
+                    <div class="ts-toggle-sub">Show a call-to-action button on the tour</div>
+                  </div>
+                  <button
+                    class="ts-toggle"
+                    :class="{ 'ts-toggle--on': settingsDraft.ctaEnabled }"
+                    role="switch"
+                    :aria-checked="settingsDraft.ctaEnabled"
+                    @click="settingsDraft.ctaEnabled = !settingsDraft.ctaEnabled"
+                  >
+                    <span class="ts-toggle-thumb" />
+                  </button>
+                </div>
+
+                <template v-if="settingsDraft.ctaEnabled">
+                  <div class="ts-field">
+                    <label class="ts-field__label">Button Text</label>
+                    <input class="ts-input" v-model="settingsDraft.ctaButtonText" placeholder="Book a Viewing" maxlength="40" />
+                  </div>
+
+                  <div class="ts-field">
+                    <label class="ts-field__label">Action</label>
+                    <div class="ts-seg">
+                      <button
+                        v-for="opt in ctaActionOptions"
+                        :key="opt.value"
+                        class="ts-seg__btn"
+                        :class="{ 'ts-seg__btn--active': settingsDraft.ctaAction === opt.value }"
+                        type="button"
+                        @click="settingsDraft.ctaAction = opt.value"
+                      >{{ opt.label }}</button>
+                    </div>
+                  </div>
+
+                  <div class="ts-field">
+                    <label class="ts-field__label">
+                      {{ settingsDraft.ctaAction === 'link' ? 'URL' : settingsDraft.ctaAction === 'email' ? 'Email Address' : 'Phone Number' }}
+                    </label>
+                    <input
+                      class="ts-input"
+                      v-model="settingsDraft.ctaDestination"
+                      :placeholder="settingsDraft.ctaAction === 'link' ? 'https://...' : settingsDraft.ctaAction === 'email' ? 'agent@example.com' : '+1 (555) 000-0000'"
+                      :type="settingsDraft.ctaAction === 'link' ? 'url' : settingsDraft.ctaAction === 'email' ? 'email' : 'tel'"
+                    />
+                  </div>
+                </template>
               </div>
 
             </div><!-- end ts-body -->
@@ -712,6 +776,12 @@ const shareTabs = [
   { id: 'link', label: 'Send a link' },
   { id: 'embed', label: 'Embed' },
   { id: 'qr', label: 'QR code' },
+] as const
+
+const ctaActionOptions = [
+  { value: 'link', label: 'Link' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
 ] as const
 
 // ── Settings panel: location geocoding ──────────────────────────────────────
@@ -2384,5 +2454,34 @@ defineExpose({
   .ts-panel {
     border-radius: 18px;
   }
+}
+
+/* Segmented control (CTA action picker) */
+.ts-seg {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ts-seg__btn {
+  flex: 1;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.ts-seg__btn:last-child { border-right: none; }
+.ts-seg__btn--active {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+}
+.ts-seg__btn:hover:not(.ts-seg__btn--active) {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
 }
 </style>
