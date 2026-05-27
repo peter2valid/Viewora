@@ -16,44 +16,6 @@
       </div>
     </Transition>
 
-    <!-- Info panel -->
-    <Transition name="info-panel">
-      <div v-if="showInfoPanel" class="info-panel">
-        <button class="info-panel__close" aria-label="Close info panel" @click.stop="showInfoPanel = false">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-        <img v-if="props.tour?.space?.logo_url" :src="props.tour.space.logo_url" class="info-panel__logo" alt="" />
-        <h3 v-if="props.tour?.space?.title" class="info-panel__name">{{ props.tour.space.title }}</h3>
-        <p v-if="props.tour?.space?.description" class="info-panel__desc">{{ props.tour.space.description }}</p>
-        <div v-if="props.tour?.space?.title || props.tour?.space?.description" class="info-panel__divider" />
-        <div class="info-panel__rows">
-          <span v-if="sceneCount > 0" class="info-panel__row">
-            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-            {{ sceneCount }} scene{{ sceneCount !== 1 ? 's' : '' }}
-          </span>
-          <a v-if="props.tour?.space?.phone" :href="`tel:${props.tour.space.phone}`" class="info-panel__row" @click.stop>
-            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 17z"/></svg>
-            {{ props.tour.space.phone }}
-          </a>
-          <a v-if="props.tour?.space?.email" :href="`mailto:${props.tour.space.email}`" class="info-panel__row" @click.stop>
-            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            {{ props.tour.space.email }}
-          </a>
-          <span v-if="props.tour?.space?.location_text" class="info-panel__row">
-            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            {{ props.tour.space.location_text }}
-          </span>
-        </div>
-        <template v-if="ctaEnabled">
-          <div class="info-panel__divider" />
-          <a :href="ctaHref" class="info-panel__cta" target="_blank" rel="noopener noreferrer" @click.stop="showInfoPanel = false">
-            {{ ctaButtonText }}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </a>
-        </template>
-      </div>
-    </Transition>
-
     <!-- Control stack: toggle always visible, rail hides with chrome -->
     <div class="viewer-control-stack">
 
@@ -75,17 +37,7 @@
       <!-- Rail (hides when chrome hidden) -->
       <div class="viewer-rail" aria-label="Viewer controls">
 
-      <!-- 1 — Gyroscope -->
-      <button v-if="hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Toggle gyroscope" :aria-pressed="gyroscopeActive" data-tooltip="Gyroscope" @click.stop="toggleGyroscopeView">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="7" y="4" width="10" height="16" rx="2" />
-          <circle cx="12" cy="17" r="1" fill="currentColor" />
-          <path d="M2 12a10 10 0 0 1 4-8" />
-          <path d="M22 12a10 10 0 0 1-4 8" />
-        </svg>
-      </button>
-
-      <!-- 3 — VR Mode -->
+      <!-- VR Mode -->
       <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
@@ -94,16 +46,7 @@
         </svg>
       </button>
 
-      <!-- 4 — Info -->
-      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': showInfoPanel }" type="button" aria-label="Tour info" data-tooltip="Tour Info" @click.stop="showInfoPanel = !showInfoPanel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 8h.01" />
-          <path d="M12 12v5" />
-        </svg>
-      </button>
-
-      <!-- 5 — Share -->
+      <!-- Share -->
       <button class="viewer-rail__btn" type="button" aria-label="Share tour" data-tooltip="Share" @click.stop="shareTour">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M16 8a3 3 0 1 0-2.83-4" />
@@ -115,7 +58,7 @@
         </svg>
       </button>
 
-      <!-- 6 — Guided Tour -->
+      <!-- Guided Tour (multi-scene only) -->
       <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoplaying }" type="button" aria-label="Guided tour" :aria-pressed="autoplaying" data-tooltip="Guided Tour" @click.stop="toggleAutoplay">
         <svg v-if="!autoplaying" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M8 5v14l11-7z" />
@@ -125,7 +68,7 @@
         </svg>
       </button>
 
-      <!-- 7 — Auto Rotate -->
+      <!-- Auto Rotate -->
       <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" data-tooltip="Auto Rotate" @click.stop="toggleAutoRotate">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21.5 2v6h-6" />
@@ -133,27 +76,7 @@
         </svg>
       </button>
 
-      <!-- 8 — Reset View -->
-      <button class="viewer-rail__btn" type="button" aria-label="Reset view" data-tooltip="Reset View" @click.stop="resetCurrentView">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <circle cx="12" cy="12" r="3" />
-          <line x1="12" y1="3" x2="12" y2="6" />
-          <line x1="12" y1="18" x2="12" y2="21" />
-          <line x1="3" y1="12" x2="6" y2="12" />
-          <line x1="18" y1="12" x2="21" y2="12" />
-        </svg>
-      </button>
-
-      <!-- 9 — Screenshot -->
-      <button class="viewer-rail__btn" type="button" aria-label="Screenshot" data-tooltip="Screenshot" @click.stop="doScreenshot">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-          <circle cx="12" cy="13" r="4" />
-        </svg>
-      </button>
-
-      <!-- 9 — Fullscreen -->
+      <!-- Fullscreen -->
       <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" data-tooltip="Fullscreen" @click.stop="toggleFullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M8 3H3v5" />
@@ -165,12 +88,6 @@
 
       </div><!-- end .viewer-rail -->
     </div><!-- end .viewer-control-stack -->
-
-    <!-- Zoom widget -->
-    <div v-if="!chromeHidden" class="zoom-widget">
-      <button class="zoom-widget__btn" type="button" title="Zoom In" aria-label="Zoom in" @click.stop="doZoomIn">+</button>
-      <button class="zoom-widget__btn" type="button" title="Zoom Out" aria-label="Zoom out" @click.stop="doZoomOut">−</button>
-    </div>
 
     <!-- Floating CTA button (bottom-left, always above dock) -->
     <Transition name="viewer-cta-fade">
@@ -406,12 +323,6 @@ import {
   toggleStereo,
   toggleAutorotate,
   isAutorotateEnabled,
-  toggleGyroscope,
-  isGyroscopeEnabled,
-  resetView as resetViewAdapter,
-  zoomIn,
-  zoomOut,
-  captureScreenshot,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 
@@ -452,9 +363,7 @@ const vtActiveNodeId = ref('')
 const dockCollapsed = ref(false)
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
-const gyroscopeActive = ref(false)
 const autoplaying = ref(false)
-const showInfoPanel = ref(false)
 const showPostTourModal = ref(false)
 const sceneToastText = ref('')
 const sceneToastVisible = ref(false)
@@ -884,7 +793,6 @@ function showActionMessage(message: string) {
 
 function toggleChrome() {
   chromeHidden.value = !chromeHidden.value
-  if (chromeHidden.value) showInfoPanel.value = false
   emit('chrome-toggle', chromeHidden.value)
 }
 
@@ -926,46 +834,7 @@ function toggleStereoView() {
     if (vtHandle.value) toggleStereo(vtHandle.value)
     return
   }
-
   viewerShellRef.value?.toggleStereo?.()
-}
-
-function toggleGyroscopeView() {
-  if (hasTourData.value && vtHandle.value) {
-    toggleGyroscope(vtHandle.value)
-    gyroscopeActive.value = isGyroscopeEnabled(vtHandle.value)
-  }
-}
-
-function resetCurrentView() {
-  if (hasTourData.value && vtHandle.value) {
-    const scene = tourScenes.value.find((s: any) => s.id === vtActiveNodeId.value)
-    const settings360 = props.tour?.space?.property_360_settings?.[0]
-    const yaw = scene?.initial_yaw ?? settings360?.yaw_default ?? 0
-    const pitch = scene?.initial_pitch ?? settings360?.pitch_default ?? 0
-    resetViewAdapter(vtHandle.value, yaw, pitch)
-  }
-}
-
-function doZoomIn() {
-  if (hasTourData.value && vtHandle.value) zoomIn(vtHandle.value)
-}
-
-function doZoomOut() {
-  if (hasTourData.value && vtHandle.value) zoomOut(vtHandle.value)
-}
-
-async function doScreenshot() {
-  const dataUrl = captureScreenshot(vtHandle.value)
-  if (!dataUrl) return
-  try {
-    const a = document.createElement('a')
-    a.href = dataUrl
-    a.download = `tour-${Date.now()}.jpg`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  } catch { /* noop */ }
 }
 
 function scheduleNextAutoplayScene() {
@@ -2038,89 +1907,7 @@ watch(() => vtTransitioning.value, (loading) => {
 .scene-toast-enter-from    { opacity: 0; transform: translateX(-50%) translateY(-6px); }
 .scene-toast-leave-to      { opacity: 0; transform: translateX(-50%) translateY(-4px); }
 
-/* ── Info panel ───────────────────────────────────────── */
-.info-panel-enter-active { transition: opacity 180ms ease, transform 180ms cubic-bezier(0.22,1,0.36,1); }
-.info-panel-leave-active  { transition: opacity 160ms ease, transform 160ms ease; }
-.info-panel-enter-from    { opacity: 0; transform: translateX(10px); }
-.info-panel-leave-to      { opacity: 0; transform: translateX(8px); }
 
-.info-panel {
-  position: absolute;
-  right: 78px; top: 50%; transform: translateY(-50%);
-  z-index: 34;
-  width: 248px;
-  background: rgba(10, 11, 16, 0.97);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(28px) saturate(1.15);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset;
-  overflow: hidden;
-  padding: 18px;
-  display: flex; flex-direction: column; gap: 12px;
-}
-.info-panel__logo {
-  max-width: 100px; max-height: 36px;
-  object-fit: contain; object-position: left;
-  opacity: 0.9;
-}
-.info-panel__name {
-  font-size: 14px; font-weight: 700;
-  color: rgba(255,255,255,0.93);
-  letter-spacing: -0.01em; line-height: 1.3; margin: 0;
-}
-.info-panel__desc {
-  font-size: 12px; color: rgba(255,255,255,0.42);
-  line-height: 1.6; margin: 0;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-.info-panel__divider {
-  height: 1px; background: rgba(255,255,255,0.07); flex-shrink: 0;
-}
-.info-panel__rows { display: flex; flex-direction: column; gap: 8px; }
-.info-panel__row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11.5px; color: rgba(255,255,255,0.55); font-weight: 500;
-  text-decoration: none; transition: color 120ms;
-}
-.info-panel__row:is(a):hover { color: rgba(255,255,255,0.85); }
-.info-panel__row-icon {
-  width: 13px; height: 13px; flex-shrink: 0; opacity: 0.45;
-}
-.info-panel__close {
-  position: absolute; top: 11px; right: 11px;
-  width: 20px; height: 20px; border-radius: 4px;
-  background: rgba(255,255,255,0.06); border: none; cursor: pointer;
-  color: rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center;
-  transition: background 120ms, color 120ms;
-}
-.info-panel__close:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); }
-
-/* ── Zoom widget ──────────────────────────────────────── */
-.zoom-widget {
-  position: absolute;
-  right: 18px;
-  bottom: 22px;
-  z-index: 35;
-  display: flex; flex-direction: column; gap: 2px;
-}
-.zoom-widget__btn {
-  width: 34px; height: 34px;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  background: rgba(10,12,20,0.66);
-  backdrop-filter: blur(14px);
-  color: rgba(255,255,255,0.65);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 16px; font-weight: 400; line-height: 1;
-  transition: background 140ms, color 140ms, border-color 140ms;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-}
-.zoom-widget__btn:hover {
-  background: rgba(255,255,255,0.1);
-  color: #fff; border-color: rgba(255,255,255,0.18);
-}
-.zoom-widget__btn:active { transform: scale(0.94); }
-.public-viewer--chrome-hidden .zoom-widget { opacity: 0; pointer-events: none; }
 
 /* ── Hotspot hover labels ─────────────────────────────── */
 :global(.vhs-info__hover-label) {
@@ -2145,14 +1932,6 @@ watch(() => vtTransitioning.value, (loading) => {
 :global(.vhs-info--active .vhs-info__hover-label) { opacity: 0; }
 
 @media (max-width: 640px) {
-  .info-panel {
-    right: 60px; width: 210px; padding: 16px; gap: 11px;
-    top: auto; bottom: 130px; transform: none;
-  }
-  .zoom-widget {
-    right: 10px; bottom: 16px;
-  }
-  .zoom-widget__btn { width: 30px; height: 30px; border-radius: 8px; font-size: 15px; }
   .scene-toast { font-size: 11px; padding: 6px 12px 6px 10px; top: 12px; }
 }
 
@@ -2187,24 +1966,6 @@ watch(() => vtTransitioning.value, (loading) => {
 .viewer-cta-fade-enter-active, .viewer-cta-fade-leave-active { transition: opacity 200ms ease, transform 200ms ease; }
 .viewer-cta-fade-enter-from, .viewer-cta-fade-leave-to { opacity: 0; transform: translateY(6px); }
 
-/* ── Info panel CTA ───────────────────────────────────────────────────────── */
-.info-panel__cta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 36px;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #0a0b10;
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
-  letter-spacing: 0.02em;
-  transition: background 140ms ease, transform 140ms ease;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-}
-.info-panel__cta:hover { background: rgba(255,255,255,0.9); transform: translateY(-1px); }
 
 /* ── Post-tour modal ──────────────────────────────────────────────────────── */
 .post-tour-overlay {
