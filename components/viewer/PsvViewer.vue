@@ -724,6 +724,19 @@ async function handleDockSelect(sceneId: string) {
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
+// ── Tooltip touch flash ────────────────────────────────────────────────────
+let tooltipFlashTimer: ReturnType<typeof setTimeout> | null = null
+
+function onRailTouchStart(e: TouchEvent) {
+  const btn = (e.target as HTMLElement).closest('[data-tooltip]') as HTMLElement | null
+  if (!btn) return
+  // Remove any existing flash first (handles rapid taps)
+  controlStackEl.value?.querySelectorAll('.tooltip-show').forEach(el => el.classList.remove('tooltip-show'))
+  if (tooltipFlashTimer) clearTimeout(tooltipFlashTimer)
+  btn.classList.add('tooltip-show')
+  tooltipFlashTimer = setTimeout(() => btn.classList.remove('tooltip-show'), 1200)
+}
+
 onMounted(() => {
   if (typeof window !== 'undefined') {
     try {
@@ -737,6 +750,8 @@ onMounted(() => {
   } else {
     viewerPerformanceMode.value = detectViewerPerformanceMode()
   }
+
+  controlStackEl.value?.addEventListener('touchstart', onRailTouchStart, { passive: true })
 
   if (hasTourData.value) {
     // wait one tick for vtContainerEl to be rendered by ClientOnly
@@ -761,6 +776,8 @@ onUnmounted(() => {
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   if (progressTimer) clearInterval(progressTimer)
   if (autoplayTimer) clearTimeout(autoplayTimer)
+  if (tooltipFlashTimer) clearTimeout(tooltipFlashTimer)
+  controlStackEl.value?.removeEventListener('touchstart', onRailTouchStart)
 })
 
 // Re-init VT if the tour data changes (e.g. navigating to a different tour)
@@ -1010,28 +1027,42 @@ watch(() => vtTransitioning.value, (loading) => {
 .viewer-rail__btn[data-tooltip]::before {
   content: attr(data-tooltip);
   position: absolute;
-  right: calc(100% + 10px);
+  right: calc(100% + 9px);
   top: 50%;
   transform: translateY(-50%) translateX(4px);
-  background: rgba(8, 10, 18, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(10, 11, 16, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.88);
   font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: 6px;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 140ms ease, transform 140ms ease;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: opacity 130ms ease, transform 130ms ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 50;
 }
 
+/* Desktop hover */
 .viewer-rail__btn[data-tooltip]:hover::before {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
+}
+
+/* Mobile tap flash — self-dismissing via keyframe */
+.viewer-rail__btn.tooltip-show::before {
+  animation: tooltip-flash 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tooltip-flash {
+  0%   { opacity: 0; transform: translateY(-50%) translateX(4px); }
+  18%  { opacity: 1; transform: translateY(-50%) translateX(0); }
+  72%  { opacity: 1; transform: translateY(-50%) translateX(0); }
+  100% { opacity: 0; transform: translateY(-50%) translateX(2px); }
 }
 
 /* Toggle switch (chrome hide/show button) */
