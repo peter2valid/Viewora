@@ -2,19 +2,8 @@
   <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden }" @click="onViewerClick">
     <!-- Floating viewer rail (CloudPano-style controls) -->
     <div class="viewer-rail" aria-label="Viewer controls">
-      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" data-tooltip="Auto Rotate" @click.stop="toggleAutoRotate">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 5v4" />
-          <path d="M12 15v4" />
-          <path d="M5 12h4" />
-          <path d="M15 12h4" />
-          <path d="M8 8l2.8 2.8" />
-          <path d="M13.2 13.2 16 16" />
-          <path d="M8 16l2.8-2.8" />
-          <path d="M13.2 10.8 16 8" />
-        </svg>
-      </button>
 
+      <!-- 1 — Hide Controls -->
       <button
         class="viewer-rail__btn viewer-rail__chrome-toggle"
         :class="{ 'viewer-rail__btn--active': chromeHidden }"
@@ -29,6 +18,16 @@
         </span>
       </button>
 
+      <!-- 2 — VR Mode -->
+      <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
+          <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
+          <path d="M11 13h2" />
+        </svg>
+      </button>
+
+      <!-- 3 — Share -->
       <button class="viewer-rail__btn" type="button" aria-label="Share tour" data-tooltip="Share" @click.stop="shareTour">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M16 8a3 3 0 1 0-2.83-4" />
@@ -40,6 +39,15 @@
         </svg>
       </button>
 
+      <!-- 4 — Auto Rotate -->
+      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" data-tooltip="Auto Rotate" @click.stop="toggleAutoRotate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21.5 2v6h-6" />
+          <path d="M21.5 8A10 10 0 1 1 8 2.5" />
+        </svg>
+      </button>
+
+      <!-- 5 — Fullscreen -->
       <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" data-tooltip="Fullscreen" @click.stop="toggleFullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M8 3H3v5" />
@@ -49,13 +57,6 @@
         </svg>
       </button>
 
-      <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
-          <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
-          <path d="M11 13h2" />
-        </svg>
-      </button>
     </div>
 
     <Transition name="share-modal">
@@ -252,6 +253,8 @@ import {
   destroy,
   detectViewerPerformanceMode,
   toggleStereo,
+  toggleAutorotate,
+  isAutorotateEnabled,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 
@@ -693,12 +696,14 @@ function toggleChrome() {
 }
 
 function toggleAutoRotate() {
-  autoRotateActive.value = !autoRotateActive.value
-
   if (hasTourData.value) {
-    if (vtHandle.value) toggleAutorotate(vtHandle.value)
+    if (vtHandle.value) {
+      toggleAutorotate(vtHandle.value)
+      autoRotateActive.value = isAutorotateEnabled(vtHandle.value)
+    }
   } else {
     viewerShellRef.value?.toggleAutorotate?.()
+    autoRotateActive.value = !autoRotateActive.value
   }
 }
 
