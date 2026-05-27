@@ -1,5 +1,40 @@
 <template>
   <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden }" @click="onViewerClick">
+
+    <!-- Loading progress bar -->
+    <Transition name="viewer-progress">
+      <div v-if="loadProgressVisible" class="viewer-progress">
+        <div class="viewer-progress__bar" :style="{ width: loadProgressValue + '%' }" />
+      </div>
+    </Transition>
+
+    <!-- Scene name toast -->
+    <Transition name="scene-toast">
+      <div v-if="sceneToastVisible" class="scene-toast">
+        <span class="scene-toast__dot" />
+        {{ sceneToastText }}
+      </div>
+    </Transition>
+
+    <!-- Info panel -->
+    <Transition name="info-panel">
+      <div v-if="showInfoPanel" class="info-panel">
+        <button class="info-panel__close" aria-label="Close info panel" @click.stop="showInfoPanel = false">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <img v-if="props.tour?.space?.logo_url" :src="props.tour.space.logo_url" class="info-panel__logo" alt="" />
+        <h3 v-if="props.tour?.space?.title" class="info-panel__name">{{ props.tour.space.title }}</h3>
+        <p v-if="props.tour?.space?.description" class="info-panel__desc">{{ props.tour.space.description }}</p>
+        <div v-if="props.tour?.space?.title || props.tour?.space?.description" class="info-panel__divider" />
+        <div class="info-panel__rows">
+          <span v-if="sceneCount > 0" class="info-panel__row">
+            <svg class="info-panel__row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            {{ sceneCount }} scene{{ sceneCount !== 1 ? 's' : '' }}
+          </span>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Floating viewer rail (CloudPano-style controls) -->
     <div class="viewer-rail" aria-label="Viewer controls">
 
@@ -18,7 +53,17 @@
         </span>
       </button>
 
-      <!-- 2 — VR Mode -->
+      <!-- 2 — Gyroscope -->
+      <button v-if="hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Toggle gyroscope" :aria-pressed="gyroscopeActive" data-tooltip="Gyroscope" @click.stop="toggleGyroscopeView">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="7" y="4" width="10" height="16" rx="2" />
+          <circle cx="12" cy="17" r="1" fill="currentColor" />
+          <path d="M2 12a10 10 0 0 1 4-8" />
+          <path d="M22 12a10 10 0 0 1-4 8" />
+        </svg>
+      </button>
+
+      <!-- 3 — VR Mode -->
       <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
@@ -27,7 +72,16 @@
         </svg>
       </button>
 
-      <!-- 3 — Share -->
+      <!-- 4 — Info -->
+      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': showInfoPanel }" type="button" aria-label="Tour info" data-tooltip="Tour Info" @click.stop="showInfoPanel = !showInfoPanel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8h.01" />
+          <path d="M12 12v5" />
+        </svg>
+      </button>
+
+      <!-- 5 — Share -->
       <button class="viewer-rail__btn" type="button" aria-label="Share tour" data-tooltip="Share" @click.stop="shareTour">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M16 8a3 3 0 1 0-2.83-4" />
@@ -39,7 +93,17 @@
         </svg>
       </button>
 
-      <!-- 4 — Auto Rotate -->
+      <!-- 6 — Guided Tour -->
+      <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoplaying }" type="button" aria-label="Guided tour" :aria-pressed="autoplaying" data-tooltip="Guided Tour" @click.stop="toggleAutoplay">
+        <svg v-if="!autoplaying" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M6 6h4v12H6zM14 6h4v12h-4z" />
+        </svg>
+      </button>
+
+      <!-- 7 — Auto Rotate -->
       <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" data-tooltip="Auto Rotate" @click.stop="toggleAutoRotate">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21.5 2v6h-6" />
@@ -47,7 +111,27 @@
         </svg>
       </button>
 
-      <!-- 5 — Fullscreen -->
+      <!-- 8 — Reset View -->
+      <button class="viewer-rail__btn" type="button" aria-label="Reset view" data-tooltip="Reset View" @click.stop="resetCurrentView">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="3" />
+          <line x1="12" y1="3" x2="12" y2="6" />
+          <line x1="12" y1="18" x2="12" y2="21" />
+          <line x1="3" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="21" y2="12" />
+        </svg>
+      </button>
+
+      <!-- 9 — Screenshot -->
+      <button class="viewer-rail__btn" type="button" aria-label="Screenshot" data-tooltip="Screenshot" @click.stop="doScreenshot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+      </button>
+
+      <!-- 10 — Fullscreen -->
       <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" data-tooltip="Fullscreen" @click.stop="toggleFullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M8 3H3v5" />
@@ -57,6 +141,12 @@
         </svg>
       </button>
 
+    </div>
+
+    <!-- Zoom widget -->
+    <div v-if="!chromeHidden" class="zoom-widget">
+      <button class="zoom-widget__btn" type="button" title="Zoom In" aria-label="Zoom in" @click.stop="doZoomIn">+</button>
+      <button class="zoom-widget__btn" type="button" title="Zoom Out" aria-label="Zoom out" @click.stop="doZoomOut">−</button>
     </div>
 
     <Transition name="share-modal">
@@ -255,6 +345,12 @@ import {
   toggleStereo,
   toggleAutorotate,
   isAutorotateEnabled,
+  toggleGyroscope,
+  isGyroscopeEnabled,
+  resetView as resetViewAdapter,
+  zoomIn,
+  zoomOut,
+  captureScreenshot,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 
@@ -295,6 +391,17 @@ const vtActiveNodeId = ref('')
 const dockCollapsed = ref(false)
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
+const gyroscopeActive = ref(false)
+const autoplaying = ref(false)
+const showInfoPanel = ref(false)
+const sceneToastText = ref('')
+const sceneToastVisible = ref(false)
+const loadProgressValue = ref(0)
+const loadProgressVisible = ref(false)
+let sceneToastTimer: ReturnType<typeof setTimeout> | null = null
+let progressTimer: ReturnType<typeof setInterval> | null = null
+let autoplayTimer: ReturnType<typeof setTimeout> | null = null
+let autoplayFromButton = false
 const viewerPerformanceMode = ref<'lite' | 'full'>('full')
 let vtInitVersion = 0
 const showShareModal = ref(false)
@@ -527,6 +634,9 @@ async function initVT() {
           $posthog?.capture('hotspot_interacted', { hotspot_type: type })
           handleMarkerClick(handle, markerId, type, url)
         },
+        onAutorotateChange: (enabled) => {
+          autoRotateActive.value = enabled
+        },
       }
     )
     if (version !== vtInitVersion) { destroy(handle); return }
@@ -608,6 +718,8 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
 
 // ── GlassDock navigation ───────────────────────────────────────────────────
 async function handleDockSelect(sceneId: string) {
+  autoplayFromButton = true
+  if (autoplaying.value) { autoplaying.value = false; if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null } }
   if (vtHandle.value && !vtTransitioning.value && vtActiveNodeId.value !== sceneId) {
     vtTransitioning.value = true
     $posthog?.capture('scene_navigated', {
@@ -659,6 +771,9 @@ onMounted(() => {
 onUnmounted(() => {
   vtInitVersion++
   if (vtHandle.value) { destroy(vtHandle.value); vtHandle.value = null }
+  if (sceneToastTimer) clearTimeout(sceneToastTimer)
+  if (progressTimer) clearInterval(progressTimer)
+  if (autoplayTimer) clearTimeout(autoplayTimer)
 })
 
 // Re-init VT if the tour data changes (e.g. navigating to a different tour)
@@ -737,6 +852,69 @@ function toggleStereoView() {
   viewerShellRef.value?.toggleStereo?.()
 }
 
+function toggleGyroscopeView() {
+  if (hasTourData.value && vtHandle.value) {
+    toggleGyroscope(vtHandle.value)
+    gyroscopeActive.value = isGyroscopeEnabled(vtHandle.value)
+  }
+}
+
+function resetCurrentView() {
+  if (hasTourData.value && vtHandle.value) {
+    const scene = tourScenes.value.find((s: any) => s.id === vtActiveNodeId.value)
+    const settings360 = props.tour?.space?.property_360_settings?.[0]
+    const yaw = scene?.initial_yaw ?? settings360?.yaw_default ?? 0
+    const pitch = scene?.initial_pitch ?? settings360?.pitch_default ?? 0
+    resetViewAdapter(vtHandle.value, yaw, pitch)
+  }
+}
+
+function doZoomIn() {
+  if (hasTourData.value && vtHandle.value) zoomIn(vtHandle.value)
+}
+
+function doZoomOut() {
+  if (hasTourData.value && vtHandle.value) zoomOut(vtHandle.value)
+}
+
+async function doScreenshot() {
+  const dataUrl = captureScreenshot(vtHandle.value)
+  if (!dataUrl) return
+  try {
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `tour-${Date.now()}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } catch { /* noop */ }
+}
+
+function scheduleNextAutoplayScene() {
+  if (autoplayTimer) clearTimeout(autoplayTimer)
+  autoplayTimer = setTimeout(async () => {
+    if (!autoplaying.value || !vtHandle.value) return
+    const idx = tourScenes.value.findIndex((s: any) => s.id === vtActiveNodeId.value)
+    const next = tourScenes.value[(idx + 1) % tourScenes.value.length]
+    if (!next) return
+    vtTransitioning.value = true
+    autoplayFromButton = false
+    try {
+      const ok = await vtGoToNode(vtHandle.value, next.id)
+      if (!ok) vtTransitioning.value = false
+    } catch { vtTransitioning.value = false }
+  }, 9000)
+}
+
+function toggleAutoplay() {
+  autoplaying.value = !autoplaying.value
+  if (autoplaying.value) {
+    scheduleNextAutoplayScene()
+  } else {
+    if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null }
+  }
+}
+
 watch([showShareModal, publicUrl], async ([open, url]) => {
   activeShareTab.value = 'link'
   qrDataUrl.value = ''
@@ -762,6 +940,39 @@ watch(
     autoRotateActive.value = false
   },
 )
+
+// Scene name toast on transition
+watch(vtActiveNodeId, (newId, oldId) => {
+  if (!oldId || !newId || newId === oldId) return
+  const scene = tourScenes.value.find((s: any) => s.id === newId)
+  const name = scene?.name || ''
+  if (!name) return
+  sceneToastText.value = name
+  sceneToastVisible.value = true
+  if (sceneToastTimer) clearTimeout(sceneToastTimer)
+  sceneToastTimer = setTimeout(() => { sceneToastVisible.value = false }, 2600)
+  // Reschedule autoplay timer if playing
+  if (autoplaying.value && !autoplayFromButton) scheduleNextAutoplayScene()
+})
+
+// Loading progress bar during transitions
+watch(() => vtTransitioning.value, (loading) => {
+  if (loading) {
+    loadProgressValue.value = 0
+    loadProgressVisible.value = true
+    if (progressTimer) clearInterval(progressTimer)
+    progressTimer = setInterval(() => {
+      loadProgressValue.value = Math.min(78, loadProgressValue.value + 3)
+    }, 60)
+  } else {
+    if (progressTimer) { clearInterval(progressTimer); progressTimer = null }
+    loadProgressValue.value = 100
+    setTimeout(() => {
+      loadProgressVisible.value = false
+      loadProgressValue.value = 0
+    }, 320)
+  }
+})
 </script>
 
 <style scoped>
@@ -1685,5 +1896,170 @@ watch(
 /* Hide arrows when dock is open */
 :global(.hide-nav-arrows .psv-virtual-tour-arrow) {
   display: none !important;
+}
+
+/* ── Loading progress bar ─────────────────────────────── */
+.viewer-progress {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 100;
+  pointer-events: none;
+  overflow: hidden;
+}
+.viewer-progress__bar {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #3b82f6 100%);
+  box-shadow: 0 0 8px rgba(99,102,241,0.7);
+  transition: width 80ms linear;
+}
+.viewer-progress-enter-active, .viewer-progress-leave-active { transition: opacity 280ms ease; }
+.viewer-progress-enter-from, .viewer-progress-leave-to { opacity: 0; }
+
+/* ── Scene name toast ─────────────────────────────────── */
+.scene-toast {
+  position: absolute;
+  top: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 60;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 16px 7px 12px;
+  border-radius: 999px;
+  background: rgba(8, 10, 18, 0.88);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(16px);
+  color: rgba(255,255,255,0.92);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.01em;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  pointer-events: none;
+}
+.scene-toast__dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 8px rgba(99,102,241,0.9);
+  flex-shrink: 0;
+}
+.scene-toast-enter-active { transition: opacity 220ms ease, transform 220ms cubic-bezier(0.34,1.56,0.64,1); }
+.scene-toast-leave-active  { transition: opacity 280ms ease, transform 280ms ease; }
+.scene-toast-enter-from    { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.92); }
+.scene-toast-leave-to      { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+
+/* ── Info panel ───────────────────────────────────────── */
+.info-panel-enter-active { transition: opacity 200ms ease, transform 200ms cubic-bezier(0.34,1.2,0.64,1); }
+.info-panel-leave-active  { transition: opacity 180ms ease, transform 180ms ease; }
+.info-panel-enter-from    { opacity: 0; transform: translateX(14px); }
+.info-panel-leave-to      { opacity: 0; transform: translateX(10px); }
+
+.info-panel {
+  position: absolute;
+  right: 78px; top: 50%; transform: translateY(-50%);
+  z-index: 34;
+  width: 240px;
+  background: rgba(8, 10, 18, 0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+  backdrop-filter: blur(24px) saturate(1.1);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  overflow: hidden;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.info-panel__logo {
+  max-width: 120px; max-height: 44px;
+  object-fit: contain; object-position: left;
+  filter: brightness(1.1);
+}
+.info-panel__name {
+  font-size: 15px; font-weight: 800;
+  color: rgba(255,255,255,0.95);
+  letter-spacing: -0.02em; line-height: 1.25; margin: 0;
+}
+.info-panel__desc {
+  font-size: 12px; color: rgba(255,255,255,0.5);
+  line-height: 1.55; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.info-panel__divider {
+  height: 1px; background: rgba(255,255,255,0.08); flex-shrink: 0;
+}
+.info-panel__rows { display: flex; flex-direction: column; gap: 9px; }
+.info-panel__row {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 12px; color: rgba(255,255,255,0.65); font-weight: 500;
+  text-decoration: none; transition: color 120ms;
+}
+.info-panel__row:is(a):hover { color: rgba(255,255,255,0.92); }
+.info-panel__row-icon {
+  width: 14px; height: 14px; flex-shrink: 0; opacity: 0.55;
+}
+.info-panel__close {
+  position: absolute; top: 12px; right: 12px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,255,255,0.08); border: none; cursor: pointer;
+  color: rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center;
+  transition: background 120ms, color 120ms;
+}
+.info-panel__close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* ── Zoom widget ──────────────────────────────────────── */
+.zoom-widget {
+  position: absolute;
+  right: 18px;
+  bottom: 22px;
+  z-index: 35;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.zoom-widget__btn {
+  width: 34px; height: 34px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: rgba(10,12,20,0.66);
+  backdrop-filter: blur(14px);
+  color: rgba(255,255,255,0.65);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; font-weight: 400; line-height: 1;
+  transition: background 140ms, color 140ms, border-color 140ms;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+.zoom-widget__btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff; border-color: rgba(255,255,255,0.18);
+}
+.zoom-widget__btn:active { transform: scale(0.94); }
+.public-viewer--chrome-hidden .zoom-widget { opacity: 0; pointer-events: none; }
+
+/* ── Hotspot hover labels ─────────────────────────────── */
+:global(.vhs-info__hover-label) {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  background: rgba(8,10,18,0.9);
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  color: rgba(255,255,255,0.88);
+  font-size: 10px; font-weight: 700;
+  white-space: nowrap;
+  padding: 4px 9px; border-radius: 7px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 150ms ease, transform 150ms ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+:global(.vhs-info:hover .vhs-info__hover-label) {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+}
+:global(.vhs-info--active .vhs-info__hover-label) { opacity: 0; }
+
+@media (max-width: 640px) {
+  .info-panel {
+    right: 60px; width: 210px; padding: 16px; gap: 11px;
+    top: auto; bottom: 130px; transform: none;
+  }
+  .zoom-widget {
+    right: 10px; bottom: 16px;
+  }
+  .zoom-widget__btn { width: 30px; height: 30px; border-radius: 8px; font-size: 15px; }
+  .scene-toast { font-size: 11px; padding: 6px 12px 6px 10px; top: 12px; }
 }
 </style>

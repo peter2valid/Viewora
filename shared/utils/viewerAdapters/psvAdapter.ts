@@ -161,6 +161,7 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
         : `<div class="vhs-info__pin-dot" style="background:${meta.color}"></div>`
       }
     </div>
+    <span class="vhs-info__hover-label">${label}</span>
     <div class="vhs-info__card">
       ${imageUrl ? `<div class="vhs-info__img" style="background-image:url('${imageUrl}')"></div>` : ''}
       <div class="vhs-info__body">
@@ -274,8 +275,8 @@ export async function initViewer(
   plugins.push([AutorotatePlugin, {
     autorotateSpeed: '0.5rpm',
     autorotatePitch: scene.settings.pitch_default ?? 0,
-    autostartDelay: 3000,
-    autostartOnIdle: false,
+    autostartDelay: 8000,
+    autostartOnIdle: true,
   }])
   plugins.push([StereoPlugin, {}])
 
@@ -667,6 +668,7 @@ export interface VirtualTourInitOptions {
   onError?: (err: Error) => void
   onNodeChanged?: (nodeId: string) => void
   onMarkerClick?: (hotspotId: string, type: string, url?: string) => void
+  onAutorotateChange?: (enabled: boolean) => void
   autoRotate?: boolean
   performanceMode?: ViewerPerformanceMode
   loadingImg?: string
@@ -683,12 +685,13 @@ export async function initVirtualTourViewer(
   startNodeId: string,
   options: VirtualTourInitOptions = {},
 ): Promise<PsvViewerHandle> {
-  const { 
-    onReady, 
-    onError, 
-    onNodeChanged, 
-    onMarkerClick, 
-    autoRotate, 
+  const {
+    onReady,
+    onError,
+    onNodeChanged,
+    onMarkerClick,
+    onAutorotateChange,
+    autoRotate,
     performanceMode = 'auto',
     loadingImg = '/images/viewora-logo.png'
   } = options
@@ -714,8 +717,8 @@ export async function initVirtualTourViewer(
   plugins.push([AutorotatePlugin, {
     autorotateSpeed: '0.5rpm',
     autorotatePitch: 0,
-    autostartDelay: 2000,
-    autostartOnIdle: false,
+    autostartDelay: 8000,
+    autostartOnIdle: true,
   }])
 
   plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
@@ -807,6 +810,13 @@ export async function initVirtualTourViewer(
   viewer.addEventListener('panorama-error', (e: any) => {
     onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'))
   })
+
+  const autorotatePl = viewer.getPlugin(AutorotatePlugin)
+  if (autorotatePl) {
+    const handleAutorotateEv = (e: any) => onAutorotateChange?.(e.autorotateEnabled ?? false)
+    autorotatePl.addEventListener('autorotate', handleAutorotateEv)
+    cleanupFns.push(() => autorotatePl.removeEventListener('autorotate', handleAutorotateEv))
+  }
 
   const handleNodeChanged = (e: any) => onNodeChanged?.(e.node.id)
   virtualTour.addEventListener('node-changed', handleNodeChanged)
@@ -957,4 +967,46 @@ export function applyLiveSettings(
   } catch (err) {
     console.warn('[psvAdapter] applyLiveSettings failed:', err)
   }
+}
+
+export function toggleGyroscope(handle: PsvViewerHandle | null): void {
+  if (!handle?.viewer) return
+  try { handle.viewer.getPlugin(GyroscopePlugin)?.toggle() } catch { /* noop */ }
+}
+
+export function isGyroscopeEnabled(handle: PsvViewerHandle | null): boolean {
+  if (!handle?.viewer) return false
+  try { return !!handle.viewer.getPlugin(GyroscopePlugin)?.isEnabled?.() } catch { return false }
+}
+
+export function resetView(handle: PsvViewerHandle | null, yaw = 0, pitch = 0): void {
+  if (!handle?.viewer) return
+  try { handle.viewer.animate({ yaw, pitch, zoom: 50, speed: '1.5rpm' }) } catch { /* noop */ }
+}
+
+export function zoomIn(handle: PsvViewerHandle | null): void {
+  if (!handle?.viewer) return
+  try {
+    const lvl = handle.viewer.getZoomLevel() as number
+    handle.viewer.zoom(Math.min(100, lvl + 15))
+  } catch { /* noop */ }
+}
+
+export function zoomOut(handle: PsvViewerHandle | null): void {
+  if (!handle?.viewer) return
+  try {
+    const lvl = handle.viewer.getZoomLevel() as number
+    handle.viewer.zoom(Math.max(0, lvl - 15))
+  } catch { /* noop */ }
+}
+
+export function captureScreenshot(handle: PsvViewerHandle | null): string | null {
+  if (!handle?.viewer) return null
+  try {
+    const canvas: HTMLCanvasElement | undefined =
+      handle.viewer.renderer?.renderer?.domElement ??
+      handle.viewer.getContainer?.()?.querySelector?.('canvas')
+    if (!canvas) return null
+    return canvas.toDataURL('image/jpeg', 0.92)
+  } catch { return null }
 }
