@@ -699,10 +699,6 @@ export async function initVirtualTourViewer(
   const startScene = scenes.find(s => s.id === startNodeId) || scenes[0]
   if (!startScene) throw new Error('No scenes to display')
 
-  const isTouchDevice =
-    typeof window !== 'undefined' &&
-    ('ontouchstart' in window || navigator.maxTouchPoints > 0)
-
   const resolvedPerformanceMode = performanceMode === 'auto' ? detectViewerPerformanceMode() : performanceMode
   const isLiteMode = resolvedPerformanceMode === 'lite'
 
@@ -711,7 +707,6 @@ export async function initVirtualTourViewer(
   // Plugin order matters — VirtualTour must be last (depends on MarkersPlugin)
   const plugins: any[] = [
     [MarkersPlugin, {}],
-    [SettingsPlugin, {}],
   ]
 
   plugins.push([AutorotatePlugin, {
@@ -721,7 +716,6 @@ export async function initVirtualTourViewer(
     autostartOnIdle: true,
   }])
 
-  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
   plugins.push([StereoPlugin])
   
 
@@ -752,46 +746,16 @@ export async function initVirtualTourViewer(
     navbar: false,
     touchmoveTwoFingers: false,
     fisheye: false,
+    // Higher moveSpeed makes single-finger drag feel responsive on mobile —
+    // default 1 needs ~4 swipes to orbit 360°; 1.5 brings it to ~2.5 swipes
+    moveSpeed: 1.5,
+    // Slightly stronger inertia for a premium momentum feel on flick
+    moveInertia: 0.88,
     plugins,
   })
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
-  const settings: any = viewer.getPlugin(SettingsPlugin)
-  const gyroscope: any = !isLiteMode ? viewer.getPlugin(GyroscopePlugin) : null
-  const stereo: any = !isLiteMode ? viewer.getPlugin(StereoPlugin) : null
-  const autorotate: any = autoRotate && !isLiteMode ? viewer.getPlugin(AutorotatePlugin) : null
-
-  // ── Wire Settings panel toggles ────────────────────────────
-  if (settings) {
-    if (autorotate) {
-      settings.addSetting({
-        id: 'autorotate',
-        type: 'toggle',
-        label: 'Auto-rotate',
-        active: () => autorotate.isEnabled(),
-        toggle: () => autorotate.toggle(),
-      })
-    }
-    if (gyroscope) {
-      settings.addSetting({
-        id: 'gyroscope',
-        type: 'toggle',
-        label: 'Gyroscope',
-        active: () => gyroscope.isEnabled(),
-        toggle: () => gyroscope.toggle(),
-      })
-    }
-    if (stereo) {
-      settings.addSetting({
-        id: 'stereo',
-        type: 'toggle',
-        label: 'VR mode',
-        active: () => stereo.isEnabled(),
-        toggle: () => stereo.toggle(),
-      })
-    }
-  }
 
   const cleanupFns: Array<() => void> = []
 

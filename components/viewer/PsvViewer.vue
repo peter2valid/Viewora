@@ -1541,6 +1541,12 @@ watch(() => vtTransitioning.value, (loading) => {
   transition: opacity 0.9s ease, filter 0.5s ease;
   touch-action: none;
   overscroll-behavior: none;
+  /* Prevent iOS rubber-band scroll and text selection during panorama drags */
+  -webkit-overflow-scrolling: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Suppress iOS tap highlight flash on the canvas */
+  -webkit-tap-highlight-color: transparent;
 }
 .vt-canvas--ready { opacity: 1; }
 .vt-canvas--focused :deep(.psv-canvas-container) { filter: blur(3px) brightness(0.7); }
@@ -1548,6 +1554,18 @@ watch(() => vtTransitioning.value, (loading) => {
 .vt-canvas :deep(.psv-container) {
   width: 100% !important;
   height: 100% !important;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Remove PSV's default cursor so we can set our own below */
+  cursor: default;
+}
+
+/* Grab cursor on desktop — consistent with native panorama viewers */
+@media (pointer: fine) {
+  .vt-canvas :deep(.psv-container) { cursor: grab; }
+  .vt-canvas :deep(.psv-container:active) { cursor: grabbing; }
 }
 
 /* ── Overlays ───────────────────────────────────────────── */
