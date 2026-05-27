@@ -272,7 +272,7 @@ export async function initViewer(
   plugins.push([SettingsPlugin, {}])
   plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
   plugins.push([AutorotatePlugin, {
-    autorotateSpeed: '2rpm',
+    autorotateSpeed: '0.5rpm',
     autorotatePitch: scene.settings.pitch_default ?? 0,
     autostartDelay: 3000,
     autostartOnIdle: false,
@@ -712,7 +712,7 @@ export async function initVirtualTourViewer(
   ]
 
   plugins.push([AutorotatePlugin, {
-    autorotateSpeed: '2rpm',
+    autorotateSpeed: '0.5rpm',
     autorotatePitch: 0,
     autostartDelay: 2000,
     autostartOnIdle: false,

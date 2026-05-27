@@ -2,7 +2,7 @@
   <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden }" @click="onViewerClick">
     <!-- Floating viewer rail (CloudPano-style controls) -->
     <div class="viewer-rail" aria-label="Viewer controls">
-      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" @click.stop="toggleAutoRotate">
+      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" data-tooltip="Auto Rotate" @click.stop="toggleAutoRotate">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 5v4" />
           <path d="M12 15v4" />
@@ -15,14 +15,21 @@
         </svg>
       </button>
 
-      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': chromeHidden }" type="button" aria-label="Toggle viewer chrome" :aria-pressed="chromeHidden" @click.stop="toggleChrome">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-          <circle cx="12" cy="12" r="3.2" />
-        </svg>
+      <button
+        class="viewer-rail__btn viewer-rail__chrome-toggle"
+        :class="{ 'viewer-rail__btn--active': chromeHidden }"
+        type="button"
+        aria-label="Toggle viewer chrome"
+        :aria-pressed="chromeHidden"
+        :data-tooltip="chromeHidden ? 'Show Controls' : 'Hide Controls'"
+        @click.stop="toggleChrome"
+      >
+        <span class="chrome-switch" :class="{ 'chrome-switch--off': chromeHidden }">
+          <span class="chrome-switch__thumb" />
+        </span>
       </button>
 
-      <button class="viewer-rail__btn" type="button" aria-label="Share tour" @click.stop="shareTour">
+      <button class="viewer-rail__btn" type="button" aria-label="Share tour" data-tooltip="Share" @click.stop="shareTour">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M16 8a3 3 0 1 0-2.83-4" />
           <path d="M8 12l8-4" />
@@ -33,7 +40,7 @@
         </svg>
       </button>
 
-      <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" @click.stop="toggleFullscreen">
+      <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" data-tooltip="Fullscreen" @click.stop="toggleFullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M8 3H3v5" />
           <path d="M16 3h5v5" />
@@ -42,7 +49,7 @@
         </svg>
       </button>
 
-      <button class="viewer-rail__btn" type="button" aria-label="VR mode" @click.stop="toggleStereoView">
+      <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
           <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
@@ -662,8 +669,12 @@ watch(
   }
 )
 
-// Close info card on background click
+// Close info card on background click; restore chrome if hidden
 function onViewerClick() {
+  if (chromeHidden.value) {
+    toggleChrome()
+    return
+  }
   if (!vtFocusing.value) return
   vtFocusing.value = false
   const all = buildAllHotspots()
@@ -767,6 +778,13 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.public-viewer--chrome-hidden .viewer-rail {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(8px);
 }
 
 .viewer-rail__btn {
@@ -806,6 +824,70 @@ watch(
 
 .viewer-rail__btn:active {
   transform: scale(0.96);
+}
+
+/* Tooltip on hover — floats to the left of each button */
+.viewer-rail__btn[data-tooltip]::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+  background: rgba(8, 10, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms ease, transform 140ms ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.viewer-rail__btn[data-tooltip]:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Toggle switch (chrome hide/show button) */
+.viewer-rail__chrome-toggle svg {
+  display: none;
+}
+
+.chrome-switch {
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: background 220ms ease;
+  flex-shrink: 0;
+}
+
+.chrome-switch--off {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.chrome-switch__thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translateX(12px);
+  flex-shrink: 0;
+}
+
+.chrome-switch--off .chrome-switch__thumb {
+  transform: translateX(0);
 }
 
 .share-overlay {
@@ -1166,9 +1248,13 @@ watch(
   .viewer-rail {
     right: 10px;
     top: auto;
-    bottom: 92px;
+    bottom: 130px;
     transform: none;
     gap: 8px;
+  }
+
+  .public-viewer--chrome-hidden .viewer-rail {
+    transform: translateX(8px);
   }
 
   .viewer-rail__btn {
