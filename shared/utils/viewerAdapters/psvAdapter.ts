@@ -716,6 +716,9 @@ export async function initVirtualTourViewer(
     autostartOnIdle: true,
   }])
 
+  // GyroscopePlugin is required by StereoPlugin (hard dependency) but we never
+  // start it ourselves — touchmove:false ensures it never intercepts drag events
+  plugins.push([GyroscopePlugin, { touchmove: false }])
   plugins.push([StereoPlugin])
   
 
