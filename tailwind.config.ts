@@ -14,6 +14,16 @@ export default <Partial<Config>>{
   theme: {
     extend: {
       colors: {
+        // CSS-variable tokens — support opacity modifiers like bg-main/25, bg-surface-alt/50, text-bg, etc.
+        // <alpha-value> is replaced by Tailwind with the modifier (e.g. 0.25 for /25)
+        main: 'rgb(var(--color-main-rgb) / <alpha-value>)',
+        bg: 'rgb(var(--color-bg-rgb) / <alpha-value>)',
+        surface: {
+          DEFAULT: 'rgb(var(--color-surface-rgb) / <alpha-value>)',
+          alt: 'rgb(var(--color-surface-alt-rgb) / <alpha-value>)',
+        },
+        card: 'rgb(var(--color-card-rgb) / <alpha-value>)',
+        // Static brand colors
         ink: {
           DEFAULT: '#0a0a0a',
           soft: '#1a1a1a',

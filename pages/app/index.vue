@@ -135,26 +135,8 @@
             </NuxtLink>
           </div>
 
-          <div class="h-[200px] flex items-end gap-1.5 pl-8 relative">
-            <!-- Y axis labels -->
-            <div class="absolute left-0 inset-y-0 w-7 flex flex-col justify-between text-[10px] font-bold text-dim pointer-events-none text-right pr-1">
-              <span>{{ maxY }}</span>
-              <span>0</span>
-            </div>
-            <!-- Bars -->
-            <div v-for="(day, i) in chartDays" :key="i" class="flex-1 flex flex-col items-center justify-end h-full gap-2 group/bar">
-              <div class="relative w-full">
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-main text-bg rounded-md text-[10px] font-bold opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none whitespace-nowrap z-10">
-                  {{ day.views }} views
-                </div>
-                <div
-                  class="w-full min-h-[3px] rounded-t-md transition-all duration-500"
-                  :class="day.views > 0 ? 'bg-main/25 group-hover/bar:bg-main' : 'bg-surface-alt'"
-                  :style="{ height: (day.views / (maxY || 1) * 100) + '%' }"
-                ></div>
-              </div>
-              <span class="text-[10px] font-bold text-dim">{{ day.label }}</span>
-            </div>
+          <div class="h-[200px]">
+            <ViewsChart :chart-days="chartDays" :max-y="maxY" />
           </div>
         </div>
 

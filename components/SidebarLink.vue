@@ -5,12 +5,12 @@
     class="flex items-center py-2.5 rounded-xl text-sm font-bold transition-all duration-150 group"
     :class="[
       isActive
-        ? 'bg-main text-bg shadow-lg dark:bg-white/10 dark:text-white dark:shadow-none'
+        ? 'bg-main text-bg shadow-lg dark:bg-white/[0.15] dark:text-white dark:shadow-none'
         : 'text-dim hover:text-main hover:bg-main/5 dark:text-zinc-400 dark:hover:text-zinc-50 dark:hover:bg-zinc-800/60',
       collapsed ? 'justify-center px-0' : 'gap-3 px-3.5'
     ]"
   >
-    <div v-html="iconSvg" class="flex items-center justify-center flex-shrink-0 transition-colors" :class="isActive ? 'text-bg' : 'text-dim group-hover:text-main'"></div>
+    <div v-html="iconSvg" class="flex items-center justify-center flex-shrink-0 transition-colors" :class="isActive ? 'text-bg dark:text-white' : 'text-dim group-hover:text-main dark:group-hover:text-white'"></div>
     <span v-if="!collapsed" class="tracking-tight">{{ label }}</span>
   </NuxtLink>
 </template>

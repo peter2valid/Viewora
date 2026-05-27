@@ -120,9 +120,9 @@
             </div>
           </div>
 
-          <!-- Custom Bar Chart Visualization -->
-          <div class="h-[240px] flex items-end gap-2 px-2 relative group/chart">
-            <!-- Empty State Overlay -->
+          <!-- Chart -->
+          <div class="h-[240px] relative">
+            <!-- Empty State Overlay — shown when there's genuinely no data -->
             <div v-if="chartDays.every(d => d.views === 0)" class="absolute inset-0 flex flex-col items-center justify-center bg-surface-alt/60 dark:bg-surface/80 backdrop-blur-xl z-20 rounded-2xl border border-black/[0.08] dark:border-white/20">
                <div class="relative mb-6">
                   <div class="w-16 h-16 bg-surface-alt text-main rounded-2xl flex items-center justify-center shadow-inner relative z-10">
@@ -133,27 +133,7 @@
                <p class="text-base font-black text-main tracking-tight">Signal Loss Detected</p>
                <p class="text-[11px] text-dim font-bold mt-1 uppercase tracking-widest opacity-60">Waiting for inbound telemetry...</p>
             </div>
-
-            <!-- Y Axis (Minimal) -->
-            <div class="absolute -left-2 inset-y-0 w-8 flex flex-col justify-between text-[10px] font-black text-dim dark:text-dim/30 pointer-events-none pr-3 text-right">
-              <span>{{ maxY }}</span>
-              <span>0</span>
-            </div>
-
-            <!-- Vertical Bars -->
-            <div v-for="(day, i) in chartDays" :key="i" class="flex-1 flex flex-col items-center justify-end h-full gap-2 group/bar z-10">
-              <div class="relative w-full group/tip">
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-main text-bg rounded-lg text-[10px] font-bold opacity-0 group-hover/bar:opacity-100 transition-all pointer-events-none shadow-xl z-30 whitespace-nowrap">
-                   {{ day.views }} views
-                </div>
-                <div
-                  class="w-full min-h-[4px] rounded-t-lg transition-all duration-500 ease-out group-hover:bg-main"
-                  :class="day.views > 0 ? 'bg-main/20' : 'bg-surface-alt'"
-                  :style="{ height: (day.views / (maxY || 1) * 100) + '%' }"
-                ></div>
-              </div>
-              <span class="text-[10px] font-bold text-dim/50 transition-colors group-hover/bar:text-main hidden md:block">{{ day.label }}</span>
-            </div>
+            <ViewsChart :chart-days="chartDays" :max-y="maxY" />
           </div>
         </div>
 
