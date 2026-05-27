@@ -17,7 +17,7 @@
     </Transition>
 
     <!-- Control stack: toggle always visible, rail hides with chrome -->
-    <div class="viewer-control-stack">
+    <div ref="controlStackEl" class="viewer-control-stack">
 
       <!-- Always-visible chrome toggle (lives outside the rail so opacity:0 never touches it) -->
       <button
@@ -351,6 +351,7 @@ const analytics = useAnalytics()
 
 const viewerRootEl = ref<HTMLElement | null>(null)
 const viewerShellRef = ref<InstanceType<typeof ViewerShell> | null>(null)
+const controlStackEl = ref<HTMLElement | null>(null)
 
 // ── VirtualTour state ──────────────────────────────────────────────────────
 const vtContainerEl = ref<HTMLElement | null>(null)
