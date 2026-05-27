@@ -35,10 +35,10 @@
       </div>
     </Transition>
 
-    <!-- Floating viewer rail (CloudPano-style controls) -->
-    <div class="viewer-rail" aria-label="Viewer controls">
+    <!-- Control stack: toggle always visible, rail hides with chrome -->
+    <div class="viewer-control-stack">
 
-      <!-- 1 — Hide Controls -->
+      <!-- Always-visible chrome toggle (lives outside the rail so opacity:0 never touches it) -->
       <button
         class="viewer-rail__btn viewer-rail__chrome-toggle"
         :class="{ 'viewer-rail__btn--active': chromeHidden }"
@@ -53,7 +53,10 @@
         </span>
       </button>
 
-      <!-- 2 — Gyroscope -->
+      <!-- Rail (hides when chrome hidden) -->
+      <div class="viewer-rail" aria-label="Viewer controls">
+
+      <!-- 1 — Gyroscope -->
       <button v-if="hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Toggle gyroscope" :aria-pressed="gyroscopeActive" data-tooltip="Gyroscope" @click.stop="toggleGyroscopeView">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="7" y="4" width="10" height="16" rx="2" />
@@ -131,7 +134,7 @@
         </svg>
       </button>
 
-      <!-- 10 — Fullscreen -->
+      <!-- 9 — Fullscreen -->
       <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" data-tooltip="Fullscreen" @click.stop="toggleFullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M8 3H3v5" />
@@ -141,7 +144,8 @@
         </svg>
       </button>
 
-    </div>
+      </div><!-- end .viewer-rail -->
+    </div><!-- end .viewer-control-stack -->
 
     <!-- Zoom widget -->
     <div v-if="!chromeHidden" class="zoom-widget">
@@ -807,6 +811,7 @@ function showActionMessage(message: string) {
 
 function toggleChrome() {
   chromeHidden.value = !chromeHidden.value
+  if (chromeHidden.value) showInfoPanel.value = false
   emit('chrome-toggle', chromeHidden.value)
 }
 
@@ -985,12 +990,21 @@ watch(() => vtTransitioning.value, (loading) => {
   overscroll-behavior: none;
 }
 
-.viewer-rail {
+/* Stack: holds the always-visible toggle + the hideable rail */
+.viewer-control-stack {
   position: absolute;
   right: 18px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Rail: no longer absolutely positioned — stack handles that */
+.viewer-rail {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1000,7 +1014,7 @@ watch(() => vtTransitioning.value, (loading) => {
 .public-viewer--chrome-hidden .viewer-rail {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-50%) translateX(8px);
+  transform: translateX(8px);
 }
 
 .viewer-rail__btn {
@@ -1461,7 +1475,7 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 
 @media (max-width: 640px) {
-  .viewer-rail {
+  .viewer-control-stack {
     right: 10px;
     top: auto;
     bottom: 130px;
@@ -1469,8 +1483,8 @@ watch(() => vtTransitioning.value, (loading) => {
     gap: 8px;
   }
 
-  .public-viewer--chrome-hidden .viewer-rail {
-    transform: translateX(8px);
+  .viewer-rail {
+    gap: 8px;
   }
 
   .viewer-rail__btn {
