@@ -174,11 +174,14 @@
             <p class="text-sm font-bold text-main dark:text-white truncate">
               {{ user?.email?.split("@")[0] }}
             </p>
-            <p
-              class="text-[10px] font-extrabold uppercase tracking-widest text-dim truncate"
+            <NuxtLink
+              to="/app/billing"
+              @click="isSidebarOpen = false"
+              class="text-[10px] font-extrabold uppercase tracking-widest text-dim hover:text-main transition-colors cursor-pointer flex items-center gap-1 truncate"
             >
               {{ planStore.plan?.name || "Free" }} Plan
-            </p>
+              <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="flex-shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+            </NuxtLink>
           </div>
         </div>
         <!-- Collapsed avatar -->

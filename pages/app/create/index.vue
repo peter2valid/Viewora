@@ -1,8 +1,28 @@
 <template>
   <div class="h-full flex flex-col items-center justify-center animate-in fade-in duration-300">
-    
+
+    <!-- UPGRADE WALL: space limit reached -->
+    <div v-if="atSpaceLimit" class="flex-1 flex items-center justify-center p-6 md:p-12 w-full">
+      <div class="max-w-md w-full card-glass p-12 text-center shadow-2xl relative overflow-hidden group">
+        <div class="absolute top-0 left-0 w-full h-1.5 bg-main"></div>
+        <div class="absolute top-0 right-0 w-64 h-64 bg-main/5 blur-[100px] pointer-events-none"></div>
+        <div class="w-16 h-16 bg-surface-alt text-main rounded-2xl flex items-center justify-center mx-auto mb-8 border border-border shadow-inner relative z-10">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <h2 class="text-2xl font-black tracking-tight text-main mb-4 relative z-10">Tour Limit Reached</h2>
+        <p class="text-dim text-sm font-bold leading-relaxed mb-4 relative z-10">
+          You've used all <span class="text-main">{{ planStore.plan?.max_active_spaces }}</span> active tour slots on your {{ planStore.plan?.name || 'Free' }} plan.
+        </p>
+        <p class="text-dim text-sm leading-relaxed mb-10 relative z-10">Upgrade to create more tours and unlock additional storage.</p>
+        <NuxtLink to="/app/billing" class="btn btn-primary w-full !py-5 shadow-2xl relative z-10">
+          Upgrade Plan
+        </NuxtLink>
+        <NuxtLink to="/app/spaces" class="block mt-4 text-xs font-bold text-dim hover:text-main transition-colors relative z-10">Back to Tours</NuxtLink>
+      </div>
+    </div>
+
     <!-- STEP 1: Type Selection -->
-    <div v-if="step === 1" class="w-full max-w-[900px] mt-6 md:mt-12 px-4 flex flex-col items-center">
+    <div v-else-if="step === 1" class="w-full max-w-[900px] mt-6 md:mt-12 px-4 flex flex-col items-center">
       <div class="text-center mb-8 md:mb-12 w-full">
         <h1 class="text-3xl md:text-4xl font-extrabold text-main mb-3 md:mb-4 tracking-tighter">What are you creating?</h1>
         <p class="text-sm md:text-base text-dim max-w-lg mx-auto">Choose the type of tour to get the best setup</p>
@@ -56,7 +76,7 @@
     </div>
 
     <!-- STEP 2: Basic Setup -->
-    <div v-if="step === 2" class="w-full max-w-[600px] mt-12 px-4 sm:px-6 flex flex-col items-center animate-in slide-in-from-right-4 duration-300">
+    <div v-else-if="step === 2" class="w-full max-w-[600px] mt-12 px-4 sm:px-6 flex flex-col items-center animate-in slide-in-from-right-4 duration-300">
       <div class="mb-8 w-full">
         <button @click="step = 1" class="text-sm font-semibold text-dim hover:text-main mb-8 flex items-center gap-1 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -112,9 +132,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { definePageMeta, navigateTo } from '#imports'
 import { useSpaces } from '~/composables/useSpaces'
+import { usePlanStore } from '~/stores/plan'
 
 definePageMeta({
   layout: 'app',
@@ -123,6 +144,7 @@ definePageMeta({
 
 const { createSpace } = useSpaces()
 const analytics = useAnalytics()
+const planStore = usePlanStore()
 
 const step = ref(1)
 const selectedType = ref<string>('')
@@ -130,6 +152,12 @@ const tourName = ref('')
 const locationText = ref('')
 const creating = ref(false)
 const errorMsg = ref<string | null>(null)
+
+const atSpaceLimit = computed(() => {
+  const max = planStore.plan?.max_active_spaces ?? Infinity
+  const used = planStore.usage?.active_spaces_count ?? 0
+  return used >= max
+})
 
 const typeOptions = [
   { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels', emoji: '🏠' },
@@ -142,7 +170,12 @@ const selectedOptionData = computed(() => typeOptions.find(o => o.id === selecte
 
 const handleCreateTour = async () => {
   if (!tourName.value.trim() || !selectedType.value) return
-  
+
+  if (atSpaceLimit.value) {
+    navigateTo('/app/billing')
+    return
+  }
+
   creating.value = true
   errorMsg.value = null
   

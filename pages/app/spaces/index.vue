@@ -36,8 +36,8 @@
           </button>
         </div>
 
-        <button 
-          @click="navigateTo('/app/create')"
+        <button
+          @click="handleCreateTour"
           class="btn btn-primary gap-2 !px-8 shadow-2xl"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -132,7 +132,7 @@
               </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
-              <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl">
+              <button @click="handleCreateTour" class="btn btn-primary flex-1 !py-5 shadow-2xl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Start Creating
               </button>
@@ -310,12 +310,14 @@
 definePageMeta({ layout: 'app', middleware: 'auth' })
 import { ref, computed, onMounted } from 'vue'
 import { useSpaces } from '~/composables/useSpaces'
+import { usePlanStore } from '~/stores/plan'
 import { navigateTo } from '#imports'
 import { toast } from 'vue-sonner'
 import type { Space } from '~/composables/useSpaces'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
 const { spaces, pending, fetchSpaces, deleteSpace, publishSpace } = useSpaces()
+const planStore = usePlanStore()
 
 const search = ref('')
 const searchInput = ref<HTMLInputElement>()
@@ -324,6 +326,22 @@ const viewMode = ref<'grid' | 'list'>('grid')
 // Delete
 const spaceToDelete = ref<Space | null>(null)
 const deleting = ref(false)
+
+const atSpaceLimit = computed(() => {
+  const max = planStore.plan?.max_active_spaces ?? Infinity
+  const used = planStore.usage?.active_spaces_count ?? 0
+  return used >= max
+})
+
+function handleCreateTour() {
+  if (atSpaceLimit.value) {
+    toast.error(`Tour limit reached (${planStore.plan?.max_active_spaces} on ${planStore.plan?.name || 'Free'} plan). Upgrade to create more.`, {
+      action: { label: 'Upgrade', onClick: () => navigateTo('/app/billing') }
+    })
+    return
+  }
+  navigateTo('/app/create')
+}
 
 const deleteMessage = computed(() => {
   if (!spaceToDelete.value) return ''

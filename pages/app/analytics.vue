@@ -23,8 +23,34 @@
       </div>
     </header>
 
+    <!-- Upgrade Wall (Gated) -->
+    <div v-if="!canAnalytics" class="flex-1 flex items-center justify-center p-6 md:p-12">
+      <div class="max-w-md w-full card-glass p-12 text-center shadow-2xl relative overflow-hidden group">
+        <div class="absolute top-0 left-0 w-full h-1.5 bg-main"></div>
+        <div class="absolute top-0 right-0 w-64 h-64 bg-main/5 blur-[100px] pointer-events-none group-hover:scale-110 transition-transform duration-1000"></div>
+        <div class="w-16 h-16 bg-surface-alt text-main rounded-2xl flex items-center justify-center mx-auto mb-8 border border-border shadow-inner relative z-10">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h2 class="text-2xl font-black tracking-tight text-main mb-4 relative z-10">Advanced Analytics</h2>
+        <p class="text-dim text-sm font-bold leading-relaxed mb-10 relative z-10">
+          Upgrade to access real-time view counts, traffic source breakdowns, and per-tour performance data.
+        </p>
+        <div class="space-y-4 mb-10 text-left bg-surface-alt/50 p-6 rounded-2xl border border-border relative z-10 shadow-inner">
+          <div v-for="feat in ['View Counts & Trends', 'Traffic Source Breakdown', 'Per-Tour Leaderboard']" :key="feat" class="flex items-center gap-3">
+            <div class="w-5 h-5 bg-main text-bg rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span class="text-[11px] font-black uppercase tracking-widest text-main">{{ feat }}</span>
+          </div>
+        </div>
+        <NuxtLink to="/app/billing" class="btn btn-primary w-full !py-5 shadow-2xl">
+          Upgrade to Viewora Plus
+        </NuxtLink>
+      </div>
+    </div>
+
     <!-- Loading Skeleton -->
-    <div v-if="pending" class="space-y-6 animate-pulse">
+    <div v-else-if="pending" class="space-y-6 animate-pulse">
       <!-- Chart + metric tiles row -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Chart skeleton (2/3) -->
@@ -266,11 +292,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { definePageMeta, useSeoMeta, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { usePlanStore } from '~/stores/plan'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
 useSeoMeta({ title: 'Analytics | Viewora' })
 
 const { apiFetch } = useApiFetch()
+const planStore = usePlanStore()
+const canAnalytics = computed(() => planStore.can('advanced_analytics_enabled'))
 const rawStats = ref<any[]>([])
 const pending = ref(true)
 
@@ -288,7 +317,8 @@ const activeRangeLabel = computed(() => {
 })
 
 onMounted(async () => {
-  await fetchStats()
+  if (canAnalytics.value) await fetchStats()
+  else pending.value = false
 })
 
 async function fetchStats() {

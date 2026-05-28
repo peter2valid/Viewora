@@ -534,28 +534,40 @@
               </div>
 
               <div v-else-if="activeShareTab === 'embed'" class="share-modal__panel" role="tabpanel">
-                <p class="share-modal__eyebrow">Embed</p>
-                <div class="share-modal__link-row share-modal__link-row--code">
-                  <code class="share-modal__link share-modal__link--code">{{ shareEmbedCode }}</code>
-                  <button class="share-modal__copy" @click="copyEmbedCode">
-                    <template v-if="embedCopied">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                      Copied
-                    </template>
-                    <template v-else>
-                      Copy iframe
-                    </template>
-                  </button>
-                </div>
-                <div class="share-modal__preview-card">
-                  <iframe
-                    :src="embedUrl"
-                    class="share-modal__preview-frame"
-                    title="Tour embed preview"
-                    loading="lazy"
-                    referrerpolicy="no-referrer"
-                  />
-                </div>
+                <template v-if="canEmbed">
+                  <p class="share-modal__eyebrow">Embed</p>
+                  <div class="share-modal__link-row share-modal__link-row--code">
+                    <code class="share-modal__link share-modal__link--code">{{ shareEmbedCode }}</code>
+                    <button class="share-modal__copy" @click="copyEmbedCode">
+                      <template v-if="embedCopied">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        Copied
+                      </template>
+                      <template v-else>
+                        Copy iframe
+                      </template>
+                    </button>
+                  </div>
+                  <div class="share-modal__preview-card">
+                    <iframe
+                      :src="embedUrl"
+                      class="share-modal__preview-frame"
+                      title="Tour embed preview"
+                      loading="lazy"
+                      referrerpolicy="no-referrer"
+                    />
+                  </div>
+                </template>
+                <template v-else>
+                  <div style="padding:24px;text-align:center">
+                    <div style="width:48px;height:48px;border-radius:12px;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;border:1px solid var(--border)">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <p style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--text-main)">Embeds are a paid feature</p>
+                    <p style="font-size:12px;color:var(--text-dim);margin-bottom:20px;line-height:1.5">Upgrade your plan to embed this tour on any website.</p>
+                    <NuxtLink to="/app/billing" style="display:inline-block;padding:10px 24px;background:var(--text-main);color:var(--bg);border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">Upgrade Plan</NuxtLink>
+                  </div>
+                </template>
               </div>
 
               <div v-else class="share-modal__panel share-modal__panel--qr" role="tabpanel">
@@ -942,6 +954,7 @@ const embedCopied = ref(false)
 const activeShareTab = ref<'link' | 'embed' | 'qr'>('link')
 const qrDataUrl = ref('')
 const qrLoading = ref(false)
+const canEmbed = computed(() => planStore.can('embeds_enabled'))
 const shareTabs = [
   { id: 'link', label: 'Send a link' },
   { id: 'embed', label: 'Embed' },
