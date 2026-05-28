@@ -5,7 +5,6 @@ import { errorLogger } from '~/utils/errorLogger'
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const dsn = (config.public as any).sentryDsn as string | undefined
-  const allowInDev = (config.public as any).sentryAllowDev === 'true' || process.env.NUXT_PUBLIC_SENTRY_ALLOW_DEV === 'true'
   if (!dsn) return
 
   try {
@@ -26,7 +25,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       replaysOnErrorSampleRate: 1.0,
       beforeSend(event: any, hint: any) {
         // Don't send errors in development unless explicitly allowed
-        if (process.env.NODE_ENV === 'development' && !allowInDev) {
+        if (process.env.NODE_ENV === 'development') {
           return null
         }
         return event
