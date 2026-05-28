@@ -92,6 +92,7 @@
       @place-hotspot="handlePlaceHotspot"
       @open-settings="showSettingsPanel = !showSettingsPanel"
       @cancel-placement="onCancelPlacement"
+      @auto-link="openAutoLink"
     />
 
     <!-- Preview mode: identical GlassDock to what the public viewer shows -->
@@ -576,6 +577,104 @@
       </Transition>
     </Teleport>
 
+    <!-- ── AI Auto-link modal ── -->
+    <Teleport to="body">
+      <Transition name="share-overlay">
+        <div v-if="showAutoLinkModal" class="share-overlay" @click.self="closeAutoLink" role="dialog" aria-modal="true" aria-label="Auto-link scenes">
+          <div class="al-modal">
+
+            <div class="share-modal__topbar">
+              <h2 class="share-modal__title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z"/></svg>
+                AI Scene Linking
+              </h2>
+              <button class="share-modal__close" @click="closeAutoLink" aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <!-- Analysing state -->
+            <div v-if="autoLinkAnalyzing" class="al-loading">
+              <div class="al-spinner" />
+              <p class="al-loading__text">Analysing your scenes with AI…</p>
+              <p class="al-loading__sub">This takes a few seconds per scene</p>
+            </div>
+
+            <!-- Error state -->
+            <div v-else-if="autoLinkError" class="al-error">
+              <p>{{ autoLinkError }}</p>
+              <button class="al-btn al-btn--secondary" @click="closeAutoLink">Close</button>
+            </div>
+
+            <!-- Results -->
+            <div v-else>
+              <!-- Scene rename suggestions -->
+              <template v-if="autoLinkRenames.length">
+                <p class="al-section-label">Rename scenes</p>
+                <ul class="al-list">
+                  <li v-for="r in autoLinkRenames" :key="r._id" class="al-item">
+                    <label class="al-item__label">
+                      <input
+                        type="checkbox"
+                        class="al-checkbox"
+                        :checked="autoLinkSelectedRenames.has(r._id)"
+                        @change="toggleAutoLinkRename(r._id)"
+                      />
+                      <span class="al-item__text">
+                        <span class="al-item__from">{{ r.currentName }}</span>
+                        <span class="al-item__arrow">→</span>
+                        <strong>{{ r.suggestedName }}</strong>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+              </template>
+
+              <!-- Hotspot suggestions -->
+              <template v-if="autoLinkSuggestions.length">
+                <p class="al-section-label">Navigation hotspots to create</p>
+                <ul class="al-list">
+                  <li v-for="s in autoLinkSuggestions" :key="s._id" class="al-item">
+                    <label class="al-item__label">
+                      <input
+                        type="checkbox"
+                        class="al-checkbox"
+                        :checked="autoLinkSelected.has(s._id)"
+                        @change="toggleAutoLinkSuggestion(s._id)"
+                      />
+                      <span class="al-item__text">
+                        <span class="al-item__from">{{ s.fromSceneName }}</span>
+                        <span class="al-item__arrow">→</span>
+                        <strong>{{ s.toSceneName }}</strong>
+                        <span class="al-item__detail">{{ s.doorwayDescription }}</span>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+              </template>
+
+              <p v-if="!autoLinkRenames.length && !autoLinkSuggestions.length" class="al-empty">
+                No suggestions — all scenes may already be linked.
+              </p>
+
+              <div class="al-actions">
+                <button class="al-btn al-btn--secondary" @click="closeAutoLink">Cancel</button>
+                <button
+                  class="al-btn al-btn--primary"
+                  :disabled="autoLinkApplying || (!autoLinkSelected.size && !autoLinkSelectedRenames.size)"
+                  @click="handleAutoLinkApply"
+                >
+                  <span v-if="autoLinkApplying" class="al-spinner al-spinner--sm" />
+                  <template v-else>Apply selected</template>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
   </div>
 </template>
 
@@ -584,7 +683,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import QRCode from 'qrcode'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { type EditorHotspot, mapDbHotspots } from '~/features/editor/mappers'
+import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
@@ -596,6 +695,7 @@ import { useEditorRealtime } from '~/features/editor/composables/useEditorRealti
 import { useEditorUpload, isLocalSceneId, type SceneUploadState } from '~/features/editor/composables/useEditorUpload'
 import { useHotspotEditor } from '~/features/editor/composables/useHotspotEditor'
 import { useEditorPublish } from '~/features/editor/composables/useEditorPublish'
+import { useAutoLink } from '~/features/editor/composables/useAutoLink'
 import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 import HotspotTypePicker from '~/features/editor/components/HotspotTypePicker.vue'
 import HotspotQuickEditor from '~/features/editor/components/HotspotQuickEditor.vue'
@@ -754,6 +854,50 @@ const {
   // Apply settings to the live viewer immediately after a successful save
   (settings) => viewerCanvasRef.value?.refreshSettings(settings),
 )
+
+// ── AI Auto-link ──────────────────────────────────────────────────────────────
+const {
+  showModal: showAutoLinkModal,
+  isAnalyzing: autoLinkAnalyzing,
+  isApplying: autoLinkApplying,
+  errorMsg: autoLinkError,
+  suggestions: autoLinkSuggestions,
+  sceneRenames: autoLinkRenames,
+  selectedSuggestions: autoLinkSelected,
+  selectedRenames: autoLinkSelectedRenames,
+  open: openAutoLink,
+  close: closeAutoLink,
+  toggleSuggestion: toggleAutoLinkSuggestion,
+  toggleRename: toggleAutoLinkRename,
+  apply: applyAutoLink,
+} = useAutoLink(props.spaceId, apiFetch)
+
+async function handleAutoLinkApply() {
+  await applyAutoLink(
+    // rename callback
+    async (sceneId, name) => {
+      const prev = scenes.value.slice()
+      scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, name } : s)
+      try {
+        await apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body: { name } })
+      } catch {
+        scenes.value = prev
+      }
+    },
+    // create hotspot callback
+    async (sceneId, payload) => {
+      const data = await apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload }) as any
+      if (data?.hotspot) {
+        const mapped = mapDbHotspot(data.hotspot)
+        hotspotsByScene.value = {
+          ...hotspotsByScene.value,
+          [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), mapped],
+        }
+      }
+    },
+  )
+  showToast('Scenes auto-linked!')
+}
 
 let isMounted = false
 let fetchScenesVersion = 0
@@ -2484,5 +2628,147 @@ defineExpose({
 .ts-seg__btn:hover:not(.ts-seg__btn--active) {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── AI Auto-link modal ─────────────────────────────────────── */
+.al-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: min(540px, calc(100vw - 32px));
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.22);
+}
+
+.al-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 0;
+}
+.al-loading__text { font-size: 14px; font-weight: 600; color: #111; }
+.al-loading__sub  { font-size: 12px; color: #888; }
+
+.al-error {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 0;
+  color: #c0392b;
+  font-size: 13px;
+}
+
+.al-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+  margin: 18px 0 8px;
+}
+.al-section-label:first-child { margin-top: 4px; }
+
+.al-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.al-item {
+  border-radius: 8px;
+  overflow: hidden;
+}
+.al-item__label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 120ms;
+}
+.al-item__label:hover { background: #f5f5f5; }
+
+.al-checkbox {
+  margin-top: 2px;
+  width: 15px;
+  height: 15px;
+  accent-color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.al-item__text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #222;
+  line-height: 1.4;
+}
+.al-item__from   { color: #666; }
+.al-item__arrow  { color: #999; font-size: 12px; }
+.al-item__detail {
+  display: block;
+  width: 100%;
+  font-size: 11px;
+  color: #999;
+  margin-top: 1px;
+}
+
+.al-empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+}
+
+.al-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.al-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 120ms, opacity 120ms;
+}
+.al-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.al-btn--secondary { background: #f0f0f0; color: #333; }
+.al-btn--secondary:hover:not(:disabled) { background: #e5e5e5; }
+.al-btn--primary { background: #3b82f6; color: #fff; }
+.al-btn--primary:hover:not(:disabled) { background: #2563eb; }
+
+.al-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(0,0,0,0.1);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.al-spinner--sm {
+  width: 14px;
+  height: 14px;
+  border-color: rgba(255,255,255,0.3);
+  border-top-color: #fff;
 }
 </style>

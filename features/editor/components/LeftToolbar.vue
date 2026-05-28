@@ -46,6 +46,28 @@
 
       <div class="lt-divider"/>
 
+      <!-- AI Auto-link -->
+      <div class="lt-item">
+        <button
+          class="lt-btn"
+          aria-label="Auto-link scenes with AI (L)"
+          @click="handleAutoLink"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z"/>
+            <path d="M19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75L19 14z"/>
+            <path d="M5 18l.5 1.5L7 20l-1.5.5L5 22l-.5-1.5L3 20l1.5-.5L5 18z"/>
+          </svg>
+          <span class="lt-label">AI Link</span>
+        </button>
+        <div class="lt-tip">
+          <span class="lt-tip__text">Auto-link Scenes</span>
+          <kbd class="lt-tip__key">L</kbd>
+        </div>
+      </div>
+
+      <div class="lt-divider"/>
+
       <!-- Settings -->
       <div class="lt-item">
         <button
@@ -92,6 +114,7 @@ const emit = defineEmits<{
   (e: 'place-hotspot', type: 'info' | 'nav'): void
   (e: 'open-settings'): void
   (e: 'cancel-placement'): void
+  (e: 'auto-link'): void
 }>()
 
 const route = useRoute()
@@ -121,10 +144,15 @@ function handleSettings() {
   emit('open-settings')
 }
 
+function handleAutoLink() {
+  emit('auto-link')
+}
+
 const keyMap: Record<string, () => void> = {
   i: handleInfo,
   n: handleNav,
   s: handleSettings,
+  l: handleAutoLink,
 }
 
 function onKeydown(e: KeyboardEvent) {
