@@ -159,13 +159,13 @@
         <div
           v-for="space in filteredSpaces"
           :key="space.id" 
-          class="group relative flex flex-col h-[300px] bg-card rounded-2xl border border-border overflow-hidden hover:border-main/50 hover:shadow-2xl transition-all duration-500 cursor-pointer"
+          class="group relative flex flex-col h-[300px] bg-card rounded-2xl border border-border dark:border-transparent overflow-hidden hover:shadow-2xl transition-all duration-500 cursor-pointer"
           @click="navigateTo(`/app/spaces/${space.id}`)"
         >
           <!-- Thumbnail -->
-          <div class="h-[180px] w-full bg-surface-alt relative overflow-hidden">
-            <NuxtImg 
-              v-if="space.cover_image_url"
+          <div class="h-[180px] w-full bg-surface-alt relative overflow-hidden border-b border-black/10 dark:border-white/5">
+            <NuxtImg
+              v-if="space.cover_image_url && !failedImages.has(space.id)"
               :src="space.cover_image_url"
               :alt="space.title"
               class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
@@ -174,6 +174,7 @@
               format="webp"
               quality="80"
               loading="lazy"
+              @error="failedImages.add(space.id)"
             />
             <div v-else class="w-full h-full flex items-center justify-center bg-surface-alt group-hover:bg-surface transition-colors duration-500 text-dim/20">
                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
@@ -181,7 +182,7 @@
             
             <!-- Badges -->
             <div class="absolute top-4 left-4 flex gap-2">
-              <span :class="['px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-2xl border backdrop-blur-md transition-all', space.is_published ? 'bg-emerald-500 text-bg border-emerald-400' : 'bg-surface/80 text-dim border-border']">
+              <span :class="['px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md transition-all', space.is_published ? 'bg-emerald-500 text-bg' : 'bg-surface/80 text-dim']">
                 {{ space.is_published ? 'Published' : 'Draft' }}
               </span>
             </div>
@@ -209,6 +210,9 @@
                 <button class="p-1.5 hover:bg-surface-alt rounded-lg text-dim hover:text-main transition-colors" @click.stop="handleTogglePublish(space)" title="Toggle Status">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
+                <button class="p-1.5 hover:bg-surface-alt rounded-lg text-dim hover:text-main transition-colors" @click.stop="openShare(space)" title="Share">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                </button>
               </div>
               <button class="p-1.5 hover:bg-rose-500/10 rounded-lg text-dim hover:text-rose-500 transition-colors" @click.stop="confirmDelete(space)" title="Delete">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
@@ -221,7 +225,8 @@
       <!-- Populated State: List View (Grey Futuristic iOS Aesthetic) -->
       <div v-else class="flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto w-full">
         <!-- List Header -->
-        <div class="px-8 py-5 flex items-center text-[10px] font-black uppercase tracking-[0.3em] text-dim/30">
+        <div class="px-6 py-5 flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.3em] text-dim/30">
+          <div class="w-14 flex-shrink-0"></div>
           <div class="flex-1">Domain & Project</div>
           <div class="w-40 hidden md:block">Technology</div>
           <div class="w-32 hidden md:block">Status</div>
@@ -232,23 +237,25 @@
         <div
           v-for="space in filteredSpaces"
           :key="space.id"
-          class="group px-6 py-4 flex items-center gap-6 bg-surface-alt/10 hover:bg-surface-alt/40 border border-border/20 hover:border-main/20 rounded-[1.25rem] transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:-translate-y-0.5"
+          class="group px-6 py-4 flex items-center gap-6 bg-surface-alt/10 hover:bg-surface-alt/40 border border-border/20 dark:border-transparent hover:border-main/20 rounded-[1.25rem] transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:-translate-y-0.5"
           @click="navigateTo(`/app/spaces/${space.id}`)"
         >
           <!-- Premium Compact Thumb -->
-          <div class="w-14 h-14 rounded-2xl bg-surface-alt border border-border/40 overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-700">
-             <NuxtImg 
-               v-if="space.cover_image_url" 
-               :src="space.cover_image_url" 
-               class="w-full h-full object-cover" 
+          <div class="w-14 h-14 rounded-2xl bg-surface-alt border border-border/40 dark:border-transparent overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-700">
+             <NuxtImg
+               v-if="space.cover_image_url && !failedImages.has(space.id)"
+               :src="space.cover_image_url"
+               :alt="space.title"
+               class="w-full h-full object-cover"
                width="56"
                height="56"
                format="webp"
                quality="80"
                loading="lazy"
+               @error="failedImages.add(space.id)"
              />
-             <div v-else class="w-full h-full flex items-center justify-center text-dim/10">
-               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+             <div v-else class="w-full h-full flex items-center justify-center bg-surface-alt text-dim/20">
+               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
              </div>
           </div>
 
@@ -261,11 +268,11 @@
           </div>
 
           <div class="w-40 hidden md:block">
-            <span class="text-[9px] font-black text-main/60 uppercase px-3 py-1 bg-main/[0.03] rounded-full border border-main/10 tracking-widest shadow-sm">360 WebXR</span>
+            <span class="text-[9px] font-black text-main/60 uppercase px-3 py-1 bg-main/[0.03] rounded-full border border-main/10 dark:border-transparent tracking-widest shadow-sm">360 WebXR</span>
           </div>
 
           <div class="w-32 hidden md:block">
-            <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-alt/50 rounded-xl border border-border/20 group-hover:bg-main/5 transition-colors">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-alt/50 rounded-xl border border-border/20 dark:border-transparent group-hover:bg-main/5 transition-colors">
               <div :class="['w-1.5 h-1.5 rounded-full', space.is_published ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-dim/20']"></div>
               <span class="text-[9px] font-black uppercase tracking-widest text-main/60">{{ space.is_published ? 'Live' : 'Draft' }}</span>
             </div>
@@ -276,10 +283,13 @@
           </div>
 
           <div class="w-32 flex justify-end gap-1.5">
-            <button class="w-10 h-10 flex items-center justify-center bg-surface-alt/50 hover:bg-main hover:text-bg border border-border/20 rounded-xl transition-all duration-300 shadow-sm" @click.stop="navigateTo(`/app/spaces/${space.id}`)" title="Edit">
+            <button class="w-10 h-10 flex items-center justify-center bg-surface-alt/50 hover:bg-main hover:text-bg border border-border/20 dark:border-transparent rounded-xl transition-all duration-300 shadow-sm" @click.stop="navigateTo(`/app/spaces/${space.id}`)" title="Edit">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             </button>
-            <button class="w-10 h-10 flex items-center justify-center bg-surface-alt/50 hover:bg-rose-500 hover:text-white border border-border/20 rounded-xl transition-all duration-300 shadow-sm" @click.stop="confirmDelete(space)" title="Delete">
+            <button class="w-10 h-10 flex items-center justify-center bg-surface-alt/50 hover:bg-main hover:text-bg border border-border/20 dark:border-transparent rounded-xl transition-all duration-300 shadow-sm" @click.stop="openShare(space)" title="Share">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center bg-surface-alt/50 hover:bg-rose-500 hover:text-white border border-border/20 dark:border-transparent rounded-xl transition-all duration-300 shadow-sm" @click.stop="confirmDelete(space)" title="Delete">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
@@ -302,18 +312,107 @@
         @cancel="spaceToDelete = null"
       />
 
+      <!-- Share Modal -->
+      <Transition name="share-modal">
+        <div v-if="spaceToShare" class="share-overlay" @click.self="spaceToShare = null">
+          <div class="share-modal" role="dialog" aria-modal="true" aria-label="Share your tour">
+            <div class="share-modal__topbar">
+              <h2 class="share-modal__title">Share</h2>
+              <button class="share-modal__close" @click="spaceToShare = null" aria-label="Close share dialog">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div class="share-modal__tabs" role="tablist">
+              <button v-for="tab in shareTabs" :key="tab.id" type="button" class="share-modal__tab" :class="{ 'share-modal__tab--active': shareTab === tab.id }" :aria-selected="shareTab === tab.id" role="tab" @click="shareTab = tab.id">{{ tab.label }}</button>
+            </div>
+
+            <div class="share-modal__body">
+              <!-- Send a link -->
+              <div v-if="shareTab === 'link'" class="share-modal__panel" role="tabpanel">
+                <p class="share-modal__eyebrow">Link to share</p>
+                <div class="share-modal__link-row">
+                  <span class="share-modal__link">{{ publicUrl }}</span>
+                  <button class="share-modal__copy" @click="copyShareUrl">
+                    <template v-if="urlCopied">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Copied
+                    </template>
+                    <template v-else>Copy link</template>
+                  </button>
+                </div>
+                <div class="share-modal__share-row">
+                  <a :href="shareWhatsappHref" target="_blank" rel="noopener" class="share-modal__share-item">
+                    <span class="share-modal__share-icon share-modal__share-icon--whatsapp">
+                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.49 2 2 6.48 2 12c0 1.89.52 3.66 1.42 5.18L2 22l4.98-1.39A9.96 9.96 0 0 0 12.04 22C17.56 22 22 17.52 22 12S17.56 2 12.04 2Zm5.8 14.16c-.24.68-1.44 1.32-1.98 1.39-.52.07-1.2.1-1.95-.12-.46-.14-1.05-.33-1.81-.66-3.18-1.38-5.24-4.6-5.39-4.81-.14-.21-1.3-1.73-1.3-3.3s.79-2.34 1.07-2.66c.28-.32.61-.4.82-.4h.58c.19 0 .45-.07.7.53.24.6.82 2.07.89 2.22.07.15.12.33.02.54-.1.21-.15.34-.3.52-.15.18-.31.4-.45.53-.15.16-.3.33-.13.63.16.31.71 1.17 1.52 1.9 1.04.92 1.9 1.21 2.22 1.37.31.16.49.14.67-.08.18-.22.77-.9.98-1.2.2-.31.4-.26.67-.16.28.1 1.74.82 2.04.97.3.14.5.22.58.34.08.12.08.74-.17 1.42Z"/></svg>
+                    </span>
+                    <span class="share-modal__share-label">WhatsApp</span>
+                  </a>
+                  <a :href="shareXHref" target="_blank" rel="noopener" class="share-modal__share-item">
+                    <span class="share-modal__share-icon share-modal__share-icon--x">
+                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-6.78 7.72L23.2 22h-6.4l-5-6.58L5.98 22H2.84l7.2-8.2L.8 2h6.55l4.53 5.98L18.9 2Zm-1.12 18h1.72L6.42 3.94H4.58L17.78 20Z"/></svg>
+                    </span>
+                    <span class="share-modal__share-label">X</span>
+                  </a>
+                  <a :href="shareGmailHref" class="share-modal__share-item">
+                    <span class="share-modal__share-icon share-modal__share-icon--gmail">
+                      <svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5h16v11H4z" fill="currentColor" opacity="0.16"/><path d="M4 6.5 12 12 20 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.8 7.2 12 12.1 19.2 7.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <span class="share-modal__share-label">Gmail</span>
+                  </a>
+                </div>
+              </div>
+
+              <!-- Embed -->
+              <div v-else-if="shareTab === 'embed'" class="share-modal__panel" role="tabpanel">
+                <p class="share-modal__eyebrow">Embed</p>
+                <div class="share-modal__link-row share-modal__link-row--code">
+                  <code class="share-modal__link share-modal__link--code">{{ shareEmbedCode }}</code>
+                  <button class="share-modal__copy" @click="copyEmbedCode">
+                    <template v-if="embedCopied">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Copied
+                    </template>
+                    <template v-else>Copy iframe</template>
+                  </button>
+                </div>
+                <div class="share-modal__preview-card">
+                  <iframe :src="embedUrl" class="share-modal__preview-frame" title="Tour embed preview" loading="lazy" referrerpolicy="no-referrer" />
+                </div>
+              </div>
+
+              <!-- QR Code -->
+              <div v-else class="share-modal__panel share-modal__panel--qr" role="tabpanel">
+                <p class="share-modal__eyebrow">QR code</p>
+                <div class="share-modal__qr-card">
+                  <div class="share-modal__qr-wrap">
+                    <img v-if="!qrLoading && qrDataUrl" :src="qrDataUrl" alt="QR code" class="share-modal__qr-image" />
+                    <div v-else class="share-modal__qr-placeholder">
+                      <span class="share-modal__qr-loading" />
+                    </div>
+                  </div>
+                  <p class="share-modal__qr-text">Scan to open the tour on any device.</p>
+                  <p class="share-modal__qr-url">{{ publicUrl }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
     </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: 'app', middleware: 'auth' })
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useSpaces } from '~/composables/useSpaces'
 import { usePlanStore } from '~/stores/plan'
 import { navigateTo } from '#imports'
 import { toast } from 'vue-sonner'
 import type { Space } from '~/composables/useSpaces'
+import QRCode from 'qrcode'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
 const { spaces, pending, fetchSpaces, deleteSpace, publishSpace } = useSpaces()
@@ -343,6 +442,76 @@ function handleCreateTour() {
   navigateTo('/app/create')
 }
 
+// Track images that failed to load (dev IPX proxy can't reach Supabase URLs)
+const failedImages = ref(new Set<string>())
+
+// Share
+const spaceToShare = ref<Space | null>(null)
+const shareTab = ref<'link' | 'embed' | 'qr'>('link')
+const urlCopied = ref(false)
+const embedCopied = ref(false)
+const qrDataUrl = ref('')
+const qrLoading = ref(false)
+const shareTabs = [
+  { id: 'link', label: 'Send a link' },
+  { id: 'embed', label: 'Embed' },
+  { id: 'qr', label: 'QR code' },
+]
+const publicUrl = computed(() => {
+  if (!spaceToShare.value) return ''
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${base}/p/${spaceToShare.value.slug || spaceToShare.value.id}`
+})
+const embedUrl = computed(() => {
+  if (!spaceToShare.value) return ''
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${base}/embed/${spaceToShare.value.slug || spaceToShare.value.id}`
+})
+const shareText = computed(() => `Check out this immersive virtual tour created with Viewora: ${publicUrl.value}`)
+const shareWhatsappHref = computed(() => `https://wa.me/?text=${encodeURIComponent(shareText.value)}`)
+const shareXHref = computed(() => `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText.value)}`)
+const shareGmailHref = computed(() => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Viewora virtual tour')}&body=${encodeURIComponent(shareText.value)}`)
+const shareEmbedCode = computed(() => `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen style="border-radius:8px; border:none;"></iframe>`)
+
+function openShare(space: Space) {
+  spaceToShare.value = space
+  shareTab.value = 'link'
+}
+async function copyShareUrl() {
+  try {
+    await navigator.clipboard.writeText(publicUrl.value)
+    urlCopied.value = true
+    setTimeout(() => { urlCopied.value = false }, 2000)
+  } catch {
+    showToast('Could not copy — please copy manually', 'error')
+  }
+}
+async function copyEmbedCode() {
+  try {
+    await navigator.clipboard.writeText(shareEmbedCode.value)
+    embedCopied.value = true
+    setTimeout(() => { embedCopied.value = false }, 2000)
+  } catch {
+    showToast('Could not copy — please copy manually', 'error')
+  }
+}
+watch(spaceToShare, async (space) => {
+  shareTab.value = 'link'
+  qrDataUrl.value = ''
+  if (!space) return
+  qrLoading.value = true
+  try {
+    const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.slug || space.id}`
+    qrDataUrl.value = await QRCode.toDataURL(url, {
+      width: 192, margin: 2, errorCorrectionLevel: 'M',
+      color: { dark: '#111827', light: '#ffffff' },
+    })
+  } catch {
+    qrDataUrl.value = ''
+  } finally {
+    qrLoading.value = false
+  }
+})
 const deleteMessage = computed(() => {
   if (!spaceToDelete.value) return ''
   return `Are you sure you want to permanently remove "${spaceToDelete.value.title}"? This will also delete all associated media and lead data.`
@@ -415,6 +584,62 @@ const handleDelete = async () => {
 </script>
 
 <style scoped>
+/* ── Share Modal ── */
+.share-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(60, 64, 67, 0.32);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 18px;
+}
+.share-modal {
+  width: 100%; max-width: 560px;
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(60,64,67,.3), 0 8px 24px rgba(60,64,67,.18);
+  color: #202124; overflow: hidden;
+}
+.share-modal__topbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 12px; }
+.share-modal__title { font-size: 22px; font-weight: 400; color: #202124; }
+.share-modal__close { width: 28px; height: 28px; border-radius: 50%; background: transparent; border: none; color: #5f6368; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 120ms; }
+.share-modal__close:hover { background: rgba(60,64,67,.08); color: #202124; }
+.share-modal__tabs { display: flex; gap: 8px; padding: 0 20px; border-bottom: 1px solid #e8eaed; }
+.share-modal__tab { position: relative; padding: 12px 4px 11px; border: none; background: transparent; color: #5f6368; font-size: 14px; font-weight: 500; cursor: pointer; }
+.share-modal__tab--active { color: #1a73e8; }
+.share-modal__tab--active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px 2px 0 0; background: #1a73e8; }
+.share-modal__body { padding: 16px 20px 20px; }
+.share-modal__panel { display: flex; flex-direction: column; gap: 14px; }
+.share-modal__eyebrow { font-size: 13px; font-weight: 500; color: #5f6368; }
+.share-modal__link-row { display: flex; align-items: center; gap: 10px; min-height: 44px; border: 1px solid #dadce0; border-radius: 10px; padding: 0 12px; background: #fff; }
+.share-modal__link-row--code { align-items: center; padding: 10px 12px; }
+.share-modal__link { flex: 1; min-width: 0; font-size: 13px; color: #3c4043; white-space: nowrap; overflow-x: auto; overflow-y: hidden; font-family: ui-monospace, monospace; }
+.share-modal__link--code { white-space: nowrap; word-break: normal; }
+.share-modal__copy { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #dadce0; background: #f8f9fa; color: #1a73e8; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 120ms, border-color 120ms; flex-shrink: 0; }
+.share-modal__copy:hover { background: #eef3fd; border-color: #c6dafc; }
+.share-modal__share-row { display: flex; flex-wrap: wrap; gap: 14px; padding-top: 6px; }
+.share-modal__share-item { width: 76px; display: flex; flex-direction: column; align-items: center; gap: 8px; border: none; background: transparent; color: #3c4043; text-decoration: none; cursor: pointer; }
+.share-modal__share-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.share-modal__share-icon svg { width: 22px; height: 22px; }
+.share-modal__share-icon--whatsapp { color: #25d366; background: rgba(37,211,102,.12); }
+.share-modal__share-icon--x { color: #111827; background: #f3f4f6; }
+.share-modal__share-icon--gmail { color: #ea4335; background: rgba(234,67,53,.10); }
+.share-modal__share-label { font-size: 12px; font-weight: 500; color: #3c4043; }
+.share-modal__preview-card { border: 1px solid #dadce0; border-radius: 14px; overflow: hidden; background: #f8f9fa; }
+.share-modal__preview-frame { display: block; width: 100%; height: 300px; border: 0; background: #fff; }
+.share-modal__panel--qr { align-items: center; }
+.share-modal__qr-card { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; border: 1px solid #dadce0; border-radius: 16px; padding: 20px; background: #fff; }
+.share-modal__qr-wrap { width: 192px; height: 192px; border-radius: 14px; border: 1px solid #e8eaed; display: flex; align-items: center; justify-content: center; background: #fff; }
+.share-modal__qr-image { width: 176px; height: 176px; }
+.share-modal__qr-placeholder { width: 176px; height: 176px; display: flex; align-items: center; justify-content: center; }
+.share-modal__qr-loading { width: 32px; height: 32px; border-radius: 50%; border: 3px solid #e8eaed; border-top-color: #1a73e8; animation: share-spin 0.8s linear infinite; }
+.share-modal__qr-text { font-size: 13px; color: #5f6368; text-align: center; }
+.share-modal__qr-url { font-size: 12px; color: #80868b; text-align: center; word-break: break-all; }
+@keyframes share-spin { to { transform: rotate(360deg); } }
+.share-modal-enter-active, .share-modal-leave-active { transition: opacity 0.2s ease; }
+.share-modal-enter-active .share-modal, .share-modal-leave-active .share-modal { transition: transform 0.2s ease, opacity 0.2s ease; }
+.share-modal-enter-from { opacity: 0; }
+.share-modal-enter-from .share-modal { transform: scale(0.92) translateY(12px); }
+.share-modal-leave-to { opacity: 0; }
+.share-modal-leave-to .share-modal { transform: scale(0.95) translateY(6px); }
 .prop-thumb {
   display: flex;
   align-items: flex-start;
