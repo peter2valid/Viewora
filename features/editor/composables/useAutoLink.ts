@@ -62,13 +62,17 @@ export function useAutoLink(
   }
 
   function toggleSuggestion(id: string) {
-    if (selectedSuggestions.value.has(id)) selectedSuggestions.value.delete(id)
-    else selectedSuggestions.value.add(id)
+    const next = new Set(selectedSuggestions.value)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    selectedSuggestions.value = next
   }
 
   function toggleRename(id: string) {
-    if (selectedRenames.value.has(id)) selectedRenames.value.delete(id)
-    else selectedRenames.value.add(id)
+    const next = new Set(selectedRenames.value)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    selectedRenames.value = next
   }
 
   async function apply(
