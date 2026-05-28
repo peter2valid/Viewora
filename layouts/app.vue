@@ -31,29 +31,14 @@
         <NuxtLink
           v-if="!isSidebarCollapsed"
           to="/app"
-          class="flex items-center gap-3 transition-opacity hover:opacity-80 flex-1 min-w-0"
+          class="flex items-center gap-1 transition-opacity hover:opacity-80 flex-1 min-w-0"
           @click="isSidebarOpen = false"
         >
-          <div
-            class="w-6 h-6 rounded-md bg-main flex items-center justify-center flex-shrink-0"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="text-bg"
-            >
-              <path
-                d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-              />
-            </svg>
-          </div>
+          <img
+            src="/globe-icon.png"
+            alt="Viewora"
+            class="w-12 h-14 flex-shrink-0 dark:invert mt-1"
+          />
           <span class="text-base font-bold tracking-tight text-main dark:text-white whitespace-nowrap">Viewora</span>
         </NuxtLink>
 
@@ -305,24 +290,11 @@
         class="h-16 flex items-center justify-between px-6 bg-surface border-b border-border sticky top-0 z-[80] lg:hidden"
       >
         <NuxtLink to="/app" class="flex items-center gap-2">
-          <div
-            class="w-6 h-6 rounded-md bg-main flex items-center justify-center"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              class="text-bg"
-            >
-              <path
-                d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-              />
-            </svg>
-          </div>
+          <img
+            src="/globe-icon.png"
+            alt="Viewora"
+            class="w-12 h-14 flex-shrink-0 dark:invert mt-1"
+          />
           <span class="text-base font-bold tracking-tight text-main"
             >Viewora</span
           >
