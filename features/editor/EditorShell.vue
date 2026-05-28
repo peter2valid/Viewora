@@ -1070,9 +1070,10 @@ const activePanoramaSrc = computed(() => {
   const pending = pendingScenePreviewById.value[sceneId]
   if (pending && pending.startsWith('https://')) return pending
 
-  // Server URLs (raw image or processed thumbnail).
-  if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
+  // Prefer thumbnail (2048×1024) — fits WebGL limits on all devices.
+  // raw_image_url is kept as fallback for scenes that haven't been processed yet.
   if (activeScene.value?.thumbnail_url) return activeScene.value.thumbnail_url
+  if (activeScene.value?.raw_image_url) return activeScene.value.raw_image_url
   return placeholderPanoramaUrl
 })
 

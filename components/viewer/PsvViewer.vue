@@ -408,9 +408,7 @@ const tourLoadKey = computed(() => {
   const sceneKey = tourScenes.value.map((scene: any) => scene?.id ?? '').filter(Boolean).join('|')
   const sceneImageKey = tourScenes.value.map((scene: any) => {
     if (!scene) return ''
-    return isLiteMode.value
-      ? (scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || '')
-      : (scene.raw_image_url || scene.tile_manifest_url || scene.thumbnail_url || '')
+    return scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || ''
   }).join('|')
   const hotspotKey = tourScenes.value
     .map((scene: any) => `${scene?.id ?? ''}:${Array.isArray(scene?.hotspots) ? scene.hotspots.length : 0}`)
@@ -493,9 +491,10 @@ const shareEmbedCode = computed(() => {
 
 function sceneImageUrl(scene: any): string {
   if (!scene) return ''
-  return isLiteMode.value
-    ? (scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || '')
-    : (scene.raw_image_url || scene.tile_manifest_url || scene.thumbnail_url || '')
+  // Always prefer thumbnail (2048×1024) as the PSV baseUrl — it's shown as the
+  // low-res preview while tiles load, and is a safe WebGL-compatible fallback
+  // when tiles don't exist. raw_image_url (40-50 MB) exceeds mobile GPU limits.
+  return scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || ''
 }
 
 async function copyPublicUrl() {
