@@ -220,10 +220,10 @@ function buildPanorama(scene: TourScene) {
   }
 
   // VirtualTour always uses the tiles adapter, so normalize single images to a 1x1 tile set.
-  // Use 8192 as the default width — modern panoramas are commonly 6000–8000px and PSV uses
-  // this value for internal texture mapping; 4096 causes blurring on high-res sources.
+  // Width must match the actual image being loaded (thumbnail = 2048px).
+  // Using scene.width (e.g. 11520 for Insta360) with a 2048px thumbnail causes UV mapping errors.
   return {
-    width: scene.width || 8192,
+    width: 2048,
     cols: 1,
     rows: 1,
     baseUrl: scene.imageUrl,

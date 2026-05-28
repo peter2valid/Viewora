@@ -41,6 +41,7 @@ export function useHotspotEditor(
   const editDraft = ref<EditDraft>({ label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', scale: 1, hoverScale: 1.3 })
   const savingHotspot = ref(false)
   const addingHotspot = ref(false)
+  const hotspotSaveInFlight = ref(false)
   const deletingHotspot = ref(false)
   const quickEditHotspotId = ref<string | null>(null)
   const quickEditScreenPos = ref({ x: 0, y: 0 })
@@ -93,10 +94,6 @@ export function useHotspotEditor(
       scale: 1,
       hoverScale: 1.3,
     }
-  })
-
-  watch(isTracing, () => {
-    // reserved for future side-effects on tracing mode toggle
   })
 
   function startTracing() {
@@ -217,6 +214,7 @@ export function useHotspotEditor(
   }
 
   function onQuickEditDone() {
+    if (hotspotSaveInFlight.value) return
     const id = quickEditHotspotId.value
     quickEditHotspotId.value = null
     if (!id) return
@@ -236,36 +234,38 @@ export function useHotspotEditor(
 
     // Optimistic update: instantly apply to UI and close editor
     const d = editDraft.value
-    hotspotsByScene.value = { 
-      ...hotspotsByScene.value, 
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, ...d, _pending: true } : h) 
+    hotspotsByScene.value = {
+      ...hotspotsByScene.value,
+      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, ...d, _pending: true } : h)
     }
     editorStore.selectHotspot(null)
 
-    // Fire and forget background request
+    hotspotSaveInFlight.value = true
     apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(d, hs) })
       .then(response => {
         const created = unwrap<any>(response)?.hotspot || response?.hotspot
         if (created) {
           const mapped = mapDbHotspot(created)
-          hotspotsByScene.value = { 
-            ...hotspotsByScene.value, 
-            [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h) 
+          hotspotsByScene.value = {
+            ...hotspotsByScene.value,
+            [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h)
           }
           showToast(beforeCount === 0 ? 'Your tour is now interactive' : 'Hotspot added')
           $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
         }
       })
       .catch(e => {
-        hotspotsByScene.value = { 
-          ...hotspotsByScene.value, 
-          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) 
+        hotspotsByScene.value = {
+          ...hotspotsByScene.value,
+          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id)
         }
         showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
       })
+      .finally(() => { hotspotSaveInFlight.value = false })
   }
 
   function onQuickEditMore() {
+    if (hotspotSaveInFlight.value) return
     const id = quickEditHotspotId.value
     quickEditHotspotId.value = null
     if (!id) return
@@ -284,21 +284,22 @@ export function useHotspotEditor(
 
     // Optimistic update
     const d = editDraft.value
-    hotspotsByScene.value = { 
-      ...hotspotsByScene.value, 
-      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, ...d, _pending: true } : h) 
+    hotspotsByScene.value = {
+      ...hotspotsByScene.value,
+      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, ...d, _pending: true } : h)
     }
     editorStore.selectHotspot(id)
     editorStore.setPanel('hotspots')
 
+    hotspotSaveInFlight.value = true
     apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(d, hs) })
       .then(response => {
         const created = unwrap<any>(response)?.hotspot || response?.hotspot
         if (created) {
           const mapped = mapDbHotspot(created)
-          hotspotsByScene.value = { 
-            ...hotspotsByScene.value, 
-            [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h) 
+          hotspotsByScene.value = {
+            ...hotspotsByScene.value,
+            [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? mapped : h)
           }
           $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, scene_id: sceneId })
           if (editorStore.selectedHotspotId === id) {
@@ -307,9 +308,9 @@ export function useHotspotEditor(
         }
       })
       .catch(e => {
-        hotspotsByScene.value = { 
-          ...hotspotsByScene.value, 
-          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id) 
+        hotspotsByScene.value = {
+          ...hotspotsByScene.value,
+          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id)
         }
         showToast(e?.data?.statusMessage || 'Could not add hotspot. Try again.', 'error')
         if (editorStore.selectedHotspotId === id) {
@@ -317,6 +318,7 @@ export function useHotspotEditor(
           editorStore.setPanel('scenes')
         }
       })
+      .finally(() => { hotspotSaveInFlight.value = false })
   }
 
   function handleHotspotClick(id: string, isPreviewMode: boolean, selectSceneFn: (id: string) => void) {

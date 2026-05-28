@@ -29,7 +29,18 @@ export function useEditorRealtime(
       )
       .subscribe()
 
-    channels = [scenesChannel]
+    // Hotspots don't have a space_id column so we can't filter by space.
+    // RLS ensures the subscription only delivers rows the user owns.
+    const hotspotsChannel = supabase
+      .channel(`space:${spaceId}:hotspots`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'hotspots' },
+        refreshSoon,
+      )
+      .subscribe()
+
+    channels = [scenesChannel, hotspotsChannel]
   }
 
   function stop() {

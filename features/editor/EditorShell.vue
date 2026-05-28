@@ -1413,6 +1413,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   isMounted = false
   window.removeEventListener('keydown', handleKeydown)
+  window.onbeforeunload = null
   fetchScenesController?.abort()
   fetchScenesController = null
   stopSceneRealtime()
