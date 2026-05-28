@@ -132,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { definePageMeta, navigateTo } from '#imports'
 import { useSpaces } from '~/composables/useSpaces'
 import { usePlanStore } from '~/stores/plan'
@@ -145,6 +145,9 @@ definePageMeta({
 const { createSpace } = useSpaces()
 const analytics = useAnalytics()
 const planStore = usePlanStore()
+
+// Always refresh usage on mount so the limit check is never stale
+onMounted(() => { planStore.fetchSubscriptionStatus().catch(() => {}) })
 
 const step = ref(1)
 const selectedType = ref<string>('')

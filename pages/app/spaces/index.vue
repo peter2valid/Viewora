@@ -352,6 +352,7 @@ const deleteMessage = computed(() => {
 
 onMounted(() => {
   fetchSpaces()
+  planStore.fetchSubscriptionStatus().catch(() => {})
 })
 
 const filteredSpaces = computed(() => {
