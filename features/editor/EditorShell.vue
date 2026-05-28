@@ -763,24 +763,50 @@ const {
 
 const sceneChips = computed(() => {
   if (!scenes.value.length) return []
-  return scenes.value
+
+  const sorted = scenes.value
     .slice()
     .sort((a, b) => {
       const orderDiff = Number(a.order_index || 0) - Number(b.order_index || 0)
       if (orderDiff !== 0) return orderDiff
       return String(a.id || '').localeCompare(String(b.id || ''))
     })
-    .map((s, idx) => {
-      const state: SceneUploadState = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
-      const badge: 'loading' | 'failed' | null = state === 'failed' ? 'failed' : state === 'ready' ? null : 'loading'
-      return {
-        id: s.id,
-        label: s.name || `Scene ${idx + 1}`,
-        ready: state === 'ready',
-        badge,
-        imageUrl: scenePreviewUrl(s),
+
+  // BFS reachability: find ready scenes unreachable via nav arrows from the first ready scene.
+  const readyIds = sorted
+    .filter(s => (sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)) === 'ready')
+    .map(s => s.id)
+
+  const isolatedIds = new Set<string>()
+  if (readyIds.length >= 2) {
+    const reachable = new Set<string>([readyIds[0]])
+    const queue = [readyIds[0]]
+    while (queue.length) {
+      const cur = queue.shift()!
+      for (const h of (hotspotsByScene.value[cur] ?? [])) {
+        if (h.type === 'scene_link' && h.targetSceneId && !reachable.has(h.targetSceneId)) {
+          reachable.add(h.targetSceneId)
+          queue.push(h.targetSceneId)
+        }
       }
-    })
+    }
+    for (const id of readyIds) {
+      if (!reachable.has(id)) isolatedIds.add(id)
+    }
+  }
+
+  return sorted.map((s, idx) => {
+    const state: SceneUploadState = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
+    let badge: 'loading' | 'failed' | 'warn' | null = state === 'failed' ? 'failed' : state === 'ready' ? null : 'loading'
+    if (isolatedIds.has(s.id)) badge = 'warn'
+    return {
+      id: s.id,
+      label: s.name || `Scene ${idx + 1}`,
+      ready: state === 'ready',
+      badge,
+      imageUrl: scenePreviewUrl(s),
+    }
+  })
 })
 
 const {
@@ -1331,12 +1357,20 @@ async function confirmDeleteScene(id: string) {
   renameCandidate.value = null
   sceneDeleteConfirm.value = null
   scenes.value = scenes.value.filter((s) => s.id !== id)
+  // Optimistically remove the scene and any nav arrows pointing to it from other scenes
   const { [id]: _removed, ...remainingHotspots } = hotspotsByScene.value
-  hotspotsByScene.value = remainingHotspots
+  const prunedHotspots = Object.fromEntries(
+    Object.entries(remainingHotspots).map(([sid, hs]) => [
+      sid,
+      hs.filter(h => !(h.type === 'scene_link' && h.targetSceneId === id)),
+    ])
+  )
+  hotspotsByScene.value = prunedHotspots
   if (selectedSceneId.value === id) selectedSceneId.value = scenes.value[0]?.id || ''
   try {
-    await apiFetch(`/scenes/${id}`, { method: 'DELETE' })
-    showToast('Scene deleted')
+    const result = await apiFetch(`/scenes/${id}`, { method: 'DELETE' }) as any
+    const removedLinks: number = result?.removedLinks ?? 0
+    showToast(removedLinks > 0 ? `Scene deleted (removed ${removedLinks} nav arrow${removedLinks === 1 ? '' : 's'})` : 'Scene deleted')
   } catch (e: any) {
     scenes.value = prevScenes
     hotspotsByScene.value = prevHotspots
@@ -1407,6 +1441,17 @@ onMounted(async () => {
   hydrateRecoverySnapshot()
   if (!planStore.plan) await planStore.fetchSubscriptionStatus()
   await fetchSpace(true)
+
+  // Silently clean up orphaned nav arrows, order gaps, and stuck scenes on every mount.
+  try {
+    const repair = await apiFetch(`/spaces/${props.spaceId}/repair`, { method: 'POST' }) as any
+    const fixed = (repair?.orphansRemoved ?? 0) + (repair?.stuckReset ?? 0)
+    if (fixed > 0) {
+      showToast('Tour cleaned up automatically')
+      await fetchScenes()
+    }
+  } catch { /* ignore — repair is best-effort */ }
+
   startSceneRealtime()
 })
 

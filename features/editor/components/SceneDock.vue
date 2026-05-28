@@ -25,7 +25,7 @@ import { computed, onMounted, ref } from 'vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
 
 const props = withDefaults(defineProps<{
-  scenes: { id: string; label: string; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | null }[]
+  scenes: { id: string; label: string; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | 'warn' | null }[]
   activeSceneId: string
   addScenePending: boolean
   showAdd?: boolean

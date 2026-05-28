@@ -113,7 +113,7 @@
               <span
                 v-if="item.badge"
                 class="glass-dock__badge"
-                :class="item.badge === 'failed' ? 'glass-dock__badge--failed' : ''"
+                :class="item.badge === 'failed' ? 'glass-dock__badge--failed' : item.badge === 'warn' ? 'glass-dock__badge--warn' : ''"
                 aria-hidden="true"
               />
             </button>
@@ -205,7 +205,7 @@ type DockItem = {
   label: string
   imageUrl?: string | null
   ariaLabel?: string
-  badge?: 'loading' | 'failed' | null
+  badge?: 'loading' | 'failed' | 'warn' | null
 }
 
 const props = withDefaults(defineProps<{
@@ -708,6 +708,11 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 .glass-dock__badge--failed {
   background: #ef4444;
   box-shadow: 0 0 8px #ef4444;
+}
+
+.glass-dock__badge--warn {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
 }
 
 .glass-dock__addIcon { color: rgba(229,231,235,0.78); }
