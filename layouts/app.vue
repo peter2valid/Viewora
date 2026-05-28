@@ -34,10 +34,14 @@
           class="flex items-center gap-1 transition-opacity hover:opacity-80 flex-1 min-w-0"
           @click="isSidebarOpen = false"
         >
+          <span v-if="!logoLoaded" class="logo-skeleton" aria-hidden="true"></span>
           <img
+            ref="logoRef"
             src="/globe-icon.png"
             alt="Viewora"
             class="w-12 h-14 flex-shrink-0 dark:invert mt-1"
+            :style="{ opacity: logoLoaded ? 1 : 0, position: logoLoaded ? 'static' : 'absolute' }"
+            @load="logoLoaded = true"
           />
           <span class="text-base font-bold tracking-tight text-main dark:text-white whitespace-nowrap">Viewora</span>
         </NuxtLink>
@@ -293,10 +297,13 @@
         class="h-16 flex items-center justify-between px-6 bg-surface border-b border-border sticky top-0 z-[80] lg:hidden"
       >
         <NuxtLink to="/app" class="flex items-center gap-2">
+          <span v-if="!logoLoaded" class="logo-skeleton" aria-hidden="true"></span>
           <img
             src="/globe-icon.png"
             alt="Viewora"
             class="w-12 h-14 flex-shrink-0 dark:invert mt-1"
+            :style="{ opacity: logoLoaded ? 1 : 0, position: logoLoaded ? 'static' : 'absolute' }"
+            @load="logoLoaded = true"
           />
           <span class="text-base font-bold tracking-tight text-main"
             >Viewora</span
@@ -388,6 +395,8 @@ const ONBOARDING_KEY = 'viewora_onboarding_done'
 
 const isSidebarOpen = ref(false);
 const isSidebarCollapsed = ref(false);
+const logoLoaded = ref(false);
+const logoRef = ref<HTMLImageElement | null>(null);
 const showOnboarding = ref(false)
 
 const toggleSidebarCollapse = () => {
@@ -414,6 +423,7 @@ function finishOnboarding() {
 
 // Initialize stores on mount
 onMounted(async () => {
+  if (logoRef.value?.complete) logoLoaded.value = true;
   initTheme();
   isSidebarCollapsed.value =
     localStorage.getItem("sidebar-collapsed") === "true";
@@ -436,6 +446,22 @@ const logout = async () => {
 </script>
 
 <style scoped>
+/* Logo skeleton shimmer */
+.logo-skeleton {
+  width: 3rem;
+  height: 3.5rem;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  flex-shrink: 0;
+  display: inline-block;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* Page crossfade transition */
 .page-enter-active,
 .page-leave-active {
