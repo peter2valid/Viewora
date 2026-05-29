@@ -70,11 +70,11 @@
             </div>
           </div>
           <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
-            <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl">
+            <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Start Creating
             </button>
-            <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm">
+            <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               My Portfolio
             </button>

@@ -25,14 +25,14 @@
     <div v-else-if="step === 1" class="w-full max-w-[900px] mt-6 md:mt-12 px-4 flex flex-col items-center">
       <div class="text-center mb-8 md:mb-12 w-full">
         <h1 class="text-3xl md:text-4xl font-extrabold text-main mb-3 md:mb-4 tracking-tighter">What are you creating?</h1>
-        <p class="text-sm md:text-base text-dim max-w-lg mx-auto">Choose the type of tour to get the best setup</p>
+        <p class="text-sm md:text-base text-dim max-w-lg mx-auto">Choose a type, then tap the button below to get started.</p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 w-full max-w-[800px] mx-auto min-h-[320px]">
         <div 
           v-for="option in typeOptions" 
           :key="option.id"
-          class="flex items-center p-5 md:p-8 rounded-[2rem] transition-all duration-500 cursor-pointer border border-white/5 bg-[#0a0a0b]/60 backdrop-blur-2xl hover:bg-[#111113] group relative overflow-hidden"
+          class="flex items-center p-5 md:p-8 rounded-[2rem] transition-all duration-500 cursor-pointer border border-zinc-700/40 bg-zinc-800 hover:bg-zinc-700 group relative overflow-hidden"
           :class="[
             selectedType === option.id 
               ? 'ring-1 ring-zinc-400 bg-[#121214] shadow-[0_0_40px_rgba(255,255,255,0.03)] scale-[1.02]' 
@@ -45,7 +45,7 @@
 
           <div 
             class="w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 z-10"
-            :class="selectedType === option.id ? 'bg-white text-black' : 'bg-white/5 text-zinc-400 group-hover:bg-white/10 group-hover:text-white'"
+            :class="selectedType === option.id ? 'bg-white text-black' : 'bg-white/10 text-white group-hover:bg-white/20'"
           >
             <!-- Property -->
             <svg v-if="option.id === 'residential'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
@@ -58,7 +58,7 @@
           </div>
           <div class="ml-5 md:ml-6 flex-1 z-10">
             <h3 class="text-base md:text-xl font-bold text-white leading-tight">{{ option.title }}</h3>
-            <p class="text-[13px] md:text-sm text-zinc-500 mt-1.5 leading-snug group-hover:text-zinc-400 transition-colors">{{ option.description }}</p>
+            <p class="text-[13px] md:text-sm text-zinc-300 mt-1.5 leading-snug group-hover:text-white transition-colors">{{ option.description }}</p>
           </div>
         </div>
       </div>
