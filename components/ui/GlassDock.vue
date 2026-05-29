@@ -363,16 +363,26 @@ function onStripTouchEnd() {
   touchScrolling = false
 }
 
+function onStripWheel(e: WheelEvent) {
+  if (!stripEl.value) return
+  e.stopPropagation()
+  e.preventDefault()
+  // deltaX for horizontal trackpad swipe; fall back to deltaY for scroll wheel
+  stripEl.value.scrollLeft += e.deltaX || e.deltaY
+}
+
 watch(stripEl, (el, oldEl) => {
   if (oldEl) {
     oldEl.removeEventListener('touchstart', onStripTouchStart)
     oldEl.removeEventListener('touchmove', onStripTouchMove)
     oldEl.removeEventListener('touchend', onStripTouchEnd)
+    oldEl.removeEventListener('wheel', onStripWheel)
   }
   if (el) {
     el.addEventListener('touchstart', onStripTouchStart, { passive: true })
     el.addEventListener('touchmove', onStripTouchMove, { passive: false })
     el.addEventListener('touchend', onStripTouchEnd, { passive: true })
+    el.addEventListener('wheel', onStripWheel, { passive: false })
   }
 }, { immediate: true })
 
@@ -410,6 +420,7 @@ onBeforeUnmount(() => {
     stripEl.value.removeEventListener('touchstart', onStripTouchStart)
     stripEl.value.removeEventListener('touchmove', onStripTouchMove)
     stripEl.value.removeEventListener('touchend', onStripTouchEnd)
+    stripEl.value.removeEventListener('wheel', onStripWheel)
   }
 })
 
