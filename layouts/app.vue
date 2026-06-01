@@ -373,8 +373,11 @@
       </header>
 
       <!-- App View -->
+      <!-- overflow-x-hidden intentionally removed from <main>: per CSS spec, setting
+           overflow-x:hidden on a non-root element silently promotes overflow-y to auto,
+           turning <main> into its own scroll container and breaking window scroll. -->
       <main
-        class="flex-1 px-4 sm:px-8 md:px-12 lg:px-16 py-8 md:py-12 w-full max-w-[1600px] mx-auto overflow-x-hidden"
+        class="flex-1 px-4 sm:px-8 md:px-12 lg:px-16 py-8 md:py-12 w-full max-w-[1600px] mx-auto"
       >
         <slot />
       </main>
@@ -385,7 +388,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { navigateTo } from "#imports";
 import { useAuthStore } from "~/stores/auth";
 import { usePlanStore } from "~/stores/plan";
@@ -415,6 +418,11 @@ const planStore = usePlanStore();
 const { isDark, toggle: toggleTheme, init: initTheme } = useTheme();
 
 const isExactRoute = (path: string) => route.path === path;
+
+// Scroll window to top on every SPA navigation so pages always start at the top
+watch(() => route.path, () => {
+  if (import.meta.client) window.scrollTo({ top: 0 })
+})
 
 function finishOnboarding() {
   showOnboarding.value = false
