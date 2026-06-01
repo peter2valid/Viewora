@@ -318,8 +318,12 @@ export function useEditorUpload(
           try {
             const createdScene = await createSceneWithPanorama(record.public_url, sceneName, item.localSceneId)
             if (createdScene) {
+              // Upload is complete — the file is in R2 and the scene exists.
+              // Mark ready now so the blue dot disappears immediately. The viewer
+              // already shows the panorama via blob URL; realtime will push tile
+              // data when the worker finishes tiling and upgrade quality silently.
+              setSceneUploadState(createdScene.id, 'ready')
               inlineEditMode.value = true
-              await fetchScenes()
               if (sceneCountBeforeUpload === 0 && idx === 0) {
                 showToast('Scene ready. Click anywhere in the viewer to add your first hotspot')
               } else {
@@ -527,6 +531,7 @@ export function useEditorUpload(
     handleViewerCanvasUpload,
     handleAddSceneFileChange,
     enqueuePanoramaFiles,
+    syncPendingHotspotsForScene,
     // Recovery
     hydrateRecoverySnapshot,
   }
