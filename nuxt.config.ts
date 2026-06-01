@@ -58,11 +58,24 @@ export default defineNuxtConfig({
     '/reset-password': { ssr: false },
     '/confirm': { ssr: false },
     // Public tour pages — SSR for fast first paint + Vercel edge caching
-    '/p/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300' } },
-    // Embed pages — SSR for fast first paint in iframes
-    '/embed/**': { ssr: true, headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15' } },
+    '/p/**': { ssr: true, headers: {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'X-Frame-Options': 'SAMEORIGIN',
+    }},
+    // Embed pages — intentionally cross-origin embeddable, no X-Frame-Options
+    '/embed/**': { ssr: true, headers: {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      'X-Content-Type-Options': 'nosniff',
+    }},
     // App dashboard — client-side only (auth-protected, user-specific data)
-    '/app/**': { ssr: false, headers: { 'Cache-Control': 'no-store' } },
+    '/app/**': { ssr: false, headers: {
+      'Cache-Control': 'no-store',
+      'X-Frame-Options': 'DENY',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+    }},
     // API — no caching for authenticated data
     '/api/**': { headers: { 'Cache-Control': 'private, no-store, must-revalidate' } },
     // PostHog proxy — never cache, always pass through to Nitro server handler
