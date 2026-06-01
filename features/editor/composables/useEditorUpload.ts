@@ -299,8 +299,8 @@ export function useEditorUpload(
     const shouldSelectFirst = !selectedSceneId.value && scenes.value.length === 0
 
     const queued = await Promise.all(files.map(async (file, idx) => {
-      const previewUrl = URL.createObjectURL(file)  // for dock thumbnail (gets replaced by data: URL)
-      const psvBlobUrl = URL.createObjectURL(file)  // full-res blob kept alive for the PSV viewer
+      const previewUrl = URL.createObjectURL(file)
+      const psvBlobUrl = URL.createObjectURL(file)
       const localSceneId = createOptimisticLocalScene(file, previewUrl, { select: shouldSelectFirst && idx === 0 })
       setLocalPanoramaUrl(localSceneId, psvBlobUrl)
       const persistedPreview = await createPersistedScenePreview(file)
@@ -308,40 +308,43 @@ export function useEditorUpload(
       return { file, localSceneId }
     }))
 
-    for (let idx = 0; idx < queued.length; idx++) {
-      const item = queued[idx]
-      setSceneUploadState(item.localSceneId, 'signing')
-      uploadFile(item.file, 'panorama', {
-        onRegister: async (record: any) => {
-          setSceneUploadState(item.localSceneId, 'registering')
-          const sceneName = deriveSceneName(item.file.name, sceneCountBeforeUpload + idx + 1)
-          try {
-            const createdScene = await createSceneWithPanorama(record.public_url, sceneName, item.localSceneId)
-            if (createdScene) {
-              // Upload is complete — the file is in R2 and the scene exists.
-              // Mark ready now so the blue dot disappears immediately. The viewer
-              // already shows the panorama via blob URL; realtime will push tile
-              // data when the worker finishes tiling and upgrade quality silently.
-              setSceneUploadState(createdScene.id, 'ready')
-              inlineEditMode.value = true
-              if (sceneCountBeforeUpload === 0 && idx === 0) {
-                showToast('Scene ready. Click anywhere in the viewer to add your first hotspot')
-              } else {
-                showToast(`${createdScene.name || 'Scene'} added`)
+    // Max 3 concurrent uploads — each presign hits Redis + 3 Supabase queries.
+    // Firing all N at once can OOM-kill the API pod (400-640 MB cap on Railway).
+    const CONCURRENCY = 3
+    for (let i = 0; i < queued.length; i += CONCURRENCY) {
+      await Promise.all(
+        queued.slice(i, i + CONCURRENCY).map((item, batchOffset) => {
+          const idx = i + batchOffset
+          setSceneUploadState(item.localSceneId, 'signing')
+          return uploadFile(item.file, 'panorama', {
+            onRegister: async (record: any) => {
+              setSceneUploadState(item.localSceneId, 'registering')
+              const sceneName = deriveSceneName(item.file.name, sceneCountBeforeUpload + idx + 1)
+              try {
+                const createdScene = await createSceneWithPanorama(record.public_url, sceneName, item.localSceneId)
+                if (createdScene) {
+                  setSceneUploadState(createdScene.id, 'ready')
+                  inlineEditMode.value = true
+                  if (sceneCountBeforeUpload === 0 && idx === 0) {
+                    showToast('Scene ready. Click anywhere in the viewer to add your first hotspot')
+                  } else {
+                    showToast(`${createdScene.name || 'Scene'} added`)
+                  }
+                  $posthog?.capture('scene_uploaded', { space_id: spaceId, scene_count: scenes.value.length })
+                }
+              } catch {
+                setSceneUploadState(item.localSceneId, 'failed')
+                showToast(`${item.file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
               }
-              $posthog?.capture('scene_uploaded', { space_id: spaceId, scene_count: scenes.value.length })
-            }
-          } catch {
-            setSceneUploadState(item.localSceneId, 'failed')
-            showToast(`${item.file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
-          }
-        },
-        onError: (err: any, humanError: string) => {
-          setSceneUploadState(item.localSceneId, 'failed')
-          removeOptimisticLocalScene(item.localSceneId)
-          showToast(humanError, 'error')
-        },
-      })
+            },
+            onError: (err: any, humanError: string) => {
+              setSceneUploadState(item.localSceneId, 'failed')
+              removeOptimisticLocalScene(item.localSceneId)
+              showToast(humanError, 'error')
+            },
+          })
+        })
+      )
     }
   }
 
