@@ -202,7 +202,7 @@ export function useHotspotEditor(
     if (type === 'scene_link' && !targetSceneId) { showToast('Add another scene first, then place a scene-link hotspot.', 'error'); return }
 
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const finalPitch = type === 'scene_link' ? -0.8 : pitch
+    const finalPitch = pitch
     const optimisticEntry: EditorHotspot = { id: tempId, yaw, pitch: finalPitch, type, label: type === 'scene_link' ? 'Go to next room' : '', url: '', targetSceneId, description: '', _pending: true }
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), optimisticEntry] }
 
