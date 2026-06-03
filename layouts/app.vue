@@ -23,7 +23,7 @@
       <!-- Sidebar Header / Brand -->
       <div
         :class="[
-          'h-16 flex items-center border-b border-border dark:border-white/5',
+          'h-16 flex items-center border-b border-border dark:border-white/10',
           isSidebarCollapsed ? 'justify-center' : 'px-3 gap-2'
         ]"
       >

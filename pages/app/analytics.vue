@@ -129,6 +129,23 @@
 
     <!-- ── Dashboard Grid ──────────────────────────────────────────────── -->
     <div v-else class="space-y-6">
+
+      <!-- Tour Selector -->
+      <div v-if="tourStats.length > 1" class="flex items-center gap-2 overflow-x-auto pb-1">
+        <span class="text-[10px] font-black uppercase tracking-widest text-dim flex-shrink-0">Tour:</span>
+        <button
+          @click="selectedInsightsTourId = null"
+          class="px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-colors flex-shrink-0 whitespace-nowrap"
+          :class="!selectedInsightsTourId ? 'bg-main text-bg border-main' : 'border-border bg-surface-alt text-dim hover:text-main'"
+        >All Tours</button>
+        <button
+          v-for="tour in tourStats"
+          :key="tour.id"
+          @click="selectedInsightsTourId = tour.id"
+          class="px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-colors flex-shrink-0 whitespace-nowrap max-w-[160px] truncate"
+          :class="selectedInsightsTourId === tour.id ? 'bg-main text-bg border-main' : 'border-border bg-surface-alt text-dim hover:text-main'"
+        >{{ tour.title }}</button>
+      </div>
       
       <!-- Chart + Metric Tiles Row -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -138,7 +155,12 @@
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-lg font-bold text-main tracking-tight">Visitor Intelligence</h3>
-              <p class="text-[11px] font-bold uppercase tracking-wider text-dim mt-0.5">{{ activeRangeLabel }}</p>
+              <p class="text-[11px] font-bold uppercase tracking-wider text-dim mt-0.5">
+                {{ activeRangeLabel }}
+                <span v-if="selectedInsightsTourId" class="text-main normal-case tracking-normal font-semibold">
+                  · {{ tourStats.find(t => t.id === selectedInsightsTourId)?.title }}
+                </span>
+              </p>
             </div>
             <div class="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
                <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgb(16,185,129)]"></div>
@@ -268,11 +290,20 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-border/5">
-                <tr v-for="stat in tourStats" :key="stat.id" class="group hover:bg-surface-alt/30 transition-all duration-300">
+                <tr
+                  v-for="stat in tourStats"
+                  :key="stat.id"
+                  class="group transition-all duration-300 cursor-pointer"
+                  :class="selectedInsightsTourId === stat.id ? 'bg-main/5' : 'hover:bg-surface-alt/30'"
+                  @click="selectedInsightsTourId = selectedInsightsTourId === stat.id ? null : stat.id"
+                >
                   <td class="px-8 py-5">
-                    <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-black text-main hover:text-main transition-colors truncate block tracking-tight">
-                      {{ stat.title }}
-                    </NuxtLink>
+                    <div class="flex items-center gap-2">
+                      <NuxtLink :to="`/app/spaces/${stat.id}`" class="text-sm font-black text-main hover:text-main transition-colors truncate tracking-tight" @click.stop>
+                        {{ stat.title }}
+                      </NuxtLink>
+                      <span v-if="selectedInsightsTourId === stat.id" class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-main text-bg rounded flex-shrink-0">Selected</span>
+                    </div>
                   </td>
                   <td class="px-8 py-5 text-right text-sm font-black text-main tabular-nums">{{ stat.total_views }}</td>
                   <td class="px-8 py-5 text-center text-[11px] text-dim font-bold tabular-nums">{{ stat.direct_views }}</td>
@@ -302,6 +333,7 @@ const planStore = usePlanStore()
 const canAnalytics = computed(() => planStore.can('advanced_analytics_enabled'))
 const rawStats = ref<any[]>([])
 const pending = ref(true)
+const selectedInsightsTourId = ref<string | null>(null)
 
 const activeRange = ref('7d')
 const ranges = [
@@ -333,17 +365,23 @@ async function fetchStats() {
   }
 }
 
-// Aggregated Metrics
-const totalViews = computed(() => rawStats.value.reduce((acc, curr) => acc + (curr.total_views || 0), 0))
-const totalLeads = computed(() => rawStats.value.reduce((acc, curr) => acc + (curr.leads_count || 0), 0))
+// Filter stats by selected tour (null = all tours)
+const filteredStats = computed(() => {
+  if (!selectedInsightsTourId.value) return rawStats.value
+  return rawStats.value.filter(s => (s.space_id || s.property_id) === selectedInsightsTourId.value)
+})
+
+// Aggregated Metrics (filtered)
+const totalViews = computed(() => filteredStats.value.reduce((acc, curr) => acc + (curr.total_views || 0), 0))
+const totalLeads = computed(() => filteredStats.value.reduce((acc, curr) => acc + (curr.leads_count || 0), 0))
 const viewsToday = computed(() => {
   const today = new Date().toISOString().split('T')[0]
-  return rawStats.value.filter(s => s.date === today).reduce((acc, curr) => acc + (curr.total_views || 0), 0)
+  return filteredStats.value.filter(s => s.date === today).reduce((acc, curr) => acc + (curr.total_views || 0), 0)
 })
 
 const sourceTotals = computed(() => {
   const sources = { Direct: 0, QR: 0, WhatsApp: 0, Embed: 0 }
-  rawStats.value.forEach(s => {
+  filteredStats.value.forEach(s => {
     sources.Direct += (s.direct_views || 0)
     sources.QR += (s.qr_views || 0)
     sources.WhatsApp += (s.whatsapp_views || 0)
@@ -427,7 +465,7 @@ const chartDays = computed(() => {
       }
     }
     
-    const views = rawStats.value
+    const views = filteredStats.value
       .filter(s => s.date === dateStr)
       .reduce((acc, curr) => acc + (curr.total_views || 0), 0)
     

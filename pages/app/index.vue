@@ -121,21 +121,36 @@
 
         <!-- Views Chart -->
         <div class="lg:col-span-2 bg-card rounded-2xl border border-border dark:border-transparent p-6 flex flex-col gap-6">
-          <div class="flex items-center justify-between">
+          <div class="flex items-start justify-between gap-4">
             <div>
               <h3 class="text-base font-bold text-main tracking-tight">Views Over Time</h3>
               <div class="flex items-center gap-2 mt-0.5">
                 <p class="text-xs text-dim">Last 7 days</p>
                 <span v-if="whatsappViews > 0" class="px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20 rounded text-[10px] font-bold">{{ whatsappViews }} via WhatsApp</span>
               </div>
+              <!-- Tour filter pills -->
+              <div v-if="recentSpaces.length > 0" class="flex items-center gap-1.5 mt-2 flex-wrap">
+                <button
+                  @click="selectedTourId = null"
+                  class="px-2.5 py-0.5 text-[10px] font-bold rounded-full border transition-colors"
+                  :class="!selectedTourId ? 'bg-main text-bg border-main' : 'border-border text-dim hover:text-main'"
+                >All</button>
+                <button
+                  v-for="space in recentSpaces"
+                  :key="space.id"
+                  @click="selectedTourId = space.id"
+                  class="px-2.5 py-0.5 text-[10px] font-bold rounded-full border transition-colors max-w-[100px] truncate"
+                  :class="selectedTourId === space.id ? 'bg-main text-bg border-main' : 'border-border text-dim hover:text-main'"
+                >{{ space.title }}</button>
+              </div>
             </div>
-            <NuxtLink to="/app/analytics" class="text-xs font-semibold text-dim hover:text-main transition-colors inline-flex items-center gap-1">
+            <NuxtLink to="/app/analytics" class="text-xs font-semibold text-dim hover:text-main transition-colors inline-flex items-center gap-1 flex-shrink-0 mt-0.5">
               Full Analytics
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </NuxtLink>
           </div>
 
-          <div class="h-[200px]">
+          <div class="flex-1 min-h-[200px]">
             <ViewsChart :chart-days="chartDays" :max-y="maxY" />
           </div>
         </div>
@@ -150,7 +165,8 @@
             <div
               v-for="space in recentSpaces"
               :key="space.id"
-              class="bg-card rounded-xl border border-border dark:border-transparent overflow-hidden cursor-pointer transition-all duration-200 group"
+              class="bg-card rounded-xl border overflow-hidden cursor-pointer transition-all duration-200 group"
+              :class="selectedTourId === space.id ? 'border-main ring-1 ring-main/30 dark:border-main' : 'border-border dark:border-transparent'"
               @click="navigateTo(`/app/spaces/${space.id}`)"
             >
               <div class="aspect-[16/9] w-full bg-surface-alt relative overflow-hidden border-b border-black/10 dark:border-white/5">
@@ -162,18 +178,28 @@
                   {{ space.is_published ? 'Live' : 'Draft' }}
                 </span>
               </div>
-              <div class="px-3 py-4 flex items-center justify-between">
+              <div class="px-3 py-3 flex items-center justify-between gap-1">
                 <div class="min-w-0">
                   <h4 class="text-xs font-bold text-main truncate">{{ space.title }}</h4>
                   <p class="text-[10px] text-dim mt-0.5">{{ new Date(space.created_at).toLocaleDateString() }}</p>
                 </div>
-                <button
-                  class="p-1.5 hover:bg-surface-alt rounded-lg text-dim hover:text-main transition-colors flex-shrink-0"
-                  title="Share"
-                  @click.stop="openShare(space)"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                </button>
+                <div class="flex items-center gap-0.5 flex-shrink-0">
+                  <button
+                    class="p-1.5 rounded-lg transition-colors"
+                    :class="selectedTourId === space.id ? 'bg-main text-bg' : 'hover:bg-surface-alt text-dim hover:text-main'"
+                    title="View individual chart"
+                    @click.stop="selectedTourId = selectedTourId === space.id ? null : space.id"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="14" width="4" height="6"/><rect x="10" y="8" width="4" height="12"/><rect x="16" y="4" width="4" height="16"/></svg>
+                  </button>
+                  <button
+                    class="p-1.5 hover:bg-surface-alt rounded-lg text-dim hover:text-main transition-colors"
+                    title="Share"
+                    @click.stop="openShare(space)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -273,6 +299,7 @@ const totalLeads = ref(0)
 
 const hasSpaces = computed(() => spaces.value.length > 0)
 const recentSpaces = computed(() => spaces.value.slice(0, 2))
+const selectedTourId = ref<string | null>(null)
 
 // Share modal
 const spaceToShare = ref<Space | null>(null)
@@ -370,7 +397,13 @@ const chartDays = computed(() => {
     d.setDate(now.getDate() - (6 - i))
     const dateStr = d.toISOString().split('T')[0]
     const label = i === 6 ? 'Today' : dayNames[d.getDay()]
-    const views = rawStats.value.filter(s => s.date === dateStr).reduce((acc, s) => acc + (s.total_views || 0), 0)
+    const views = rawStats.value
+      .filter(s => {
+        const matchDate = s.date === dateStr
+        const matchTour = !selectedTourId.value || (s.space_id || s.property_id) === selectedTourId.value
+        return matchDate && matchTour
+      })
+      .reduce((acc, s) => acc + (s.total_views || 0), 0)
     return { label, views }
   })
 })
