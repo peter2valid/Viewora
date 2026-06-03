@@ -361,7 +361,7 @@ const vtError = ref('')
 const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
-const dockCollapsed = ref(false)
+const dockCollapsed = ref(true)
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
 const autoplaying = ref(false)
@@ -1931,8 +1931,9 @@ watch(() => vtTransitioning.value, (loading) => {
 :global(.psv-marker) { overflow: visible !important; background: none !important; border: none !important; }
 
 /* Hide arrows when dock is open */
-:global(.hide-nav-arrows .psv-virtual-tour-arrow),
-:global(.hide-nav-arrows .vhs-nav) {
+/* Only the VirtualTourPlugin's native floor arrows toggle with the dock.
+   Hotspot markers (.vhs-nav, .vhs-info) are always visible regardless of dock state. */
+:global(.hide-nav-arrows .psv-virtual-tour-arrow) {
   display: none !important;
 }
 
