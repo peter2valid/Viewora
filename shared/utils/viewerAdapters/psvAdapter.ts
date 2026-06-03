@@ -650,6 +650,32 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
       markers,
     }
   })
+
+  // ── Ensure every node has at least one incoming link ───────────────────
+  // PSV warns "Node X is never linked to" when a node appears in the nodes
+  // array but no other node's links array points to it. This happens when a
+  // scene has no scene_link hotspots targeting it. Add a fallback link from
+  // the adjacent scene so every scene is reachable via the VT plugin arrows.
+  const allTargetIds = new Set(nodes.flatMap(n => (n.links ?? []).map((l: any) => l.nodeId)))
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i]
+    if (!allTargetIds.has(scene.id)) {
+      // Find the nearest scene that can provide an incoming link
+      const sourceIndex = i > 0 ? i - 1 : i + 1
+      if (sourceIndex >= 0 && sourceIndex < scenes.length) {
+        const sourceNode = nodes[sourceIndex]
+        if (sourceNode && !sourceNode.links.some((l: any) => l.nodeId === scene.id)) {
+          sourceNode.links.push({
+            nodeId: scene.id,
+            position: { yaw: 0, pitch: -0.8 },
+          })
+          allTargetIds.add(scene.id)
+        }
+      }
+    }
+  }
+
+  return nodes
 }
 
 export interface VirtualTourInitOptions {
