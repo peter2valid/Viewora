@@ -132,15 +132,15 @@
               <div v-if="recentSpaces.length > 0" class="flex items-center gap-1.5 mt-2 flex-wrap">
                 <button
                   @click="selectedTourId = null"
-                  class="px-2.5 py-0.5 text-[10px] font-bold rounded-full border transition-colors"
-                  :class="!selectedTourId ? 'bg-main text-bg border-main' : 'border-border text-dim hover:text-main'"
+                  class="px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-colors"
+                  :class="!selectedTourId ? 'bg-main text-bg' : 'bg-surface-alt text-dim hover:text-main'"
                 >All</button>
                 <button
                   v-for="space in recentSpaces"
                   :key="space.id"
                   @click="selectedTourId = space.id"
-                  class="px-2.5 py-0.5 text-[10px] font-bold rounded-full border transition-colors max-w-[100px] truncate"
-                  :class="selectedTourId === space.id ? 'bg-main text-bg border-main' : 'border-border text-dim hover:text-main'"
+                  class="px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-colors max-w-[100px] truncate"
+                  :class="selectedTourId === space.id ? 'bg-main text-bg' : 'bg-surface-alt text-dim hover:text-main'"
                 >{{ space.title }}</button>
               </div>
             </div>
@@ -165,8 +165,7 @@
             <div
               v-for="space in recentSpaces"
               :key="space.id"
-              class="bg-card rounded-xl border overflow-hidden cursor-pointer transition-all duration-200 group"
-              :class="selectedTourId === space.id ? 'border-main ring-1 ring-main/30 dark:border-main' : 'border-border dark:border-transparent'"
+              class="bg-card rounded-xl border border-border dark:border-transparent overflow-hidden cursor-pointer transition-all duration-200 group"
               @click="navigateTo(`/app/spaces/${space.id}`)"
             >
               <div class="aspect-[16/9] w-full bg-surface-alt relative overflow-hidden border-b border-black/10 dark:border-white/5">
@@ -178,7 +177,7 @@
                   {{ space.is_published ? 'Live' : 'Draft' }}
                 </span>
               </div>
-              <div class="px-3 py-3 flex items-center justify-between gap-1">
+              <div class="px-3 py-3 flex items-center justify-between gap-1 transition-colors duration-200" :class="selectedTourId === space.id ? 'bg-surface-alt' : ''">
                 <div class="min-w-0">
                   <h4 class="text-xs font-bold text-main truncate">{{ space.title }}</h4>
                   <p class="text-[10px] text-dim mt-0.5">{{ new Date(space.created_at).toLocaleDateString() }}</p>
