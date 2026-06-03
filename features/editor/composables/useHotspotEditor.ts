@@ -367,15 +367,13 @@ export function useHotspotEditor(
     repositioningHotspotId.value = null
     editorStore.setMode('view')
     
-    const hotspot = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
-    const finalPitch = hotspot?.type === 'scene_link' ? -0.8 : pitch
-
-    // Optimistic UI update
-    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, yaw, pitch: finalPitch } : h) }
+    // Use the actual dropped position for ALL hotspot types.
+    // Previously scene_link was forced to -0.8 rad regardless of where the user
+    // dropped it — every repositioned nav hotspot ended up near the floor.
+    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === id ? { ...h, yaw, pitch } : h) }
     showToast('Hotspot repositioned')
 
-    // Fire and forget background request
-    apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch: finalPitch } })
+    apiFetch(`/hotspots/${id}`, { method: 'PATCH', body: { yaw, pitch } })
       .catch(e => {
         fetchHotspots(sceneId)
         showToast(e?.data?.statusMessage || 'Failed to reposition hotspot', 'error')
