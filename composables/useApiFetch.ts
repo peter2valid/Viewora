@@ -4,37 +4,45 @@
  * Wraps $fetch with the Supabase JWT Authorization header.
  * When NUXT_PUBLIC_API_BASE_URL is set (pointing to the Railway Fastify backend),
  * all API calls go there. Otherwise falls back to same-origin Nitro routes (/api/*).
+ *
+ * On 401: refreshes the Supabase session once and retries. If the refresh also
+ * fails the error is rethrown so callers / auth middleware can redirect to login.
  */
 import { errorLogger } from '~/utils/errorLogger'
 
 export const useApiFetch = () => {
   const session = useSupabaseSession()
+  const supabase = useSupabaseClient()
   const config = useRuntimeConfig()
 
-  // Empty string = same-origin Nitro proxy routes under /api. Set NUXT_PUBLIC_API_BASE_URL for external backend.
   const baseURL = (config.public.apiBaseUrl as string) || ''
 
-  function apiFetch<T = unknown>(
-    url: string,
-    options: Parameters<typeof $fetch>[1] = {},
-  ): Promise<T> {
-    const token = session.value?.access_token
-
+  function buildUrl(url: string) {
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`
-    const fullUrl = baseURL
-      ? `${baseURL.replace(/\/$/, '')}${normalizedUrl}`
-      : `/api${normalizedUrl}`
+    return {
+      normalizedUrl,
+      fullUrl: baseURL
+        ? `${baseURL.replace(/\/$/, '')}${normalizedUrl}`
+        : `/api${normalizedUrl}`,
+    }
+  }
 
-    const method = (options.method as string) || 'GET'
+  function buildHeaders(token: string | undefined, extra?: HeadersInit) {
+    return {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(extra ?? {}),
+    }
+  }
 
-    return $fetch<T>(fullUrl, {
-      ...options,
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options.headers ?? {}),
-      },
+  function attachResponseHandlers(
+    opts: Parameters<typeof $fetch>[1],
+    normalizedUrl: string,
+    method: string,
+    fullUrl: string,
+  ): Parameters<typeof $fetch>[1] {
+    return {
+      ...opts,
       onResponse({ response }) {
-        // Standard backend shape: { success: true, data, meta }
         if (response?._data && typeof response._data === 'object') {
           const payload = response._data as any
           if (payload.success === true && payload.data !== undefined) {
@@ -43,42 +51,64 @@ export const useApiFetch = () => {
         }
       },
       onResponseError({ response }) {
-        // Map Fastify backend { error: { message } } standard natively into Nuxt's expectations
         if (response._data?.error?.message) {
           response._data.statusMessage = response._data.error.message
         }
-
-        // Map standardized backend envelope { success:false, code, message }
         if (response._data?.message && !response._data?.statusMessage) {
           response._data.statusMessage = response._data.message
         }
-
-        // Log API errors
-        errorLogger.logApiError(
-          response._data?.statusMessage || response.statusText || 'Unknown API error',
-          normalizedUrl,
-          method,
-          response.status,
-          {
-            component: 'API',
-            metadata: {
-              response: response._data,
-              fullUrl,
-            },
-          }
-        )
+        if (response.status !== 401) {
+          errorLogger.logApiError(
+            response._data?.statusMessage || response.statusText || 'Unknown API error',
+            normalizedUrl,
+            method,
+            response.status,
+            { component: 'API', metadata: { response: response._data, fullUrl } },
+          )
+        }
       },
-    }).catch((error) => {
-      // Catch network errors, timeouts, etc.
-      errorLogger.logApiError(error, normalizedUrl, method, undefined, {
+    }
+  }
+
+  async function apiFetch<T = unknown>(
+    url: string,
+    options: Parameters<typeof $fetch>[1] = {},
+  ): Promise<T> {
+    const { normalizedUrl, fullUrl } = buildUrl(url)
+    const method = (options.method as string) || 'GET'
+    const opts = attachResponseHandlers(options, normalizedUrl, method, fullUrl)
+
+    try {
+      return await $fetch<T>(fullUrl, {
+        ...opts,
+        headers: buildHeaders(session.value?.access_token, options.headers as HeadersInit),
+      })
+    } catch (error: any) {
+      const status = error?.response?.status ?? error?.status
+      if (status === 401) {
+        // Token expired — ask Supabase to refresh, then retry once.
+        // The Supabase JS client deduplicates concurrent refresh calls,
+        // so multiple simultaneous 401s don't hammer the auth server.
+        try {
+          const { data, error: refreshError } = await supabase.auth.refreshSession()
+          if (!refreshError && data.session) {
+            session.value = data.session
+            return await $fetch<T>(fullUrl, {
+              ...opts,
+              headers: buildHeaders(data.session.access_token, options.headers as HeadersInit),
+            })
+          }
+        } catch {
+          // refresh itself failed — fall through and rethrow original error
+        }
+      }
+
+      errorLogger.logApiError(error, normalizedUrl, method, status, {
         component: 'API',
-        metadata: {
-          errorType: 'network_error',
-          fullUrl,
-        },
+        metadata: { errorType: status === 401 ? 'auth_expired' : 'network_error', fullUrl },
       })
       throw error
-    })
+    }
   }
 
   return { apiFetch }
