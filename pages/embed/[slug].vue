@@ -121,8 +121,10 @@ useHead(computed(() => {
 
 <style scoped>
 .embed-viewer {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  width: 100svw;     /* small viewport width — excludes scrollbar */
+  height: 100vh;     /* fallback for older browsers */
+  height: 100dvh;    /* dynamic viewport height — adjusts as browser chrome shows/hides */
   background: #000;
   overflow: hidden;
   position: relative;

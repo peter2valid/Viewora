@@ -118,6 +118,11 @@
 }
 
 /* ── Refining Background ── */
+html {
+  /* Ensure html fills the full screen on all devices */
+  height: -webkit-fill-available;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg);
@@ -127,6 +132,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   overscroll-behavior: none;
+  /* iOS Safari: use the actual available height, not 100vh which
+     includes hidden browser chrome and causes a 1px gap at the bottom */
+  min-height: -webkit-fill-available;
 }
 
 /* Ensure the WebGL canvas never triggers browser native scroll or zoom.

@@ -409,7 +409,11 @@ useHead(computed(() => {
 <style scoped>
 .tour-page {
   position: fixed;
-  inset: 0;
+  /* Stretch into safe areas so no gap shows around the panorama on iPhone */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: #0a0a0a;
   overflow: hidden;
   font-family: 'Inter', -apple-system, sans-serif;

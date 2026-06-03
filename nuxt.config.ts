@@ -152,7 +152,7 @@ export default defineNuxtConfig({
       title: 'Dashboard | Viewora',
       meta: [
         { charset: 'utf-8' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'robots', content: 'noindex' },
         { name: 'google-site-verification', content: 'f0go63OSeXW0jaswGI3YnyY8PPfrqKsXcumk-bqfqCk' },
       ],

@@ -1799,12 +1799,11 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 :global(.dock-glass-superdark) {
   background: rgba(255, 255, 255, 0.10) !important;
-  /* Reduced from blur(32px) — the panorama canvas repaints behind the dock on
-     every drag frame. A 32px blur on mobile GPUs causes dropped frames. 12px
-     still gives a frosted-glass look with a fraction of the GPU cost. */
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border: 1px solid rgba(255, 255, 255, 0.20) !important;
+  /* Lift above iPhone home indicator bar when viewport-fit=cover is active */
+  margin-bottom: env(safe-area-inset-bottom, 0px) !important;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
