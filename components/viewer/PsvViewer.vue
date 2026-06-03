@@ -629,7 +629,6 @@ async function initVT() {
     )
     if (version !== vtInitVersion) { destroy(handle); return }
     vtHandle.value = handle
-    playIntroAnimation()
   } catch (err: any) {
     if (version !== vtInitVersion) return
     vtError.value = err?.message || 'Viewer initialisation failed'
@@ -638,31 +637,6 @@ async function initVT() {
 }
 
 // Plays once per viewer mount — wide-angle zoom settling into the scene
-let introHasPlayed = false
-
-function playIntroAnimation() {
-  if (introHasPlayed || !vtHandle.value) return
-  introHasPlayed = true
-
-  const viewer = vtHandle.value.viewer
-  const pos = viewer.getPosition?.() ?? { yaw: 0, pitch: 0 }
-
-  // Start wide — the viewer will appear to "open up" into the space
-  try { viewer.zoom(22) } catch { /* noop */ }
-
-  // After one frame so the wide state actually renders first
-  requestAnimationFrame(() => {
-    if (!vtHandle.value) return
-    try {
-      viewer.animate({
-        yaw: pos.yaw + 0.35,   // drift ~20° right while settling
-        pitch: pos.pitch,
-        zoom: 50,
-        speed: '2rpm',         // covers ~20° in ~1.7 s
-      })
-    } catch { /* noop */ }
-  })
-}
 
 function loadFullQuality() {
   viewerPerformanceMode.value = 'full'
