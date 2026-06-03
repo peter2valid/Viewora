@@ -72,7 +72,7 @@
           class="viewora-free-brand__logo"
           alt="Viewora Virtual Tour Software Logo"
         />
-        <span class="viewora-free-brand__name">Viewora</span>
+        <span class="viewora-free-brand__name">Viewora Virtual Tours</span>
       </a>
 
       <!-- Premium tier: User's custom branding -->
@@ -322,6 +322,25 @@ useHead(computed(() => {
     )
   }
 
+  const marketingBase = (marketingUrl || 'https://viewora.software').replace(/\/$/, '')
+
+  // Viewora Organization entity — included in every tour's JSON-LD so Google
+  // clusters all tour pages under the Viewora brand in its knowledge graph.
+  const vieworaOrg = {
+    '@type':            'Organization',
+    '@id':              `${marketingBase}/#organization`,
+    name:               'Viewora',
+    url:                marketingBase,
+    logo: {
+      '@type': 'ImageObject',
+      url:     `${marketingBase}/logo.png`,
+    },
+    sameAs: [
+      'https://twitter.com/vieworasoftware',
+      'https://www.linkedin.com/company/viewora',
+    ],
+  }
+
   // JSON-LD structured data — Google uses this for rich results
   const jsonLd: any = {
     '@context': 'https://schema.org',
@@ -329,7 +348,21 @@ useHead(computed(() => {
     name:        spaceData?.title || 'Virtual Tour',
     description: seoDescription.value,
     url:         seoCanonical.value,
-    image:       seoImage.value,
+    image: {
+      '@type':  'ImageObject',
+      url:       seoImage.value,
+      width:     seoImageWidth.value,
+      height:    seoImageHeight.value,
+    },
+    // Links this tour page back to Viewora in Google's knowledge graph
+    provider:   vieworaOrg,
+    publisher:  vieworaOrg,
+    isPartOf: {
+      '@type': 'WebSite',
+      '@id':   `${marketingBase}/#website`,
+      name:    'Viewora',
+      url:      marketingBase,
+    },
     ...(spaceData?.location_text ? {
       address: { '@type': 'PostalAddress', streetAddress: spaceData.location_text },
     } : {}),
