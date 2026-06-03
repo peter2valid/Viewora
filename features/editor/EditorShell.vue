@@ -620,18 +620,13 @@
 
             <!-- Results -->
             <div v-else>
-              <!-- Scene rename suggestions -->
+              <!-- Rename scenes -->
               <template v-if="autoLinkRenames.length">
-                <p class="al-section-label">Rename scenes</p>
+                <p class="al-section-label">✏️ Rename scenes</p>
                 <ul class="al-list">
                   <li v-for="r in autoLinkRenames" :key="r._id" class="al-item">
                     <label class="al-item__label">
-                      <input
-                        type="checkbox"
-                        class="al-checkbox"
-                        :checked="autoLinkSelectedRenames.has(r._id)"
-                        @change="toggleAutoLinkRename(r._id)"
-                      />
+                      <input type="checkbox" class="al-checkbox" :checked="autoLinkSelectedRenames.has(r._id)" @change="toggleAutoLinkRename(r._id)" />
                       <span class="al-item__text">
                         <span class="al-item__from">{{ r.currentName }}</span>
                         <span class="al-item__arrow">→</span>
@@ -642,18 +637,31 @@
                 </ul>
               </template>
 
-              <!-- Hotspot suggestions -->
+              <!-- Remove bad hotspots -->
+              <template v-if="autoLinkDeletions.length">
+                <p class="al-section-label">🗑️ Remove incorrect hotspots</p>
+                <ul class="al-list">
+                  <li v-for="d in autoLinkDeletions" :key="d._id" class="al-item al-item--danger">
+                    <label class="al-item__label">
+                      <input type="checkbox" class="al-checkbox" :checked="autoLinkSelectedDeletions.has(d._id)" @change="toggleAutoLinkDeletion(d._id)" />
+                      <span class="al-item__text">
+                        <span class="al-item__from">{{ d.sceneName }}</span>
+                        <span class="al-item__arrow">·</span>
+                        <span>{{ d.label }}</span>
+                        <span class="al-item__badge al-item__badge--remove">{{ d.type === 'scene_link' ? 'nav' : d.type }}</span>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+              </template>
+
+              <!-- Navigation hotspots -->
               <template v-if="autoLinkSuggestions.length">
-                <p class="al-section-label">Navigation hotspots to create</p>
+                <p class="al-section-label">🧭 Add navigation hotspots</p>
                 <ul class="al-list">
                   <li v-for="s in autoLinkSuggestions" :key="s._id" class="al-item">
                     <label class="al-item__label">
-                      <input
-                        type="checkbox"
-                        class="al-checkbox"
-                        :checked="autoLinkSelected.has(s._id)"
-                        @change="toggleAutoLinkSuggestion(s._id)"
-                      />
+                      <input type="checkbox" class="al-checkbox" :checked="autoLinkSelected.has(s._id)" @change="toggleAutoLinkSuggestion(s._id)" />
                       <span class="al-item__text">
                         <span class="al-item__from">{{ s.fromSceneName }}</span>
                         <span class="al-item__arrow">→</span>
@@ -665,15 +673,33 @@
                 </ul>
               </template>
 
-              <p v-if="!autoLinkRenames.length && !autoLinkSuggestions.length" class="al-empty">
-                No suggestions — all scenes may already be linked.
+              <!-- Info hotspots -->
+              <template v-if="autoLinkInfoHotspots.length">
+                <p class="al-section-label">📍 Add info labels</p>
+                <ul class="al-list">
+                  <li v-for="h in autoLinkInfoHotspots" :key="h._id" class="al-item">
+                    <label class="al-item__label">
+                      <input type="checkbox" class="al-checkbox" :checked="autoLinkSelectedInfo.has(h._id)" @change="toggleAutoLinkInfo(h._id)" />
+                      <span class="al-item__text">
+                        <span class="al-item__from">{{ h.sceneName }}</span>
+                        <span class="al-item__arrow">·</span>
+                        <strong>{{ h.label }}</strong>
+                        <span class="al-item__detail">{{ h.description }}</span>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+              </template>
+
+              <p v-if="!autoLinkRenames.length && !autoLinkDeletions.length && !autoLinkSuggestions.length && !autoLinkInfoHotspots.length" class="al-empty">
+                Everything looks good — no changes needed.
               </p>
 
               <div class="al-actions">
                 <button class="al-btn al-btn--secondary" @click="closeAutoLink">Cancel</button>
                 <button
                   class="al-btn al-btn--primary"
-                  :disabled="autoLinkApplying || (!autoLinkSelected.size && !autoLinkSelectedRenames.size)"
+                  :disabled="autoLinkApplying || !autoLinkHasSelections()"
                   @click="handleAutoLinkApply"
                 >
                   <span v-if="autoLinkApplying" class="al-spinner al-spinner--sm" />
@@ -900,12 +926,19 @@ const {
   isApplying: autoLinkApplying,
   errorMsg: autoLinkError,
   suggestions: autoLinkSuggestions,
+  infoHotspots: autoLinkInfoHotspots,
+  hotspotDeletions: autoLinkDeletions,
   sceneRenames: autoLinkRenames,
   selectedSuggestions: autoLinkSelected,
+  selectedInfoHotspots: autoLinkSelectedInfo,
+  selectedDeletions: autoLinkSelectedDeletions,
   selectedRenames: autoLinkSelectedRenames,
+  hasSelections: autoLinkHasSelections,
   open: openAutoLink,
   close: closeAutoLink,
   toggleSuggestion: toggleAutoLinkSuggestion,
+  toggleInfoHotspot: toggleAutoLinkInfo,
+  toggleDeletion: toggleAutoLinkDeletion,
   toggleRename: toggleAutoLinkRename,
   apply: applyAutoLink,
 } = useAutoLink(props.spaceId, apiFetch)
@@ -933,8 +966,18 @@ async function handleAutoLinkApply() {
         }
       }
     },
+    // delete hotspot callback
+    async (hotspotId) => {
+      await apiFetch(`/hotspots/${hotspotId}`, { method: 'DELETE' })
+      for (const sceneId of Object.keys(hotspotsByScene.value)) {
+        hotspotsByScene.value = {
+          ...hotspotsByScene.value,
+          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== hotspotId),
+        }
+      }
+    },
   )
-  showToast('Scenes auto-linked!')
+  showToast('Tour edited by AI!')
 }
 
 let isMounted = false
@@ -2779,6 +2822,23 @@ defineExpose({
   font-size: 11px;
   color: #999;
   margin-top: 1px;
+}
+
+.al-item--danger .al-item__label:hover { background: #fff5f5; }
+
+.al-item__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.al-item__badge--remove {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .al-empty {
