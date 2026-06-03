@@ -154,6 +154,7 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'robots', content: 'noindex' },
+        { name: 'google-site-verification', content: 'f0go63OSeXW0jaswGI3YnyY8PPfrqKsXcumk-bqfqCk' },
       ],
       link: [
         { rel: 'dns-prefetch', href: 'https://fonts.googleapis.com' },
