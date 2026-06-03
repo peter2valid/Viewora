@@ -695,7 +695,7 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
   transition: filter 0.5s ease;
   touch-action: none;
   overscroll-behavior: none;
-  will-change: transform;
+  contain: layout paint;
 }
 
 .psv-canvas--focused :deep(.psv-canvas-container) {
@@ -1020,5 +1020,22 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
   border: 2px solid #fff;
   border-radius: 50%;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+}
+
+/* ── Mobile performance ──────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  .psv-canvas { contain: layout paint; }
+
+  .psv-canvas :deep(.psv-tooltip),
+  .psv-canvas :deep(.psv-compass),
+  .psv-canvas :deep(.psv-panel) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  :global(.psv-hs-icon-img),
+  :global(.psv-hs-marker) {
+    filter: none !important;
+  }
 }
 </style>

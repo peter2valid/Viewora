@@ -129,13 +129,14 @@ body {
   overscroll-behavior: none;
 }
 
-/* Ensure the WebGL canvas — the actual touch target inside PSV — never triggers
-   browser native scroll or zoom. Setting touch-action on an ancestor alone is not
-   always honoured by iOS Safari; setting it directly on the canvas is definitive. */
+/* Ensure the WebGL canvas never triggers browser native scroll or zoom.
+   Setting touch-action directly on the canvas is definitive for iOS Safari. */
 .psv-canvas-container,
 .psv-canvas-container canvas {
   touch-action: none !important;
   user-select: none;
+  /* contain: strict on the canvas container stops repaints propagating outside */
+  contain: strict;
 }
 
 /* ── Page Transitions ── */
