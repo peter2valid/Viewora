@@ -1267,6 +1267,7 @@ const activeViewerScene = computed(() => {
   return {
     id: activeScene.value?.id ?? 'editor-scene',
     imageUrl: url,
+    rawImageUrl: activeScene.value?.raw_image_url ?? undefined,
     tileManifestUrl: activeScene.value?.tile_manifest_url ?? undefined,
     tileCols: activeScene.value?.tile_cols ?? undefined,
     tileRows: activeScene.value?.tile_rows ?? undefined,

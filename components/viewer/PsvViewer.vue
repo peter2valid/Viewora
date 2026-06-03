@@ -525,6 +525,7 @@ function mapRawScene(s: any): TourScene {
   return {
     id: s.id,
     imageUrl: sceneImageUrl(s),
+    rawImageUrl: s.raw_image_url || undefined,
     tileManifestUrl: s.tile_manifest_url || undefined,
     tileCols: s.tile_cols ?? undefined,
     tileRows: s.tile_rows ?? undefined,

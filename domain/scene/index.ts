@@ -38,6 +38,7 @@ export interface Hotspot360 {
 export interface TourScene {
   id: string
   imageUrl: string
+  rawImageUrl?: string
   tileManifestUrl?: string
   tileCols?: number
   tileRows?: number

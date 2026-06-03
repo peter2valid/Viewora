@@ -83,18 +83,11 @@ function hotspotSignature(hs: Hotspot): string {
   ].join('|')
 }
 
-function isPowerOfTwo(value: number | null | undefined): boolean {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 && (value & (value - 1)) === 0
-}
-
 function canUseTiledPanorama(scene: TourScene): boolean {
   return !!scene.tileManifestUrl
     && !!scene.tileCols
     && !!scene.tileRows
     && scene.tilesReady === true
-    && (scene.width || 0) > 4096
-    && isPowerOfTwo(scene.tileCols)
-    && isPowerOfTwo(scene.tileRows)
 }
 
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
@@ -218,9 +211,22 @@ function buildPanorama(scene: TourScene) {
     }
   }
 
-  // VirtualTour always uses the tiles adapter, so normalize single images to a 1x1 tile set.
-  // Width must match the actual image being loaded (thumbnail = 2048px).
-  // Using scene.width (e.g. 11520 for Insta360) with a 2048px thumbnail causes UV mapping errors.
+  // No tiles: fall back to the full-resolution image when available.
+  // rawImageUrl + scene.width give PSV the correct sphere mapping (UV errors occur when
+  // width doesn't match the image's actual pixel width).
+  // imageUrl (thumbnail, 2048px) stays as baseUrl so the viewer loads instantly;
+  // the single "tile" is then replaced by the raw image at full resolution.
+  if (scene.rawImageUrl && scene.width) {
+    return {
+      width: scene.width,
+      cols: 1,
+      rows: 1,
+      baseUrl: scene.imageUrl,
+      tileUrl: () => scene.rawImageUrl!,
+    }
+  }
+
+  // Last resort: thumbnail only. width must be 2048 to match the thumbnail dimensions.
   return {
     width: 2048,
     cols: 1,
