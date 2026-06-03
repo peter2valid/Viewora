@@ -122,7 +122,6 @@ function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
             <path d="M12 19V5M5 12l7-7 7 7"/>
           </svg>
         </div>`}
-    <span class="vhs-nav__label">${label}</span>
   `
   return wrap
 }
@@ -637,15 +636,13 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
         const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
         const hScale = Number(h.scale || 1)
         const hBaseSize = isNav ? 52 : 40
-        const hScaledSize = Math.round(hBaseSize * hScale)
+        const scaledSize = Math.round(hBaseSize * hScale)
         return {
           id: h.id,
-          position: { yaw: h.yaw, pitch: isNav ? -0.8 : h.pitch }, // Force nav marker to floor level
+          position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          // Info card height must be 'auto' — hardcoding 300 clips cards with images/long text.
-          // Nav arrows are fixed-size so they remain consistent regardless of label length.
-          size: isNav ? { width: 60, height: 80 } : { width: 240, height: 'auto' as any },
-          anchor: isNav ? 'bottom center' : 'bottom center',
+          size: { width: scaledSize, height: scaledSize },
+          anchor: 'center center',
           scale: isNav ? [0.5, 1.3] : [0.7, 1.0], // size varies with zoom like Google Maps
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
