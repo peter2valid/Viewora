@@ -714,6 +714,10 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
 .psv-canvas :deep(.psv-container) {
   width: 100% !important;
   height: 100% !important;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .psv-canvas--ready {
