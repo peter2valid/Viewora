@@ -288,7 +288,7 @@
     <!-- Main Viewport -->
     <div
       :class="[
-        'flex flex-col min-h-screen transition-all duration-300',
+        'flex flex-col h-screen transition-all duration-300',
         isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64',
       ]"
     >
@@ -373,11 +373,9 @@
       </header>
 
       <!-- App View -->
-      <!-- overflow-x-hidden intentionally removed from <main>: per CSS spec, setting
-           overflow-x:hidden on a non-root element silently promotes overflow-y to auto,
-           turning <main> into its own scroll container and breaking window scroll. -->
       <main
-        class="flex-1 px-4 sm:px-8 md:px-12 lg:px-16 py-8 md:py-12 w-full max-w-[1600px] mx-auto"
+        ref="mainScrollRef"
+        class="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 lg:px-16 py-8 md:py-12 w-full max-w-[1600px] mx-auto"
       >
         <slot />
       </main>
@@ -419,9 +417,11 @@ const { isDark, toggle: toggleTheme, init: initTheme } = useTheme();
 
 const isExactRoute = (path: string) => route.path === path;
 
-// Scroll window to top on every SPA navigation so pages always start at the top
+const mainScrollRef = ref<HTMLElement | null>(null)
+
+// Scroll main content to top on every SPA navigation
 watch(() => route.path, () => {
-  if (import.meta.client) window.scrollTo({ top: 0 })
+  if (import.meta.client) mainScrollRef.value?.scrollTo({ top: 0 })
 })
 
 function finishOnboarding() {
