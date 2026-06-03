@@ -643,7 +643,6 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
           element: el,
           size: { width: scaledSize, height: scaledSize },
           anchor: 'center center',
-          scale: isNav ? [0.5, 1.3] : [0.7, 1.0], // size varies with zoom like Google Maps
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
         }
