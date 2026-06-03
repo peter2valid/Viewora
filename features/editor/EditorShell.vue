@@ -1640,7 +1640,13 @@ async function fetchScenes() {
 
     if (mergedScenes.length) {
       if (!selectedSceneId.value || !mergedScenes.some((s: any) => s.id === selectedSceneId.value)) {
-        selectedSceneId.value = mergedScenes[0].id
+        // Restore last-visited scene for this space; fall back to first scene
+        let restoredId = ''
+        if (typeof window !== 'undefined' && props.spaceId) {
+          try { restoredId = window.localStorage.getItem(`viewora_editor_scene_${props.spaceId}`) ?? '' } catch { /* noop */ }
+        }
+        const isValid = restoredId && mergedScenes.some((s: any) => s.id === restoredId)
+        selectedSceneId.value = isValid ? restoredId : mergedScenes[0].id
       }
     } else {
       selectedSceneId.value = ''
@@ -1677,6 +1683,12 @@ async function fetchHotspots(sceneId: string) {
 async function selectScene(sceneId: string) {
   if (sceneId === selectedSceneId.value) return
   selectedSceneId.value = sceneId
+
+  // Persist so refresh restores this scene instead of always going to scene 0
+  if (typeof window !== 'undefined' && props.spaceId) {
+    try { window.localStorage.setItem(`viewora_editor_scene_${props.spaceId}`, sceneId) } catch { /* noop */ }
+  }
+
   const selected = scenes.value.find((s) => s.id === sceneId)
   if (selected && !sceneHasRenderableImage(selected) && selected.status !== 'ready') {
     showToast('Scene is still preparing. Showing latest ready view.', 'error')

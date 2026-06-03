@@ -362,6 +362,16 @@ const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
 const dockCollapsed = ref(true)
+
+// ── Smart entry direction ──────────────────────────────────────────────────
+// When navigating via a hotspot, store the entry context so the camera can
+// face the door you just walked through instead of the scene default yaw.
+type EntryContext = {
+  fromSceneId:  string   // scene we're leaving
+  clickedYaw:   number   // yaw of the hotspot that was clicked (in scene A)
+  targetSceneId: string  // scene we're heading to
+}
+let pendingEntry: EntryContext | null = null
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
 const autoplaying = ref(false)
@@ -571,7 +581,17 @@ async function initVT() {
 
   const mappedScenes = tourScenes.value.map(mapRawScene)
   const hotspotsByScene = buildAllHotspots()
-  const startNodeId = tourScenes.value[0]?.id ?? ''
+
+  // ── Scene memory — restore from URL hash if present ─────────────────────
+  // When a viewer is refreshed or the link is shared with #scene=<id>,
+  // start from the remembered/shared scene instead of always scene 0.
+  const hashSceneId = typeof window !== 'undefined'
+    ? (window.location.hash.match(/#scene=([^&]+)/)?.[1] ?? '')
+    : ''
+  const validHashScene = hashSceneId && tourScenes.value.some(s => s.id === hashSceneId)
+    ? hashSceneId
+    : ''
+  const startNodeId = validHashScene || tourScenes.value[0]?.id ?? ''
   const autoRotate = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
 
   try {
@@ -607,13 +627,47 @@ async function initVT() {
             via: 'hotspot',
           })
           vtActiveNodeId.value = nodeId
-          vtFocusing.value = false
-          // Deactivate all info markers on scene change
-          const prevScene = buildAllHotspots()
-          for (const hotspots of Object.values(prevScene)) {
-            for (const h of hotspots) {
-              vtToggleMarkerActive(handle, h.id, false)
+
+          // Deactivate all info markers
+          const allHS = buildAllHotspots()
+          for (const hotspots of Object.values(allHS)) {
+            for (const h of hotspots) vtToggleMarkerActive(handle, h.id, false)
+          }
+
+          // ── Smart entry direction ──────────────────────────────────────
+          // Orient the camera so the viewer faces the door they just walked
+          // through, not the scene default. This makes navigation feel natural
+          // — you "walk in" and immediately see the room you came from.
+          if (pendingEntry && pendingEntry.targetSceneId === nodeId) {
+            const entry     = pendingEntry
+            pendingEntry    = null
+            const newSceneHotspots = allHS[nodeId] ?? []
+
+            // Look for the back hotspot in the new scene (one that leads back to where we came from)
+            const backHotspot = newSceneHotspots.find(
+              h => h.type === 'scene_link' && h.targetSceneId === entry.fromSceneId,
+            )
+
+            let facingYaw: number
+            if (backHotspot) {
+              // Face the hotspot that leads back — you're now "standing in front of" the door you came through
+              facingYaw = backHotspot.yaw
+            } else {
+              // No back hotspot found — flip 180° from the direction we were heading
+              facingYaw = entry.clickedYaw + Math.PI
+              if (facingYaw > Math.PI) facingYaw -= 2 * Math.PI
             }
+
+            // Short, snappy rotation — just reorients, not a dramatic sweep
+            requestAnimationFrame(() => {
+              try {
+                handle.viewer?.animate({
+                  yaw:   facingYaw,
+                  pitch: 0,
+                  speed: '8rpm',
+                })
+              } catch { /* noop */ }
+            })
           }
         },
         onMarkerClick: (markerId, type, url) => {
@@ -679,8 +733,6 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
     if (target) window.open(target, '_blank', 'noopener,noreferrer')
 
   } else if (type === 'scene_link') {
-    // Navigate to the target scene. We read targetSceneId from marker.data
-    // (set in buildTourNodes) so we never need to scan the entire hotspot list.
     try {
       const marker = handle.markers?.getMarker(markerId)
       const targetSceneId = marker?.config?.data?.targetSceneId
@@ -693,12 +745,31 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
         })()
 
       if (targetSceneId) {
+        // Capture the yaw of the clicked hotspot so onNodeChanged can orient
+        // the camera toward the entry point (facing the door you walked through).
+        const clickedHotspot = (() => {
+          for (const hotspots of Object.values(all)) {
+            const h = hotspots.find(x => x.id === markerId)
+            if (h) return h
+          }
+          return null
+        })()
+
+        if (clickedHotspot) {
+          pendingEntry = {
+            fromSceneId:   vtActiveNodeId.value,
+            clickedYaw:    clickedHotspot.yaw,
+            targetSceneId,
+          }
+        }
+
         vtTransitioning.value = true
         const success = await vtGoToNode(handle, targetSceneId)
-        if (!success) vtTransitioning.value = false
+        if (!success) { vtTransitioning.value = false; pendingEntry = null }
       }
     } catch {
       vtTransitioning.value = false
+      pendingEntry = null
     }
   }
 
@@ -917,7 +988,17 @@ watch(
 
 // Scene name toast on transition
 watch(vtActiveNodeId, (newId, oldId) => {
-  if (!oldId || !newId || newId === oldId) return
+  if (!newId || newId === oldId) return
+
+  // ── Persist current scene in URL hash ─────────────────────────────────
+  // Allows the viewer to resume from this scene on refresh, and makes the
+  // URL shareable — someone opening the link lands on the same scene.
+  if (typeof window !== 'undefined') {
+    const url = `${window.location.pathname}${window.location.search}#scene=${newId}`
+    window.history.replaceState(null, '', url)
+  }
+
+  if (!oldId) return   // suppress toast on initial load
   const scene = tourScenes.value.find((s: any) => s.id === newId)
   const name = scene?.name || ''
   if (!name) return
@@ -925,7 +1006,6 @@ watch(vtActiveNodeId, (newId, oldId) => {
   sceneToastVisible.value = true
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   sceneToastTimer = setTimeout(() => { sceneToastVisible.value = false }, 2600)
-  // Reschedule autoplay timer if playing
   if (autoplaying.value && !autoplayFromButton) scheduleNextAutoplayScene()
 })
 
