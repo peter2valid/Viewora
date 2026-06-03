@@ -568,7 +568,6 @@ async function initVT() {
   vtReady.value = false
   vtError.value = ''
   vtFocusing.value = false
-  introHasPlayed = false
 
   const mappedScenes = tourScenes.value.map(mapRawScene)
   const hotspotsByScene = buildAllHotspots()
