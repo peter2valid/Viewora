@@ -15,7 +15,14 @@ export const useApiFetch = () => {
   const supabase = useSupabaseClient()
   const config = useRuntimeConfig()
 
-  const baseURL = (config.public.apiBaseUrl as string) || ''
+  // On the server (SSR), prefer the private server-only config which has the full
+  // backend URL even when the public env var is not set. This prevents SSR data
+  // fetches from resolving to a relative /api/... URL that doesn't exist on Vercel.
+  const baseURL = (
+    (import.meta.server ? (config as any).apiBaseUrl : null) ||
+    (config.public.apiBaseUrl as string) ||
+    ''
+  )
 
   function buildUrl(url: string) {
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`

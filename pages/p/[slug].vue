@@ -165,6 +165,12 @@ const { data: tourPayload, error: tourError } = await useAsyncData(
 )
 
 if (tourError.value) {
+  const status = (tourError.value as any)?.response?.status ?? (tourError.value as any)?.status ?? 500
+  if (status === 404) {
+    // Tour not found — throw a proper 404 so Nuxt returns the correct HTTP status.
+    // A "soft 404" (200 with error content) confuses Google and wastes crawl budget.
+    throw createError({ statusCode: 404, statusMessage: 'Tour not found', fatal: true })
+  }
   const errorData = (tourError.value as any)?.data
   fetchError.value = errorData?.statusMessage || 'Space unavailable or removed.'
   state.value = 'error'
