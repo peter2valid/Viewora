@@ -1641,6 +1641,37 @@ watch(() => vtTransitioning.value, (loading) => {
 .vt-overlay-icon { width: 28px; height: 28px; color: rgba(255,255,255,0.25); }
 .vt-overlay-msg  { font-size: 12px; color: rgba(255,255,255,0.3); font-weight: 500; }
 
+/* ── Plugin arrow hover — scene thumbnail card ──────────────────────────── */
+:global(.vt-link-card) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 130px;
+  max-width: 160px;
+}
+
+:global(.vt-link-card__img) {
+  width: 100%;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+:global(.vt-link-card__name) {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .vt-loading-ring {
   width: 28px;
   height: 28px;

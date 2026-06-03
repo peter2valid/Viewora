@@ -715,7 +715,7 @@ export async function initVirtualTourViewer(
   plugins.push([VirtualTourPlugin, {
     dataMode: 'client',
     positionMode: 'manual',
-    renderMode: '3d', // 3d mode natively renders floor arrows for the links
+    renderMode: '3d',
     nodes,
     startNodeId,
     preload: false,
@@ -723,9 +723,28 @@ export async function initVirtualTourViewer(
       showLoader: true,
       speed: '20rpm',
       effect: 'fade',
-      rotation: true,
+      // rotation: false — do NOT pan the camera to the floor arrow before transitioning.
+      // With rotation:true, PSV rotated down to pitch=-0.8 (the link position) before the
+      // fade, making it look like the camera dove at the floor. The smart entry direction
+      // feature already handles the correct orientation after arrival.
+      rotation: false,
     },
-    showLinkTooltip: false,
+    // Show scene thumbnail card when the user hovers a floor arrow
+    showLinkTooltip: true,
+    getLinkTooltip: (_content: string, link: any) => {
+      const target = scenes.find(s => s.id === link.nodeId)
+      if (!target) return ''
+      const thumb = target.imageUrl || ''
+      const name  = target.title  || ''
+      return `<div class="vt-link-card">${
+        thumb
+          ? `<img class="vt-link-card__img" src="${thumb}" alt="${name}" />`
+          : ''
+      }${name
+          ? `<p class="vt-link-card__name">${name}</p>`
+          : ''
+      }</div>`
+    },
   }])
 
   const viewer: any = new Viewer({
