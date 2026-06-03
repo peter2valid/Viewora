@@ -903,10 +903,12 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
   background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
 }
 
-:global(.psv--is-moving .psv-hs-pulse),
-:global(.psv--is-moving .vhs-nav__pulse),
-:global(.psv--is-moving .vhs-info__pin-ring) {
-  animation-play-state: paused;
+@media (hover: none) and (pointer: coarse) {
+  :global(.psv-hs-pulse),
+  :global(.vhs-nav__pulse),
+  :global(.vhs-info__pin-ring) {
+    animation: none;
+  }
 }
 
 

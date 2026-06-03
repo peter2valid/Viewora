@@ -1916,12 +1916,15 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 :global(.vhs-info__link:hover) { text-decoration: underline; }
 
-/* Pause marker pulse animations while the user is actively dragging the panorama.
-   PSV adds .psv--is-moving while panning — repainting animated rings every frame
-   on top of a moving panorama causes unnecessary GPU composite operations. */
-:global(.psv--is-moving .vhs-nav__pulse),
-:global(.psv--is-moving .vhs-info__pin-ring) {
-  animation-play-state: paused;
+/* On touch devices (mobile), disable the continuous pulse animations entirely.
+   These rings repaint every frame. On desktop the GPU handles it easily;
+   on mobile the ongoing GPU cost contributes to dropped frames during panning.
+   The hotspot dot and icon remain visible — only the animated ring is off. */
+@media (hover: none) and (pointer: coarse) {
+  :global(.vhs-nav__pulse),
+  :global(.vhs-info__pin-ring) {
+    animation: none;
+  }
 }
 
 /* Reset PSV marker defaults */
