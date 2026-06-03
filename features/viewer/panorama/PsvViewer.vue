@@ -720,6 +720,10 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
   -webkit-tap-highlight-color: transparent;
 }
 
+.psv-canvas :deep(.psv-markers) {
+  z-index: 35 !important;
+}
+
 .psv-canvas--ready {
   animation: psv-intro 0.9s ease forwards;
 }

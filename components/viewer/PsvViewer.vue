@@ -1621,6 +1621,13 @@ watch(() => vtTransitioning.value, (loading) => {
   text-transform: uppercase;
 }
 
+/* Raise the PSV markers layer above the GlassDock (z-index: 30).
+   PSV's default .psv-markers z-index is 10 which creates a stacking context
+   that sits below the dock, hiding nav arrows behind it. */
+.vt-canvas :deep(.psv-markers) {
+  z-index: 35 !important;
+}
+
 :global(.psv-marker) { overflow: visible !important; }
 :global(viewora-hotspot) {
   display: block !important;
