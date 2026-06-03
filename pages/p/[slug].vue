@@ -227,43 +227,132 @@ function fireViewEvent(spaceId: string) {
   })
 }
 
+// ── SEO computed values ───────────────────────────────────────────────────
+const seoCanonical = computed(() => {
+  const base = (appUrl || 'https://app.viewora.software').replace(/\/$/, '')
+  return `${base}/p/${slug}`
+})
+
+const seoTitle = computed(() => {
+  const title = tour.value?.space?.title
+  return title ? `${title} — Virtual Tour` : 'Virtual Tour — Viewora'
+})
+
+const seoDescription = computed(() => {
+  const raw = tour.value?.space?.description
+  const name = tour.value?.space?.title
+  const loc  = tour.value?.space?.location_text
+  const sceneCount = tour.value?.scenes?.length ?? 0
+  const roomLabel = sceneCount > 1 ? `${sceneCount} rooms` : 'immersive space'
+
+  if (raw && raw.length >= 50) return raw.length > 160 ? raw.slice(0, 157) + '…' : raw
+  if (name && loc) return `Explore ${name} in ${loc} — an interactive 360° virtual tour with ${roomLabel}. Powered by Viewora.`
+  if (name)        return `Explore ${name} in an interactive 360° virtual tour with ${roomLabel}. Powered by Viewora.`
+  return 'Experience an immersive 360° virtual tour. Walk through every room from anywhere in the world. Powered by Viewora.'
+})
+
+// Prefer the first scene thumbnail (2048×1024, known dimensions) so platforms
+// always get a real panorama preview. Fall back to user-uploaded cover, then default.
+const seoImage = computed(() => {
+  return (
+    tour.value?.scenes?.[0]?.thumbnail_url
+    || space.value?.cover_image_url
+    || `${(appUrl || 'https://app.viewora.software').replace(/\/$/, '')}/images/og-default.png`
+  )
+})
+
+// First scene thumbnail is always 2048×1024 — report exact dims so WhatsApp / Telegram
+// don't have to guess and skip the card.
+const seoImageWidth  = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '2048' : '1200')
+const seoImageHeight = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '1024' : '630')
+const seoImageAlt    = computed(() => `360° virtual tour of ${tour.value?.space?.title || 'this property'}`)
+
+const seoKeywords = computed(() => {
+  const base = ['virtual tour', '360 tour', 'immersive tour', 'property tour', 'Viewora']
+  const name = tour.value?.space?.title
+  const loc  = tour.value?.space?.location_text
+  if (name) base.unshift(name)
+  if (loc)  base.splice(name ? 1 : 0, 0, loc)
+  return base.join(', ')
+})
+
 useSeoMeta({
-  title: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
-  description: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
-  robots: 'index, follow',
-  ogTitle: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
-  ogDescription: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
-  ogImage: computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png'),
-  twitterCard: 'summary_large_image',
-  twitterTitle: computed(() => tour.value ? `${tour.value.space.title} — Viewora` : 'Tour — Viewora'),
-  twitterDescription: computed(() => tour.value?.space?.description || 'Experience this immersive architectural vision on Viewora.'),
-  twitterImage: computed(() => space.value?.cover_image_url || 'https://app.viewora.software/images/og-default.png'),
+  // Core
+  title:       seoTitle,
+  description: seoDescription,
+  keywords:    seoKeywords,
+  robots:      'index, follow',
+  author:      'Viewora',
+  themeColor:  '#0a0a0a',
+
+  // Open Graph — read by WhatsApp, Facebook, LinkedIn, Telegram, iMessage, Slack…
+  ogType:            'website',
+  ogSiteName:        'Viewora',
+  ogLocale:          'en_US',
+  ogUrl:             seoCanonical,
+  ogTitle:           seoTitle,
+  ogDescription:     seoDescription,
+  ogImage:           seoImage,
+  ogImageSecureUrl:  seoImage,
+  ogImageType:       'image/jpeg',
+  ogImageWidth:      seoImageWidth,
+  ogImageHeight:     seoImageHeight,
+  ogImageAlt:        seoImageAlt,
+
+  // Twitter / X — summary_large_image shows the panorama thumbnail full-width
+  twitterCard:        'summary_large_image',
+  twitterSite:        '@vieworasoftware',
+  twitterTitle:       seoTitle,
+  twitterDescription: seoDescription,
+  twitterImage:       seoImage,
+  twitterImageAlt:    seoImageAlt,
 })
 
 useHead(computed(() => {
+  const spaceData = tour.value?.space
   const scripts: any[] = []
+
+  // GA4
   if (gaMeasurementId) {
     scripts.push(
+      { src: `https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`, async: true },
       {
-        src: `https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`,
-        async: true,
-      },
-      {
-        children: `
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${gaMeasurementId}', {
-            page_path: window.location.pathname,
-          });
-        `,
+        children: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaMeasurementId}',{page_path:window.location.pathname});`,
       }
     )
   }
 
+  // JSON-LD structured data — Google uses this for rich results
+  const jsonLd: any = {
+    '@context': 'https://schema.org',
+    '@type':    'TouristAttraction',
+    name:        spaceData?.title || 'Virtual Tour',
+    description: seoDescription.value,
+    url:         seoCanonical.value,
+    image:       seoImage.value,
+    ...(spaceData?.location_text ? {
+      address: { '@type': 'PostalAddress', streetAddress: spaceData.location_text },
+    } : {}),
+    ...(spaceData?.phone ? { telephone: spaceData.phone }    : {}),
+    ...(spaceData?.email ? { email:     spaceData.email }    : {}),
+    ...(spaceData?.logo_url ? {
+      logo: { '@type': 'ImageObject', url: spaceData.logo_url },
+    } : {}),
+    potentialAction: {
+      '@type':  'ViewAction',
+      target:    seoCanonical.value,
+      name:     'View Virtual Tour',
+    },
+  }
+
   return {
-    link: [{ rel: 'canonical', href: `${appUrl}/p/${slug}` }],
-    script: scripts
+    link: [
+      { rel: 'canonical', href: seoCanonical.value },
+    ],
+    script: [
+      ...scripts,
+      { type: 'application/ld+json', children: JSON.stringify(jsonLd) },
+    ],
   }
 }))
 </script>
