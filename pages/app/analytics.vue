@@ -135,15 +135,15 @@
         <span class="text-[10px] font-black uppercase tracking-widest text-dim flex-shrink-0">Tour:</span>
         <button
           @click="selectedInsightsTourId = null"
-          class="px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-colors flex-shrink-0 whitespace-nowrap"
-          :class="!selectedInsightsTourId ? 'bg-main text-bg border-main' : 'border-border bg-surface-alt text-dim hover:text-main'"
+          class="px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors flex-shrink-0 whitespace-nowrap"
+          :class="!selectedInsightsTourId ? 'bg-main text-bg' : 'bg-surface-alt text-dim hover:text-main'"
         >All Tours</button>
         <button
           v-for="tour in tourStats"
           :key="tour.id"
           @click="selectedInsightsTourId = tour.id"
-          class="px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-colors flex-shrink-0 whitespace-nowrap max-w-[160px] truncate"
-          :class="selectedInsightsTourId === tour.id ? 'bg-main text-bg border-main' : 'border-border bg-surface-alt text-dim hover:text-main'"
+          class="px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors flex-shrink-0 whitespace-nowrap max-w-[160px] truncate"
+          :class="selectedInsightsTourId === tour.id ? 'bg-main text-bg' : 'bg-surface-alt text-dim hover:text-main'"
         >{{ tour.title }}</button>
       </div>
       
