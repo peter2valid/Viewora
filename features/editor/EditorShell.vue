@@ -2903,4 +2903,9 @@ defineExpose({
   border-color: rgba(255,255,255,0.3);
   border-top-color: #fff;
 }
+
+/* ── Mobile: strip backdrop-filter from the entire editor ── */
+@media (hover: none) and (pointer: coarse) {
+  * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+}
 </style>
