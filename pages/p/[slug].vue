@@ -253,18 +253,27 @@ const seoDescription = computed(() => {
 
 // Prefer the first scene thumbnail (2048×1024, known dimensions) so platforms
 // always get a real panorama preview. Fall back to user-uploaded cover, then default.
+// Image priority: scene thumbnail → raw panorama → cover → absolute fallback.
+// raw_image_url is included because thumbnail processing may not have run yet.
+// The fallback URL is hardcoded (not appUrl) so it never resolves to "undefined/..."
+// when the env var is missing during SSR.
+const OG_FALLBACK = 'https://app.viewora.software/images/og-default.png'
 const seoImage = computed(() => {
-  return (
+  const url =
     tour.value?.scenes?.[0]?.thumbnail_url
+    || tour.value?.scenes?.[0]?.raw_image_url
     || space.value?.cover_image_url
-    || `${(appUrl || 'https://app.viewora.software').replace(/\/$/, '')}/images/og-default.png`
-  )
+    || OG_FALLBACK
+  // Guard: must be an absolute HTTPS URL or WhatsApp silently drops it
+  if (!url || !url.startsWith('http')) return OG_FALLBACK
+  return url
 })
 
-// First scene thumbnail is always 2048×1024 — report exact dims so WhatsApp / Telegram
-// don't have to guess and skip the card.
-const seoImageWidth  = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '2048' : '1200')
-const seoImageHeight = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '1024' : '630')
+// Report exact dimensions only when using the known 2048×1024 thumbnail.
+// Omit for raw_image_url / cover (unknown dims) — platforms handle missing dims better
+// than wrong dims.
+const seoImageWidth  = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '2048' : undefined)
+const seoImageHeight = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '1024' : undefined)
 const seoImageAlt    = computed(() => `360° virtual tour of ${tour.value?.space?.title || 'this property'}`)
 
 const seoKeywords = computed(() => {
@@ -294,7 +303,8 @@ useSeoMeta({
   ogDescription:     seoDescription,
   ogImage:           seoImage,
   ogImageSecureUrl:  seoImage,
-  ogImageType:       'image/jpeg',
+  // ogImageType intentionally omitted — thumbnail may be JPEG or WebP; wrong type
+  // causes WhatsApp to skip the image even if the URL is valid.
   ogImageWidth:      seoImageWidth,
   ogImageHeight:     seoImageHeight,
   ogImageAlt:        seoImageAlt,
