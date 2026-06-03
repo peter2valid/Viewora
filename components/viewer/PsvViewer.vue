@@ -2269,10 +2269,9 @@ watch(() => vtTransitioning.value, (loading) => {
    ───────────────────────────────────────────────────────────────────────── */
 @media (hover: none) and (pointer: coarse) {
 
-  /* Viewer root: contain layout+paint so repaints don't cascade outside */
-  .public-viewer {
-    contain: layout paint;
-  }
+  /* NOTE: do NOT add contain:layout to .public-viewer or .vt-canvas —
+     contain:layout breaks height:100% resolution from the parent, which
+     causes the viewer to be shorter than the screen on Android. */
 
   /* Control rail buttons */
   .viewer-rail__btn {

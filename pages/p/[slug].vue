@@ -408,22 +408,18 @@ useHead(computed(() => {
 
 <style scoped>
 .tour-page {
-  /* position:fixed + explicit edges fills the viewport on both iOS and Android.
-     viewport-fit=cover ensures 'inset 0' reaches physical screen edges on all
-     devices — including those with notch, Dynamic Island, or gesture bar. */
+  /* position:fixed with all four edges = 0 is the ONLY correct way to fill
+     the viewport on Android Chrome. Do NOT also set width/height — they
+     conflict with the edge-based sizing and cause the black gap at the bottom
+     on Redmi and other Android devices where dvh != (bottom - top). */
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  /* Fallback in case fixed positioning has edge cases on some Android WebViews */
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
   background: #0a0a0a;
   overflow: hidden;
   font-family: 'Inter', -apple-system, sans-serif;
-  /* Prevent rubber-band scroll on Android Chrome and Samsung Internet */
   overscroll-behavior: none;
   touch-action: none;
 }

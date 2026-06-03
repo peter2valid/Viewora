@@ -151,9 +151,8 @@ body {
 .psv-canvas-container canvas {
   touch-action: none !important;
   user-select: none;
-  /* contain:layout paint (NOT strict/size) — size containment collapses
-     the canvas to 0×0 because the WebGL content isn't a CSS layout child. */
-  contain: layout paint;
+  /* No contain here — contain:layout on viewer elements breaks percentage
+     height resolution and causes the black gap on Android. */
 }
 
 /* ── Page Transitions ── */

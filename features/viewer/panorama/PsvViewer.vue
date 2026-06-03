@@ -695,7 +695,6 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
   transition: filter 0.5s ease;
   touch-action: none;
   overscroll-behavior: none;
-  contain: layout paint;
 }
 
 .psv-canvas--focused :deep(.psv-canvas-container) {
