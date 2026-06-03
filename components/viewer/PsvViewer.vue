@@ -1540,8 +1540,12 @@ watch(() => vtTransitioning.value, (loading) => {
 @media (max-width: 640px) {
   .viewer-control-stack {
     right: 10px;
+    /* Add safe-area-inset-right for Android devices in landscape
+       where the gesture bar is on the right side */
+    right: calc(10px + env(safe-area-inset-right, 0px));
     top: auto;
-    bottom: 130px;
+    /* Add safe-area-inset-bottom so controls clear the home indicator/gesture bar */
+    bottom: calc(130px + env(safe-area-inset-bottom, 0px));
     transform: none;
     gap: 8px;
   }
@@ -2124,7 +2128,8 @@ watch(() => vtTransitioning.value, (loading) => {
 .viewer-cta-btn {
   position: absolute;
   left: 20px;
-  bottom: 26px;
+  left: calc(20px + env(safe-area-inset-left, 0px));
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
   z-index: 35;
   display: inline-flex;
   align-items: center;

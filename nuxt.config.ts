@@ -152,7 +152,14 @@ export default defineNuxtConfig({
       title: 'Dashboard | Viewora',
       meta: [
         { charset: 'utf-8' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        {
+          name: 'viewport',
+          // viewport-fit=cover: iOS/Android extend viewport into safe areas (notch, home bar)
+          // interactive-widget=resizes-visual: Android Chrome 108+ — virtual keyboard
+          //   overlays content instead of resizing the viewport, preventing layout jumps
+          //   when the keyboard appears inside the panorama viewer
+          content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual',
+        },
         { name: 'robots', content: 'noindex' },
         { name: 'google-site-verification', content: 'f0go63OSeXW0jaswGI3YnyY8PPfrqKsXcumk-bqfqCk' },
       ],

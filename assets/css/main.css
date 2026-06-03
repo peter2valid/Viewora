@@ -119,8 +119,11 @@
 
 /* ── Refining Background ── */
 html {
-  /* Ensure html fills the full screen on all devices */
+  /* Fill the real screen height on iOS Safari and older Android WebViews.
+     -webkit-fill-available = actual visible height excluding browser chrome. */
   height: -webkit-fill-available;
+  /* Prevent pull-to-refresh on Android Chrome when inside the viewer */
+  overscroll-behavior: none;
 }
 
 body {
@@ -132,8 +135,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   overscroll-behavior: none;
-  /* iOS Safari: use the actual available height, not 100vh which
-     includes hidden browser chrome and causes a 1px gap at the bottom */
+  /* Cross-browser full-height chain:
+     1. 100vh      — universal fallback (wrong on iOS/old Android but always works)
+     2. 100svh     — small viewport height (Chrome 108+, Safari 15.4+): height with
+                     browser chrome VISIBLE — prevents content being hidden under bar
+     3. -webkit-fill-available — iOS Safari: actual visible area */
+  min-height: 100vh;
+  min-height: 100svh;
   min-height: -webkit-fill-available;
 }
 
