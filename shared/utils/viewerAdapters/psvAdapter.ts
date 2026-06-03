@@ -306,21 +306,8 @@ export async function initViewer(
 
   viewer.addEventListener('ready', () => {
     onReady?.()
-    if (!isEditing) {
-      void (async () => {
-        try {
-          await Promise.resolve(viewer.animate({
-            yaw: scene.settings.yaw_default,
-            pitch: scene.settings.pitch_default,
-            zoom: 50,
-            fisheye: 0,
-          }, 2000))
-        } finally {
-          if (scene.settings.auto_rotate_enabled) {
-            startAutorotate(viewer)
-          }
-        }
-      })()
+    if (!isEditing && scene.settings.auto_rotate_enabled) {
+      startAutorotate(viewer)
     }
   }, { once: true })
 
