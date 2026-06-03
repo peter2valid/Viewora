@@ -114,7 +114,10 @@ const dragTracker = {
   hotspotId: null as string | null,
   startX: 0,
   startY: 0,
-  moved: false
+  moved: false,
+  // Cached rect — set once on pointerdown, reused per-frame instead of forcing
+  // a synchronous layout reflow via getBoundingClientRect() on every pointermove.
+  rect: null as DOMRect | null,
 }
 
 // ── Hotspot action menu ────────────────────────────────────
@@ -383,28 +386,31 @@ function onPointerDown(e: PointerEvent) {
   dragTracker.startY = e.clientY
   dragTracker.moved = false
   dragTracker.active = true
-  
-  // Prevent PSV from starting a camera pan
+  // Cache rect once on pointerdown — avoids getBoundingClientRect() on every
+  // pointermove which forces a synchronous layout reflow each frame.
+  dragTracker.rect = containerEl.value?.getBoundingClientRect() ?? null
+
   e.stopPropagation()
 }
 
 function onPointerMove(e: PointerEvent) {
   if (!dragTracker.active || !dragTracker.hotspotId || !handle.value) return
-  
+
   const dx = e.clientX - dragTracker.startX
   const dy = e.clientY - dragTracker.startY
-  
+
   if (!dragTracker.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
     dragTracker.moved = true
   }
-  
+
   if (dragTracker.moved) {
     try {
       e.stopPropagation()
-      const rect = containerEl.value!.getBoundingClientRect()
+      const rect = dragTracker.rect
+      if (!rect) return
       const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
         x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        y: e.clientY - rect.top,
       })
       if (coords) {
         handle.value.markers.updateMarker({ id: dragTracker.hotspotId, position: coords })
@@ -421,22 +427,25 @@ function onPointerMove(e: PointerEvent) {
 
 function onPointerUp(e: PointerEvent) {
   if (!dragTracker.active) return
-  
+
   if (dragTracker.moved && dragTracker.hotspotId && handle.value) {
     e.stopPropagation()
-    const rect = containerEl.value!.getBoundingClientRect()
-    const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    })
-    if (coords) {
-      emit('hotspot-drag-drop', { id: dragTracker.hotspotId, yaw: coords.yaw, pitch: coords.pitch })
+    const rect = dragTracker.rect
+    if (rect) {
+      const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      })
+      if (coords) {
+        emit('hotspot-drag-drop', { id: dragTracker.hotspotId, yaw: coords.yaw, pitch: coords.pitch })
+      }
     }
   }
-  
+
   dragTracker.active = false
   dragTracker.hotspotId = null
   dragTracker.moved = false
+  dragTracker.rect = null
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -447,8 +456,10 @@ onMounted(() => {
     resizeObserver.observe(containerEl.value)
     containerEl.value.addEventListener('pointerdown', onPointerDown, { capture: true })
   }
-  window.addEventListener('pointermove', onPointerMove, { capture: true })
-  window.addEventListener('pointerup', onPointerUp, { capture: true })
+  // passive: true — pointermove does not call preventDefault(), so marking it
+  // passive lets the browser pipeline touch updates without waiting for JS.
+  window.addEventListener('pointermove', onPointerMove, { capture: true, passive: true })
+  window.addEventListener('pointerup', onPointerUp, { capture: true, passive: true })
   if (props.scene) void initWithScene(props.scene)
 })
 
@@ -684,6 +695,7 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
   transition: filter 0.5s ease;
   touch-action: none;
   overscroll-behavior: none;
+  will-change: transform;
 }
 
 .psv-canvas--focused :deep(.psv-canvas-container) {
@@ -889,6 +901,12 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
 
 :global(.psv-hs-spatial-overlay--mapped) {
   background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+}
+
+:global(.psv--is-moving .psv-hs-pulse),
+:global(.psv--is-moving .vhs-nav__pulse),
+:global(.psv--is-moving .vhs-info__pin-ring) {
+  animation-play-state: paused;
 }
 
 

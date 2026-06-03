@@ -1514,12 +1514,13 @@ watch(() => vtTransitioning.value, (loading) => {
   transition: opacity 0.9s ease, filter 0.5s ease;
   touch-action: none;
   overscroll-behavior: none;
-  /* Prevent iOS rubber-band scroll and text selection during panorama drags */
   -webkit-overflow-scrolling: auto;
   user-select: none;
   -webkit-user-select: none;
-  /* Suppress iOS tap highlight flash on the canvas */
   -webkit-tap-highlight-color: transparent;
+  /* Promote canvas to its own compositor layer so the GPU doesn't need to
+     re-composite it with other layers on every touch-drag frame. */
+  will-change: transform;
 }
 .vt-canvas--ready { opacity: 1; }
 .vt-canvas--focused :deep(.psv-canvas-container) { filter: blur(3px) brightness(0.7); }
@@ -1687,9 +1688,12 @@ watch(() => vtTransitioning.value, (loading) => {
   color: #3b82f6 !important;
 }
 :global(.dock-glass-superdark) {
-  background: rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(32px) saturate(180%) brightness(1.1) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(180%) brightness(1.1) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
+  /* Reduced from blur(32px) — the panorama canvas repaints behind the dock on
+     every drag frame. A 32px blur on mobile GPUs causes dropped frames. 12px
+     still gives a frosted-glass look with a fraction of the GPU cost. */
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
   border: 1px solid rgba(255, 255, 255, 0.20) !important;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.35),
@@ -1911,6 +1915,14 @@ watch(() => vtTransitioning.value, (loading) => {
   margin-top: 2px;
 }
 :global(.vhs-info__link:hover) { text-decoration: underline; }
+
+/* Pause marker pulse animations while the user is actively dragging the panorama.
+   PSV adds .psv--is-moving while panning — repainting animated rings every frame
+   on top of a moving panorama causes unnecessary GPU composite operations. */
+:global(.psv--is-moving .vhs-nav__pulse),
+:global(.psv--is-moving .vhs-info__pin-ring) {
+  animation-play-state: paused;
+}
 
 /* Reset PSV marker defaults */
 :global(.psv-marker) { overflow: visible !important; background: none !important; border: none !important; }
