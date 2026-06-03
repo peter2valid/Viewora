@@ -591,7 +591,7 @@ async function initVT() {
   const validHashScene = hashSceneId && tourScenes.value.some(s => s.id === hashSceneId)
     ? hashSceneId
     : ''
-  const startNodeId = validHashScene || tourScenes.value[0]?.id ?? ''
+  const startNodeId = validHashScene || (tourScenes.value[0]?.id ?? '')
   const autoRotate = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
 
   try {
