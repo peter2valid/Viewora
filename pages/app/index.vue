@@ -133,14 +133,14 @@
                 <button
                   @click="selectedTourId = null"
                   class="px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-colors"
-                  :class="!selectedTourId ? 'bg-main text-bg' : 'bg-surface-alt text-dim hover:text-main'"
+                  :class="!selectedTourId ? 'bg-main text-bg' : 'bg-surface-alt text-main'"
                 >All</button>
                 <button
                   v-for="space in recentSpaces"
                   :key="space.id"
                   @click="selectedTourId = space.id"
                   class="px-2.5 py-0.5 text-[10px] font-bold rounded-full transition-colors max-w-[100px] truncate"
-                  :class="selectedTourId === space.id ? 'bg-main text-bg' : 'bg-surface-alt text-dim hover:text-main'"
+                  :class="selectedTourId === space.id ? 'bg-main text-bg' : 'bg-surface-alt text-main'"
                 >{{ space.title }}</button>
               </div>
             </div>
