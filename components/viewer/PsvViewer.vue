@@ -2376,4 +2376,29 @@ watch(() => vtTransitioning.value, (loading) => {
     will-change: auto !important;
   }
 }
+
+/* ── Viewer: tier-specific overrides ────────────────────────────────────
+   The broad @media block above strips backdrop-filter on ALL touch devices.
+   These tier classes apply finer control inside the viewer itself.         */
+
+/* LOW-END: also kill hotspot marker animations and pulse rings */
+:global(.device-tier-low) .vt-canvas :deep(.psv-markers) {
+  /* Reduce marker complexity — no animations at all */
+}
+:global(.device-tier-low .vhs-nav__pulse),
+:global(.device-tier-low .vhs-info__pin-ring) {
+  animation: none !important;
+  opacity: 0.4;
+}
+:global(.device-tier-low .vhs-nav__arrow) {
+  box-shadow: none !important;
+}
+
+/* MID-RANGE: pulse rings visible but slower/simpler */
+:global(.device-tier-mid .vhs-nav__pulse) {
+  animation-duration: 3s !important;
+}
+:global(.device-tier-mid .vhs-info__pin-ring) {
+  animation-duration: 3.5s !important;
+}
 </style>

@@ -3664,60 +3664,69 @@ header.nav {
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GLOBAL MOBILE PERFORMANCE
+   THREE-TIER ADAPTIVE PERFORMANCE SYSTEM
    ═══════════════════════════════════════════════════════════════════════════
-   Every backdrop-filter in this file resamples and blurs the content behind
-   it on every repaint. On mobile (scroll, state change, animation = repaint)
-   this runs on the GPU on every frame. With 19+ blurs across the app, mobile
-   GPUs drop frames continuously — scroll feels sticky, taps feel delayed.
+   app-init.client.ts detects device RAM/cores and adds one of these classes
+   to <html>: device-tier-high | device-tier-mid | device-tier-low
 
-   Solution: disable ALL backdrop-filter on touch devices and replace with
-   solid semi-transparent backgrounds. Visually near-identical; performance
-   jumps to smooth 60fps.
+   HIGH  — flagship phones (iPhone 12+, Galaxy S21+, Pixel 6+, 6GB+ RAM)
+           Light blur effects OK. Full animations. Standard quality.
+   MID   — mid-range (Samsung A series, Xiaomi Note, Redmi 10+, 3-4GB RAM)
+           Remove heavy blurs (>12px). Keep light blurs. Reduce animations.
+   LOW   — budget (Redmi 9, Tecno, Infinix, ≤2GB RAM, slow connection)
+           Zero backdrop-filter. Zero animations. Bare minimum GPU work.
+
+   Also: media query fallback for ANY touch device (catches cases where JS
+   hasn't run yet or deviceMemory is not reported by the browser).
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shared: applies to ALL touch devices regardless of tier ──────────── */
 @media (hover: none) and (pointer: coarse) {
-
-  /* Kill every backdrop-filter in the entire app */
-  * {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  /* Restore solid backgrounds so glass elements don't go transparent */
-  .card { background: var(--paper, #fff) !important; }
-
-  /* Momentum scroll on every scrollable area */
-  .overflow-y-auto,
-  .overflow-auto,
-  [class*="scroll"],
-  [class*="panel__body"],
-  [class*="sidebar"],
-  [class*="list"],
-  main, aside {
+  /* Momentum scroll everywhere */
+  .overflow-y-auto, .overflow-auto,
+  [class*="scroll"], [class*="panel__body"],
+  [class*="sidebar"], main, aside {
     -webkit-overflow-scrolling: touch;
-    /* Disable CSS smooth-scroll on mobile — it adds JS overhead every frame */
     scroll-behavior: auto !important;
   }
-
-  /* Contain major panels so their repaints don't cascade to the whole page */
-  .card,
-  .modal,
-  [class*="panel"],
-  [class*="sidebar"],
-  [class*="drawer"] {
-    contain: layout paint;
-  }
-
-  /* Remove CSS filter on interactive elements — recalculates on every repaint */
-  button:not([class*="psv"]),
-  .btn,
-  [class*="btn-"] {
-    filter: none !important;
-  }
-
-  /* Faster tap feedback — shorten transition durations on mobile so
-     buttons/links feel instant rather than sluggish */
+  /* Faster tap feedback */
   button, .btn, [class*="btn-"], a, [role="button"] {
     transition-duration: 80ms !important;
   }
 }
+
+/* ── LOW-END: zero GPU work — budget phones / slow connections ──────────── */
+.device-tier-low * {
+  backdrop-filter:    none !important;
+  -webkit-backdrop-filter: none !important;
+  filter:             none !important;
+  /* Kill all animations — they repaint every frame */
+  animation:          none !important;
+  transition:         none !important;
+}
+.device-tier-low button,
+.device-tier-low .btn,
+.device-tier-low [role="button"],
+.device-tier-low a {
+  transition: opacity 80ms ease !important;
+}
+.device-tier-low .card { background: var(--paper, #fff) !important; }
+
+/* ── MID-RANGE: remove heavy blurs, keep light ones ────────────────────── */
+/* Remove blurs > 12px — these are the expensive ones */
+.device-tier-mid [style*="blur(3"]:not([class*="psv"]),
+.device-tier-mid [style*="blur(4"]:not([class*="psv"]) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* Target known heavy blur classes in the app */
+.device-tier-mid .glass,
+.device-tier-mid [class*="frosted"],
+.device-tier-mid [class*="glass-dark"],
+.device-tier-mid [class*="blur-xl"],
+.device-tier-mid [class*="blur-2xl"],
+.device-tier-mid [class*="blur-3xl"] {
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+/* ── HIGH-END: full quality, just ensure scroll is smooth ──────────────── */
+/* No changes needed — high-end phones handle the app as designed */

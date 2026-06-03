@@ -1,10 +1,15 @@
 import { useAuthStore } from '~/stores/auth'
 import { usePlanStore } from '~/stores/plan'
+import { useDeviceTier } from '~/composables/useDeviceTier'
 
 export default defineNuxtPlugin({
   name: 'app-init',
   enforce: 'post',
   setup() {
+    // Detect device performance tier and apply class to <html> immediately.
+    // CSS in main.css uses .device-tier-low / .device-tier-mid / .device-tier-high
+    // to apply the right level of visual effects for the user's hardware.
+    useDeviceTier()
     const user = useSupabaseUser()
     const authStore = useAuthStore()
     const planStore = usePlanStore()
