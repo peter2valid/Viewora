@@ -129,10 +129,23 @@
             to="/app/analytics"
             icon="analytics"
             label="Insights"
-            :is-active="
-              route.path.startsWith('/app/analytics') ||
-              route.path.startsWith('/app/leads')
-            "
+            :is-active="route.path.startsWith('/app/analytics')"
+            :collapsed="isSidebarCollapsed"
+            @click="isSidebarOpen = false"
+          />
+          <SidebarLink
+            to="/app/leads"
+            icon="leads"
+            label="Leads"
+            :is-active="route.path.startsWith('/app/leads')"
+            :collapsed="isSidebarCollapsed"
+            @click="isSidebarOpen = false"
+          />
+          <SidebarLink
+            to="/app/capture"
+            icon="capture"
+            label="Capture"
+            :is-active="route.path.startsWith('/app/capture')"
             :collapsed="isSidebarCollapsed"
             @click="isSidebarOpen = false"
           />
