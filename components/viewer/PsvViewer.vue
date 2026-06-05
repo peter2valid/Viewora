@@ -499,8 +499,11 @@ const whatsappHref = computed(() => {
 
   if (!clean) return null
   const title = ((props.tour?.space as any)?.title as string) || 'this property'
-  const msg = encodeURIComponent(`Hi, I found "${title}" from Viewora and I'm interested in it.`)
-  return `https://wa.me/${clean}?text=${msg}`
+  const link = props.shareUrl || ''
+  const msg = link
+    ? `Hi, I just viewed "${title}" on Viewora and I'm interested.\n\nTour link: ${link}\n\nCould you please share more details?`
+    : `Hi, I just viewed "${title}" on Viewora and I'm interested. Could you please share more details?`
+  return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
 })
 
 // ── Single-scene mode (no tour) ────────────────────────────────────────────
