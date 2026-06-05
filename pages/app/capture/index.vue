@@ -36,20 +36,24 @@
       <section class="mb-10">
         <h2 class="text-[10px] font-black text-dim uppercase tracking-[0.2em] mb-5">Choose a Package</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-          <button
+          <div
             v-for="pkg in packages"
             :key="pkg.id"
             class="pkg-card"
-            :class="[pkg.highlight ? 'pkg-card--highlight' : '', selectedPackage === pkg.id ? 'pkg-card--selected' : '']"
-            @click="selectedPackage = selectedPackage === pkg.id ? null : pkg.id"
+            :class="pkg.highlight ? 'pkg-card--highlight' : ''"
           >
             <div v-if="pkg.highlight" class="pkg-card__badge">Popular</div>
             <span class="pkg-card__name">{{ pkg.name }}</span>
             <span class="pkg-card__price">{{ pkg.price }}</span>
             <span class="pkg-card__desc">{{ pkg.desc }}</span>
-          </button>
+            <button
+              class="pkg-card__book"
+              @click="openPackageBooking(pkg)"
+            >
+              Book
+            </button>
+          </div>
         </div>
-        <p class="text-[10px] text-dim font-bold mt-3 ml-1">Select a package or browse departments below to get a custom quote.</p>
       </section>
 
       <!-- Department Filter -->
@@ -237,8 +241,16 @@
             </div>
 
             <form v-else @submit.prevent="handleRequest" class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <!-- Package selector inside modal -->
-              <div class="flex flex-col gap-1.5">
+              <!-- When booking from a package: ask what type of property -->
+              <div v-if="bookingTarget?.fromPackage" class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-dim uppercase tracking-widest">Property / Business Type <span class="text-rose-400">*</span></label>
+                <select v-model="requestForm.propertyType" required class="input-glass w-full px-4 py-2.5 text-sm font-bold">
+                  <option value="">— Select your niche —</option>
+                  <option v-for="d in allDepartments" :key="d.id" :value="d.label">{{ d.label }}</option>
+                </select>
+              </div>
+              <!-- When booking from a department: show package selector -->
+              <div v-else class="flex flex-col gap-1.5">
                 <label class="text-[10px] font-black text-dim uppercase tracking-widest">Package / Budget</label>
                 <select v-model="requestForm.serviceId" class="input-glass w-full px-4 py-2.5 text-sm font-bold">
                   <option value="">— Custom quote / not sure yet —</option>
@@ -322,7 +334,6 @@ const packages = [
   { id: 'business', name: 'Business', price: 'KES 25,000',       desc: 'Hotel, school, event venue', highlight: false },
   { id: 'premium',  name: 'Premium',  price: 'From KES 40,000',  desc: 'Resort, factory, developer', highlight: false },
 ]
-const selectedPackage = ref<string | null>(null)
 
 // ── Departments (25) ───────────────────────────────────────────────────────
 const allDepartments = [
@@ -650,10 +661,12 @@ const steps = [
 
 // ── Booking ────────────────────────────────────────────────────────────────
 type Dept = typeof allDepartments[number]
-const bookingTarget = ref<Dept | null>(null)
+interface BookingContext { id: string; label: string; startingPrice: string; fromPackage?: boolean }
+
+const bookingTarget = ref<BookingContext | null>(null)
 const submitting = ref(false)
 const requestSent = ref(false)
-const requestForm = ref({ name: '', email: '', phone: '', address: '', spaceName: '', preferredDate: '', notes: '', serviceId: '' })
+const requestForm = ref({ name: '', email: '', phone: '', address: '', spaceName: '', preferredDate: '', notes: '', serviceId: '', propertyType: '' })
 
 const minDate = computed(() => {
   const d = new Date(); d.setDate(d.getDate() + 2)
@@ -661,30 +674,44 @@ const minDate = computed(() => {
 })
 
 function openBooking(dept: Dept) {
-  bookingTarget.value = dept
+  bookingTarget.value = { id: dept.id, label: dept.label, startingPrice: dept.startingPrice, fromPackage: false }
   requestSent.value = false
-  requestForm.value.serviceId = selectedPackage.value ?? ''
   resetForm()
 }
 
+function openPackageBooking(pkg: typeof packages[number]) {
+  bookingTarget.value = { id: pkg.id, label: `${pkg.name} Package`, startingPrice: pkg.price, fromPackage: true }
+  requestSent.value = false
+  requestForm.value = { name: '', email: '', phone: '', address: '', spaceName: '', preferredDate: '', notes: '', serviceId: pkg.id, propertyType: '' }
+}
+
 function resetForm() {
-  requestForm.value = { name: '', email: '', phone: '', address: '', spaceName: '', preferredDate: '', notes: '', serviceId: selectedPackage.value ?? '' }
+  requestForm.value = { name: '', email: '', phone: '', address: '', spaceName: '', preferredDate: '', notes: '', serviceId: '', propertyType: '' }
 }
 
 async function handleRequest() {
   if (!bookingTarget.value) return
   submitting.value = true
   const pkg = packages.find(p => p.id === requestForm.value.serviceId)
+  const deptLabel = bookingTarget.value.fromPackage
+    ? (requestForm.value.propertyType || bookingTarget.value.label)
+    : bookingTarget.value.label
   try {
     await apiFetch('/capture/request', {
       method: 'POST',
       body: {
-        ...requestForm.value,
-        serviceId:    requestForm.value.serviceId || bookingTarget.value.id,
-        serviceName:  pkg ? `${pkg.name} — ${bookingTarget.value.label}` : bookingTarget.value.label,
-        servicePrice: pkg?.price ?? bookingTarget.value.startingPrice,
-        dept:         bookingTarget.value.label,
-        planName:     planStore.plan?.name,
+        name:          requestForm.value.name,
+        email:         requestForm.value.email,
+        phone:         requestForm.value.phone,
+        address:       requestForm.value.address,
+        spaceName:     requestForm.value.spaceName,
+        preferredDate: requestForm.value.preferredDate,
+        notes:         requestForm.value.notes,
+        serviceId:     requestForm.value.serviceId || bookingTarget.value.id,
+        serviceName:   pkg ? `${pkg.name} — ${deptLabel}` : deptLabel,
+        servicePrice:  pkg?.price ?? bookingTarget.value.startingPrice,
+        dept:          deptLabel,
+        planName:      planStore.plan?.name,
       }
     })
     requestSent.value = true
@@ -768,10 +795,15 @@ function formatDate(iso: string) {
 }
 .pkg-card:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
 .pkg-card--highlight { border-color: rgba(255,255,255,0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-.pkg-card--selected { background: var(--color-main, #fff); border-color: var(--color-main, #fff); }
-.pkg-card--selected .pkg-card__name,
-.pkg-card--selected .pkg-card__price,
-.pkg-card--selected .pkg-card__desc { color: var(--color-bg, #0a0a0a) !important; }
+.pkg-card__book {
+  margin-top: 10px; width: 100%; height: 28px; border-radius: 8px;
+  background: var(--color-main, #fff); color: var(--color-bg, #0a0a0a);
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; transition: opacity 120ms ease, transform 120ms ease;
+  border: none;
+}
+.pkg-card__book:hover { opacity: 0.85; transform: translateY(-1px); }
+.pkg-card__book:active { transform: scale(0.97); }
 .pkg-card__badge { position: absolute; top: 8px; right: 8px; font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 999px; background: var(--color-main, #fff); color: var(--color-bg, #0a0a0a); }
 .pkg-card__name { font-size: 13px; font-weight: 800; color: var(--color-main); letter-spacing: -0.01em; }
 .pkg-card__price { font-size: 12px; font-weight: 900; color: var(--color-main); }
