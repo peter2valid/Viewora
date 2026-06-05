@@ -266,9 +266,11 @@ const seoDescription = computed(() => {
 // when the env var is missing during SSR.
 const OG_FALLBACK = 'https://app.viewora.software/images/og-default.png'
 const seoImage = computed(() => {
+  // raw_image_url is intentionally excluded: original panoramas can be 10–50MB
+  // and WhatsApp/social crawlers time out fetching images that large, showing
+  // a blank preview. Only use the processed 2048×1024 thumbnail or cover image.
   const url =
     tour.value?.scenes?.[0]?.thumbnail_url
-    || tour.value?.scenes?.[0]?.raw_image_url
     || space.value?.cover_image_url
     || OG_FALLBACK
   // Guard: must be an absolute HTTPS URL or WhatsApp silently drops it

@@ -11,6 +11,15 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
   ],
 
+  image: {
+    // Allow Nuxt IPX to fetch and resize images from Cloudflare R2.
+    // The public bucket domain is either the custom MEDIA_DOMAIN or the default
+    // r2.dev subdomain. Wildcard subdomains are matched by the *.r2.dev entry.
+    domains: ['r2.dev', '*.r2.dev'],
+    // Raise the default IPX size limit — panorama thumbnails are 2048×1024
+    ipx: { maxAge: 3600 },
+  },
+
   runtimeConfig: {
     // Server-only API base URL used by Nitro proxy route /api/**
     apiBaseUrl: process.env.NUXT_API_BASE_URL || process.env.NUXT_PUBLIC_API_BASE_URL || '',
