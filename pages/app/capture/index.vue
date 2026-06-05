@@ -32,32 +32,46 @@
     <!-- ── BROWSE SERVICES TAB ────────────────────────────────────────────── -->
     <template v-if="activeTab === 'browse'">
 
-      <!-- Free Demo Claim Banner -->
+      <!-- Free Shoot Banner -->
       <Transition name="free-banner">
         <section v-if="freeStatus !== null" class="free-banner mb-8">
-          <!-- Already claimed -->
-          <div v-if="freeStatus === true" class="free-banner__claimed">
-            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+
+          <!-- No plan — upgrade prompt -->
+          <div v-if="freeStatus.allowed === 0" class="free-banner__upgrade">
+            <div class="free-banner__gift">📸</div>
             <div>
-              <p class="text-sm font-black text-main">Free demo shoot claimed!</p>
-              <p class="text-xs text-dim font-bold">We'll confirm your booking within 24 hours. Check <button class="text-main underline" @click="activeTab = 'bookings'">My Bookings</button> for status.</p>
+              <p class="free-banner__title">Get free shoots every month</p>
+              <p class="free-banner__sub">Upgrade to <strong>Plus</strong> for 1 free shoot/month · <strong>Pro</strong> for 2 · <strong>Elite</strong> for 4. We dispatch a photographer to your property.</p>
             </div>
+            <NuxtLink to="/app/billing" class="free-banner__btn free-banner__btn--upgrade">Upgrade Plan →</NuxtLink>
           </div>
 
-          <!-- Not yet claimed -->
-          <div v-else class="free-banner__offer">
+          <!-- Shoots available -->
+          <div v-else-if="freeStatus.remaining > 0" class="free-banner__offer">
             <div class="free-banner__left">
               <div class="free-banner__gift">🎁</div>
               <div>
-                <p class="free-banner__title">Claim Your <span class="text-emerald-400">Free Demo Shoot</span></p>
-                <p class="free-banner__sub">One free professional 360° shoot per account — we come to your property, capture it, and upload it straight to your Viewora space. No catch.</p>
+                <p class="free-banner__title">
+                  You have <span class="text-emerald-400">{{ freeStatus.remaining }} free shoot{{ freeStatus.remaining > 1 ? 's' : '' }}</span> this month
+                </p>
+                <p class="free-banner__sub">Included in your <strong>{{ freeStatus.planName }}</strong> plan. We come to your property, capture it in 360°, and upload it straight to your Viewora space.</p>
               </div>
             </div>
             <button class="free-banner__btn" @click="openFreeClaimModal">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Claim Free Shoot
+              Book Free Shoot
             </button>
           </div>
+
+          <!-- All used for this month -->
+          <div v-else class="free-banner__used">
+            <svg class="w-5 h-5 text-dim/50 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div>
+              <p class="text-sm font-black text-main">{{ freeStatus.used }}/{{ freeStatus.allowed }} free shoot{{ freeStatus.allowed > 1 ? 's' : '' }} used this month</p>
+              <p class="text-xs text-dim font-bold">Your allowance resets on the 1st. Need more now? <NuxtLink to="/app/billing" class="text-main underline">Upgrade your plan</NuxtLink> or book at standard prices below.</p>
+            </div>
+          </div>
+
         </section>
       </Transition>
 
@@ -340,9 +354,9 @@
           <div class="relative w-full sm:max-w-lg bg-card border border-emerald-500/30 rounded-t-3xl sm:rounded-3xl shadow-[0_40px_100px_rgba(0,0,0,0.6)] overflow-hidden">
             <div class="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between">
               <div>
-                <p class="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">One Free Per Account</p>
-                <h2 class="text-lg font-black text-main tracking-tight">Claim Your Free Demo Shoot</h2>
-                <p class="text-xs text-dim font-bold mt-0.5">We come to your property, capture it, upload it to your space. Free.</p>
+                <p class="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">{{ freeStatus?.planName }} Plan · {{ freeStatus?.remaining }} Remaining This Month</p>
+                <h2 class="text-lg font-black text-main tracking-tight">Book Your Free Shoot</h2>
+                <p class="text-xs text-dim font-bold mt-0.5">Included in your plan. We come to your property, capture it in 360°, and upload it to your space.</p>
               </div>
               <button class="w-8 h-8 flex items-center justify-center text-dim hover:text-main rounded-xl transition-all" @click="showFreeModal = false">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -385,7 +399,7 @@
                 <input v-model="freeForm.address" type="text" required placeholder="e.g. 14 Karen Road, Nairobi" class="input-glass w-full px-4 py-2.5 text-sm font-bold" />
               </div>
               <div class="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-xs text-dim font-bold leading-relaxed">
-                <strong class="text-emerald-400">What's included:</strong> 1 scene captured in 360°, edited and uploaded to your Viewora space. Valid for one property within Nairobi, Mombasa, or Kisumu. One claim per account.
+                <strong class="text-emerald-400">What's included:</strong> 1 scene captured in 360°, edited and uploaded to your Viewora space. Valid for properties within Nairobi, Mombasa, or Kisumu. Resets on the 1st of each month.
               </div>
               <div class="flex items-center justify-between pt-1">
                 <p class="text-[10px] text-dim font-bold">We'll confirm within 24 hours</p>
@@ -855,7 +869,8 @@ async function loadBookings() {
 onMounted(() => { loadBookings(); loadFreeStatus() })
 
 // ── Free Shoot Claim ───────────────────────────────────────────────────────
-const freeStatus = ref<boolean | null>(null) // null = loading, true = claimed, false = not yet
+interface FreeStatus { allowed: number; used: number; remaining: number; planName: string }
+const freeStatus = ref<FreeStatus | null>(null)
 const showFreeModal = ref(false)
 const freeClaimSent = ref(false)
 const freeClaimSubmitting = ref(false)
@@ -863,10 +878,10 @@ const freeForm = ref({ name: '', email: '', phone: '', address: '', dept: '' })
 
 async function loadFreeStatus() {
   try {
-    const res = await apiFetch<{ claimed: boolean }>('/capture/free-status')
-    freeStatus.value = res.claimed
+    const res = await apiFetch<FreeStatus>('/capture/free-status')
+    freeStatus.value = res
   } catch {
-    freeStatus.value = false
+    freeStatus.value = { allowed: 0, used: 0, remaining: 0, planName: 'Free' }
   }
 }
 
@@ -892,14 +907,14 @@ async function submitFreeClaim() {
       }
     })
     freeClaimSent.value = true
-    freeStatus.value = true
+    loadFreeStatus()
     loadBookings()
   } catch (err: any) {
     const msg = err?.data?.statusMessage || ''
-    if (msg.includes('already claimed')) {
-      freeStatus.value = true
+    if (msg.includes('used all') || msg.includes('not included')) {
       showFreeModal.value = false
-      toast.error('You have already claimed your free shoot.')
+      loadFreeStatus()
+      toast.error(msg)
     } else {
       toast.error(msg || 'Could not claim. Please try again.')
     }
@@ -1005,6 +1020,21 @@ function formatDate(iso: string) {
 .free-banner__gift { font-size: 2rem; flex-shrink: 0; line-height: 1; }
 .free-banner__title { font-size: 1.1rem; font-weight: 900; color: var(--color-main, #fff); letter-spacing: -0.01em; margin-bottom: 4px; }
 .free-banner__sub { font-size: 12px; color: var(--color-dim, rgba(255,255,255,0.5)); font-weight: 600; line-height: 1.5; max-width: 460px; }
+.free-banner__upgrade {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 16px 20px; border-radius: 16px;
+  background: rgba(255,255,255,0.03); border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+}
+.free-banner__used {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 18px; border-radius: 14px;
+  background: rgba(255,255,255,0.02); border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+}
+.free-banner__btn--upgrade {
+  background: var(--color-main, #fff); color: var(--color-bg, #0a0a0a);
+  text-decoration: none;
+}
+.free-banner__btn--upgrade:hover { opacity: 0.85; }
 .free-banner__btn {
   display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
   height: 42px; padding: 0 20px; border-radius: 12px;
