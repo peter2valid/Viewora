@@ -19,15 +19,7 @@
       </div>
     </header>
 
-    <!-- Stats bar -->
-    <div class="grid grid-cols-3 gap-4 mb-8">
-      <div v-for="stat in stats" :key="stat.label" class="bg-card border border-border rounded-2xl p-4 text-center">
-        <p class="text-2xl font-black text-main tracking-tight">{{ stat.value }}</p>
-        <p class="text-[10px] font-black text-dim uppercase tracking-widest mt-0.5">{{ stat.label }}</p>
-      </div>
-    </div>
-
-    <!-- Department Filter -->
+    <!-- Department Filter — first thing after header -->
     <section class="mb-8">
       <div class="flex flex-wrap gap-2">
         <button
@@ -43,6 +35,14 @@
         </button>
       </div>
     </section>
+
+    <!-- Stats bar -->
+    <div class="grid grid-cols-3 gap-4 mb-8">
+      <div v-for="stat in stats" :key="stat.label" class="bg-card border border-border rounded-2xl p-4 text-center">
+        <p class="text-2xl font-black text-main tracking-tight">{{ stat.value }}</p>
+        <p class="text-[10px] font-black text-dim uppercase tracking-widest mt-0.5">{{ stat.label }}</p>
+      </div>
+    </div>
 
     <!-- Service Cards -->
     <section class="mb-12">
