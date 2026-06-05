@@ -120,14 +120,16 @@
               Drop a 360° image or click to upload
             </p>
 
-            <!-- Divider -->
-            <div class="flex items-center gap-2 my-1">
-              <div class="flex-1 h-px bg-white/[0.06]"></div>
-              <span class="text-[9px] font-bold text-gray-600 uppercase tracking-widest">or</span>
-              <div class="flex-1 h-px bg-white/[0.06]"></div>
-            </div>
-
-            <AppCaptureNudge variant="card" />
+            <NuxtLink
+              to="/app/capture"
+              class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold text-gray-400 border border-white/[0.08] hover:text-gray-100 hover:border-white/20 hover:bg-white/[0.04] transition-all duration-[180ms] w-full mt-1"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Book a Shoot
+            </NuxtLink>
           </template>
 
           <template v-else>
