@@ -89,6 +89,24 @@
       </div><!-- end .viewer-rail -->
     </div><!-- end .viewer-control-stack -->
 
+    <!-- WhatsApp Contact Button — left side, opposite the control rail -->
+    <Transition name="wa-btn">
+      <a
+        v-if="whatsappHref && !chromeHidden"
+        :href="whatsappHref"
+        class="viewer-wa-btn"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat on WhatsApp"
+        data-tooltip="Chat on WhatsApp"
+        @click.stop
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12.04 2C6.49 2 2 6.48 2 12c0 1.89.52 3.66 1.42 5.18L2 22l4.98-1.39A9.96 9.96 0 0 0 12.04 22C17.56 22 22 17.52 22 12S17.56 2 12.04 2Zm5.8 14.16c-.24.68-1.44 1.32-1.98 1.39-.52.07-1.2.1-1.95-.12-.46-.14-1.05-.33-1.81-.66-3.18-1.38-5.24-4.6-5.39-4.81-.14-.21-1.3-1.73-1.3-3.3s.79-2.34 1.07-2.66c.28-.32.61-.4.82-.4h.58c.19 0 .45-.07.7.53.24.6.82 2.07.89 2.22.07.15.12.33.02.54-.1.21-.15.34-.3.52-.15.18-.31.4-.45.53-.15.16-.3.33-.13.63.16.31.71 1.17 1.52 1.9 1.04.92 1.9 1.21 2.22 1.37.31.16.49.14.67-.08.18-.22.77-.9.98-1.2.2-.31.4-.26.67-.16.28.1 1.74.82 2.04.97.3.14.5.22.58.34.08.12.08.74-.17 1.42Z"/>
+        </svg>
+      </a>
+    </Transition>
+
     <!-- Floating CTA button (bottom-left, always above dock) -->
     <Transition name="viewer-cta-fade">
       <a
@@ -457,6 +475,15 @@ const ctaHref = computed(() => {
   if (action === 'email') return `mailto:${dest}`
   if (action === 'phone') return `tel:${dest}`
   return dest.startsWith('http') ? dest : `https://${dest}`
+})
+
+const whatsappHref = computed(() => {
+  const phone = ((props.tour?.space as any)?.phone as string | undefined)?.trim()
+  if (!phone) return null
+  const clean = phone.replace(/[\s\-().]/g, '')
+  const title = ((props.tour?.space as any)?.title as string) || 'this property'
+  const msg = encodeURIComponent(`Hi, I found "${title}" from Viewora and I'm interested in it.`)
+  return `https://wa.me/${clean}?text=${msg}`
 })
 
 // ── Single-scene mode (no tour) ────────────────────────────────────────────
@@ -2157,6 +2184,102 @@ watch(() => vtTransitioning.value, (loading) => {
 .viewer-cta-fade-enter-from, .viewer-cta-fade-leave-to { opacity: 0; transform: translateY(6px); }
 
 
+/* ── WhatsApp contact button (left side, mirrors control stack) ────────────── */
+.viewer-wa-btn {
+  position: absolute;
+  left: 18px;
+  left: calc(18px + env(safe-area-inset-left, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 35;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #25D366;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: 0 4px 24px rgba(37, 211, 102, 0.55), 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.viewer-wa-btn svg {
+  width: 28px;
+  height: 28px;
+  position: relative;
+  z-index: 1;
+}
+.viewer-wa-btn::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid rgba(37, 211, 102, 0.7);
+  animation: wa-ring 2.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes wa-ring {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+.viewer-wa-btn:hover {
+  transform: translateY(-50%) translateY(-2px);
+  box-shadow: 0 8px 32px rgba(37, 211, 102, 0.7), 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+.viewer-wa-btn:hover::after { animation: none; opacity: 0; }
+.viewer-wa-btn:active { transform: translateY(-50%) scale(0.95); }
+/* Tooltip floats to the right of the button */
+.viewer-wa-btn[data-tooltip]::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 9px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  background: rgba(10, 11, 16, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 130ms ease, transform 130ms ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+.viewer-wa-btn[data-tooltip]:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+.public-viewer--chrome-hidden .viewer-wa-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+.wa-btn-enter-active, .wa-btn-leave-active { transition: opacity 200ms ease, transform 200ms ease; }
+.wa-btn-enter-from, .wa-btn-leave-to { opacity: 0; transform: translateY(-50%) translateX(-8px); }
+
+@media (max-width: 640px) {
+  .viewer-wa-btn {
+    left: 10px;
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    top: auto;
+    bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+    transform: none;
+    width: 46px;
+    height: 46px;
+  }
+  .viewer-wa-btn svg { width: 24px; height: 24px; }
+  .viewer-wa-btn:hover { transform: translateY(-2px); }
+  .viewer-wa-btn:active { transform: scale(0.95); }
+  .wa-btn-enter-from, .wa-btn-leave-to { transform: translateX(-8px); }
+}
+
+
 /* ── Post-tour modal ──────────────────────────────────────────────────────── */
 .post-tour-overlay {
   position: absolute;
@@ -2372,9 +2495,13 @@ watch(() => vtTransitioning.value, (loading) => {
      exhausts GPU memory on mid-range Android */
   .viewer-control-stack,
   .viewer-cta-btn,
+  .viewer-wa-btn,
   .scene-toast {
     will-change: auto !important;
   }
+  /* Ring animation is cheap but adds a repaint layer — disable on touch */
+  .viewer-wa-btn::after { animation: none; }
+  .viewer-wa-btn[data-tooltip]::before { backdrop-filter: none !important; }
 }
 
 /* ── Viewer: tier-specific overrides ────────────────────────────────────

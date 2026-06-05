@@ -247,8 +247,9 @@
                 </div>
 
                 <div class="ts-field">
-                  <label class="ts-field__label">Phone <span class="ts-field__opt">optional</span></label>
+                  <label class="ts-field__label">WhatsApp Number <span class="ts-field__opt">optional</span></label>
                   <input class="ts-input" v-model="settingsDraft.phone" placeholder="+1 (555) 000-0000" type="tel" />
+                  <div class="ts-toggle-sub" style="margin-top: 5px;">Adds a WhatsApp contact button in the viewer so visitors can reach you instantly</div>
                 </div>
 
                 <div class="ts-field">
