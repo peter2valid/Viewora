@@ -12,9 +12,9 @@
       </svg>
     </span>
     <span class="capture-nudge-strip__text">
-      Don't have 360° photos? <strong>We'll shoot it for you</strong> — from KES 5,000
+      No 360° photos? <strong>Claim your free demo shoot</strong> — we come to your property, capture it, upload it.
     </span>
-    <span class="capture-nudge-strip__cta">Book a Shoot →</span>
+    <span class="capture-nudge-strip__cta">Claim Free →</span>
   </NuxtLink>
 
   <!-- Card variant (editor / empty state) -->
@@ -26,8 +26,8 @@
       </svg>
     </div>
     <div class="capture-nudge-card__body">
-      <p class="capture-nudge-card__title">No photos? We'll shoot it for you</p>
-      <p class="capture-nudge-card__sub">Professional 360° capture from <strong>KES 5,000</strong>. We dispatch a photographer to your property.</p>
+      <p class="capture-nudge-card__title">🎁 Claim your free demo shoot</p>
+      <p class="capture-nudge-card__sub">No 360° camera needed. One free professional shoot per account — we come to you.</p>
     </div>
     <NuxtLink to="/app/capture" class="capture-nudge-card__btn">Book a Shoot</NuxtLink>
   </div>

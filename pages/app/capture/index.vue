@@ -32,6 +32,35 @@
     <!-- ── BROWSE SERVICES TAB ────────────────────────────────────────────── -->
     <template v-if="activeTab === 'browse'">
 
+      <!-- Free Demo Claim Banner -->
+      <Transition name="free-banner">
+        <section v-if="freeStatus !== null" class="free-banner mb-8">
+          <!-- Already claimed -->
+          <div v-if="freeStatus === true" class="free-banner__claimed">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <div>
+              <p class="text-sm font-black text-main">Free demo shoot claimed!</p>
+              <p class="text-xs text-dim font-bold">We'll confirm your booking within 24 hours. Check <button class="text-main underline" @click="activeTab = 'bookings'">My Bookings</button> for status.</p>
+            </div>
+          </div>
+
+          <!-- Not yet claimed -->
+          <div v-else class="free-banner__offer">
+            <div class="free-banner__left">
+              <div class="free-banner__gift">🎁</div>
+              <div>
+                <p class="free-banner__title">Claim Your <span class="text-emerald-400">Free Demo Shoot</span></p>
+                <p class="free-banner__sub">One free professional 360° shoot per account — we come to your property, capture it, and upload it straight to your Viewora space. No catch.</p>
+              </div>
+            </div>
+            <button class="free-banner__btn" @click="openFreeClaimModal">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Claim Free Shoot
+            </button>
+          </div>
+        </section>
+      </Transition>
+
       <!-- Packages -->
       <section class="mb-10">
         <h2 class="text-[10px] font-black text-dim uppercase tracking-[0.2em] mb-5">Choose a Package</h2>
@@ -295,6 +324,74 @@
                 <button type="submit" :disabled="submitting" class="btn btn-primary !px-8 !py-3 shadow-xl !text-xs">
                   <span v-if="submitting" class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   <template v-else>Confirm Booking</template>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Free Claim Modal -->
+    <Teleport to="body">
+      <Transition name="capture-modal">
+        <div v-if="showFreeModal" class="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-md">
+          <div class="absolute inset-0 bg-zinc-950/60" @click="showFreeModal = false" />
+          <div class="relative w-full sm:max-w-lg bg-card border border-emerald-500/30 rounded-t-3xl sm:rounded-3xl shadow-[0_40px_100px_rgba(0,0,0,0.6)] overflow-hidden">
+            <div class="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between">
+              <div>
+                <p class="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">One Free Per Account</p>
+                <h2 class="text-lg font-black text-main tracking-tight">Claim Your Free Demo Shoot</h2>
+                <p class="text-xs text-dim font-bold mt-0.5">We come to your property, capture it, upload it to your space. Free.</p>
+              </div>
+              <button class="w-8 h-8 flex items-center justify-center text-dim hover:text-main rounded-xl transition-all" @click="showFreeModal = false">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div v-if="freeClaimSent" class="p-10 flex flex-col items-center text-center">
+              <div class="text-4xl mb-4">🎉</div>
+              <h3 class="text-base font-black text-main mb-2">Free shoot claimed!</h3>
+              <p class="text-sm text-dim font-bold max-w-xs leading-relaxed">We'll reach out to <strong class="text-main">{{ freeForm.email }}</strong> within 24 hours to confirm your shoot date and location.</p>
+              <button class="mt-6 btn btn-secondary !px-6 !py-2.5 !text-xs" @click="showFreeModal = false; activeTab = 'bookings'; loadBookings()">View My Bookings</button>
+            </div>
+
+            <form v-else @submit.prevent="submitFreeClaim" class="p-6 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[10px] font-black text-dim uppercase tracking-widest">Full Name <span class="text-rose-400">*</span></label>
+                  <input v-model="freeForm.name" type="text" required placeholder="Your name" class="input-glass w-full px-4 py-2.5 text-sm font-bold" />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[10px] font-black text-dim uppercase tracking-widest">Email <span class="text-rose-400">*</span></label>
+                  <input v-model="freeForm.email" type="email" required placeholder="you@email.com" class="input-glass w-full px-4 py-2.5 text-sm font-bold" />
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[10px] font-black text-dim uppercase tracking-widest">Phone <span class="text-rose-400">*</span></label>
+                  <input v-model="freeForm.phone" type="tel" required placeholder="+254 700 000 000" class="input-glass w-full px-4 py-2.5 text-sm font-bold" />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[10px] font-black text-dim uppercase tracking-widest">Property Type <span class="text-rose-400">*</span></label>
+                  <select v-model="freeForm.dept" required class="input-glass w-full px-4 py-2.5 text-sm font-bold">
+                    <option value="">— Select type —</option>
+                    <option v-for="d in allDepartments" :key="d.id" :value="d.label">{{ d.label }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-dim uppercase tracking-widest">Property Address <span class="text-rose-400">*</span></label>
+                <input v-model="freeForm.address" type="text" required placeholder="e.g. 14 Karen Road, Nairobi" class="input-glass w-full px-4 py-2.5 text-sm font-bold" />
+              </div>
+              <div class="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-xs text-dim font-bold leading-relaxed">
+                <strong class="text-emerald-400">What's included:</strong> 1 scene captured in 360°, edited and uploaded to your Viewora space. Valid for one property within Nairobi, Mombasa, or Kisumu. One claim per account.
+              </div>
+              <div class="flex items-center justify-between pt-1">
+                <p class="text-[10px] text-dim font-bold">We'll confirm within 24 hours</p>
+                <button type="submit" :disabled="freeClaimSubmitting" class="btn btn-primary !px-8 !py-3 !text-xs shadow-xl !bg-emerald-500 !border-emerald-400">
+                  <span v-if="freeClaimSubmitting" class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <template v-else>Claim My Free Shoot</template>
                 </button>
               </div>
             </form>
@@ -755,7 +852,61 @@ async function loadBookings() {
   }
 }
 
-onMounted(loadBookings)
+onMounted(() => { loadBookings(); loadFreeStatus() })
+
+// ── Free Shoot Claim ───────────────────────────────────────────────────────
+const freeStatus = ref<boolean | null>(null) // null = loading, true = claimed, false = not yet
+const showFreeModal = ref(false)
+const freeClaimSent = ref(false)
+const freeClaimSubmitting = ref(false)
+const freeForm = ref({ name: '', email: '', phone: '', address: '', dept: '' })
+
+async function loadFreeStatus() {
+  try {
+    const res = await apiFetch<{ claimed: boolean }>('/capture/free-status')
+    freeStatus.value = res.claimed
+  } catch {
+    freeStatus.value = false
+  }
+}
+
+function openFreeClaimModal() {
+  freeClaimSent.value = false
+  freeForm.value = { name: '', email: '', phone: '', address: '', dept: '' }
+  showFreeModal.value = true
+}
+
+async function submitFreeClaim() {
+  freeClaimSubmitting.value = true
+  try {
+    await apiFetch('/capture/claim-free', {
+      method: 'POST',
+      body: {
+        name:      freeForm.value.name,
+        email:     freeForm.value.email,
+        phone:     freeForm.value.phone,
+        address:   freeForm.value.address,
+        dept:      freeForm.value.dept,
+        serviceId: 'free-demo',
+        planName:  planStore.plan?.name,
+      }
+    })
+    freeClaimSent.value = true
+    freeStatus.value = true
+    loadBookings()
+  } catch (err: any) {
+    const msg = err?.data?.statusMessage || ''
+    if (msg.includes('already claimed')) {
+      freeStatus.value = true
+      showFreeModal.value = false
+      toast.error('You have already claimed your free shoot.')
+    } else {
+      toast.error(msg || 'Could not claim. Please try again.')
+    }
+  } finally {
+    freeClaimSubmitting.value = false
+  }
+}
 
 async function updateBookingStatus(booking: Booking, status: string) {
   const prev = booking.status
@@ -836,6 +987,35 @@ function formatDate(iso: string) {
   display: flex; align-items: center; justify-content: center;
   color: var(--color-main, #fff);
 }
+
+/* ── Free banner ─────────────────────────────────────────────── */
+.free-banner__offer {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 20px 24px; border-radius: 20px;
+  background: linear-gradient(135deg, rgba(37,211,102,0.1) 0%, rgba(59,130,246,0.06) 100%);
+  border: 1px solid rgba(37,211,102,0.3);
+  box-shadow: 0 0 40px rgba(37,211,102,0.08);
+}
+.free-banner__claimed {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px 20px; border-radius: 16px;
+  background: rgba(37,211,102,0.06); border: 1px solid rgba(37,211,102,0.2);
+}
+.free-banner__left { display: flex; align-items: flex-start; gap: 16px; flex: 1; }
+.free-banner__gift { font-size: 2rem; flex-shrink: 0; line-height: 1; }
+.free-banner__title { font-size: 1.1rem; font-weight: 900; color: var(--color-main, #fff); letter-spacing: -0.01em; margin-bottom: 4px; }
+.free-banner__sub { font-size: 12px; color: var(--color-dim, rgba(255,255,255,0.5)); font-weight: 600; line-height: 1.5; max-width: 460px; }
+.free-banner__btn {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  height: 42px; padding: 0 20px; border-radius: 12px;
+  background: #25d366; color: #0a0a0a; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  border: none; cursor: pointer; transition: background 140ms ease, transform 140ms ease;
+  white-space: nowrap;
+}
+.free-banner__btn:hover { background: #20bd5a; transform: translateY(-1px); }
+.free-banner__btn:active { transform: scale(0.97); }
+.free-banner-enter-active { transition: opacity 300ms ease, transform 300ms ease; }
+.free-banner-enter-from { opacity: 0; transform: translateY(-8px); }
 
 /* ── Modal transition ────────────────────────────────────────── */
 .capture-modal-enter-active { transition: opacity 220ms ease, transform 220ms cubic-bezier(0.34,1.56,0.64,1); }
