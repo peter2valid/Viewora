@@ -149,11 +149,12 @@ const blurCover = computed(() => {
 const hasBrandingDetails = computed(() => {
   const spaceData = tour.value?.space
   if (!spaceData) return false
+  // phone is now used for the WhatsApp contact button, not branding display —
+  // only replace the Viewora watermark when there is real visual branding
   return !!(
     spaceData.logo_url ||
     spaceData.description ||
     spaceData.location_text ||
-    spaceData.phone ||
     spaceData.email
   )
 })

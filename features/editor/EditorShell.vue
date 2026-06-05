@@ -248,8 +248,8 @@
 
                 <div class="ts-field">
                   <label class="ts-field__label">WhatsApp Number <span class="ts-field__opt">optional</span></label>
-                  <input class="ts-input" v-model="settingsDraft.phone" placeholder="+1 (555) 000-0000" type="tel" />
-                  <div class="ts-toggle-sub" style="margin-top: 5px;">Adds a WhatsApp contact button in the viewer so visitors can reach you instantly</div>
+                  <input class="ts-input" v-model="settingsDraft.phone" placeholder="+27117537025 or +254712345678" type="tel" />
+                  <div class="ts-toggle-sub" style="margin-top: 5px;">Must include country code (e.g. +27 for SA, +254 for Kenya). Adds a green WhatsApp button so visitors can contact you directly from the viewer.</div>
                 </div>
 
                 <div class="ts-field">

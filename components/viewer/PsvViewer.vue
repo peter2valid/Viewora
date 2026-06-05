@@ -482,9 +482,22 @@ const ctaHref = computed(() => {
 })
 
 const whatsappHref = computed(() => {
-  const phone = ((props.tour?.space as any)?.phone as string | undefined)?.trim()
-  if (!phone) return null
-  const clean = phone.replace(/[\s\-().]/g, '')
+  const raw = ((props.tour?.space as any)?.phone as string | undefined)?.trim()
+  if (!raw) return null
+
+  // Normalise to E.164-compatible digits:
+  // 1. Strip every character that isn't a digit, +, or leading whitespace
+  // 2. Replace international-dial prefix "00" with "+"
+  // 3. Strip all remaining non-digit chars except a leading "+"
+  let clean = raw.replace(/[\s\-().\/]/g, '')          // remove common separators
+  if (clean.startsWith('00')) clean = '+' + clean.slice(2) // 00XX → +XX
+  clean = clean.replace(/[^0-9+]/g, '')                // strip anything else
+  // Remove inline "+" (only a leading + is valid in E.164)
+  if (clean.includes('+')) {
+    clean = '+' + clean.replace(/\+/g, '')
+  }
+
+  if (!clean) return null
   const title = ((props.tour?.space as any)?.title as string) || 'this property'
   const msg = encodeURIComponent(`Hi, I found "${title}" from Viewora and I'm interested in it.`)
   return `https://wa.me/${clean}?text=${msg}`
@@ -2272,7 +2285,7 @@ watch(() => vtTransitioning.value, (loading) => {
     left: 10px;
     left: calc(10px + env(safe-area-inset-left, 0px));
     top: auto;
-    bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(200px + env(safe-area-inset-bottom, 0px));
     transform: none;
     width: 46px;
     height: 46px;
