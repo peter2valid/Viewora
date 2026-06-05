@@ -36,6 +36,7 @@
           </button>
         </div>
 
+        <AppCaptureNudge variant="btn" />
         <button
           @click="handleCreateTour"
           class="btn btn-primary gap-2 !px-8 shadow-2xl"

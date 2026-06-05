@@ -69,15 +69,18 @@
               <p class="hidden sm:block text-[13px] font-bold text-main">Share</p>
             </div>
           </div>
-          <div class="flex flex-col sm:flex-row gap-4 w-full max-w-md z-10">
-            <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Start Creating
-            </button>
-            <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              My Portfolio
-            </button>
+          <div class="flex flex-col gap-4 w-full max-w-md z-10">
+            <div class="flex flex-col sm:flex-row gap-4 w-full">
+              <button @click="navigateTo('/app/create')" class="btn btn-primary flex-1 !py-5 shadow-2xl gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Start Creating
+              </button>
+              <button @click="navigateTo('/app/spaces')" class="btn btn-secondary flex-1 !py-5 shadow-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                My Portfolio
+              </button>
+            </div>
+            <AppCaptureNudge variant="strip" />
           </div>
         </div>
       </div>
@@ -85,6 +88,9 @@
 
     <!-- Active Dashboard -->
     <section v-else class="flex flex-col gap-6">
+
+      <!-- Capture nudge strip — always visible for active users -->
+      <AppCaptureNudge variant="strip" />
 
       <!-- Stat Cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">

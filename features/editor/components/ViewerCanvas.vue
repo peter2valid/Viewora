@@ -119,6 +119,15 @@
             <p class="text-[10px] text-gray-600 font-medium">
               Drop a 360° image or click to upload
             </p>
+
+            <!-- Divider -->
+            <div class="flex items-center gap-2 my-1">
+              <div class="flex-1 h-px bg-white/[0.06]"></div>
+              <span class="text-[9px] font-bold text-gray-600 uppercase tracking-widest">or</span>
+              <div class="flex-1 h-px bg-white/[0.06]"></div>
+            </div>
+
+            <AppCaptureNudge variant="card" />
           </template>
 
           <template v-else>
