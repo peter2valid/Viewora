@@ -317,7 +317,7 @@ export interface Database {
           phone: string | null
           email: string | null
           message: string | null
-          source: 'direct' | 'qr' | 'embed'
+          source: 'direct' | 'qr' | 'embed' | 'hotspot' | 'whatsapp'
           status: 'new' | 'contacted' | 'qualified' | 'closed'
           created_at: string
           updated_at: string
@@ -330,7 +330,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           message?: string | null
-          source?: 'direct' | 'qr' | 'embed'
+          source?: 'direct' | 'qr' | 'embed' | 'hotspot' | 'whatsapp'
           status?: 'new' | 'contacted' | 'qualified' | 'closed'
         }
         Update: {
