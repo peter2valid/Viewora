@@ -99,7 +99,7 @@
         rel="noopener noreferrer"
         aria-label="Chat on WhatsApp"
         data-tooltip="Chat on WhatsApp"
-        @click.stop
+        @click.stop="onWhatsappClick"
       >
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12.04 2C6.49 2 2 6.48 2 12c0 1.89.52 3.66 1.42 5.18L2 22l4.98-1.39A9.96 9.96 0 0 0 12.04 22C17.56 22 22 17.52 22 12S17.56 2 12.04 2Zm5.8 14.16c-.24.68-1.44 1.32-1.98 1.39-.52.07-1.2.1-1.95-.12-.46-.14-1.05-.33-1.81-.66-3.18-1.38-5.24-4.6-5.39-4.81-.14-.21-1.3-1.73-1.3-3.3s.79-2.34 1.07-2.66c.28-.32.61-.4.82-.4h.58c.19 0 .45-.07.7.53.24.6.82 2.07.89 2.22.07.15.12.33.02.54-.1.21-.15.34-.3.52-.15.18-.31.4-.45.53-.15.16-.3.33-.13.63.16.31.71 1.17 1.52 1.9 1.04.92 1.9 1.21 2.22 1.37.31.16.49.14.67-.08.18-.22.77-.9.98-1.2.2-.31.4-.26.67-.16.28.1 1.74.82 2.04.97.3.14.5.22.58.34.08.12.08.74-.17 1.42Z"/>
@@ -370,6 +370,7 @@ const emit = defineEmits<{
 
 const { $posthog } = useNuxtApp()
 const analytics = useAnalytics()
+const { apiFetch } = useApiFetch()
 
 const viewerRootEl = ref<HTMLElement | null>(null)
 const viewerShellRef = ref<InstanceType<typeof ViewerShell> | null>(null)
@@ -505,6 +506,16 @@ const whatsappHref = computed(() => {
     : `Hi, I just viewed "${title}" on Viewora and I'm interested. Could you please share more details?`
   return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
 })
+
+function onWhatsappClick() {
+  const spaceId = (props.tour?.space as any)?.id
+  if (!spaceId) return
+  // Fire-and-forget: record a WhatsApp click as a lead so it appears in the Lead Hub
+  apiFetch('/leads', {
+    method: 'POST',
+    body: { spaceId, source: 'whatsapp' },
+  }).catch(() => {})
+}
 
 // ── Single-scene mode (no tour) ────────────────────────────────────────────
 const singleScene = computed<TourScene | null>(() => {
