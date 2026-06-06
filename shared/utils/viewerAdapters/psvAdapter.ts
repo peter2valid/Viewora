@@ -775,9 +775,15 @@ export async function initVirtualTourViewer(
     autostartOnIdle: true,
   }])
 
-  // GyroscopePlugin is required by StereoPlugin (hard dependency) but we never
-  // start it ourselves — touchmove:false ensures it never intercepts drag events
-  plugins.push([GyroscopePlugin, { touchmove: false }])
+  // GyroscopePlugin is a hard dependency of StereoPlugin but we never start it
+  // ourselves. Only register it on devices that expose DeviceOrientationEvent to
+  // avoid the "orientation sensor is deprecated" console warning on desktop browsers.
+  const hasMotionSensor =
+    typeof window !== 'undefined' &&
+    (typeof DeviceOrientationEvent !== 'undefined' || navigator.maxTouchPoints > 0)
+  if (hasMotionSensor) {
+    plugins.push([GyroscopePlugin, { touchmove: false }])
+  }
   plugins.push([StereoPlugin])
 
   // MapPlugin: interactive floor plan overlay — only activated when the space has
