@@ -1515,9 +1515,14 @@ onMounted(async () => {
   if (!planStore.plan) await planStore.fetchSubscriptionStatus()
   await fetchSpace(true)
 
-  // Generate floor plan immediately if missing, or refresh if scenes were recently tiled.
-  // This covers all spaces created before auto-generation was deployed — no manual step needed.
-  if (!space.value?.floorplan_url || scenes.value.some((s: any) => s.tiles_ready && !s.tile_manifest_url)) {
+  // Generate floor plan if missing or if the existing one is still an SVG
+  // (SVG format crashes PSV MapPlugin on Firefox — PNG is required).
+  // Also regenerates when scenes were recently tiled but the floor plan pre-dates them.
+  const existingFp = space.value?.floorplan_url as string | undefined
+  const fpNeedsRegen = !existingFp
+    || existingFp.endsWith('.svg')
+    || scenes.value.some((s: any) => s.tiles_ready && !s.tile_manifest_url)
+  if (fpNeedsRegen) {
     scheduleFloorPlanRegen()
   }
 

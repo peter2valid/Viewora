@@ -886,27 +886,33 @@ export async function initVirtualTourViewer(
   }])
 
   // GyroscopePlugin is a hard dependency of StereoPlugin but we never start it
-  // ourselves. Only register it on devices that expose DeviceOrientationEvent to
-  // avoid the "orientation sensor is deprecated" console warning on desktop browsers.
-  const hasMotionSensor =
-    typeof window !== 'undefined' &&
-    (typeof DeviceOrientationEvent !== 'undefined' || navigator.maxTouchPoints > 0)
-  if (hasMotionSensor) {
+  // ourselves. Restrict to touch devices only — typeof DeviceOrientationEvent
+  // is true on every browser including desktop Firefox, which triggers the
+  // "orientation sensor is deprecated" warning the moment the plugin is registered.
+  // maxTouchPoints > 0 is the reliable indicator of an actual mobile/tablet device.
+  const isTouchDevice =
+    typeof window !== 'undefined' && navigator.maxTouchPoints > 0
+  if (isTouchDevice) {
     plugins.push([GyroscopePlugin, { touchmove: false }])
   }
   plugins.push([StereoPlugin])
 
   // MapPlugin: interactive floor plan overlay — only activated when the space has
-  // a floor plan image. Tracks the active VirtualTour node automatically.
-  if (floorplanUrl) {
-    const startPos = (startScene.positionX || startScene.positionY)
-      ? { x: startScene.positionX ?? 0, y: startScene.positionY ?? 0 }
-      : undefined
+  // a floor plan image AND it is not an SVG (SVG fails in PSV's canvas renderer
+  // on Firefox, leaving this.config.map null and crashing on navigation).
+  // PNG floor plans generated after the June 2026 fix are safe to use.
+  const floorplanIsPng = floorplanUrl && !floorplanUrl.endsWith('.svg')
+  if (floorplanIsPng) {
+    // Canvas pixel positions saved by the floor plan generator.
+    // Fall back to canvas centre (550, 390 on the 1100×780 canvas) when
+    // scenes haven't been positioned yet — MapPlugin requires a valid center.
+    const cx = (startScene.positionX && startScene.positionX > 1) ? startScene.positionX : 550
+    const cy = (startScene.positionY && startScene.positionY > 1) ? startScene.positionY : 390
     plugins.push([MapPlugin, {
       imageUrl: floorplanUrl,
-      center: startPos,
+      center:   { x: cx, y: cy },
       rotation: '0deg',
-      size: '230px',
+      size:     '230px',
       position: 'bottom left',
       visibleOnLoad: true,
       minZoom: 0.5,
