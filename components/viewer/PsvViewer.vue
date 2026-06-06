@@ -95,16 +95,6 @@
         </svg>
       </button>
 
-      <!-- Minimap (multi-scene tours only) -->
-      <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': minimapVisible }" type="button" aria-label="Toggle floor plan" :aria-pressed="minimapVisible" data-tooltip="Floor Plan" @click.stop="minimapVisible = !minimapVisible">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="8" height="8" rx="1" />
-          <rect x="13" y="3" width="8" height="8" rx="1" />
-          <rect x="3" y="13" width="8" height="8" rx="1" />
-          <path d="M13 17h8M17 13v8" />
-        </svg>
-      </button>
-
       </div><!-- end .viewer-rail -->
     </div><!-- end .viewer-control-stack -->
 
@@ -324,16 +314,6 @@
       @hotspot-click="emit('hotspot-click', $event)"
     />
 
-    <!-- ── Minimap overlay ── -->
-    <ViewerMinimap
-      v-if="sceneCount > 1 && hasTourData && !chromeHidden"
-      :scenes="minimapScenes"
-      :active-scene-id="activeSceneId"
-      :visible="minimapVisible"
-      @select="handleMinimapSelect"
-      @close="minimapVisible = false"
-    />
-
     <!-- ── Scene dock (both modes) ── -->
     <GlassDock
       v-if="sceneCount > 0 && !chromeHidden"
@@ -364,7 +344,6 @@ import type { TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
-import ViewerMinimap from '~/components/viewer/ViewerMinimap.vue'
 import {
   initVirtualTourViewer,
   vtGoToNode,
@@ -430,7 +409,6 @@ let pendingEntry: EntryContext | null = null
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
 const gyroscopeActive = ref(false)
-const minimapVisible = ref(false)
 const autoplaying = ref(false)
 const showPostTourModal = ref(false)
 const sceneToastText = ref('')
@@ -696,6 +674,7 @@ async function initVT() {
     : ''
   const startNodeId = validHashScene || (tourScenes.value[0]?.id ?? '')
   const autoRotate = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
+  const floorplanUrl = (props.tour?.space?.floorplan_url as string | undefined) || undefined
 
   try {
     const handle = await initVirtualTourViewer(
@@ -707,6 +686,7 @@ async function initVT() {
         autoRotate,
         performanceMode: viewerPerformanceMode.value,
         loadingImg: optimizedLoadingLogo.value,
+        floorplanUrl,
         onReady: () => {
           if (version !== vtInitVersion) return
           vtReady.value = true
@@ -877,29 +857,6 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
   }
 
   emit('hotspot-click', markerId)
-}
-
-// ── Minimap ───────────────────────────────────────────────────────────────
-const minimapScenes = computed(() =>
-  tourScenes.value.map((s: any, i: number) => ({
-    id: s.id,
-    name: s.name || `Scene ${i + 1}`,
-    positionX: s.position_x ?? 0,
-    positionY: s.position_y ?? 0,
-    orderIndex: s.order_index ?? i,
-  }))
-)
-
-async function handleMinimapSelect(sceneId: string) {
-  if (vtHandle.value && !vtTransitioning.value && vtActiveNodeId.value !== sceneId) {
-    vtTransitioning.value = true
-    try {
-      const ok = await vtGoToNode(vtHandle.value, sceneId)
-      if (!ok) vtTransitioning.value = false
-    } catch {
-      vtTransitioning.value = false
-    }
-  }
 }
 
 // ── GlassDock navigation ───────────────────────────────────────────────────
