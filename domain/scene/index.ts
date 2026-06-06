@@ -43,8 +43,13 @@ export interface TourScene {
   tileCols?: number
   tileRows?: number
   tilesReady?: boolean
+  tileMediumManifestUrl?: string
+  tileMediumCols?: number
+  tileMediumRows?: number
   width?: number
   height?: number
+  positionX?: number
+  positionY?: number
   title?: string
   hotspots: Hotspot360[]
   settings: Pick<Settings360, 'hfov_default' | 'pitch_default' | 'yaw_default' | 'auto_rotate_enabled'>

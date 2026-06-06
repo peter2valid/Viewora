@@ -76,6 +76,15 @@
         </svg>
       </button>
 
+      <!-- Gyroscope (shown only on touch/motion capable devices) -->
+      <button v-if="gyroscopeSupported" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Toggle gyroscope" :aria-pressed="gyroscopeActive" data-tooltip="Gyroscope" @click.stop="handleGyroscopeToggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <ellipse cx="12" cy="12" rx="10" ry="4" />
+          <ellipse cx="12" cy="12" rx="4" ry="10" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+        </svg>
+      </button>
+
       <!-- Fullscreen -->
       <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" data-tooltip="Fullscreen" @click.stop="toggleFullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -83,6 +92,16 @@
           <path d="M16 3h5v5" />
           <path d="M21 16v5h-5" />
           <path d="M3 16v5h5" />
+        </svg>
+      </button>
+
+      <!-- Minimap (multi-scene tours only) -->
+      <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': minimapVisible }" type="button" aria-label="Toggle floor plan" :aria-pressed="minimapVisible" data-tooltip="Floor Plan" @click.stop="minimapVisible = !minimapVisible">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="8" height="8" rx="1" />
+          <rect x="13" y="3" width="8" height="8" rx="1" />
+          <rect x="3" y="13" width="8" height="8" rx="1" />
+          <path d="M13 17h8M17 13v8" />
         </svg>
       </button>
 
@@ -305,6 +324,16 @@
       @hotspot-click="emit('hotspot-click', $event)"
     />
 
+    <!-- ── Minimap overlay ── -->
+    <ViewerMinimap
+      v-if="sceneCount > 1 && hasTourData && !chromeHidden"
+      :scenes="minimapScenes"
+      :active-scene-id="activeSceneId"
+      :visible="minimapVisible"
+      @select="handleMinimapSelect"
+      @close="minimapVisible = false"
+    />
+
     <!-- ── Scene dock (both modes) ── -->
     <GlassDock
       v-if="sceneCount > 0 && !chromeHidden"
@@ -335,6 +364,7 @@ import type { TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
+import ViewerMinimap from '~/components/viewer/ViewerMinimap.vue'
 import {
   initVirtualTourViewer,
   vtGoToNode,
@@ -345,6 +375,8 @@ import {
   toggleStereo,
   toggleAutorotate,
   isAutorotateEnabled,
+  toggleGyroscope,
+  isGyroscopeEnabled,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 
@@ -397,6 +429,8 @@ type EntryContext = {
 let pendingEntry: EntryContext | null = null
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
+const gyroscopeActive = ref(false)
+const minimapVisible = ref(false)
 const autoplaying = ref(false)
 const showPostTourModal = ref(false)
 const sceneToastText = ref('')
@@ -424,6 +458,12 @@ const shareTabs = [
 // ── Determines which mode we're in ────────────────────────────────────────
 const hasTourData = computed(() => (props.tour?.scenes?.length ?? 0) > 0)
 const isLiteMode = computed(() => viewerPerformanceMode.value === 'lite')
+
+// Gyroscope only shown on devices that have motion sensors
+const gyroscopeSupported = computed(() =>
+  typeof window !== 'undefined' &&
+  (typeof DeviceOrientationEvent !== 'undefined' || navigator.maxTouchPoints > 0)
+)
 
 // ── Scene list from tour ───────────────────────────────────────────────────
 const tourScenes = computed<any[]>(() => {
@@ -598,8 +638,13 @@ function mapRawScene(s: any): TourScene {
     tileCols: s.tile_cols ?? undefined,
     tileRows: s.tile_rows ?? undefined,
     tilesReady: s.tiles_ready ?? false,
+    tileMediumManifestUrl: s.tile_medium_manifest_url || undefined,
+    tileMediumCols: s.tile_medium_cols ?? undefined,
+    tileMediumRows: s.tile_medium_rows ?? undefined,
     width: s.width ?? undefined,
     height: s.height ?? undefined,
+    positionX: s.position_x ?? 0,
+    positionY: s.position_y ?? 0,
     title: s.name,
     hotspots: [],
     settings: {
@@ -834,6 +879,29 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
   emit('hotspot-click', markerId)
 }
 
+// ── Minimap ───────────────────────────────────────────────────────────────
+const minimapScenes = computed(() =>
+  tourScenes.value.map((s: any, i: number) => ({
+    id: s.id,
+    name: s.name || `Scene ${i + 1}`,
+    positionX: s.position_x ?? 0,
+    positionY: s.position_y ?? 0,
+    orderIndex: s.order_index ?? i,
+  }))
+)
+
+async function handleMinimapSelect(sceneId: string) {
+  if (vtHandle.value && !vtTransitioning.value && vtActiveNodeId.value !== sceneId) {
+    vtTransitioning.value = true
+    try {
+      const ok = await vtGoToNode(vtHandle.value, sceneId)
+      if (!ok) vtTransitioning.value = false
+    } catch {
+      vtTransitioning.value = false
+    }
+  }
+}
+
 // ── GlassDock navigation ───────────────────────────────────────────────────
 async function handleDockSelect(sceneId: string) {
   autoplayFromButton = true
@@ -889,13 +957,24 @@ onMounted(() => {
     setTimeout(() => initVT(), 0)
   }
 
-  // Prefetch 2nd + 3rd scene thumbnails during idle time
+  // Prefetch thumbnails + first tile of the 2nd and 3rd scenes during idle time.
+  // Thumbnails appear instantly on navigation; the first tile primes the browser cache
+  // so the transition feels immediate even before PSV's preload finishes.
   if (typeof requestIdleCallback !== 'undefined') {
     requestIdleCallback(() => {
       const nextScenes = tourScenes.value.slice(1, 3)
+      const isLite = viewerPerformanceMode.value === 'lite'
       for (const s of nextScenes) {
-        const url = s.thumbnail_url || s.raw_image_url
-        if (url) { const img = new Image(); img.src = url }
+        // Always warm the thumbnail (fast, tiny)
+        const thumb = s.thumbnail_url || s.raw_image_url
+        if (thumb) { const img = new Image(); img.src = thumb }
+
+        // Warm the first tile (col 0, row 0) of the appropriate tile set
+        if (isLite && s.tile_medium_manifest_url) {
+          fetch(`${s.tile_medium_manifest_url}/0_0.webp`, { priority: 'low' } as any).catch(() => {})
+        } else if (!isLite && s.tile_manifest_url) {
+          fetch(`${s.tile_manifest_url}/0_0.webp`, { priority: 'low' } as any).catch(() => {})
+        }
       }
     }, { timeout: 3000 })
   }
@@ -955,6 +1034,25 @@ function toggleAutoRotate() {
     viewerShellRef.value?.toggleAutorotate?.()
     autoRotateActive.value = !autoRotateActive.value
   }
+}
+
+async function handleGyroscopeToggle() {
+  if (!vtHandle.value) return
+  // iOS 13+ requires explicit permission before DeviceOrientationEvent fires.
+  // Requesting it inside a user-gesture handler (button click) satisfies the requirement.
+  if (
+    typeof DeviceOrientationEvent !== 'undefined' &&
+    typeof (DeviceOrientationEvent as any).requestPermission === 'function'
+  ) {
+    try {
+      const permission = await (DeviceOrientationEvent as any).requestPermission()
+      if (permission !== 'granted') return
+    } catch {
+      return
+    }
+  }
+  toggleGyroscope(vtHandle.value)
+  gyroscopeActive.value = isGyroscopeEnabled(vtHandle.value)
 }
 
 function shareTour() {

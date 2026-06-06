@@ -90,6 +90,13 @@ function canUseTiledPanorama(scene: TourScene): boolean {
     && scene.tilesReady === true
 }
 
+function canUseMediumTiles(scene: TourScene): boolean {
+  return !!scene.tileMediumManifestUrl
+    && !!scene.tileMediumCols
+    && !!scene.tileMediumRows
+    && scene.tilesReady === true
+}
+
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
 // These create standard divs that PSV MarkersPlugin handles reliably
 // across all browsers without any WebComponent registration fragility.
@@ -196,11 +203,38 @@ export interface InitViewerOptions {
   loadingImg?: string
 }
 
-/** Returns the PSV panorama config — tiles only when ALL of: url, cols, rows, tilesReady */
-function buildPanorama(scene: TourScene) {
-  const hasTiles = canUseTiledPanorama(scene)
+/**
+ * Returns the PSV EquirectangularTilesAdapter panorama config.
+ * performanceMode drives which tile set is selected:
+ *   'full' → full-resolution tiles (desktop)
+ *   'lite' → medium tiles when available (4096×2048), else thumbnail-only
+ * In both cases the baseUrl (thumbnail) is shown instantly while tiles stream in.
+ */
+function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'full') {
+  // Lite / mobile: serve medium tiles — far fewer tiles, much less bandwidth
+  if (performanceMode === 'lite') {
+    if (canUseMediumTiles(scene)) {
+      return {
+        width:   4096,
+        cols:    scene.tileMediumCols!,
+        rows:    scene.tileMediumRows!,
+        baseUrl: scene.imageUrl,
+        tileUrl: (col: number, row: number) =>
+          `${scene.tileMediumManifestUrl}/${col}_${row}.webp`,
+      }
+    }
+    // Medium tiles not yet generated: thumbnail-only (1×1) for instant render
+    return {
+      width:   2048,
+      cols:    1,
+      rows:    1,
+      baseUrl: scene.imageUrl,
+      tileUrl: () => scene.imageUrl,
+    }
+  }
 
-  if (hasTiles) {
+  // Full mode: use the complete tile grid
+  if (canUseTiledPanorama(scene)) {
     return {
       width:   scene.width || 12288,
       cols:    scene.tileCols!,
@@ -211,26 +245,22 @@ function buildPanorama(scene: TourScene) {
     }
   }
 
-  // No tiles: fall back to the full-resolution image when available.
-  // rawImageUrl + scene.width give PSV the correct sphere mapping (UV errors occur when
-  // width doesn't match the image's actual pixel width).
-  // imageUrl (thumbnail, 2048px) stays as baseUrl so the viewer loads instantly;
-  // the single "tile" is then replaced by the raw image at full resolution.
+  // No tiles yet — fall back to raw image as single tile (correct sphere mapping)
   if (scene.rawImageUrl && scene.width) {
     return {
-      width: scene.width,
-      cols: 1,
-      rows: 1,
+      width:   scene.width,
+      cols:    1,
+      rows:    1,
       baseUrl: scene.imageUrl,
       tileUrl: () => scene.rawImageUrl!,
     }
   }
 
-  // Last resort: thumbnail only. width must be 2048 to match the thumbnail dimensions.
+  // Last resort: thumbnail only
   return {
-    width: 2048,
-    cols: 1,
-    rows: 1,
+    width:   2048,
+    cols:    1,
+    rows:    1,
     baseUrl: scene.imageUrl,
     tileUrl: () => scene.imageUrl,
   }
@@ -602,7 +632,11 @@ export function destroy(handle: PsvViewerHandle | null): void {
 // The editor keeps the MarkersPlugin-only approach for per-hotspot editing.
 
 /** Build VirtualTourNode[] from all scenes + their resolved hotspots */
-function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hotspot[]>): any[] {
+function buildTourNodes(
+  scenes: TourScene[],
+  hotspotsByScene: Record<string, Hotspot[]>,
+  performanceMode: 'lite' | 'full' = 'full',
+): any[] {
   return scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
 
@@ -643,7 +677,7 @@ function buildTourNodes(scenes: TourScene[], hotspotsByScene: Record<string, Hot
 
     return {
       id: scene.id,
-      panorama: buildPanorama(scene),
+      panorama: buildPanorama(scene, performanceMode),
       name: scene.title,
       thumbnail: scene.imageUrl,
       links,
@@ -717,7 +751,7 @@ export async function initVirtualTourViewer(
   const resolvedPerformanceMode = performanceMode === 'auto' ? detectViewerPerformanceMode() : performanceMode
   const isLiteMode = resolvedPerformanceMode === 'lite'
 
-  const nodes = buildTourNodes(scenes, hotspotsByScene)
+  const nodes = buildTourNodes(scenes, hotspotsByScene, resolvedPerformanceMode)
 
   // Plugin order matters — VirtualTour must be last (depends on MarkersPlugin)
   const plugins: any[] = [
@@ -744,7 +778,7 @@ export async function initVirtualTourViewer(
     renderMode: '3d',
     nodes,
     startNodeId,
-    preload: false,
+    preload: !isLiteMode,
     transitionOptions: {
       showLoader: true,
       speed: '20rpm',
