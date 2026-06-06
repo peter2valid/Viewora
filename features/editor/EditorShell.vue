@@ -609,8 +609,8 @@
             <!-- Analysing state -->
             <div v-if="autoLinkAnalyzing" class="al-loading">
               <div class="al-spinner" />
-              <p class="al-loading__text">Analysing your scenes with AI…</p>
-              <p class="al-loading__sub">This takes a few seconds per scene</p>
+              <p class="al-loading__text">{{ autoLinkProgress ?? 'Connecting to AI…' }}</p>
+              <p class="al-loading__sub">Using Haiku + Sonnet per scene · results appear when complete</p>
             </div>
 
             <!-- Error state -->
@@ -926,6 +926,7 @@ const {
   isAnalyzing: autoLinkAnalyzing,
   isApplying: autoLinkApplying,
   errorMsg: autoLinkError,
+  progress: autoLinkProgress,
   suggestions: autoLinkSuggestions,
   infoHotspots: autoLinkInfoHotspots,
   hotspotDeletions: autoLinkDeletions,
@@ -942,7 +943,7 @@ const {
   toggleDeletion: toggleAutoLinkDeletion,
   toggleRename: toggleAutoLinkRename,
   apply: applyAutoLink,
-} = useAutoLink(props.spaceId, apiFetch)
+} = useAutoLink(props.spaceId)
 
 async function handleAutoLinkApply() {
   await applyAutoLink(

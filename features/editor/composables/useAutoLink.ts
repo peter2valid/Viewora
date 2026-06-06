@@ -38,14 +38,12 @@ export type SceneRename = {
   suggestedName: string
 }
 
-export function useAutoLink(
-  spaceId: string,
-  apiFetch: (url: string, opts?: any) => Promise<any>,
-) {
+export function useAutoLink(spaceId: string) {
   const showModal    = ref(false)
   const isAnalyzing  = ref(false)
   const isApplying   = ref(false)
   const errorMsg     = ref<string | null>(null)
+  const progress     = ref<string | null>(null)
 
   const suggestions      = ref<AutoLinkSuggestion[]>([])
   const infoHotspots     = ref<InfoHotspotSuggestion[]>([])
@@ -57,36 +55,119 @@ export function useAutoLink(
   const selectedDeletions    = ref<Set<string>>(new Set())
   const selectedRenames      = ref<Set<string>>(new Set())
 
+  function applyResults(data: any) {
+    suggestions.value      = (data.suggestions      ?? []).map((s: any, i: number) => ({ ...s, _id: `s${i}` }))
+    infoHotspots.value     = (data.infoHotspots     ?? []).map((h: any, i: number) => ({ ...h, _id: h._id || `ih${i}` }))
+    hotspotDeletions.value = (data.hotspotDeletions ?? []).map((d: any, i: number) => ({ ...d, _id: d._id || `del${i}` }))
+    sceneRenames.value     = (data.sceneRenames     ?? []).map((r: any, i: number) => ({ ...r, _id: `r${i}` }))
+
+    selectedSuggestions.value  = new Set(suggestions.value.map(s => s._id))
+    selectedInfoHotspots.value = new Set(infoHotspots.value.map(h => h._id))
+    selectedDeletions.value    = new Set(hotspotDeletions.value.map(d => d._id))
+    selectedRenames.value      = new Set(sceneRenames.value.map(r => r._id))
+  }
+
   async function open() {
     showModal.value    = true
     isAnalyzing.value  = true
+    progress.value     = null
     errorMsg.value     = null
     suggestions.value      = []
     infoHotspots.value     = []
     hotspotDeletions.value = []
     sceneRenames.value     = []
 
+    // Build request URL and auth token from Nuxt composables.
+    // We use native fetch (not apiFetch/$fetch) because $fetch buffers the
+    // entire response before resolving — incompatible with SSE streaming.
+    const session = useSupabaseSession()
+    const config  = useRuntimeConfig()
+    const baseURL = (config.public.apiBaseUrl as string | undefined) || ''
+    const token   = session.value?.access_token ?? ''
+
+    const url = baseURL
+      ? `${baseURL.replace(/\/$/, '')}/spaces/${spaceId}/auto-link`
+      : `/api/spaces/${spaceId}/auto-link`
+
     try {
-      const result = await apiFetch(`/spaces/${spaceId}/auto-link`, { method: 'POST' }) as any
+      const response = await fetch(url, {
+        method:  'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Accept':        'text/event-stream',
+        },
+      })
 
-      suggestions.value      = (result.suggestions      ?? []).map((s: any, i: number) => ({ ...s, _id: `s${i}` }))
-      infoHotspots.value     = (result.infoHotspots     ?? []).map((h: any, i: number) => ({ ...h, _id: h._id || `ih${i}` }))
-      hotspotDeletions.value = (result.hotspotDeletions ?? []).map((d: any, i: number) => ({ ...d, _id: d._id || `del${i}` }))
-      sceneRenames.value     = (result.sceneRenames     ?? []).map((r: any, i: number) => ({ ...r, _id: `r${i}` }))
+      if (!response.ok) {
+        // Early error before SSE starts (e.g. 404, 503) — parse JSON envelope
+        const body = await response.json().catch(() => ({})) as any
+        throw new Error(
+          body?.message ||
+          body?.data?.message ||
+          body?.statusMessage ||
+          `Request failed (HTTP ${response.status})`,
+        )
+      }
 
-      // Pre-select everything
-      selectedSuggestions.value  = new Set(suggestions.value.map(s => s._id))
-      selectedInfoHotspots.value = new Set(infoHotspots.value.map(h => h._id))
-      selectedDeletions.value    = new Set(hotspotDeletions.value.map(d => d._id))
-      selectedRenames.value      = new Set(sceneRenames.value.map(r => r._id))
+      if (!response.body) throw new Error('No response body from server.')
+
+      // Read the SSE stream
+      const reader  = response.body.getReader()
+      const decoder = new TextDecoder()
+      let   buffer  = ''
+      let   gotComplete = false
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+
+          // SSE events are separated by \n\n
+          const parts = buffer.split('\n\n')
+          buffer = parts.pop() ?? ''
+
+          for (const part of parts) {
+            if (!part.trim()) continue
+
+            let eventType = 'message'
+            let dataStr   = ''
+
+            for (const line of part.split('\n')) {
+              if (line.startsWith('event: '))      eventType = line.slice(7).trim()
+              else if (line.startsWith('data: '))  dataStr   = line.slice(6).trim()
+            }
+
+            if (!dataStr) continue
+
+            let parsed: any
+            try { parsed = JSON.parse(dataStr) } catch { continue }
+
+            if (eventType === 'progress') {
+              progress.value = `Analysing scene ${parsed.sceneIndex} of ${parsed.total} — ${parsed.sceneName}`
+            } else if (eventType === 'complete') {
+              gotComplete = true
+              applyResults(parsed)
+            } else if (eventType === 'error') {
+              throw new Error(parsed.message || 'Analysis failed on the server.')
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+
+      if (!gotComplete) {
+        throw new Error('Analysis was interrupted before completing. Please try again.')
+      }
     } catch (err: any) {
       errorMsg.value =
-        err?.data?.message ||
-        err?.data?.statusMessage ||
         err?.message ||
         'Analysis failed. Check that the Anthropic API key is configured on the server.'
     } finally {
       isAnalyzing.value = false
+      progress.value    = null
     }
   }
 
@@ -169,7 +250,7 @@ export function useAutoLink(
   }
 
   return {
-    showModal, isAnalyzing, isApplying, errorMsg,
+    showModal, isAnalyzing, isApplying, errorMsg, progress,
     suggestions, infoHotspots, hotspotDeletions, sceneRenames,
     selectedSuggestions, selectedInfoHotspots, selectedDeletions, selectedRenames,
     hasSelections,
