@@ -317,8 +317,7 @@ export async function initViewer(
   }])
   plugins.push([StereoPlugin, {}])
 
-  // Prevent looking at poles — keeps the tour feeling grounded
-  
+  patchGyroscopeSmoothing()
 
   const viewer: any = new Viewer({
     container,
@@ -398,7 +397,7 @@ export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene
     await handle.viewer.setPanorama(buildPanorama(scene), {
       showLoader: false,
       position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
-      transition: { speed: 1000, rotation: true, effect: 'black' },
+      transition: { speed: 800, rotation: false, effect: 'fade' },
     })
 
     // Enforce hotspots after panorama is set
@@ -629,6 +628,117 @@ export function destroy(handle: PsvViewerHandle | null): void {
   try { handle.viewer.destroy() } catch { /* noop */ }
 }
 
+// ── Gyroscope smoothing ───────────────────────────────────────────────────────
+// PSV's GyroscopePlugin feeds raw DeviceOrientationEvent alpha/beta/gamma values
+// directly into the camera, causing the view to "dance" from sensor noise even
+// when the phone is stationary.
+//
+// Fix: intercept window.addEventListener calls for 'deviceorientation' and wrap
+// each registered handler with an EMA low-pass filter + dead zone. PSV then
+// receives pre-smoothed values and the view stays stable.
+//
+// Params:
+//   GYRO_EMA  — EMA weight for each new reading (0 = frozen, 1 = raw).
+//               0.12 keeps ~88% of the previous smoothed value each sample.
+//   GYRO_DEAD — movement below this many degrees is suppressed entirely.
+
+const GYRO_EMA  = 0.12   // exponential moving average factor
+const GYRO_DEAD = 0.20   // degrees — dead zone below which events are dropped
+let _gyroPatched = false
+const _wrappedHandlers = new WeakMap<object | Function, EventListenerOrEventListenerObject>()
+
+function _smoothedGyroHandler(
+  original: EventListenerOrEventListenerObject,
+): EventListenerOrEventListenerObject {
+  let smooth = { alpha: 0, beta: 0, gamma: 0 }
+  let prev   = { alpha: 0, beta: 0, gamma: 0 }
+  let seeded = false
+
+  return (e: Event) => {
+    const ev = e as DeviceOrientationEvent
+    const { alpha, beta, gamma } = ev
+    if (alpha === null || beta === null || gamma === null) {
+      typeof original === 'function' ? original(e) : original.handleEvent(e)
+      return
+    }
+
+    if (!seeded) {
+      smooth = { alpha: alpha!, beta: beta!, gamma: gamma! }
+      prev   = { ...smooth }
+      seeded = true
+      return  // seed only — skip first sample
+    }
+
+    // Alpha wraps at 0/360 — handle the discontinuity
+    let da = alpha! - smooth.alpha
+    if (da >  180) da -= 360
+    if (da < -180) da += 360
+
+    smooth.alpha = smooth.alpha + da                       * GYRO_EMA
+    smooth.beta  = smooth.beta  + (beta!  - smooth.beta)  * GYRO_EMA
+    smooth.gamma = smooth.gamma + (gamma! - smooth.gamma) * GYRO_EMA
+
+    // Dead zone — suppress jitter below threshold
+    if (
+      Math.abs(smooth.alpha - prev.alpha) < GYRO_DEAD &&
+      Math.abs(smooth.beta  - prev.beta)  < GYRO_DEAD &&
+      Math.abs(smooth.gamma - prev.gamma) < GYRO_DEAD
+    ) return
+
+    prev = { ...smooth }
+
+    // Dispatch a synthetic event carrying the smoothed values
+    try {
+      const filtered = new DeviceOrientationEvent(ev.type, {
+        alpha:    smooth.alpha,
+        beta:     smooth.beta,
+        gamma:    smooth.gamma,
+        absolute: ev.absolute,
+      })
+      typeof original === 'function' ? original(filtered) : original.handleEvent(filtered)
+    } catch {
+      // Synthetic event not supported — fall back to raw
+      typeof original === 'function' ? original(e) : original.handleEvent(e)
+    }
+  }
+}
+
+/**
+ * Monkey-patches window.addEventListener/removeEventListener so that every
+ * future 'deviceorientation' subscriber (including PSV's GyroscopePlugin)
+ * automatically receives EMA-smoothed + dead-zone-filtered values.
+ * Safe to call multiple times — the patch is applied exactly once.
+ */
+function patchGyroscopeSmoothing() {
+  if (_gyroPatched || typeof window === 'undefined') return
+  _gyroPatched = true
+
+  const origAdd    = window.addEventListener.bind(window)
+  const origRemove = window.removeEventListener.bind(window)
+
+  ;(window as any).addEventListener = function (
+    type: string, listener: any, options?: any,
+  ) {
+    if (type === 'deviceorientation' && listener != null) {
+      if (!_wrappedHandlers.has(listener)) {
+        _wrappedHandlers.set(listener, _smoothedGyroHandler(listener))
+      }
+      return origAdd(type, _wrappedHandlers.get(listener)!, options)
+    }
+    return origAdd(type, listener, options)
+  }
+
+  ;(window as any).removeEventListener = function (
+    type: string, listener: any, options?: any,
+  ) {
+    if (type === 'deviceorientation' && listener != null) {
+      const wrapped = _wrappedHandlers.get(listener)
+      if (wrapped) return origRemove(type, wrapped, options)
+    }
+    return origRemove(type, listener, options)
+  }
+}
+
 // ── VirtualTourPlugin integration ─────────────────────────────────────────────
 // Used by the public viewer to get stable native multi-scene navigation.
 // The editor keeps the MarkersPlugin-only approach for per-hotspot editing.
@@ -840,6 +950,10 @@ export async function initVirtualTourViewer(
     },
   }])
 
+  // Apply gyroscope smoothing patch before the viewer registers its
+  // DeviceOrientationEvent listener so PSV receives filtered values.
+  patchGyroscopeSmoothing()
+
   const viewer: any = new Viewer({
     container,
     adapter: [EquirectangularTilesAdapter, {}] as any,
@@ -850,11 +964,12 @@ export async function initVirtualTourViewer(
     navbar: false,
     touchmoveTwoFingers: false,
     fisheye: false,
-    // Higher moveSpeed makes single-finger drag feel responsive on mobile —
-    // default 1 needs ~4 swipes to orbit 360°; 1.5 brings it to ~2.5 swipes
+    // 1.5× speed makes a full 360° orbit achievable in ~2.5 finger-swipes on mobile.
     moveSpeed: 1.5,
-    // Slightly stronger inertia for a premium momentum feel on flick
-    moveInertia: 0.88,
+    // Reduced from 0.88 → 0.72: shorter deceleration tail after a swipe.
+    // High inertia caused the view to keep spinning after release and load
+    // previously-invisible tiles at the edge, producing a jittery flash.
+    moveInertia: 0.72,
     plugins,
   })
 
