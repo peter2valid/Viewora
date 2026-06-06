@@ -639,7 +639,7 @@ function buildTourNodes(
   hotspotsByScene: Record<string, Hotspot[]>,
   performanceMode: 'lite' | 'full' = 'full',
 ): any[] {
-  return scenes.map(scene => {
+  const nodes = scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
 
     // Deduplicate scene_link targets — VT Plugin uses these for its 3D floor arrows.

@@ -984,6 +984,20 @@ async function handleAutoLinkApply() {
 let isMounted = false
 let fetchScenesVersion = 0
 let fetchScenesController: AbortController | null = null
+let floorPlanRegenTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Schedules a floor-plan regeneration with a 4-second debounce.
+ * Called on editor mount (to cover spaces tiled before this feature shipped)
+ * and whenever navigation hotspots change (so the graph stays current).
+ * Fire-and-forget — failure is silent and non-blocking.
+ */
+function scheduleFloorPlanRegen() {
+  if (floorPlanRegenTimer) clearTimeout(floorPlanRegenTimer)
+  floorPlanRegenTimer = setTimeout(() => {
+    apiFetch(`/spaces/${props.spaceId}/regenerate-floor-plan`, { method: 'POST' }).catch(() => {})
+  }, 4000)
+}
 const spaceLoadFailed = ref(false)
 
 const renameCandidate = ref<{ id: string; name: string } | null>(null)
@@ -1500,6 +1514,12 @@ onMounted(async () => {
   if (!planStore.plan) await planStore.fetchSubscriptionStatus()
   await fetchSpace(true)
 
+  // Generate floor plan immediately if missing, or refresh if scenes were recently tiled.
+  // This covers all spaces created before auto-generation was deployed — no manual step needed.
+  if (!space.value?.floorplan_url || scenes.value.some((s: any) => s.tiles_ready && !s.tile_manifest_url)) {
+    scheduleFloorPlanRegen()
+  }
+
   // Silently clean up orphaned nav arrows, order gaps, and stuck scenes on every mount.
   try {
     const repair = await apiFetch(`/spaces/${props.spaceId}/repair`, { method: 'POST' }) as any
@@ -1523,7 +1543,26 @@ onBeforeUnmount(() => {
   replacePendingScenePreviewMap({})
   revokeAllLocalPanoramaUrls()
   if (processingPollTimer) { clearInterval(processingPollTimer); processingPollTimer = null }
+  if (floorPlanRegenTimer) { clearTimeout(floorPlanRegenTimer); floorPlanRegenTimer = null }
 })
+
+// Regenerate the floor plan whenever navigation hotspots change.
+// scene_link hotspots define the spatial graph — any change means new directions or
+// connections that the floor plan should reflect.
+watch(
+  () => {
+    const links: string[] = []
+    for (const hs of Object.values(hotspotsByScene.value)) {
+      for (const h of hs) {
+        if (h.type === 'scene_link') links.push(h.id)
+      }
+    }
+    return links.sort().join(',')
+  },
+  (next, prev) => {
+    if (prev !== '' && next !== prev) scheduleFloorPlanRegen()
+  },
+)
 
 async function fetchScenes() {
   const version = ++fetchScenesVersion
