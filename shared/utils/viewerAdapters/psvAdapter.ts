@@ -340,7 +340,7 @@ export async function initViewer(
   })
 
   // RC-2: Cap pixel ratio at 2 for performance on high-DPI displays
-  viewer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
 
@@ -992,7 +992,7 @@ export async function initVirtualTourViewer(
   })
 
   // RC-2: Cap pixel ratio at 2 for performance on high-DPI displays
-  viewer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
