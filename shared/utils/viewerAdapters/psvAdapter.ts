@@ -967,6 +967,32 @@ export async function initVirtualTourViewer(
 
   viewer.addEventListener('ready', () => {
     onReady?.()
+
+    // ── Smart Focus on Load ────────────────────────────────────────────────
+    // Automatically point the camera at the first valid hotspot (nav or info)
+    // so the user immediately sees interactive content.
+    const firstNode = nodes[0]
+    const firstHotspots = firstNode?.markers || []
+    if (firstHotspots.length > 0) {
+      // Prioritize navigation or info hotspots over others
+      const targetHs = firstHotspots.find((h: any) => h.data?.type === 'scene_link' || h.data?.type === 'info') 
+        || firstHotspots[0]
+
+      if (targetHs && targetHs.position) {
+        // Small delay ensures the panorama has settled before the rotation begins
+        setTimeout(() => {
+          try {
+            viewer.animate({
+              yaw: targetHs.position.yaw,
+              pitch: targetHs.position.pitch ?? 0,
+              zoom: 50,
+              speed: '2rpm'
+            }).catch(() => {})
+          } catch { /* noop */ }
+        }, 400)
+      }
+    }
+
     if (!isLiteMode && autoRotate) {
       requestAnimationFrame(() => {
         try {
