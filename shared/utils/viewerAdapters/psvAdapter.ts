@@ -243,7 +243,7 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
       rows:    scene.tileRows!,
       baseUrl: scene.imageUrl,
       tileUrl: (col: number, row: number) =>
-        `${scene.tileManifestUrl}/${col}_${row}.webp`,
+        `${scene.tileManifestUrl}/${col}_${row}.jpg`,
     }
   }
 
