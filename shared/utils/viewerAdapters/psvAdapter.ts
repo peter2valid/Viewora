@@ -1028,10 +1028,6 @@ export function applyLiveSettings(
   }
 }
 
-}
-
-}
-
 export function resetView(handle: PsvViewerHandle | null, yaw = 0, pitch = 0): void {
   if (!handle?.viewer) return
   try { handle.viewer.animate({ yaw, pitch, zoom: 50, speed: '1.5rpm' }) } catch { /* noop */ }
