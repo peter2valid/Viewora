@@ -34,11 +34,9 @@
     <div :class="['psv-vignette', { 'psv-vignette--active': isFocusing }]" />
 
     <!-- Hotspot action menu — always available in editor context -->
-    <div class="psv-menu-layer" aria-hidden="true">
+    <div class="psv-menu-layer" aria-hidden="true" ref="menuLayerRef">
       <HotspotActionMenu
         :visible="menu.visible"
-        :x="menu.x"
-        :y="menu.y"
         @edit="onMenuEdit"
         @delete="onMenuDelete"
         @reposition="onMenuReposition"
@@ -121,7 +119,8 @@ const dragTracker = {
 }
 
 // ── Hotspot action menu ────────────────────────────────────
-const menu = reactive({ visible: false, locked: false, hotspotId: null as string | null, x: 0, y: 0 })
+const menuLayerRef = ref<HTMLElement | null>(null)
+const menu = reactive({ visible: false, locked: false, hotspotId: null as string | null })
 let menuRaf: number | null = null
 let menuCloseTimer: ReturnType<typeof setTimeout> | null = null
 let menuHovered = false
@@ -154,7 +153,9 @@ function trackMenuPosition() {
   const hs = props.hotspots?.find(h => h.id === menu.hotspotId)
   if (hs) {
     const pos = getHotspotScreenPos(handle.value, hs.yaw, hs.pitch)
-    if (pos) { menu.x = pos.x; menu.y = pos.y }
+    if (pos && menuLayerRef.value) {
+      menuLayerRef.value.style.transform = `translate(${pos.x}px, ${pos.y}px)`
+    }
   }
   menuRaf = requestAnimationFrame(trackMenuPosition)
 }
@@ -165,8 +166,9 @@ function openMenu(id: string) {
   if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
   const pos = getHotspotScreenPos(handle.value, hs.yaw, hs.pitch)
   menu.hotspotId = id
-  menu.x = pos?.x ?? menu.x
-  menu.y = pos?.y ?? menu.y
+  if (pos && menuLayerRef.value) {
+    menuLayerRef.value.style.transform = `translate(${pos.x}px, ${pos.y}px)`
+  }
   menu.visible = true
   menuRaf = requestAnimationFrame(trackMenuPosition)
 }

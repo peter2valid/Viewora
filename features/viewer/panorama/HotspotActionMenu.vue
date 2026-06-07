@@ -3,7 +3,6 @@
     <div
       v-if="visible"
       class="hsm-root"
-      :style="{ left: x + 'px', top: y + 'px' }"
       @mouseenter="$emit('menu-enter')"
       @mouseleave="$emit('menu-leave')"
     >
@@ -40,8 +39,6 @@
 <script setup lang="ts">
 defineProps<{
   visible: boolean
-  x: number
-  y: number
 }>()
 
 defineEmits<{

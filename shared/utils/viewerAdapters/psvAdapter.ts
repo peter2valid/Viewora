@@ -321,7 +321,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, {}] as any,
+    adapter: [EquirectangularTilesAdapter, { resolution: 48 }] as any,
     panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -331,7 +331,16 @@ export async function initViewer(
     touchmoveTwoFingers: false,
     fisheye: false,
     plugins,
+    rendererParameters: {
+      alpha: false,
+      antialias: false,
+      powerPreference: 'high-performance',
+    },
+    moveInertia: 0.6,
   })
+
+  // RC-2: Cap pixel ratio at 2 for performance on high-DPI displays
+  viewer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
 
@@ -962,7 +971,7 @@ export async function initVirtualTourViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, {}] as any,
+    adapter: [EquirectangularTilesAdapter, { resolution: 48 }] as any,
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     loadingTxt: 'Loading...',
@@ -972,12 +981,18 @@ export async function initVirtualTourViewer(
     fisheye: false,
     // 1.5× speed makes a full 360° orbit achievable in ~2.5 finger-swipes on mobile.
     moveSpeed: 1.5,
-    // Reduced from 0.88 → 0.72: shorter deceleration tail after a swipe.
-    // High inertia caused the view to keep spinning after release and load
-    // previously-invisible tiles at the edge, producing a jittery flash.
-    moveInertia: 0.72,
+    // Reduced to 0.6 per RC-3 (was 0.72)
+    moveInertia: 0.6,
     plugins,
+    rendererParameters: {
+      alpha: false,
+      antialias: false,
+      powerPreference: 'high-performance',
+    },
   })
+
+  // RC-2: Cap pixel ratio at 2 for performance on high-DPI displays
+  viewer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
