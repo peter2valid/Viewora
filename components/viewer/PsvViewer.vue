@@ -580,7 +580,15 @@ function sceneImageUrl(scene: any): string {
   // Always prefer thumbnail (2048×1024) as the PSV baseUrl — it's shown as the
   // low-res preview while tiles load, and is a safe WebGL-compatible fallback
   // when tiles don't exist. raw_image_url (40-50 MB) exceeds mobile GPU limits.
-  return scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || ''
+  const rawUrl = scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || ''
+  if (!rawUrl || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) return rawUrl
+  
+  // Use Nuxt Image to get a 2048px WebP version for the baseUrl texture
+  try {
+    return img(rawUrl, { width: 2048, format: 'webp', quality: 85 })
+  } catch {
+    return rawUrl
+  }
 }
 
 async function copyPublicUrl() {

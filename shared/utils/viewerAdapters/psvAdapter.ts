@@ -724,8 +724,10 @@ function buildTourNodes(
     hotspots.forEach(h => {
       if (h.type === 'scene_link' && h.targetSceneId) {
         if (!uniqueLinksMap.has(h.targetSceneId)) {
+          const targetScene = scenes.find(s => s.id === h.targetSceneId)
           uniqueLinksMap.set(h.targetSceneId, {
             nodeId: h.targetSceneId,
+            label: targetScene?.title || 'Next Scene',
             position: { yaw: h.yaw, pitch: -0.8 }, // Force pitch to -0.8 (Zillow-style floor level)
           })
         }

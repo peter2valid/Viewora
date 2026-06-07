@@ -62,8 +62,8 @@
         target="_blank"
         rel="noopener"
         class="viewora-free-brand"
-        aria-label="Visit Viewora Virtual Tour Software"
-        title="Viewora Virtual Tour Software"
+        aria-label="Viewora Virtual Tours - Visit our website"
+        title="Viewora Virtual Tours"
       >
         <NuxtImg
           src="/globe-icon.png"
@@ -126,6 +126,7 @@ function trackWatermarkClick() {
     })
   }
 }
+const requestURL = useRequestURL()
 const slug = route.params.slug as string
 
 const pending = ref(true)
@@ -133,8 +134,12 @@ const fetchError = ref('')
 const state = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const space = ref<any>(null)
 const tour = ref<any>(null)
-const shareUrl = ref('')
 const viewerChromeHidden = ref(false)
+
+const shareUrl = computed(() => {
+  const identifier = space.value?.slug || space.value?.id || slug
+  return `${requestURL.origin}/p/${identifier}`
+})
 
 const blurCover = computed(() => {
   if (!tour.value) return null
@@ -186,7 +191,6 @@ if (tourError.value) {
   })
 
   state.value = hasRenderableScene ? 'ready' : 'empty'
-  syncShareLinks(spaceData)
 }
 
 pending.value = false
@@ -198,7 +202,6 @@ onMounted(() => {
   if (space.value?.id) {
     fireViewEvent(space.value.id)
   }
-  syncShareLinks()
 })
 
 onBeforeUnmount(() => {
@@ -211,14 +214,6 @@ onBeforeUnmount(() => {
     })
   }
 })
-
-function syncShareLinks(value = space.value) {
-  if (typeof window === 'undefined' || !value) return
-
-  const identifier = value.slug || value.id || slug
-  const origin = window.location.origin
-  shareUrl.value = `${origin}/p/${identifier}`
-}
 
 function fireViewEvent(spaceId: string) {
   apiFetch('/analytics/view', {

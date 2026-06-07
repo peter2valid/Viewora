@@ -76,7 +76,7 @@
                 <NuxtImg
                   v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl)"
                   :src="item.imageUrl"
-                  :alt="item.label"
+                  :alt="''"
                   class="glass-dock__thumbImg"
                   width="108"
                   height="58"
@@ -669,8 +669,15 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 .glass-dock__thumbLoading {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%);
-  background-size: 200% 100%;
+  overflow: hidden;
+}
+
+.glass-dock__thumbLoading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0) 100%);
+  transform: translateX(-100%);
   animation: thumb-shimmer 1.5s infinite;
 }
 
@@ -767,8 +774,7 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes thumb-shimmer {
-  from { background-position: 180% 0; }
-  to { background-position: -40% 0; }
+  100% { transform: translateX(100%); }
 }
 @keyframes pulse {
   0%, 100% { opacity: 0.45; }
