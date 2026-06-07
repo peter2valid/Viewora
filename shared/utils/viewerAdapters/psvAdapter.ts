@@ -444,7 +444,7 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       const el = isNav ? buildNavMarkerEl(hotspot) : buildInfoMarkerEl(hotspot)
 
       const baseSize = isNav ? 52 : 40
-      const scaledSize = Math.round(hBaseSize * scale)
+      const scaledSize = Math.round(baseSize * scale)
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
