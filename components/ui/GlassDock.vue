@@ -2,7 +2,7 @@
   <div style="display: contents;">
     <Transition name="glass-dock">
       <div
-        v-if="visible && (items.length || showAdd)"
+        v-if="isMounted && visible && (items.length || showAdd)"
         ref="dockEl"
         class="glass-dock-container pointer-events-none"
         :class="[isCollapsed ? 'glass-dock-container--collapsed' : '']"
@@ -251,6 +251,7 @@ const emit = defineEmits<{
 
 const visible = ref(false)
 const isCollapsedLocal = ref(false)
+const isMounted = ref(false)
 
 const isCollapsed = computed({
   get() {
@@ -265,7 +266,10 @@ const isCollapsed = computed({
   }
 })
 
-onMounted(() => { visible.value = true })
+onMounted(() => { 
+  isMounted.value = true
+  visible.value = true 
+})
 
 const dockEl = ref<HTMLElement | null>(null)
 const stripEl = ref<HTMLElement | null>(null)

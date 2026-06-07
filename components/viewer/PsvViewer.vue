@@ -437,11 +437,8 @@ const shareTabs = [
 const hasTourData = computed(() => (props.tour?.scenes?.length ?? 0) > 0)
 const isLiteMode = computed(() => viewerPerformanceMode.value === 'lite')
 
-// Gyroscope only shown on devices that have motion sensors
-const gyroscopeSupported = computed(() =>
-  typeof window !== 'undefined' &&
-  (typeof DeviceOrientationEvent !== 'undefined' || navigator.maxTouchPoints > 0)
-)
+// Gyroscope only shown on devices that have motion sensors — handled in onMounted to avoid hydration mismatch
+const gyroscopeSupported = ref(false)
 
 // ── Scene list from tour ───────────────────────────────────────────────────
 const tourScenes = computed<any[]>(() => {
@@ -901,6 +898,9 @@ function onRailTouchStart(e: TouchEvent) {
 
 onMounted(() => {
   if (typeof window !== 'undefined') {
+    // Check for motion sensor support
+    gyroscopeSupported.value = typeof DeviceOrientationEvent !== 'undefined' || navigator.maxTouchPoints > 0
+
     try {
       const savedMode = window.sessionStorage.getItem('viewora-viewer-performance-mode')
       viewerPerformanceMode.value = savedMode === 'lite' || savedMode === 'full'
