@@ -898,8 +898,9 @@ function onRailTouchStart(e: TouchEvent) {
 
 onMounted(() => {
   if (typeof window !== 'undefined') {
-    // Check for motion sensor support
-    gyroscopeSupported.value = typeof DeviceOrientationEvent !== 'undefined' || navigator.maxTouchPoints > 0
+    // Check for motion sensor support — reliably indicated by touch support
+    // (Laptops with touch/gyro will show it, standard desktops will not)
+    gyroscopeSupported.value = navigator.maxTouchPoints > 0
 
     try {
       const savedMode = window.sessionStorage.getItem('viewora-viewer-performance-mode')

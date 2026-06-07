@@ -888,16 +888,10 @@ export async function initVirtualTourViewer(
     autostartOnIdle: true,
   }])
 
-  // GyroscopePlugin is a hard dependency of StereoPlugin but we never start it
-  // ourselves. Restrict to touch devices only — typeof DeviceOrientationEvent
-  // is true on every browser including desktop Firefox, which triggers the
-  // "orientation sensor is deprecated" warning the moment the plugin is registered.
-  // maxTouchPoints > 0 is the reliable indicator of an actual mobile/tablet device.
-  const isTouchDevice =
-    typeof window !== 'undefined' && navigator.maxTouchPoints > 0
-  if (isTouchDevice) {
-    plugins.push([GyroscopePlugin, { touchmove: false }])
-  }
+  // GyroscopePlugin MUST be registered for StereoPlugin (VR mode) to work,
+  // even on devices without a physical gyroscope (like desktops).
+  // We keep it disabled by default; the UI controls whether it starts.
+  plugins.push([GyroscopePlugin, { touchmove: false }])
   plugins.push([StereoPlugin])
 
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
