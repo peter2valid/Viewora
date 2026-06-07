@@ -5,11 +5,9 @@ import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
 import { SettingsPlugin } from '@photo-sphere-viewer/settings-plugin'
 import { StereoPlugin } from '@photo-sphere-viewer/stereo-plugin'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
-import { MapPlugin } from '@photo-sphere-viewer/map-plugin'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import '@photo-sphere-viewer/virtual-tour-plugin/index.css'
 import '@photo-sphere-viewer/settings-plugin/index.css'
-import '@photo-sphere-viewer/map-plugin/index.css'
 
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
@@ -803,12 +801,6 @@ function buildTourNodes(
       panorama: buildPanorama(scene, performanceMode),
       name: scene.title,
       thumbnail: scene.imageUrl,
-      // Pixel coordinates on the floor plan image — only included when non-zero
-      // so MapPlugin knows where to place this node's dot on the map
-      map: (typeof scene.positionX === 'number' && typeof scene.positionY === 'number' &&
-            (scene.positionX !== 0 || scene.positionY !== 0))
-        ? { x: scene.positionX, y: scene.positionY }
-        : undefined,
       links,
       markers,
     }
@@ -850,7 +842,6 @@ export interface VirtualTourInitOptions {
   autoRotate?: boolean
   performanceMode?: ViewerPerformanceMode
   loadingImg?: string
-  floorplanUrl?: string
 }
 
 /**
@@ -873,7 +864,6 @@ export async function initVirtualTourViewer(
     autoRotate,
     performanceMode = 'auto',
     loadingImg = '/images/viewora-logo.png',
-    floorplanUrl,
   } = options
 
   const startScene = scenes.find(s => s.id === startNodeId) || scenes[0]
@@ -907,29 +897,6 @@ export async function initVirtualTourViewer(
     plugins.push([GyroscopePlugin, { touchmove: false }])
   }
   plugins.push([StereoPlugin])
-
-  // MapPlugin: interactive floor plan overlay — only activated when the space has
-  // a floor plan image AND it is not an SVG (SVG fails in PSV's canvas renderer
-  // on Firefox, leaving this.config.map null and crashing on navigation).
-  // PNG floor plans generated after the June 2026 fix are safe to use.
-  const floorplanIsPng = floorplanUrl && !floorplanUrl.endsWith('.svg')
-  if (floorplanIsPng) {
-    // Canvas pixel positions saved by the floor plan generator.
-    // Fall back to canvas centre (550, 390 on the 1100×780 canvas) when
-    // scenes haven't been positioned yet — MapPlugin requires a valid center.
-    const cx = (startScene.positionX && startScene.positionX > 1) ? startScene.positionX : 550
-    const cy = (startScene.positionY && startScene.positionY > 1) ? startScene.positionY : 390
-    plugins.push([MapPlugin, {
-      imageUrl: floorplanUrl,
-      center:   { x: cx, y: cy },
-      rotation: '0deg',
-      size:     '230px',
-      position: 'bottom left',
-      visibleOnLoad: true,
-      minZoom: 0.5,
-      maxZoom: 4,
-    }])
-  }
 
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
   plugins.push([VirtualTourPlugin, {

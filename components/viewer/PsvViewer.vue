@@ -674,7 +674,6 @@ async function initVT() {
     : ''
   const startNodeId = validHashScene || (tourScenes.value[0]?.id ?? '')
   const autoRotate = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
-  const floorplanUrl = (props.tour?.space?.floorplan_url as string | undefined) || undefined
 
   try {
     const handle = await initVirtualTourViewer(
@@ -686,7 +685,6 @@ async function initVT() {
         autoRotate,
         performanceMode: viewerPerformanceMode.value,
         loadingImg: optimizedLoadingLogo.value,
-        floorplanUrl,
         onReady: () => {
           if (version !== vtInitVersion) return
           vtReady.value = true
