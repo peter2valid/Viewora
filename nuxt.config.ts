@@ -72,11 +72,33 @@ export default defineNuxtConfig({
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'SAMEORIGIN',
+      'Content-Security-Policy': [
+        "default-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://extension-cdn.getdirecto.com https://app.viewora.software",
+        "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co",
+        "frame-src 'self' https://www.youtube.com https://youtube.com",
+        "worker-src 'self' blob:",
+        "upgrade-insecure-requests",
+      ].join('; '),
     }},
     // Embed pages — intentionally cross-origin embeddable, no X-Frame-Options
     '/embed/**': { ssr: true, headers: {
       'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
       'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': [
+        "default-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://app.viewora.software",
+        "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co",
+        "frame-src 'self' https://www.youtube.com https://youtube.com",
+        "worker-src 'self' blob:",
+        "upgrade-insecure-requests",
+      ].join('; '),
     }},
     // App dashboard — client-side only (auth-protected, user-specific data)
     '/app/**': { ssr: false, headers: {
@@ -84,6 +106,17 @@ export default defineNuxtConfig({
       'X-Frame-Options': 'DENY',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Content-Security-Policy': [
+        "default-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://extension-cdn.getdirecto.com https://app.viewora.software",
+        "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co",
+        "frame-src 'self' https://www.youtube.com https://youtube.com",
+        "worker-src 'self' blob:",
+        "upgrade-insecure-requests",
+      ].join('; '),
     }},
     // API — no caching for authenticated data
     '/api/**': { headers: { 'Cache-Control': 'private, no-store, must-revalidate' } },
