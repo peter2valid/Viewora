@@ -2722,9 +2722,9 @@ watch(() => vtTransitioning.value, (loading) => {
   }
   .hint-fade-enter-from,
   .hint-fade-leave-to {
-  opacity: 0;
+    opacity: 0;
   }
-  </style>
+
   .viewer-control-stack,
   .viewer-cta-btn,
   .viewer-wa-btn,
