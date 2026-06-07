@@ -1028,6 +1028,16 @@ export function applyLiveSettings(
   }
 }
 
+/** Stubs for removed Gyroscope plugin to prevent UI build failures */
+export function toggleGyroscope(handle: PsvViewerHandle | null): void {
+  void handle
+}
+
+export function isGyroscopeEnabled(handle: PsvViewerHandle | null): boolean {
+  void handle
+  return false
+}
+
 export function resetView(handle: PsvViewerHandle | null, yaw = 0, pitch = 0): void {
   if (!handle?.viewer) return
   try { handle.viewer.animate({ yaw, pitch, zoom: 50, speed: '1.5rpm' }) } catch { /* noop */ }
