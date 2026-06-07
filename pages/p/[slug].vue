@@ -48,7 +48,7 @@
     </div>
 
     <template v-else-if="state === 'ready' && tour">
-      <LazyViewerPsvViewer
+      <ViewerPsvViewer
         :tour="tour"
         :share-url="shareUrl"
         @chrome-toggle="viewerChromeHidden = $event"
