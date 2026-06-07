@@ -48,7 +48,7 @@ const dockItems = computed(() =>
     id: s.id,
     label: s.label,
     imageUrl: s.imageUrl,
-    badge: s.badge ?? (s.ready ? null : 'loading'),
+    badge: s.ready ? null : (s.badge ?? 'loading'),
   }))
 )
 </script>

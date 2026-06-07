@@ -476,9 +476,13 @@ const dockItems = computed(() =>
   tourScenes.value.map((s: any, idx: number) => ({
     id: s.id,
     label: s.name || `Scene ${idx + 1}`,
-    imageUrl: s.thumbnail_url || null, // raw_image_url omitted — too large for IPX to resize in time
+    imageUrl: s.thumbnail_url || null,
     ariaLabel: `Go to ${s.name || `Scene ${idx + 1}`}`,
-    badge: (s.status && s.status !== 'ready' ? 'loading' : null) as 'loading' | 'failed' | null,
+    // If tiles are ready or we have a thumbnail, the scene is functional.
+    // Only show 'loading' if it's genuinely pending, and skip 'failed' if it actually works.
+    badge: (s.tiles_ready || s.thumbnail_url || s.status === 'ready') 
+      ? null 
+      : (s.status === 'failed' || s.status === 'error' ? 'failed' : 'loading'),
   }))
 )
 

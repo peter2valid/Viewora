@@ -1554,11 +1554,11 @@ async function fetchScenes() {
       const mapped = backendSceneStatusToUploadState(scene.status)
       if (mapped === 'ready') {
         delete nextSceneUploadState[scene.id]
-      } else if (mapped === 'processing' && scene.thumbnail_url) {
-        // Status field is missing or stale but thumbnail confirms processing is done.
+      } else if ((mapped === 'processing' || mapped === 'failed') && (scene.thumbnail_url || scene.tiles_ready)) {
+        // Status field is missing or stale but thumbnail confirms processing is done or tiles are usable.
         // Store 'ready' explicitly so sceneChips and hasProcessingScenes see the
         // correct state — deleting the entry would cause them to fall back to the
-        // raw status string which still says 'processing'.
+        // raw status string which still says 'processing' or 'failed'.
         nextSceneUploadState[scene.id] = 'ready'
       } else {
         nextSceneUploadState[scene.id] = mapped
