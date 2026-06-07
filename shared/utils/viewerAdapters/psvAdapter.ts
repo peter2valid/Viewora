@@ -325,6 +325,7 @@ export async function initViewer(
     panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
+    defaultZoomLvl: 0,
     loadingTxt: 'Loading...',
     loadingImg,
     navbar: false,
@@ -406,6 +407,7 @@ export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene
     await handle.viewer.setPanorama(buildPanorama(scene), {
       showLoader: false,
       position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
+      zoom: 0,
       transition: { speed: 800, rotation: false, effect: 'fade' },
     })
 
@@ -974,6 +976,7 @@ export async function initVirtualTourViewer(
     adapter: [EquirectangularTilesAdapter, { resolution: 64 }] as any,
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
+    defaultZoomLvl: 0,
     loadingTxt: 'Loading...',
     loadingImg,
     navbar: false,
