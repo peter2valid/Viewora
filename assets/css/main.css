@@ -3446,6 +3446,15 @@ header.nav {
 /* PSV marker must allow overflow so floating cards stay visible */
 .psv-marker { overflow: visible !important; background: none !important; border: none !important; }
 
+/* Promote every marker and native tour arrow to its own GPU compositor layer.
+   Eliminates sub-pixel jitter during autorotate caused by per-frame 3D→2D
+   projection rounding. Memory cost is ~15KB per marker — negligible vs tiles. */
+.psv-marker,
+.psv-virtual-tour-link {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
 /* ── NAV hotspot ──────────────────────────────────────────── */
 .vhs-nav {
   position: relative;
@@ -3457,6 +3466,8 @@ header.nav {
   justify-content: flex-start;
   cursor: pointer;
   transition: transform 0.2s ease;
+  will-change: transform;
+  transform: translateZ(0);
 }
 .vhs-nav:hover { transform: scale(1.18); }
 
@@ -3524,6 +3535,8 @@ header.nav {
   justify-content: center;
   cursor: pointer;
   pointer-events: auto;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .vhs-info__trigger {
