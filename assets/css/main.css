@@ -3457,7 +3457,6 @@ header.nav {
   justify-content: flex-start;
   cursor: pointer;
   transition: transform 0.2s ease;
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
 }
 .vhs-nav:hover { transform: scale(1.18); }
 
@@ -3482,6 +3481,7 @@ header.nav {
   height: 48px;
   object-fit: contain;
   pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
 }
 
 .vhs-nav__arrow {
