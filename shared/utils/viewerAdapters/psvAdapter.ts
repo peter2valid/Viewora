@@ -52,8 +52,11 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
   const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches ?? false
   const mobileViewport = window.innerWidth < 1024
 
-  if (mobileViewport && (coarsePointer || navigator.maxTouchPoints > 0)) return 'lite'
+  // Degrade on poor connections regardless of device (catches slow Android + data saver)
   if (saveData || slowConnection) return 'lite'
+  // No longer blanket-downgrading touch/mobile devices — phones on 4G or Wi-Fi
+  // get full tiles. iOS doesn't expose the connection API so it always lands here
+  // and gets full tiles by default.
   if (reducedMotion && (lowMemory || lowCores)) return 'lite'
   if (lowMemory && lowCores) return 'lite'
 
