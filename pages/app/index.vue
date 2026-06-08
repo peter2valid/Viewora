@@ -313,7 +313,7 @@ const urlCopied = ref(false)
 const embedCopied = ref(false)
 const qrDataUrl = ref('')
 const qrLoading = ref(false)
-const shareTabs = [
+const shareTabs: Array<{ id: 'link' | 'embed' | 'qr'; label: string }> = [
   { id: 'link', label: 'Send a link' },
   { id: 'embed', label: 'Embed' },
   { id: 'qr', label: 'QR code' },

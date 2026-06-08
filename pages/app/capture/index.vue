@@ -755,7 +755,7 @@ const deptFilters = [
 ]
 
 // Use deptFilters for pills, allDepartments for cards
-const departments = deptFilters  // pill filter options
+const departments = deptFilters as Array<{ id: string; label: string; icon?: string }>  // pill filter options
 const activeDept = ref('all')
 
 const filteredDepartments = computed(() =>

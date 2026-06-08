@@ -513,7 +513,7 @@ const dockItems = computed(() =>
     badge: (s.tiles_ready || s.thumbnail_url || s.status === 'ready') 
       ? null 
       : (s.status === 'failed' || s.status === 'error' ? 'failed' : 'loading'),
-  }))
+  })) as any[]
 )
 
 const ctaEnabled = computed(() =>

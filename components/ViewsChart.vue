@@ -45,7 +45,7 @@ const chartData = computed(() => ({
   ],
 }))
 
-const chartOptions = computed(() => ({
+const chartOptions = computed<any>(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
