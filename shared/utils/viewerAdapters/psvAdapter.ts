@@ -959,7 +959,7 @@ export async function initVirtualTourViewer(
     preload: !isLiteMode,
     transitionOptions: {
       showLoader: true,
-      speed: '20rpm',
+      speed: '2rpm',
       effect: 'fade',
       // rotation: false — do NOT pan the camera to the floor arrow before transitioning.
       // With rotation:true, PSV rotated down to pitch=-0.8 (the link position) before the
@@ -1034,7 +1034,8 @@ export async function initVirtualTourViewer(
         || firstHotspots[0]
 
       if (targetHs && targetHs.position) {
-        // Small delay ensures the panorama has settled before the rotation begins
+        // Delay until tiles have had time to upload to GPU — reduces jitter from
+        // camera animation competing with texture uploads on scene entry.
         setTimeout(() => {
           try {
             viewer.animate({
@@ -1043,7 +1044,7 @@ export async function initVirtualTourViewer(
               speed: '2rpm'
             }).catch(() => {})
           } catch { /* noop */ }
-        }, 400)
+        }, 800)
       }
     }
 
