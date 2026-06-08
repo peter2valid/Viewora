@@ -1108,12 +1108,34 @@ export async function initVirtualTourViewer(
       el.addEventListener('touchstart',   prefetch, { passive: true })
     }
   }
+
+  // Also attach to VirtualTourPlugin's native floor arrow links (.psv-virtual-tour-link).
+  // PSV stores the link data on the element as element.tourLink = { nodeId, ... }.
+  // These arrows render after node-changed so we query the DOM after a short delay.
+  const attachArrowPrefetch = () => {
+    const container = viewer.container as HTMLElement
+    container.querySelectorAll<HTMLElement>('.psv-virtual-tour-link').forEach(el => {
+      if ((el as any).__prefetchAttached) return
+      ;(el as any).__prefetchAttached = true
+      const nodeId: string | undefined = (el as any).tourLink?.nodeId
+      const target = nodeId ? scenes.find(s => s.id === nodeId) : null
+      if (!target) return
+      const prefetch = () => prefetchSceneTiles(target, resolvedPerformanceMode)
+      el.addEventListener('pointerenter', prefetch, { passive: true })
+      el.addEventListener('touchstart',   prefetch, { passive: true })
+    })
+  }
+
   // Wire up the initial node and each subsequent node as the user navigates
   if (nodes[0]) attachHotspotPrefetch(nodes[0])
   virtualTour.addEventListener('node-changed', (e: any) => {
     const node = nodes.find((n: any) => n.id === e.node.id)
     if (node) attachHotspotPrefetch(node)
+    // Arrow links render slightly after node-changed fires
+    setTimeout(attachArrowPrefetch, 300)
   })
+  // Also wire up arrows on initial load
+  viewer.addEventListener('ready', () => setTimeout(attachArrowPrefetch, 300), { once: true })
 
   const handleMarkerSelect = (e: any) => {
     // Read type from data attribute (plain-DOM builders) or fallback to marker.data
