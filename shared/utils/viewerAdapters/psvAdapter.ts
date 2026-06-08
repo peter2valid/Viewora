@@ -1040,7 +1040,6 @@ export async function initVirtualTourViewer(
             viewer.animate({
               yaw: targetHs.position.yaw,
               pitch: targetHs.position.pitch ?? 0,
-              zoom: 50,
               speed: '2rpm'
             }).catch(() => {})
           } catch { /* noop */ }
