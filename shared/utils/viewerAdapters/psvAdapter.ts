@@ -100,6 +100,58 @@ function canUseMediumTiles(scene: TourScene): boolean {
     && scene.tilesReady === true
 }
 
+// ── Tile prefetcher ───────────────────────────────────────────────────────
+// Warms the browser cache for a scene's tiles before the user navigates to it.
+// Uses low-priority fetch so it never competes with the active scene's rendering.
+// Only one prefetch runs at a time — a new call cancels the previous one.
+let _prefetchController: AbortController | null = null
+
+export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | 'full'): void {
+  if (typeof window === 'undefined') return
+  if (!scene.tilesReady) return
+
+  const useMedium = performanceMode === 'lite' && canUseMediumTiles(scene)
+  const manifest  = useMedium ? scene.tileMediumManifestUrl : scene.tileManifestUrl
+  const cols      = useMedium ? scene.tileMediumCols! : scene.tileCols!
+  const rows      = useMedium ? scene.tileMediumRows! : scene.tileRows!
+  if (!manifest || !cols || !rows) return
+
+  // Cancel any in-flight prefetch so we don't pile up requests
+  _prefetchController?.abort()
+  _prefetchController = new AbortController()
+  const signal = _prefetchController.signal
+
+  // Build tile order: centre-out spiral so the most visible tiles load first.
+  // The equirectangular centre (col≈cols/2, row≈rows/2) maps to the viewer's
+  // default forward-facing position, which is what the user sees on entry.
+  const midC = Math.floor(cols / 2)
+  const midR = Math.floor(rows / 2)
+  const order: Array<[number, number]> = []
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      order.push([c, r])
+    }
+  }
+  order.sort(([c1, r1], [c2, r2]) =>
+    (Math.abs(c1 - midC) + Math.abs(r1 - midR)) -
+    (Math.abs(c2 - midC) + Math.abs(r2 - midR))
+  )
+
+  // Fire requests sequentially so we don't flood the connection
+  ;(async () => {
+    for (const [col, row] of order) {
+      if (signal.aborted) break
+      const url = `${manifest}/${col}_${row}.webp`
+      try {
+        await fetch(url, { signal, priority: 'low' as any, credentials: 'omit' })
+      } catch {
+        // abort or network error — stop quietly
+        break
+      }
+    }
+  })()
+}
+
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
 // These create standard divs that PSV MarkersPlugin handles reliably
 // across all browsers without any WebComponent registration fragility.
@@ -1017,9 +1069,51 @@ export async function initVirtualTourViewer(
     cleanupFns.push(() => autorotatePl.removeEventListener('autorotate', handleAutorotateEv))
   }
 
-  const handleNodeChanged = (e: any) => onNodeChanged?.(e.node.id)
+  const handleNodeChanged = (e: any) => {
+    onNodeChanged?.(e.node.id)
+
+    // Prefetch tiles for all scenes reachable from the new node so the next
+    // navigation feels instant. We schedule this after a short delay so the
+    // current scene's own tile loading settles first.
+    setTimeout(() => {
+      const currentScene = scenes.find(s => s.id === e.node.id)
+      if (!currentScene) return
+      const hotspots = hotspotsByScene[currentScene.id] ?? []
+      const linkedIds = [...new Set(
+        hotspots
+          .filter(h => h.type === 'scene_link' && h.targetSceneId)
+          .map(h => h.targetSceneId!)
+      )]
+      for (const id of linkedIds) {
+        const target = scenes.find(s => s.id === id)
+        if (target) prefetchSceneTiles(target, resolvedPerformanceMode)
+      }
+    }, 1500)
+  }
   virtualTour.addEventListener('node-changed', handleNodeChanged)
   cleanupFns.push(() => virtualTour.removeEventListener('node-changed', handleNodeChanged))
+
+  // Attach pointerenter (desktop) + touchstart (mobile) to nav hotspot elements
+  // for an earlier prefetch trigger — fires as soon as the user moves toward or
+  // touches a hotspot, giving a head start before the click/tap is confirmed.
+  const attachHotspotPrefetch = (node: any) => {
+    for (const marker of (node.markers || [])) {
+      const el: HTMLElement | undefined = marker.element
+      if (!el || marker.data?.type !== 'scene_link') continue
+      const targetId = marker.data?.targetSceneId
+      const target = targetId ? scenes.find(s => s.id === targetId) : null
+      if (!target) continue
+      const prefetch = () => prefetchSceneTiles(target, resolvedPerformanceMode)
+      el.addEventListener('pointerenter', prefetch, { passive: true })
+      el.addEventListener('touchstart',   prefetch, { passive: true })
+    }
+  }
+  // Wire up the initial node and each subsequent node as the user navigates
+  if (nodes[0]) attachHotspotPrefetch(nodes[0])
+  virtualTour.addEventListener('node-changed', (e: any) => {
+    const node = nodes.find((n: any) => n.id === e.node.id)
+    if (node) attachHotspotPrefetch(node)
+  })
 
   const handleMarkerSelect = (e: any) => {
     // Read type from data attribute (plain-DOM builders) or fallback to marker.data
