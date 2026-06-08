@@ -2627,8 +2627,7 @@ watch(() => vtTransitioning.value, (loading) => {
   }
   :global(.vhs-nav__icon),
   :global(.psv-hs-icon-img) {
-    filter: none !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5)) !important;
   /* Remove will-change from overlay elements — too many compositor layers
      exhausts GPU memory on mid-range Android */
   }
