@@ -55,59 +55,6 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
   return 'full'
 }
 
-// ── Tile fetch throttle ───────────────────────────────────────────────────────
-// PSV fires all tile requests simultaneously via HTTP/2, causing a burst of
-// 288+ concurrent fetches that stalls the GPU and hangs the viewer.
-// This intercepts window.fetch for tile URLs only and limits concurrency to 6,
-// so tiles trickle in one by one and appear smoothly on the sphere.
-// A bounded queue (max 16 pending) ensures stale viewport tiles from
-// auto-rotation get dropped when newer tiles are requested.
-let _tileThrottleInstalled = false
-const TILE_CONCURRENCY = 6
-const TILE_QUEUE_MAX   = 16
-
-let _tileQueue: Array<() => void> = []
-let _tileActive = 0
-
-function _tileDequeue() {
-  while (_tileActive < TILE_CONCURRENCY && _tileQueue.length > 0) {
-    _tileActive++
-    _tileQueue.shift()!()
-  }
-}
-
-/** Drop all pending (not-yet-started) tile fetches — call on scene transitions. */
-export function clearTileQueue(): void {
-  _tileQueue = []
-}
-
-function installTileFetchThrottle(): void {
-  if (_tileThrottleInstalled || typeof window === 'undefined') return
-  _tileThrottleInstalled = true
-
-  const orig = window.fetch.bind(window)
-
-  window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input
-      : input instanceof URL ? input.href
-      : (input as Request).url
-
-    if (!/\/tiles(?:_medium)?\/\d+_\d+\.webp/.test(url)) {
-      return orig(input, init)
-    }
-
-    return new Promise<Response>((resolve, reject) => {
-      _tileQueue.push(() => {
-        orig(input, init)
-          .then(r  => { _tileActive--; _tileDequeue(); resolve(r) })
-          .catch(e => { _tileActive--; _tileDequeue(); reject(e) })
-      })
-      // Drop oldest stale requests when queue is full (viewport has moved on)
-      while (_tileQueue.length > TILE_QUEUE_MAX) _tileQueue.shift()
-      _tileDequeue()
-    })
-  }) as typeof fetch
-}
 
 /** Centralized Signature: Every visual property must be represented here */
 function esc(s: string): string {
@@ -356,40 +303,28 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
     }
   }
 
-  // Full mode: progressive multi-level loading.
-  // Level 0 (medium tiles, 4096px) loads first — fast, covers the whole scene.
-  // Level 1 (full tiles, up to 12288px) streams in on top for maximum clarity.
-  // PSV picks the minimum level whose resolution covers the current viewport,
-  // so smaller screens never fetch tiles they don't need.
-  // The user can pan freely while both levels load — tile streaming is async.
+  // Full mode: use medium tiles (4096×2048, 32 tiles max).
+  // Medium tiles give 2× better quality than the thumbnail with no hang risk.
+  // Full-res tiles (288+) caused GPU floods and viewer freezes — avoided.
   if (canUseTiledPanorama(scene)) {
-    const mediumAvailable = canUseMediumTiles(scene)
-    // Root tileUrl receives (col, row, levelIndex) — routes to correct tile set.
-    const tileUrl = mediumAvailable
-      ? (col: number, row: number, level: number) =>
-          level === 0
-            ? `${scene.tileMediumManifestUrl}/${col}_${row}.webp`
-            : `${scene.tileManifestUrl}/${col}_${row}.webp`
-      : (col: number, row: number) =>
-          `${scene.tileManifestUrl}/${col}_${row}.webp`
-
-    if (mediumAvailable) {
+    if (canUseMediumTiles(scene)) {
       return {
+        width:   4096,
+        cols:    scene.tileMediumCols!,
+        rows:    scene.tileMediumRows!,
         baseUrl: scene.imageUrl,
-        tileUrl,
-        levels: [
-          { width: 4096,              cols: scene.tileMediumCols!, rows: scene.tileMediumRows! },
-          { width: scene.width || 12288, cols: scene.tileCols!,       rows: scene.tileRows! },
-        ],
+        tileUrl: (col: number, row: number) =>
+          `${scene.tileMediumManifestUrl}/${col}_${row}.webp`,
       }
     }
-
+    // No medium tiles — fall back to full tiles (older scenes)
     return {
       width:   scene.width || 12288,
       cols:    scene.tileCols!,
       rows:    scene.tileRows!,
       baseUrl: scene.imageUrl,
-      tileUrl,
+      tileUrl: (col: number, row: number) =>
+        `${scene.tileManifestUrl}/${col}_${row}.webp`,
     }
   }
 
@@ -432,8 +367,6 @@ export async function initViewer(
     performanceMode = 'auto',
     loadingImg = '/images/viewora-logo.png'
   } = options
-
-  installTileFetchThrottle()
 
   const isTouchDevice =
     typeof window !== 'undefined' &&
@@ -1024,8 +957,6 @@ export async function initVirtualTourViewer(
     loadingImg = '/images/viewora-logo.png',
   } = options
 
-  installTileFetchThrottle()
-
   const startScene = scenes.find(s => s.id === startNodeId) || scenes[0]
   if (!startScene) throw new Error('No scenes to display')
 
@@ -1174,9 +1105,6 @@ export async function initVirtualTourViewer(
   }
 
   const handleNodeChanged = (e: any) => {
-    // Drop pending tile fetches from the previous scene immediately so they
-    // don't compete with the incoming scene's tiles.
-    clearTileQueue()
     onNodeChanged?.(e.node.id)
 
     // Prefetch tiles for all scenes reachable from the new node so the next
