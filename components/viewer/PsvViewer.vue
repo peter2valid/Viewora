@@ -16,6 +16,16 @@
       </div>
     </Transition>
 
+    <!-- Initial tour loading overlay — covers the black vt-canvas until first panorama is ready -->
+    <Transition name="vt-init-load">
+      <div v-if="hasTourData && !vtReady && !vtError" class="vt-init-overlay">
+        <div class="vt-init-overlay__logo-wrap">
+          <img :src="optimizedLoadingLogo" class="vt-init-overlay__logo" alt="" />
+        </div>
+        <p class="vt-init-overlay__label">Loading Tour</p>
+      </div>
+    </Transition>
+
     <!-- Interactive Hint Overlay (Shown on first load) -->
     <Transition name="hint-fade">
       <div v-if="showInteractionHint" class="viewer-hint" @mousedown="dismissHint" @touchstart="dismissHint">
@@ -723,6 +733,15 @@ async function initVT() {
   vtError.value = ''
   vtFocusing.value = false
 
+  // Kick off the same progress bar used during scene switches so the
+  // initial black screen gets a consistent loading treatment.
+  loadProgressValue.value = 0
+  loadProgressVisible.value = true
+  if (progressTimer) clearInterval(progressTimer)
+  progressTimer = setInterval(() => {
+    loadProgressValue.value = Math.min(78, loadProgressValue.value + 3)
+  }, 60)
+
   const mappedScenes = tourScenes.value.map(mapRawScene)
   const hotspotsByScene = buildAllHotspots()
 
@@ -750,6 +769,10 @@ async function initVT() {
         loadingImg: optimizedLoadingLogo.value,
         onReady: () => {
           if (version !== vtInitVersion) return
+          // Complete the initial load progress bar
+          if (progressTimer) { clearInterval(progressTimer); progressTimer = null }
+          loadProgressValue.value = 100
+          setTimeout(() => { loadProgressVisible.value = false; loadProgressValue.value = 0 }, 320)
           vtReady.value = true
           autoRotateActive.value = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
           vtActiveNodeId.value = startNodeId
@@ -2315,6 +2338,59 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 .viewer-progress-enter-active, .viewer-progress-leave-active { transition: opacity 280ms ease; }
 .viewer-progress-enter-from, .viewer-progress-leave-to { opacity: 0; }
+
+/* ── Initial tour loading overlay ────────────────────── */
+.vt-init-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: #0a0a0a;
+  pointer-events: none;
+}
+
+.vt-init-overlay__logo-wrap {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.05), inset 0 0 15px rgba(255, 255, 255, 0.05);
+  animation: init-logo-glow 2s ease-in-out infinite alternate;
+}
+
+.vt-init-overlay__logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: invert(1);
+  animation: init-logo-spin 6s linear infinite;
+}
+
+.vt-init-overlay__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+@keyframes init-logo-spin { to { transform: rotate(360deg); } }
+@keyframes init-logo-glow {
+  from { border-color: rgba(255,255,255,0.08); box-shadow: 0 0 20px rgba(255,255,255,0.03), inset 0 0 10px rgba(255,255,255,0.03); }
+  to   { border-color: rgba(255,255,255,0.2);  box-shadow: 0 0 40px rgba(255,255,255,0.1),  inset 0 0 20px rgba(255,255,255,0.1); }
+}
+
+.vt-init-load-leave-active { transition: opacity 0.6s ease; }
+.vt-init-load-leave-to     { opacity: 0; }
 
 /* ── Scene name toast ─────────────────────────────────── */
 .scene-toast {
