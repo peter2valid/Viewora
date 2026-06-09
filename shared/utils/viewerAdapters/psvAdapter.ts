@@ -300,18 +300,9 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
     }
   }
 
-  // No tiles yet — fall back to raw image as single tile (correct sphere mapping)
-  if (scene.rawImageUrl && scene.width) {
-    return {
-      width:   scene.width,
-      cols:    1,
-      rows:    1,
-      baseUrl: scene.imageUrl,
-      tileUrl: () => scene.rawImageUrl!,
-    }
-  }
-
-  // Last resort: thumbnail only
+  // No tiles yet (scene still processing) — use thumbnail for both so the viewer
+  // becomes interactive immediately instead of blocking on the 10MB+ raw image.
+  // Once tiles are ready the polling cycle refreshes the scene with the real tile grid.
   return {
     width:   2048,
     cols:    1,

@@ -310,13 +310,20 @@ export function useEditorUpload(
 
     // Max 3 concurrent uploads — each presign hits Redis + 3 Supabase queries.
     // Firing all N at once can OOM-kill the API pod (400-640 MB cap on Railway).
+    // Sliding window: as soon as one slot frees up the next file starts immediately,
+    // rather than waiting for an entire batch of 3 to finish before starting the next.
     const CONCURRENCY = 3
-    for (let i = 0; i < queued.length; i += CONCURRENCY) {
-      await Promise.all(
-        queued.slice(i, i + CONCURRENCY).map((item, batchOffset) => {
-          const idx = i + batchOffset
+    let active = 0
+    let next = 0
+    await new Promise<void>((resolve) => {
+      function pump() {
+        while (active < CONCURRENCY && next < queued.length) {
+          const item = queued[next]
+          const idx = next
+          next++
+          active++
           setSceneUploadState(item.localSceneId, 'signing')
-          return uploadFile(item.file, 'panorama', {
+          uploadFile(item.file, 'panorama', {
             onRegister: async (record: any) => {
               setSceneUploadState(item.localSceneId, 'registering')
               const sceneName = deriveSceneName(item.file.name, sceneCountBeforeUpload + idx + 1)
@@ -342,10 +349,19 @@ export function useEditorUpload(
               removeOptimisticLocalScene(item.localSceneId)
               showToast(humanError, 'error')
             },
+          }).finally(() => {
+            active--
+            if (next < queued.length) {
+              pump()
+            } else if (active === 0) {
+              resolve()
+            }
           })
-        })
-      )
-    }
+        }
+        if (next >= queued.length && active === 0) resolve()
+      }
+      pump()
+    })
   }
 
   // ── Event handlers ────────────────────────────────────────────
