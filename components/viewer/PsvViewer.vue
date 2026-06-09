@@ -233,6 +233,28 @@
                   <span class="share-modal__share-label">WhatsApp</span>
                 </a>
                 <a
+                  :href="shareFacebookHref"
+                  target="_blank"
+                  rel="noopener"
+                  class="share-modal__share-item"
+                >
+                  <span class="share-modal__share-icon share-modal__share-icon--facebook" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.885v2.269h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+                  </span>
+                  <span class="share-modal__share-label">Facebook</span>
+                </a>
+                <a
+                  :href="shareLinkedInHref"
+                  target="_blank"
+                  rel="noopener"
+                  class="share-modal__share-item"
+                >
+                  <span class="share-modal__share-icon share-modal__share-icon--linkedin" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                  </span>
+                  <span class="share-modal__share-label">LinkedIn</span>
+                </a>
+                <a
                   :href="shareXHref"
                   target="_blank"
                   rel="noopener"
@@ -586,6 +608,8 @@ const publicUrl = computed(() => {
 const shareText = computed(() => `Check out this immersive virtual tour created with Viewora: ${publicUrl.value}`)
 const shareWhatsappHref = computed(() => `https://wa.me/?text=${encodeURIComponent(shareText.value)}`)
 const shareXHref = computed(() => `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText.value)}`)
+const shareFacebookHref = computed(() => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicUrl.value)}`)
+const shareLinkedInHref = computed(() => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(publicUrl.value)}`)
 const shareGmailHref = computed(() => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Viewora virtual tour')}&body=${encodeURIComponent(shareText.value)}`)
 const embedUrl = computed(() => {
   if (!publicUrl.value) return ''
@@ -1581,6 +1605,8 @@ watch(() => vtTransitioning.value, (loading) => {
 
 .share-modal__share-icon svg { width: 22px; height: 22px; }
 .share-modal__share-icon--whatsapp { color: #25d366; background: rgba(37, 211, 102, 0.12); }
+.share-modal__share-icon--facebook { color: #1877F2; background: rgba(24, 119, 242, 0.10); }
+.share-modal__share-icon--linkedin { color: #0A66C2; background: rgba(10, 102, 194, 0.10); }
 .share-modal__share-icon--x { color: #111827; background: #f3f4f6; }
 .share-modal__share-icon--gmail { color: #ea4335; background: rgba(234, 67, 53, 0.10); }
 .share-modal__share-label { font-size: 12px; font-weight: 500; color: #3c4043; }
