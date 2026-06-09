@@ -943,7 +943,7 @@ export async function initVirtualTourViewer(
 
   // Plugin order matters — VirtualTour must be last (depends on MarkersPlugin)
   const plugins: any[] = [
-    [MarkersPlugin, {}],
+    [MarkersPlugin, { clickEventOnMarker: false }],
   ]
 
   plugins.push([AutorotatePlugin, {

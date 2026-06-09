@@ -742,6 +742,7 @@ async function initVT() {
           vtTransitioning.value = false
           vtFocusing.value = false
           activeInfoMarkerId = ''
+          preFocusPosition = null
           $posthog?.capture('scene_navigated', {
             from_scene: vtActiveNodeId.value,
             to_scene: nodeId,
@@ -830,6 +831,7 @@ function loadFullQuality() {
 }
 
 let activeInfoMarkerId = ''
+let preFocusPosition: { yaw: number; pitch: number; zoom: number } | null = null
 
 function dismissInfoCard(handle: PsvViewerHandle) {
   vtFocusing.value = false
@@ -837,6 +839,16 @@ function dismissInfoCard(handle: PsvViewerHandle) {
   const allHS = buildAllHotspots()
   for (const hotspots of Object.values(allHS)) {
     for (const h of hotspots) vtToggleMarkerActive(handle, h.id, false)
+  }
+  // Restore camera to pre-focus position
+  if (preFocusPosition && handle.viewer) {
+    const pos = preFocusPosition
+    preFocusPosition = null
+    try {
+      handle.viewer.animate({ yaw: pos.yaw, pitch: pos.pitch, zoom: pos.zoom, speed: '4rpm' })
+    } catch { /* noop */ }
+  } else {
+    preFocusPosition = null
   }
 }
 
@@ -849,6 +861,12 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
       dismissInfoCard(handle)
       return
     }
+    // Save camera position before zooming so we can restore it on dismiss
+    try {
+      const pos = handle.viewer?.getPosition?.()
+      const zoom = handle.viewer?.getZoomLevel?.() ?? 50
+      if (pos) preFocusPosition = { yaw: pos.yaw, pitch: pos.pitch, zoom }
+    } catch { /* noop */ }
     // Deactivate any other active info cards
     const all = buildAllHotspots()
     for (const hotspots of Object.values(all)) {
