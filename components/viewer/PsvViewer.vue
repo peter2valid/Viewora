@@ -1147,7 +1147,6 @@ watch(vtReady, (ready) => {
     if (showInteractionHint.value) return
     showInteractionHint.value = true
     setupHintDismissListener()
-    setTimeout(dismissHint, 5000)
   }, 900) // 600ms overlay fade + 300ms buffer
 })
 
