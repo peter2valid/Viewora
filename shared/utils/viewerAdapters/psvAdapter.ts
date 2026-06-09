@@ -56,6 +56,35 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
 }
 
 
+// ── Tile fetch throttle ───────────────────────────────────────────────────────
+// Without throttling, all 32 tile fetches complete at roughly the same time
+// and PSV uploads them all to the GPU in one frame — viewer freezes and the
+// image flashes from blur to sharp all at once.
+// Limiting to 4 concurrent requests makes tiles trickle in individually so
+// each one appears on the sphere as it arrives with no freeze.
+let _tileThrottleInstalled = false
+
+function installTileFetchThrottle(): void {
+  if (_tileThrottleInstalled || typeof window === 'undefined') return
+  _tileThrottleInstalled = true
+  const orig = window.fetch.bind(window)
+  let active = 0
+  const queue: Array<() => void> = []
+  function next() {
+    while (active < 4 && queue.length > 0) { active++; queue.shift()!() }
+  }
+  window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url
+    if (!/\/tiles(?:_medium)?\/\d+_\d+\.webp/.test(url)) return orig(input, init)
+    return new Promise<Response>((resolve, reject) => {
+      queue.push(() => orig(input, init)
+        .then(r  => { active--; next(); resolve(r) })
+        .catch(e => { active--; next(); reject(e) }))
+      next()
+    })
+  }) as typeof fetch
+}
+
 /** Centralized Signature: Every visual property must be represented here */
 function esc(s: string): string {
   if (!s) return ''
@@ -368,6 +397,7 @@ export async function initViewer(
     loadingImg = '/images/viewora-logo.png'
   } = options
 
+  installTileFetchThrottle()
   const isTouchDevice =
     typeof window !== 'undefined' &&
     ('ontouchstart' in window || navigator.maxTouchPoints > 0)
@@ -957,6 +987,7 @@ export async function initVirtualTourViewer(
     loadingImg = '/images/viewora-logo.png',
   } = options
 
+  installTileFetchThrottle()
   const startScene = scenes.find(s => s.id === startNodeId) || scenes[0]
   if (!startScene) throw new Error('No scenes to display')
 
