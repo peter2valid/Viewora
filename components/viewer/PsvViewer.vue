@@ -877,31 +877,37 @@ async function initVT() {
               if (facingYaw > Math.PI) facingYaw -= 2 * Math.PI
             }
 
-            // Short, snappy rotation — just reorients, not a dramatic sweep
-            requestAnimationFrame(() => {
-              try {
-                handle.viewer?.animate({
-                  yaw:   facingYaw,
-                  pitch: 0,
-                  speed: '8rpm',
-                })
-              } catch { /* noop */ }
-            })
+            // Short, snappy rotation — just reorients, not a dramatic sweep.
+            // 200ms delay lets the thumbnail upload to GPU first so the rotation
+            // animation doesn't compete with texture upload on scene entry.
+            setTimeout(() => {
+              requestAnimationFrame(() => {
+                try {
+                  handle.viewer?.animate({
+                    yaw:   facingYaw,
+                    pitch: 0,
+                    speed: '8rpm',
+                  })
+                } catch { /* noop */ }
+              })
+            }, 200)
           } else {
             // Dock/autoplay navigation: no pendingEntry means the camera pitch was
             // never reset. If the user was looking at a floor arrow (pitch ≈ -0.8 rad)
             // before clicking the dock button, they'd arrive in the new scene staring
             // at the floor. Reset to the scene's configured default pitch/yaw.
             const targetScene = mappedScenes.find(s => s.id === nodeId)
-            requestAnimationFrame(() => {
-              try {
-                handle.viewer?.animate({
-                  yaw:   targetScene?.settings.yaw_default ?? 0,
-                  pitch: targetScene?.settings.pitch_default ?? 0,
-                  speed: '8rpm',
-                })
-              } catch { /* noop */ }
-            })
+            setTimeout(() => {
+              requestAnimationFrame(() => {
+                try {
+                  handle.viewer?.animate({
+                    yaw:   targetScene?.settings.yaw_default ?? 0,
+                    pitch: targetScene?.settings.pitch_default ?? 0,
+                    speed: '8rpm',
+                  })
+                } catch { /* noop */ }
+              })
+            }, 200)
           }
         },
         onMarkerClick: (markerId, type, url) => {

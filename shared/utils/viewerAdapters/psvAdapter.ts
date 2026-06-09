@@ -1014,6 +1014,16 @@ export async function initVirtualTourViewer(
   plugins.push([GyroscopePlugin, { touchmove: false }])
   plugins.push([StereoPlugin])
 
+  // Small tours (≤6 scenes) benefit from preload:true — panorama configs are pre-built
+  // so navigation has zero setup overhead. Larger tours skip this to avoid a slow
+  // initial load while all nodes are initialised simultaneously.
+  const usePreload = scenes.length <= 6
+
+  // On lite mode or low-DPR devices, skip the fade — compositing two WebGL frames at
+  // different opacities doubles GPU work and causes jitter on budget phones.
+  // Full mode and higher-end devices keep the fade for a polished aesthetic.
+  const useFade = !isLiteMode && window.devicePixelRatio >= 2
+
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
   plugins.push([VirtualTourPlugin, {
     dataMode: 'client',
@@ -1021,16 +1031,19 @@ export async function initVirtualTourViewer(
     renderMode: '3d',
     nodes,
     startNodeId,
-    preload: false,
+    preload: usePreload,
     transitionOptions: {
-      showLoader: true,
+      // Hide spinner — thumbnail appears instantly as baseUrl so a loader over black
+      // is unnecessary and adds perceived latency.
+      showLoader: false,
       speed: '2rpm',
-      effect: 'fade',
+      effect: useFade ? 'fade' : 'none',
       // rotation: false — do NOT pan the camera to the floor arrow before transitioning.
       // With rotation:true, PSV rotated down to pitch=-0.8 (the link position) before the
       // fade, making it look like the camera dove at the floor. The smart entry direction
       // feature already handles the correct orientation after arrival.
       rotation: false,
+      transition: { speed: 600, effect: useFade ? 'fade' : 'none', rotation: false },
     },
     // Show scene thumbnail card when the user hovers a floor arrow
     showLinkTooltip: true,
@@ -1152,7 +1165,13 @@ export async function initVirtualTourViewer(
       )]
       for (const id of linkedIds) {
         const target = scenes.find(s => s.id === id)
-        if (target) prefetchSceneTiles(target, resolvedPerformanceMode)
+        if (target) {
+          // Preload thumbnail into browser memory so GPU upload is instant when
+          // the fade transition completes and PSV needs the texture.
+          const img = new Image()
+          img.src = target.imageUrl
+          prefetchSceneTiles(target, resolvedPerformanceMode)
+        }
       }
     }, 1500)
   }
@@ -1169,7 +1188,13 @@ export async function initVirtualTourViewer(
       const targetId = marker.data?.targetSceneId
       const target = targetId ? scenes.find(s => s.id === targetId) : null
       if (!target) continue
-      const prefetch = () => prefetchSceneTiles(target, resolvedPerformanceMode)
+      const prefetch = () => {
+        // Decode thumbnail into browser memory immediately on hover/touch so
+        // the GPU upload is instant when the fade transition completes.
+        const img = new Image()
+        img.src = target.imageUrl
+        prefetchSceneTiles(target, resolvedPerformanceMode)
+      }
       el.addEventListener('pointerenter', prefetch, { passive: true })
       el.addEventListener('touchstart',   prefetch, { passive: true })
     }
