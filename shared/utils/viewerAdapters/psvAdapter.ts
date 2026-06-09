@@ -888,6 +888,7 @@ export interface VirtualTourInitOptions {
   onError?: (err: Error) => void
   onNodeChanged?: (nodeId: string) => void
   onMarkerClick?: (hotspotId: string, type: string, url?: string) => void
+  onBackgroundClick?: () => void
   onAutorotateChange?: (enabled: boolean) => void
   autoRotate?: boolean
   performanceMode?: ViewerPerformanceMode
@@ -910,6 +911,7 @@ export async function initVirtualTourViewer(
     onError,
     onNodeChanged,
     onMarkerClick,
+    onBackgroundClick,
     onAutorotateChange,
     autoRotate,
     performanceMode = 'auto',
@@ -1141,6 +1143,15 @@ export async function initVirtualTourViewer(
   }
   markers.addEventListener('select-marker', handleMarkerSelect)
   cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
+
+  // PSV fires its internal 'click' event only for background clicks (not marker clicks,
+  // since clickEventOnMarker:false causes PSV to stopImmediatePropagation on marker hits).
+  // This is the correct hook for dismissing the info card on canvas background clicks.
+  if (onBackgroundClick) {
+    const handleBgClick = () => onBackgroundClick()
+    viewer.addEventListener('click', handleBgClick)
+    cleanupFns.push(() => viewer.removeEventListener('click', handleBgClick))
+  }
 
   return {
     viewer,

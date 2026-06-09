@@ -741,6 +741,7 @@ async function initVT() {
           if (version !== vtInitVersion) return
           vtTransitioning.value = false
           vtFocusing.value = false
+          activeInfoMarkerId = ''
           $posthog?.capture('scene_navigated', {
             from_scene: vtActiveNodeId.value,
             to_scene: nodeId,
@@ -795,6 +796,11 @@ async function initVT() {
           $posthog?.capture('hotspot_interacted', { hotspot_type: type })
           handleMarkerClick(handle, markerId, type, url)
         },
+        onBackgroundClick: () => {
+          if (version !== vtInitVersion) return
+          if (!vtFocusing.value) return
+          dismissInfoCard(handle)
+        },
         onAutorotateChange: (enabled) => {
           autoRotateActive.value = enabled
         },
@@ -823,25 +829,46 @@ function loadFullQuality() {
   }
 }
 
+let activeInfoMarkerId = ''
+
+function dismissInfoCard(handle: PsvViewerHandle) {
+  vtFocusing.value = false
+  activeInfoMarkerId = ''
+  const allHS = buildAllHotspots()
+  for (const hotspots of Object.values(allHS)) {
+    for (const h of hotspots) vtToggleMarkerActive(handle, h.id, false)
+  }
+}
+
 async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type: string, url = '') {
   if (vtTransitioning.value) return
 
-  // Deactivate any previously active info card first
-  const all = buildAllHotspots()
-  for (const hotspots of Object.values(all)) {
-    for (const h of hotspots) {
-      if (h.id !== markerId) vtToggleMarkerActive(handle, h.id, false)
-    }
-  }
-  vtFocusing.value = false
-
   if (type === 'info') {
-    // Show the floating info card and pan the viewer to it
+    // Toggle: clicking the already-active info hotspot closes the card
+    if (vtFocusing.value && activeInfoMarkerId === markerId) {
+      dismissInfoCard(handle)
+      return
+    }
+    // Deactivate any other active info cards
+    const all = buildAllHotspots()
+    for (const hotspots of Object.values(all)) {
+      for (const h of hotspots) {
+        if (h.id !== markerId) vtToggleMarkerActive(handle, h.id, false)
+      }
+    }
+    activeInfoMarkerId = markerId
     vtFocusing.value = true
     vtToggleMarkerActive(handle, markerId, true)
     await focusHotspot(handle, markerId)
+    return
+  }
 
-  } else if (type === 'url') {
+  // For non-info types, always clear any active info card first
+  dismissInfoCard(handle)
+
+  const all = buildAllHotspots()
+
+  if (type === 'url') {
     // Open external link — url comes directly from the marker data attribute
     const target = url || (() => {
       for (const hotspots of Object.values(all)) {
@@ -1016,11 +1043,8 @@ function onViewerClick() {
     toggleChrome()
     return
   }
-  if (!vtFocusing.value) return
-  vtFocusing.value = false
-  const all = buildAllHotspots()
-  for (const hotspots of Object.values(all)) {
-    for (const h of hotspots) vtToggleMarkerActive(vtHandle.value, h.id, false)
+  if (vtFocusing.value && vtHandle.value) {
+    dismissInfoCard(vtHandle.value)
   }
 }
 
