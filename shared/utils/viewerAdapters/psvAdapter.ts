@@ -404,7 +404,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, { resolution: 32, antialias: false }] as any,
+    adapter: [EquirectangularTilesAdapter, { resolution: 64, baseBlur: false, antialias: false }] as any,
     panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -1025,7 +1025,7 @@ export async function initVirtualTourViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, { resolution: 32, antialias: false }] as any,
+    adapter: [EquirectangularTilesAdapter, { resolution: 64, baseBlur: false, antialias: false }] as any,
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     defaultZoomLvl: 0,
