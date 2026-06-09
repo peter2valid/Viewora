@@ -1004,9 +1004,7 @@ export async function initVirtualTourViewer(
     startNodeId,
     preload: usePreload,
     transitionOptions: {
-      // Hide spinner — thumbnail appears instantly as baseUrl so a loader over black
-      // is unnecessary and adds perceived latency.
-      showLoader: false,
+      showLoader: true,
       speed: '2rpm',
       effect: useFade ? 'fade' : 'none',
       // rotation: false — do NOT pan the camera to the floor arrow before transitioning.
