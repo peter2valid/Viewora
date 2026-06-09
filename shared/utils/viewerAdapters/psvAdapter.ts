@@ -38,35 +38,19 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
     connection?: { saveData?: boolean; effectiveType?: string; downlink?: number }
     mozConnection?: { saveData?: boolean; effectiveType?: string; downlink?: number }
     webkitConnection?: { saveData?: boolean; effectiveType?: string; downlink?: number }
-    deviceMemory?: number
-    hardwareConcurrency?: number
   }
 
   const connection = nav.connection || nav.mozConnection || nav.webkitConnection
   const saveData = !!connection?.saveData
   const effectiveType = connection?.effectiveType || ''
-  // 4G or fast WiFi — never degrade regardless of device signals.
-  // iOS doesn't expose the connection API so effectiveType is '' there;
-  // it always falls through to the hardware checks below.
-  const fastConnection = effectiveType === '4g' || (typeof connection?.downlink === 'number' && connection.downlink >= 5)
-  const slowConnection = !fastConnection && (
+  const slowConnection =
     effectiveType === 'slow-2g' || effectiveType === '2g' ||
     (typeof connection?.downlink === 'number' && connection.downlink < 1.2)
-  )
-  // Only truly low-end devices (≤2 GB RAM AND ≤2 cores) get lite mode.
-  // Mid-range phones (4 GB / 4-core) are common enough to deserve full tiles.
-  const lowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory > 0 && nav.deviceMemory <= 2
-  const lowCores  = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 2
-  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
 
-  // saveData / very slow connection → always lite
+  // Only data-saver mode or a genuinely unusable connection gets lite tiles.
+  // Hardware (RAM, cores, GPU) is no longer a factor — full tiles load
+  // progressively so even slow devices see something immediately.
   if (saveData || slowConnection) return 'lite'
-  // Fast connection overrides hardware signals — good WiFi/4G can stream full tiles
-  if (fastConnection) return 'full'
-  // Truly low-end hardware (≤2 GB + ≤2 cores) regardless of motion preference
-  if (lowMemory && lowCores) return 'lite'
-  // Reduced-motion + genuinely weak hardware
-  if (reducedMotion && (lowMemory || lowCores)) return 'lite'
 
   return 'full'
 }
@@ -318,15 +302,40 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
     }
   }
 
-  // Full mode: use the complete tile grid
+  // Full mode: progressive multi-level loading.
+  // Level 0 (medium tiles, 4096px) loads first — fast, covers the whole scene.
+  // Level 1 (full tiles, up to 12288px) streams in on top for maximum clarity.
+  // PSV picks the minimum level whose resolution covers the current viewport,
+  // so smaller screens never fetch tiles they don't need.
+  // The user can pan freely while both levels load — tile streaming is async.
   if (canUseTiledPanorama(scene)) {
+    const mediumAvailable = canUseMediumTiles(scene)
+    // Root tileUrl receives (col, row, levelIndex) — routes to correct tile set.
+    const tileUrl = mediumAvailable
+      ? (col: number, row: number, level: number) =>
+          level === 0
+            ? `${scene.tileMediumManifestUrl}/${col}_${row}.webp`
+            : `${scene.tileManifestUrl}/${col}_${row}.webp`
+      : (col: number, row: number) =>
+          `${scene.tileManifestUrl}/${col}_${row}.webp`
+
+    if (mediumAvailable) {
+      return {
+        baseUrl: scene.imageUrl,
+        tileUrl,
+        levels: [
+          { width: 4096,              cols: scene.tileMediumCols!, rows: scene.tileMediumRows! },
+          { width: scene.width || 12288, cols: scene.tileCols!,       rows: scene.tileRows! },
+        ],
+      }
+    }
+
     return {
       width:   scene.width || 12288,
       cols:    scene.tileCols!,
       rows:    scene.tileRows!,
       baseUrl: scene.imageUrl,
-      tileUrl: (col: number, row: number) =>
-        `${scene.tileManifestUrl}/${col}_${row}.webp`,
+      tileUrl,
     }
   }
 
@@ -1037,11 +1046,9 @@ export async function initVirtualTourViewer(
     },
   })
 
-  // Full mode → 2× DPR (native Retina sharpness on capable hardware/fast connection).
-  // Lite mode → 1.5× DPR (original value, preserves smooth panning on weak devices).
-  // The same signal that selects tile quality also selects render resolution.
-  const dprCap = resolvedPerformanceMode === 'lite' ? 1.5 : 2
-  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap))
+  // Cap at 2× for all devices — matches native Retina resolution without
+  // the 4× pixel count of 3× DPR screens.
+  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
