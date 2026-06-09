@@ -1006,13 +1006,13 @@ export async function initVirtualTourViewer(
     transitionOptions: {
       showLoader: true,
       speed: '2rpm',
-      effect: useFade ? 'fade' : 'none',
+      effect: 'fade',
       // rotation: false — do NOT pan the camera to the floor arrow before transitioning.
       // With rotation:true, PSV rotated down to pitch=-0.8 (the link position) before the
       // fade, making it look like the camera dove at the floor. The smart entry direction
       // feature already handles the correct orientation after arrival.
       rotation: false,
-      transition: { speed: 600, effect: useFade ? 'fade' : 'none', rotation: false },
+      transition: { speed: 600, effect: 'fade', rotation: false },
     },
     // Show scene thumbnail card when the user hovers a floor arrow
     showLinkTooltip: true,
