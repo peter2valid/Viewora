@@ -259,25 +259,33 @@ const seoDescription = computed(() => {
 // raw_image_url is included because thumbnail processing may not have run yet.
 // The fallback URL is hardcoded (not appUrl) so it never resolves to "undefined/..."
 // when the env var is missing during SSR.
-const OG_FALLBACK = 'https://app.viewora.software/images/og-default.png'
+const OG_FALLBACK = 'https://app.viewora.software/images/og-default.jpg'
+const $img = useImage()
 const seoImage = computed(() => {
-  // raw_image_url is intentionally excluded: original panoramas can be 10–50MB
-  // and WhatsApp/social crawlers time out fetching images that large, showing
-  // a blank preview. Only use the processed 2048×1024 thumbnail or cover image.
-  const url =
+  const rawUrl =
     tour.value?.scenes?.[0]?.thumbnail_url
     || space.value?.cover_image_url
-    || OG_FALLBACK
-  // Guard: must be an absolute HTTPS URL or WhatsApp silently drops it
-  if (!url || !url.startsWith('http')) return OG_FALLBACK
-  return url
+  if (!rawUrl || !rawUrl.startsWith('http')) return OG_FALLBACK
+  // Resize to 1200×630 (standard OG aspect ratio) via Nuxt IPX so social crawlers
+  // get a fast ~150KB JPEG instead of the raw 1–2MB panorama thumbnail.
+  try {
+    const path = $img(rawUrl, { width: 1200, height: 630, format: 'jpeg', quality: 80, fit: 'cover' })
+    const base = (appUrl || 'https://app.viewora.software').replace(/\/$/, '')
+    return path.startsWith('/') ? `${base}${path}` : path
+  } catch {
+    return rawUrl
+  }
 })
 
-// Report exact dimensions only when using the known 2048×1024 thumbnail.
-// Omit for raw_image_url / cover (unknown dims) — platforms handle missing dims better
-// than wrong dims.
-const seoImageWidth  = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '2048' : undefined)
-const seoImageHeight = computed(() => tour.value?.scenes?.[0]?.thumbnail_url ? '1024' : undefined)
+// Dimensions match the IPX output (1200×630) when we have a real image; omit for fallback.
+const seoImageWidth  = computed(() => {
+  const hasImage = tour.value?.scenes?.[0]?.thumbnail_url || space.value?.cover_image_url
+  return hasImage ? '1200' : undefined
+})
+const seoImageHeight = computed(() => {
+  const hasImage = tour.value?.scenes?.[0]?.thumbnail_url || space.value?.cover_image_url
+  return hasImage ? '630' : undefined
+})
 const seoImageAlt    = computed(() => `360° virtual tour of ${tour.value?.space?.title || 'this property'}`)
 
 const seoKeywords = computed(() => {
@@ -307,8 +315,7 @@ useSeoMeta({
   ogDescription:     seoDescription,
   ogImage:           seoImage,
   ogImageSecureUrl:  seoImage,
-  // ogImageType intentionally omitted — thumbnail may be JPEG or WebP; wrong type
-  // causes WhatsApp to skip the image even if the URL is valid.
+  ogImageType:       'image/jpeg',
   ogImageWidth:      seoImageWidth,
   ogImageHeight:     seoImageHeight,
   ogImageAlt:        seoImageAlt,

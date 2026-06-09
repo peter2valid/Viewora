@@ -15,7 +15,7 @@ export default defineNuxtConfig({
     // Allow Nuxt IPX to fetch and resize images from Cloudflare R2.
     // The public bucket domain is either the custom MEDIA_DOMAIN or the default
     // r2.dev subdomain. Wildcard subdomains are matched by the *.r2.dev entry.
-    domains: ['r2.dev', '*.r2.dev'],
+    domains: ['r2.dev', '*.r2.dev', 'media.viewora.software'],
     // Raise the default IPX size limit — panorama thumbnails are 2048×1024
     ipx: { maxAge: 3600 },
   },
