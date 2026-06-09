@@ -339,9 +339,20 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
     }
   }
 
-  // No tiles yet (scene still processing) — use thumbnail for both so the viewer
-  // becomes interactive immediately instead of blocking on the 10MB+ raw image.
-  // Once tiles are ready the polling cycle refreshes the scene with the real tile grid.
+  // No tiles yet — in full mode use the raw upload if available (full-res, e.g. 5760×2880)
+  // so pre-existing scenes display clearly without requiring a re-upload.
+  // Lite mode stays on thumbnail to respect mobile bandwidth / GPU limits.
+  if (performanceMode === 'full' && scene.rawImageUrl) {
+    const rawWidth = scene.width || 5760
+    return {
+      width:   rawWidth,
+      cols:    1,
+      rows:    1,
+      baseUrl: scene.imageUrl,
+      tileUrl: () => scene.rawImageUrl!,
+    }
+  }
+
   return {
     width:   2048,
     cols:    1,
