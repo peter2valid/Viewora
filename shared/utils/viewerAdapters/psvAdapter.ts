@@ -229,6 +229,21 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
       </div>
     </div>
   `
+
+  // Prevent touches/clicks on the card body from reaching PSV's event system.
+  // PSV uses mousedown/touchstart on its container to detect "did the user press
+  // here?" — if the card receives those events first and we stop propagation, PSV
+  // never marks a press as started, so it never fires a ClickEvent or
+  // select-marker for card interactions. This keeps the card visible while the
+  // user reads it; only clicking the trigger pin or the panorama background
+  // (outside the marker) dismisses the card.
+  const card = wrap.querySelector('.vhs-info__card') as HTMLElement | null
+  if (card) {
+    const stop = (e: Event) => e.stopPropagation()
+    card.addEventListener('mousedown', stop)
+    card.addEventListener('touchstart', stop, { passive: true })
+  }
+
   return wrap
 }
 
