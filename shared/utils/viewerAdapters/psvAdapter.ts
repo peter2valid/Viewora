@@ -237,6 +237,12 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   // select-marker for card interactions. This keeps the card visible while the
   // user reads it; only clicking the trigger pin or the panorama background
   // (outside the marker) dismisses the card.
+  // Stop native 'click' from bubbling out of the marker on mouse devices.
+  // PSV calls preventDefault() on touchend which suppresses the synthetic click on
+  // touch — so this is only needed for mouse. Without it, every mouse click on the
+  // marker (trigger or card) bubbles to the root @click handler and dismisses the card.
+  wrap.addEventListener('click', (e: Event) => e.stopPropagation())
+
   const card = wrap.querySelector('.vhs-info__card') as HTMLElement | null
   if (card) {
     const stop = (e: Event) => e.stopPropagation()
