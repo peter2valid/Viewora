@@ -45,20 +45,28 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
   const connection = nav.connection || nav.mozConnection || nav.webkitConnection
   const saveData = !!connection?.saveData
   const effectiveType = connection?.effectiveType || ''
-  const slowConnection = effectiveType === 'slow-2g' || effectiveType === '2g' || (typeof connection?.downlink === 'number' && connection.downlink < 1.2)
-  const lowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory > 0 && nav.deviceMemory <= 4
-  const lowCores = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 4
+  // 4G or fast WiFi — never degrade regardless of device signals.
+  // iOS doesn't expose the connection API so effectiveType is '' there;
+  // it always falls through to the hardware checks below.
+  const fastConnection = effectiveType === '4g' || (typeof connection?.downlink === 'number' && connection.downlink >= 5)
+  const slowConnection = !fastConnection && (
+    effectiveType === 'slow-2g' || effectiveType === '2g' ||
+    (typeof connection?.downlink === 'number' && connection.downlink < 1.2)
+  )
+  // Only truly low-end devices (≤2 GB RAM AND ≤2 cores) get lite mode.
+  // Mid-range phones (4 GB / 4-core) are common enough to deserve full tiles.
+  const lowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory > 0 && nav.deviceMemory <= 2
+  const lowCores  = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 2
   const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
-  const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches ?? false
-  const mobileViewport = window.innerWidth < 1024
 
-  // Degrade on poor connections regardless of device (catches slow Android + data saver)
+  // saveData / very slow connection → always lite
   if (saveData || slowConnection) return 'lite'
-  // No longer blanket-downgrading touch/mobile devices — phones on 4G or Wi-Fi
-  // get full tiles. iOS doesn't expose the connection API so it always lands here
-  // and gets full tiles by default.
-  if (reducedMotion && (lowMemory || lowCores)) return 'lite'
+  // Fast connection overrides hardware signals — good WiFi/4G can stream full tiles
+  if (fastConnection) return 'full'
+  // Truly low-end hardware (≤2 GB + ≤2 cores) regardless of motion preference
   if (lowMemory && lowCores) return 'lite'
+  // Reduced-motion + genuinely weak hardware
+  if (reducedMotion && (lowMemory || lowCores)) return 'lite'
 
   return 'full'
 }

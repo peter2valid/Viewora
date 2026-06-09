@@ -335,6 +335,17 @@
       @hotspot-click="emit('hotspot-click', $event)"
     />
 
+    <!-- Lite-mode quality upgrade banner -->
+    <Transition name="viewer-quality-banner">
+      <div v-if="isLiteMode && vtReady && !chromeHidden" class="viewer-quality-banner" @click.stop>
+        <div class="viewer-quality-banner__copy">
+          <span class="viewer-quality-banner__title">Low quality mode</span>
+          <span class="viewer-quality-banner__msg">Slow connection detected</span>
+        </div>
+        <button class="viewer-quality-banner__btn" @click="loadFullQuality">Load HD</button>
+      </div>
+    </Transition>
+
     <!-- ── Scene dock (both modes) ── -->
     <GlassDock
       v-if="sceneCount > 0 && !chromeHidden"
