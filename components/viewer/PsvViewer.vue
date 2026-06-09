@@ -1092,19 +1092,6 @@ onMounted(() => {
     // Detect input type: coarse = touch/stylus, fine = mouse
     isTouchInput.value = window.matchMedia('(pointer: coarse)').matches
 
-    // Show interaction hint if not already dismissed in this browser
-    const dismissed = window.localStorage.getItem('viewora-hint-dismissed')
-    if (!dismissed) {
-      setTimeout(() => {
-        if (!showInteractionHint.value && !dismissed) {
-          showInteractionHint.value = true
-          setupHintDismissListener()
-          // Auto-dismiss after 5 s if user doesn't interact
-          setTimeout(dismissHint, 5000)
-        }
-      }, 1200)
-    }
-
     // Check for motion sensor support — reliably indicated by touch support
     // (Laptops with touch/gyro will show it, standard desktops will not)
     gyroscopeSupported.value = navigator.maxTouchPoints > 0
@@ -1149,6 +1136,19 @@ onMounted(() => {
       }
     }, { timeout: 3000 })
   }
+})
+
+// Show hint after the viewer is ready — wait for the init overlay to finish fading (600ms transition + buffer)
+watch(vtReady, (ready) => {
+  if (!ready) return
+  if (typeof window === 'undefined') return
+  try { if (window.localStorage.getItem('viewora-hint-dismissed')) return } catch { /* noop */ }
+  setTimeout(() => {
+    if (showInteractionHint.value) return
+    showInteractionHint.value = true
+    setupHintDismissListener()
+    setTimeout(dismissHint, 5000)
+  }, 900) // 600ms overlay fade + 300ms buffer
 })
 
 onUnmounted(() => {
