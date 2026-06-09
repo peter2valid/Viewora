@@ -310,43 +310,26 @@ export interface InitViewerOptions {
  * In both cases the baseUrl (thumbnail) is shown instantly while tiles stream in.
  */
 function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'full') {
-  // Lite / mobile: serve medium tiles — far fewer tiles, much less bandwidth
-  if (performanceMode === 'lite') {
-    if (canUseMediumTiles(scene)) {
-      return {
-        width:   4096,
-        cols:    scene.tileMediumCols!,
-        rows:    scene.tileMediumRows!,
-        baseUrl: scene.imageUrl,
-        tileUrl: (col: number, row: number) =>
-          `${scene.tileMediumManifestUrl}/${col}_${row}.webp`,
-      }
-    }
-    // Medium tiles not yet generated: thumbnail-only (1×1) for instant render
+  // Priority 1: medium tiles — the correct choice for ALL devices regardless of
+  // hardware class. Even flagship phones bottleneck on GPU VRAM and draw calls,
+  // not pixel count. 32 tiles at 4096×2048 gives 2× thumbnail quality with no
+  // freeze risk. Full-res tiles (288+) are never served — GPU floods on all devices.
+  if (canUseMediumTiles(scene)) {
     return {
-      width:   2048,
-      cols:    1,
-      rows:    1,
+      width:   4096,
+      cols:    scene.tileMediumCols!,
+      rows:    scene.tileMediumRows!,
       baseUrl: scene.imageUrl,
-      tileUrl: () => scene.imageUrl,
+      tileUrl: (col: number, row: number) =>
+        `${scene.tileMediumManifestUrl}/${col}_${row}.webp`,
     }
   }
 
-  // Full mode: use medium tiles (4096×2048, 32 tiles max).
-  // Medium tiles give 2× better quality than the thumbnail with no hang risk.
-  // Full-res tiles (288+) caused GPU floods and viewer freezes — avoided.
-  if (canUseTiledPanorama(scene)) {
-    if (canUseMediumTiles(scene)) {
-      return {
-        width:   4096,
-        cols:    scene.tileMediumCols!,
-        rows:    scene.tileMediumRows!,
-        baseUrl: scene.imageUrl,
-        tileUrl: (col: number, row: number) =>
-          `${scene.tileMediumManifestUrl}/${col}_${row}.webp`,
-      }
-    }
-    // No medium tiles — fall back to full tiles (older scenes)
+  // Priority 2: legacy full tiles — only reached for old scenes processed before
+  // the medium tile pipeline existed. These scenes have no medium tiles yet.
+  // Only served in full mode (desktop); phones stay on thumbnail to avoid
+  // the 288-tile GPU flood risk on older scene data.
+  if (performanceMode === 'full' && canUseTiledPanorama(scene)) {
     return {
       width:   scene.width || 12288,
       cols:    scene.tileCols!,
@@ -357,20 +340,8 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
     }
   }
 
-  // No tiles yet — in full mode use the raw upload if available (full-res, e.g. 5760×2880)
-  // so pre-existing scenes display clearly without requiring a re-upload.
-  // Lite mode stays on thumbnail to respect mobile bandwidth / GPU limits.
-  if (performanceMode === 'full' && scene.rawImageUrl) {
-    const rawWidth = scene.width || 5760
-    return {
-      width:   rawWidth,
-      cols:    1,
-      rows:    1,
-      baseUrl: scene.imageUrl,
-      tileUrl: () => scene.rawImageUrl!,
-    }
-  }
-
+  // Priority 3: thumbnail only — scene not yet processed, or phone with no
+  // medium tiles. Instant render, no bandwidth waste.
   return {
     width:   2048,
     cols:    1,
