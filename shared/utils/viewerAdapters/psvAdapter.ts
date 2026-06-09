@@ -262,6 +262,7 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
 }
 
 
+
 export function getHotspotScreenPos(
   handle: PsvViewerHandle | null,
   yaw: number,
@@ -413,10 +414,10 @@ export async function initViewer(
     moveInertia: 0.6,
   })
 
-  // Touch devices keep ratio 2 for sharpness. Mouse-driven (laptop) devices cap at 1.5
-  // to cut GPU load on integrated graphics without visible quality loss on photographic content.
-  const isTouchDriven = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouchDriven ? 2 : 1.5))
+  // Cap at 2× for all devices — matches native Retina resolution without
+  // the 4× pixel count of 3× DPR screens. Previous 1.5 cap caused visible
+  // softness on Retina laptops (2× DPR rendered at only 75% of native).
+  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
 
@@ -1036,10 +1037,11 @@ export async function initVirtualTourViewer(
     },
   })
 
-  // Touch devices keep ratio 2 for sharpness. Mouse-driven (laptop) devices cap at 1.5
-  // to cut GPU load on integrated graphics without visible quality loss on photographic content.
-  const isTouchDriven = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouchDriven ? 2 : 1.5))
+  // Full mode → 2× DPR (native Retina sharpness on capable hardware/fast connection).
+  // Lite mode → 1.5× DPR (original value, preserves smooth panning on weak devices).
+  // The same signal that selects tile quality also selects render resolution.
+  const dprCap = resolvedPerformanceMode === 'lite' ? 1.5 : 2
+  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
