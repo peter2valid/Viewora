@@ -26,23 +26,51 @@
       </div>
     </Transition>
 
-    <!-- Interactive Hint Overlay (Shown on first load) -->
+    <!-- Interaction hint — pointer-events:none so the first touch/click ALSO rotates the panorama -->
     <Transition name="hint-fade">
-      <div v-if="showInteractionHint" class="viewer-hint" @mousedown="dismissHint" @touchstart="dismissHint">
+      <div v-if="showInteractionHint" class="viewer-hint">
         <div class="viewer-hint__content">
-          <div class="viewer-hint__icon-wrap">
-            <svg class="viewer-hint__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" />
-              <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v11" />
-              <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
-              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
-            </svg>
-            <div class="viewer-hint__arrows">
-              <svg class="viewer-hint__arrow viewer-hint__arrow--left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-              <svg class="viewer-hint__arrow viewer-hint__arrow--right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+
+          <!-- ── Touch / swipe ── -->
+          <template v-if="isTouchInput">
+            <div class="viewer-hint__icon-wrap">
+              <!-- Single-finger swipe icon -->
+              <svg class="viewer-hint__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.5 4.5a1.5 1.5 0 0 1 3 0v6"/>
+                <path d="M12.5 7a1.5 1.5 0 0 1 3 0v3.5"/>
+                <path d="M6.5 9a1.5 1.5 0 0 1 3 0v1.5"/>
+                <path d="M6.5 10.5v2a5.5 5.5 0 0 0 5.5 5.5h.5a5.5 5.5 0 0 0 5.5-5.5V10"/>
+              </svg>
+              <div class="viewer-hint__arrows">
+                <svg class="viewer-hint__arrow viewer-hint__arrow--left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                <svg class="viewer-hint__arrow viewer-hint__arrow--right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
             </div>
-          </div>
-          <p class="viewer-hint__text">Drag to explore</p>
+            <p class="viewer-hint__text">Swipe to explore</p>
+          </template>
+
+          <!-- ── Mouse / desktop ── -->
+          <template v-else>
+            <div class="viewer-hint__icon-wrap">
+              <!-- Mouse icon with left-button highlight -->
+              <svg class="viewer-hint__icon viewer-hint__icon--mouse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <!-- Mouse body -->
+                <rect x="7" y="2" width="10" height="15" rx="5"/>
+                <!-- Button divider -->
+                <path d="M12 2v7"/>
+                <!-- Left button highlighted -->
+                <path d="M7 7.5h5" stroke-width="2"/>
+                <!-- Scroll wheel -->
+                <line x1="12" y1="11" x2="12" y2="13.5" stroke-width="2"/>
+              </svg>
+              <div class="viewer-hint__arrows">
+                <svg class="viewer-hint__arrow viewer-hint__arrow--left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                <svg class="viewer-hint__arrow viewer-hint__arrow--right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+            </div>
+            <p class="viewer-hint__text">Click &amp; drag</p>
+          </template>
+
         </div>
       </div>
     </Transition>
@@ -483,10 +511,32 @@ const qrLoading = ref(false)
 
 // ── Interaction hint ───────────────────────────────────────────────────────
 const showInteractionHint = ref(false)
+// true = touch/swipe UI, false = mouse/drag UI — set in onMounted to avoid SSR mismatch
+const isTouchInput = ref(false)
+
 function dismissHint() {
   if (!showInteractionHint.value) return
   showInteractionHint.value = false
   try { window.localStorage.setItem('viewora-hint-dismissed', 'true') } catch { /* noop */ }
+}
+
+let hintDismissHandler: (() => void) | null = null
+
+function setupHintDismissListener() {
+  if (!viewerRootEl.value || hintDismissHandler) return
+  hintDismissHandler = () => {
+    dismissHint()
+    hintDismissHandler = null
+  }
+  // passive + once: fires on the very first pointer contact, doesn't block PSV's own handler
+  viewerRootEl.value.addEventListener('pointerdown', hintDismissHandler, { once: true, passive: true })
+}
+
+function teardownHintDismissListener() {
+  if (hintDismissHandler && viewerRootEl.value) {
+    viewerRootEl.value.removeEventListener('pointerdown', hintDismissHandler)
+    hintDismissHandler = null
+  }
 }
 
 const shareTabs = [
@@ -1039,15 +1089,20 @@ function onRailTouchStart(e: TouchEvent) {
 
 onMounted(() => {
   if (typeof window !== 'undefined') {
+    // Detect input type: coarse = touch/stylus, fine = mouse
+    isTouchInput.value = window.matchMedia('(pointer: coarse)').matches
+
     // Show interaction hint if not already dismissed in this browser
     const dismissed = window.localStorage.getItem('viewora-hint-dismissed')
     if (!dismissed) {
       setTimeout(() => {
-        if (!vtHandle.value) return // component unmounted
-        showInteractionHint.value = true
-        // Auto-dismiss after 6 seconds if they don't touch it
-        setTimeout(dismissHint, 6000)
-      }, 1500)
+        if (!showInteractionHint.value && !dismissed) {
+          showInteractionHint.value = true
+          setupHintDismissListener()
+          // Auto-dismiss after 5 s if user doesn't interact
+          setTimeout(dismissHint, 5000)
+        }
+      }, 1200)
     }
 
     // Check for motion sensor support — reliably indicated by touch support
@@ -1104,6 +1159,7 @@ onUnmounted(() => {
   if (autoplayTimer) clearTimeout(autoplayTimer)
   if (tooltipFlashTimer) clearTimeout(tooltipFlashTimer)
   controlStackEl.value?.removeEventListener('touchstart', onRailTouchStart)
+  teardownHintDismissListener()
 })
 
 // Re-init VT if the tour data changes (e.g. navigating to a different tour)
@@ -2795,13 +2851,13 @@ watch(() => vtTransitioning.value, (loading) => {
   .viewer-hint {
   position: absolute;
   inset: 0;
-  z-index: 50; /* Above viewer, below other modals */
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.25);
-  pointer-events: auto;
-  cursor: grab;
+  background: rgba(0, 0, 0, 0.22);
+  /* pointer-events:none so the first swipe/click ALSO moves the panorama */
+  pointer-events: none;
   user-select: none;
   }
 
@@ -2819,15 +2875,21 @@ watch(() => vtTransitioning.value, (loading) => {
   height: 120px;
   }
 
+  /* Touch / swipe icon — finger moves left → right */
   .viewer-hint__icon {
-  width: 80px;
-  height: 80px;
+  width: 72px;
+  height: 72px;
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  animation: hint-hand-move 2.5s ease-in-out infinite;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+  animation: hint-swipe-move 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+  }
+
+  /* Mouse icon — gentle horizontal drag oscillation */
+  .viewer-hint__icon--mouse {
+  animation: hint-drag-move 2.4s ease-in-out infinite;
   }
 
   .viewer-hint__arrows {
@@ -2839,49 +2901,53 @@ watch(() => vtTransitioning.value, (loading) => {
   }
 
   .viewer-hint__arrow {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   opacity: 0.8;
-  animation: hint-arrow-pulse 2.5s ease-in-out infinite;
+  animation: hint-arrow-pulse 2.4s ease-in-out infinite;
   }
 
-  .viewer-hint__arrow--left { animation-delay: 0s; }
-  .viewer-hint__arrow--right { animation-delay: 0.15s; }
+  .viewer-hint__arrow--left  { animation-delay: 0s; }
+  .viewer-hint__arrow--right { animation-delay: 0.18s; }
 
   .viewer-hint__text {
   font-family: var(--font-outfit, sans-serif);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  animation: hint-text-fade 2.5s ease-in-out infinite;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  animation: hint-text-fade 2.4s ease-in-out infinite;
   }
 
-  @keyframes hint-hand-move {
-  0%, 100% { transform: translate(-80%, -50%) rotate(-5deg); }
-  50% { transform: translate(-20%, -50%) rotate(5deg); }
+  /* Swipe: finger travels left → right and back */
+  @keyframes hint-swipe-move {
+  0%   { transform: translate(-80%, -50%) rotate(-6deg); }
+  50%  { transform: translate(-20%, -50%) rotate( 6deg); }
+  100% { transform: translate(-80%, -50%) rotate(-6deg); }
+  }
+
+  /* Drag: mouse floats left → right, slight tilt */
+  @keyframes hint-drag-move {
+  0%   { transform: translate(-70%, -50%) rotate(-4deg); }
+  50%  { transform: translate(-30%, -50%) rotate( 4deg); }
+  100% { transform: translate(-70%, -50%) rotate(-4deg); }
   }
 
   @keyframes hint-arrow-pulse {
-  0%, 100% { opacity: 0.1; transform: scale(0.9); }
-  50% { opacity: 0.8; transform: scale(1.1); }
+  0%, 100% { opacity: 0.1; transform: scale(0.88); }
+  50%       { opacity: 0.85; transform: scale(1.12); }
   }
 
   @keyframes hint-text-fade {
-  0%, 100% { opacity: 0.6; transform: translateY(0); }
-  50% { opacity: 1; transform: translateY(-4px); }
+  0%, 100% { opacity: 0.65; transform: translateY(0); }
+  50%       { opacity: 1;    transform: translateY(-3px); }
   }
 
-  /* Transition for the hint overlay */
   .hint-fade-enter-active,
-  .hint-fade-leave-active {
-  transition: opacity 0.5s ease;
-  }
+  .hint-fade-leave-active { transition: opacity 0.5s ease; }
   .hint-fade-enter-from,
-  .hint-fade-leave-to {
-    opacity: 0;
-  }
+  .hint-fade-leave-to     { opacity: 0; }
 
   .viewer-control-stack,
   .viewer-cta-btn,
