@@ -365,7 +365,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, { resolution: 64 }] as any,
+    adapter: [EquirectangularTilesAdapter, { resolution: 48 }] as any,
     panorama: buildPanorama(scene),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -384,8 +384,10 @@ export async function initViewer(
     moveInertia: 0.6,
   })
 
-  // RC-2: Cap pixel ratio at 2 for performance on high-DPI displays
-  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  // Touch devices keep ratio 2 for sharpness. Mouse-driven (laptop) devices cap at 1.5
+  // to cut GPU load on integrated graphics without visible quality loss on photographic content.
+  const isTouchDriven = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouchDriven ? 2 : 1.5))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
 
@@ -982,7 +984,7 @@ export async function initVirtualTourViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, { resolution: 64 }] as any,
+    adapter: [EquirectangularTilesAdapter, { resolution: 48 }] as any,
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     defaultZoomLvl: 0,
@@ -1003,8 +1005,10 @@ export async function initVirtualTourViewer(
     },
   })
 
-  // RC-2: Cap pixel ratio at 2 for performance on high-DPI displays
-  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  // Touch devices keep ratio 2 for sharpness. Mouse-driven (laptop) devices cap at 1.5
+  // to cut GPU load on integrated graphics without visible quality loss on photographic content.
+  const isTouchDriven = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouchDriven ? 2 : 1.5))
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
