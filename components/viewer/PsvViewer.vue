@@ -2847,108 +2847,6 @@ watch(() => vtTransitioning.value, (loading) => {
      exhausts GPU memory on mid-range Android */
   }
 
-  /* ── Interaction Hint Overlay ── */
-  .viewer-hint {
-  position: absolute;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.22);
-  /* pointer-events:none so the first swipe/click ALSO moves the panorama */
-  pointer-events: none;
-  user-select: none;
-  }
-
-  .viewer-hint__content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  color: #ffffff;
-  }
-
-  .viewer-hint__icon-wrap {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  }
-
-  /* Touch / swipe icon — finger moves left → right */
-  .viewer-hint__icon {
-  width: 72px;
-  height: 72px;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: hint-swipe-move 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
-  }
-
-  /* Mouse icon — gentle horizontal drag oscillation */
-  .viewer-hint__icon--mouse {
-  animation: hint-drag-move 2.4s ease-in-out infinite;
-  }
-
-  .viewer-hint__arrows {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  }
-
-  .viewer-hint__arrow {
-  width: 30px;
-  height: 30px;
-  opacity: 0.8;
-  animation: hint-arrow-pulse 2.4s ease-in-out infinite;
-  }
-
-  .viewer-hint__arrow--left  { animation-delay: 0s; }
-  .viewer-hint__arrow--right { animation-delay: 0.18s; }
-
-  .viewer-hint__text {
-  font-family: var(--font-outfit, sans-serif);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
-  animation: hint-text-fade 2.4s ease-in-out infinite;
-  }
-
-  /* Swipe: finger travels left → right and back */
-  @keyframes hint-swipe-move {
-  0%   { transform: translate(-80%, -50%) rotate(-6deg); }
-  50%  { transform: translate(-20%, -50%) rotate( 6deg); }
-  100% { transform: translate(-80%, -50%) rotate(-6deg); }
-  }
-
-  /* Drag: mouse floats left → right, slight tilt */
-  @keyframes hint-drag-move {
-  0%   { transform: translate(-70%, -50%) rotate(-4deg); }
-  50%  { transform: translate(-30%, -50%) rotate( 4deg); }
-  100% { transform: translate(-70%, -50%) rotate(-4deg); }
-  }
-
-  @keyframes hint-arrow-pulse {
-  0%, 100% { opacity: 0.1; transform: scale(0.88); }
-  50%       { opacity: 0.85; transform: scale(1.12); }
-  }
-
-  @keyframes hint-text-fade {
-  0%, 100% { opacity: 0.65; transform: translateY(0); }
-  50%       { opacity: 1;    transform: translateY(-3px); }
-  }
-
-  .hint-fade-enter-active,
-  .hint-fade-leave-active { transition: opacity 0.5s ease; }
-  .hint-fade-enter-from,
-  .hint-fade-leave-to     { opacity: 0; }
-
   .viewer-control-stack,
   .viewer-cta-btn,
   .viewer-wa-btn,
@@ -2959,6 +2857,103 @@ watch(() => vtTransitioning.value, (loading) => {
   .viewer-wa-btn::after { animation: none; }
   .viewer-wa-btn[data-tooltip]::before { backdrop-filter: none !important; }
 }
+
+/* ── Interaction Hint Overlay ─────────────────────────────────────────── */
+.viewer-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  user-select: none;
+}
+
+.viewer-hint__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  color: #ffffff;
+}
+
+.viewer-hint__icon-wrap {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+
+.viewer-hint__icon {
+  width: 72px;
+  height: 72px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: hint-swipe-move 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+
+.viewer-hint__icon--mouse {
+  animation: hint-drag-move 2.4s ease-in-out infinite;
+}
+
+.viewer-hint__arrows {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.viewer-hint__arrow {
+  width: 30px;
+  height: 30px;
+  opacity: 0.8;
+  animation: hint-arrow-pulse 2.4s ease-in-out infinite;
+}
+
+.viewer-hint__arrow--left  { animation-delay: 0s; }
+.viewer-hint__arrow--right { animation-delay: 0.18s; }
+
+.viewer-hint__text {
+  font-family: var(--font-outfit, sans-serif);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  animation: hint-text-fade 2.4s ease-in-out infinite;
+}
+
+@keyframes hint-swipe-move {
+  0%   { transform: translate(-80%, -50%) rotate(-6deg); }
+  50%  { transform: translate(-20%, -50%) rotate( 6deg); }
+  100% { transform: translate(-80%, -50%) rotate(-6deg); }
+}
+
+@keyframes hint-drag-move {
+  0%   { transform: translate(-70%, -50%) rotate(-4deg); }
+  50%  { transform: translate(-30%, -50%) rotate( 4deg); }
+  100% { transform: translate(-70%, -50%) rotate(-4deg); }
+}
+
+@keyframes hint-arrow-pulse {
+  0%, 100% { opacity: 0.1;  transform: scale(0.88); }
+  50%       { opacity: 0.85; transform: scale(1.12); }
+}
+
+@keyframes hint-text-fade {
+  0%, 100% { opacity: 0.65; transform: translateY(0); }
+  50%       { opacity: 1;    transform: translateY(-3px); }
+}
+
+.hint-fade-enter-active,
+.hint-fade-leave-active { transition: opacity 0.5s ease; }
+.hint-fade-enter-from,
+.hint-fade-leave-to     { opacity: 0; }
 
 /* ── Viewer: tier-specific overrides ────────────────────────────────────
    The broad @media block above strips backdrop-filter on ALL touch devices.
