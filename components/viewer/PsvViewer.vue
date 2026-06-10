@@ -437,6 +437,7 @@ import {
   isAutorotateEnabled,
   toggleGyroscope,
   isGyroscopeEnabled,
+  loadScene,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 
@@ -477,6 +478,8 @@ const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
 const dockCollapsed = ref(true)
+
+let _removeVisibility = () => {}
 
 // ── Smart entry direction ──────────────────────────────────────────────────
 // When navigating via a hotspot, store the entry context so the camera can
@@ -1116,6 +1119,21 @@ onMounted(() => {
 
   controlStackEl.value?.addEventListener('touchstart', onRailTouchStart, { passive: true })
 
+  // Restore WebGL context after screen wake / tab return.
+  // Mobile browsers reclaim GPU resources when the screen turns off, leaving a blank
+  // canvas. Re-loading the current scene rebuilds the WebGL context automatically.
+  const onVisibilityChange = () => {
+    if (document.visibilityState !== 'visible') return
+    if (!vtHandle.value) return
+    const renderer = vtHandle.value.viewer?.renderer?.renderer
+    if (renderer?.isContextLost()) {
+      const scene = tourScenes.value.find((s: TourScene) => s.id === vtActiveNodeId.value)
+      if (scene) loadScene(vtHandle.value, scene).catch(() => {})
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  _removeVisibility = () => document.removeEventListener('visibilitychange', onVisibilityChange)
+
   if (hasTourData.value) {
     // wait one tick for vtContainerEl to be rendered by ClientOnly
     setTimeout(() => initVT(), 0)
@@ -1165,6 +1183,7 @@ onUnmounted(() => {
   if (tooltipFlashTimer) clearTimeout(tooltipFlashTimer)
   controlStackEl.value?.removeEventListener('touchstart', onRailTouchStart)
   teardownHintDismissListener()
+  _removeVisibility()
 })
 
 // Re-init VT if the tour data changes (e.g. navigating to a different tour)
