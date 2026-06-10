@@ -480,6 +480,7 @@ const vtActiveNodeId = ref('')
 const dockCollapsed = ref(true)
 
 let _removeVisibility = () => {}
+let _removeInterruptAnimation = () => {}
 
 // ── Smart entry direction ──────────────────────────────────────────────────
 // When navigating via a hotspot, store the entry context so the camera can
@@ -1134,6 +1135,15 @@ onMounted(() => {
   document.addEventListener('visibilitychange', onVisibilityChange)
   _removeVisibility = () => document.removeEventListener('visibilitychange', onVisibilityChange)
 
+  // Cancel any in-progress camera animation the instant the user interacts.
+  // PSV's animate() doesn't stop on user input by default — without this, the
+  // smart-entry rotation fights the user until it completes.
+  const onInterruptAnimation = () => {
+    try { vtHandle.value?.viewer?.stopAnimation() } catch { /* noop */ }
+  }
+  viewerRootEl.value?.addEventListener('pointerdown', onInterruptAnimation, { passive: true })
+  _removeInterruptAnimation = () => viewerRootEl.value?.removeEventListener('pointerdown', onInterruptAnimation)
+
   if (hasTourData.value) {
     // wait one tick for vtContainerEl to be rendered by ClientOnly
     setTimeout(() => initVT(), 0)
@@ -1184,6 +1194,7 @@ onUnmounted(() => {
   controlStackEl.value?.removeEventListener('touchstart', onRailTouchStart)
   teardownHintDismissListener()
   _removeVisibility()
+  _removeInterruptAnimation()
 })
 
 // Re-init VT if the tour data changes (e.g. navigating to a different tour)
