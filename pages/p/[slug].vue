@@ -481,7 +481,6 @@ useHead(computed(() => {
   width: 76px;
   height: 76px;
   object-fit: contain;
-  filter: invert(1);
   animation: logo-spin 6s linear infinite;
 }
 
@@ -855,7 +854,6 @@ useHead(computed(() => {
   margin-top: 3px;
   margin-left: -15px;
   margin-right: -12px;
-  filter: invert(1);
 }
 
 .viewora-free-brand__name {

@@ -2461,7 +2461,6 @@ watch(() => vtTransitioning.value, (loading) => {
   width: 64px;
   height: 64px;
   object-fit: contain;
-  filter: invert(1);
   animation: init-logo-spin 6s linear infinite;
 }
 

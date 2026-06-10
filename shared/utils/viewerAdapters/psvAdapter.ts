@@ -441,6 +441,7 @@ export async function initViewer(
       alpha: false,
       antialias: false,
       powerPreference: 'high-performance',
+      precision: 'highp',
     },
     moveInertia: 0.6,
   })
@@ -449,6 +450,14 @@ export async function initViewer(
   // the 4× pixel count of 3× DPR screens. Previous 1.5 cap caused visible
   // softness on Retina laptops (2× DPR rendered at only 75% of native).
   viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+  // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.
+  // 99% of devices support 4096 but rare low-end Android GPUs may not.
+  const gl = viewer.renderer.renderer.getContext()
+  const maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE)
+  if (maxTexSize < 4096) {
+    console.warn(`[Viewora] MAX_TEXTURE_SIZE=${maxTexSize} — medium tiles (4096px) may render black on this device`)
+  }
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
 
@@ -1084,12 +1093,20 @@ export async function initVirtualTourViewer(
       alpha: false,
       antialias: false,
       powerPreference: 'high-performance',
+      precision: 'highp',
     },
   })
 
   // Cap at 2× for all devices — matches native Retina resolution without
   // the 4× pixel count of 3× DPR screens.
   viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+  // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.
+  const gl = viewer.renderer.renderer.getContext()
+  const maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE)
+  if (maxTexSize < 4096) {
+    console.warn(`[Viewora] MAX_TEXTURE_SIZE=${maxTexSize} — medium tiles (4096px) may render black on this device`)
+  }
 
   if (ktx2Available) {
     initKtx2Loader(viewer.renderer.renderer)
