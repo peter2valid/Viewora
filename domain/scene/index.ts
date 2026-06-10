@@ -46,6 +46,7 @@ export interface TourScene {
   tileMediumManifestUrl?: string
   tileMediumCols?: number
   tileMediumRows?: number
+  tileMediumKtx2ManifestUrl?: string | null
   width?: number
   height?: number
   positionX?: number

@@ -6,6 +6,11 @@ import { SettingsPlugin } from '@photo-sphere-viewer/settings-plugin'
 import { StereoPlugin } from '@photo-sphere-viewer/stereo-plugin'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
+import {
+  KtxEquirectangularTilesAdapter,
+  initKtx2Loader,
+  detectKtx2GpuSupport,
+} from './KtxEquirectangularTilesAdapter'
 import '@photo-sphere-viewer/virtual-tour-plugin/index.css'
 import '@photo-sphere-viewer/settings-plugin/index.css'
 
@@ -60,8 +65,8 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
 // Without throttling, all 32 tile fetches complete at roughly the same time
 // and PSV uploads them all to the GPU in one frame — viewer freezes and the
 // image flashes from blur to sharp all at once.
-// Limiting to 4 concurrent requests makes tiles trickle in individually so
-// each one appears on the sphere as it arrives with no freeze.
+// 8 concurrent tile fetches — matches PSV v5.13.2 maintainer default (#1605)
+// Original value was 4; raised after confirming safety for 32 × 4096×2048 medium tiles
 let _tileThrottleInstalled = false
 
 function installTileFetchThrottle(): void {
@@ -71,11 +76,11 @@ function installTileFetchThrottle(): void {
   let active = 0
   const queue: Array<() => void> = []
   function next() {
-    while (active < 4 && queue.length > 0) { active++; queue.shift()!() }
+    while (active < 8 && queue.length > 0) { active++; queue.shift()!() }
   }
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url
-    if (!/\/tiles(?:_medium)?\/\d+_\d+\.webp/.test(url)) return orig(input, init)
+    if (!/\/tiles(?:_medium(?:_ktx2)?)?\/\d+_\d+\.(?:webp|ktx2)/.test(url)) return orig(input, init)
     return new Promise<Response>((resolve, reject) => {
       queue.push(() => orig(input, init)
         .then(r  => { active--; next(); resolve(r) })
@@ -309,8 +314,21 @@ export interface InitViewerOptions {
  *   'lite' → medium tiles when available (4096×2048), else thumbnail-only
  * In both cases the baseUrl (thumbnail) is shown instantly while tiles stream in.
  */
-function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'full') {
-  // Priority 1: medium tiles — the correct choice for ALL devices regardless of
+function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'full', useKtx2 = false) {
+  // Priority 1a: KTX2 medium tiles — GPU-compressed upload, stays compressed in VRAM.
+  // Only used when GPU supports compressed textures AND KTX2 tiles were generated.
+  if (useKtx2 && scene.tileMediumKtx2ManifestUrl && canUseMediumTiles(scene)) {
+    return {
+      width:   4096,
+      cols:    scene.tileMediumCols!,
+      rows:    scene.tileMediumRows!,
+      baseUrl: scene.imageUrl,
+      tileUrl: (col: number, row: number) =>
+        `${scene.tileMediumKtx2ManifestUrl}/${col}_${row}.ktx2`,
+    }
+  }
+
+  // Priority 1b: WebP medium tiles — the correct choice for ALL devices regardless of
   // hardware class. Even flagship phones bottleneck on GPU VRAM and draw calls,
   // not pixel count. 32 tiles at 4096×2048 gives 2× thumbnail quality with no
   // freeze risk. Full-res tiles (288+) are never served — GPU floods on all devices.
@@ -351,13 +369,16 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
   }
 }
 
+// PSV_FIX_1524: canvas pixel-read stall on Firefox strict mode — covered by PSV v5.11.5.
+// Viewora does not read canvas pixels in the loading pipeline; captureScreenshot() calls
+// canvas.toDataURL() only on explicit user action, not during viewer init or tile loading.
 export async function initViewer(
   container: HTMLElement,
   scene: TourScene,
   options: InitViewerOptions = {},
 ): Promise<PsvViewerHandle> {
-  const { 
-    onReady, 
+  const {
+    onReady,
     onError, 
     onClick, 
     onMarkerClick, 
@@ -845,6 +866,7 @@ function buildTourNodes(
   scenes: TourScene[],
   hotspotsByScene: Record<string, Hotspot[]>,
   performanceMode: 'lite' | 'full' = 'full',
+  useKtx2 = false,
 ): any[] {
   const nodes = scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
@@ -888,7 +910,7 @@ function buildTourNodes(
 
     return {
       id: scene.id,
-      panorama: buildPanorama(scene, performanceMode),
+      panorama: buildPanorama(scene, performanceMode, useKtx2),
       name: scene.title,
       thumbnail: scene.imageUrl,
       links,
@@ -965,7 +987,12 @@ export async function initVirtualTourViewer(
   const resolvedPerformanceMode = performanceMode === 'auto' ? detectViewerPerformanceMode() : performanceMode
   const isLiteMode = resolvedPerformanceMode === 'lite'
 
-  const nodes = buildTourNodes(scenes, hotspotsByScene, resolvedPerformanceMode)
+  const ktx2Available = detectKtx2GpuSupport() && scenes.some(s => !!s.tileMediumKtx2ManifestUrl)
+  if (ktx2Available) {
+    console.debug('[Viewora] KTX2 tiles available and GPU support detected — using compressed path')
+  }
+
+  const nodes = buildTourNodes(scenes, hotspotsByScene, resolvedPerformanceMode, ktx2Available)
 
   // Plugin order matters — VirtualTour must be last (depends on MarkersPlugin)
   const plugins: any[] = [
@@ -1036,9 +1063,10 @@ export async function initVirtualTourViewer(
   // DeviceOrientationEvent listener so PSV receives filtered values.
   patchGyroscopeSmoothing()
 
+  const adapterClass = ktx2Available ? KtxEquirectangularTilesAdapter : EquirectangularTilesAdapter
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, { resolution: 64, baseBlur: false, antialias: false }] as any,
+    adapter: [adapterClass, { resolution: 64, baseBlur: false, antialias: false }] as any,
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     defaultZoomLvl: 0,
@@ -1062,6 +1090,10 @@ export async function initVirtualTourViewer(
   // Cap at 2× for all devices — matches native Retina resolution without
   // the 4× pixel count of 3× DPR screens.
   viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+  if (ktx2Available) {
+    initKtx2Loader(viewer.renderer.renderer)
+  }
 
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
