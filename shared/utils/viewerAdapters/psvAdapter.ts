@@ -568,12 +568,11 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
       const el = isNav ? buildNavMarkerEl(hotspot) : buildInfoMarkerEl(hotspot)
 
       const baseSize = isNav ? 52 : 40
-      const scaledSize = Math.round(baseSize * scale)
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
         element: el,
-        size: { width: scaledSize, height: scaledSize },
+        size: { width: baseSize, height: baseSize },
         anchor: 'center center',
         tooltip: labelText && isNav ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
         hoverScale: isNav ? hoverAmount : 1,
@@ -909,14 +908,12 @@ function buildTourNodes(
       .map(h => {
         const isNav = h.type === 'scene_link'
         const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
-        const hScale = Number(h.scale || 1)
         const hBaseSize = isNav ? 52 : 40
-        const scaledSize = Math.round(hBaseSize * hScale)
         return {
           id: h.id,
           position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          size: { width: scaledSize, height: scaledSize },
+          size: { width: hBaseSize, height: hBaseSize },
           anchor: 'center center',
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
