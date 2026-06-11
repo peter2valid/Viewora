@@ -1120,14 +1120,25 @@ onMounted(() => {
 
   controlStackEl.value?.addEventListener('touchstart', onRailTouchStart, { passive: true })
 
-  // Restore WebGL context after screen wake / tab return.
-  // Mobile browsers reclaim GPU resources when the screen turns off, leaving a blank
-  // canvas. Re-loading the current scene rebuilds the WebGL context automatically.
+  // Restore viewer after screen wake / tab return.
+  // Two failure modes handled:
+  // 1. WebGL context loss — GPU reclaims resources entirely, canvas goes blank.
+  // 2. Partial tile failure — in-flight fetches are killed by Android background
+  //    throttling. Context survives but some tiles show red warning triangles.
+  //    Detected by checking how long the page was hidden: >30s means any
+  //    in-flight fetches are likely dead, so force a full scene reload.
+  let hiddenAt = 0
   const onVisibilityChange = () => {
-    if (document.visibilityState !== 'visible') return
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now()
+      return
+    }
     if (!vtHandle.value) return
     const renderer = vtHandle.value.viewer?.renderer?.renderer
-    if (renderer?.isContextLost()) {
+    const contextLost = renderer?.isContextLost() ?? false
+    const longAbsence = hiddenAt > 0 && (Date.now() - hiddenAt) > 30_000
+    if (contextLost || longAbsence) {
+      hiddenAt = 0
       const scene = tourScenes.value.find((s: TourScene) => s.id === vtActiveNodeId.value)
       if (scene) loadScene(vtHandle.value, scene).catch(() => {})
     }
