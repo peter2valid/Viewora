@@ -215,6 +215,8 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   const imageUrl = hotspot.imageUrl ? esc(hotspot.imageUrl) : ''
   const url = hotspot.url ? esc(hotspot.url) : ''
   const scale = Number(hotspot.scale || 1)
+  const labelColor = hotspot.labelColor || '#ffffff'
+  const labelFontWeight = hotspot.labelBold ? '800' : '600'
 
   const typeMap: Record<string, { tag: string; color: string }> = {
     info:    { tag: 'Info',    color: '#6366f1' },
@@ -234,6 +236,10 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
     wrap.style.transformOrigin = 'center center'
   }
 
+  const labelShadow = labelColor === '#000000'
+    ? '0 1px 4px rgba(255,255,255,0.5)'
+    : '0 1px 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.5)'
+
   wrap.innerHTML = `
     <div class="vhs-info__trigger">
       <div class="vhs-info__pin-ring" style="--vhs-color:${meta.color}"></div>
@@ -242,7 +248,7 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
         : `<div class="vhs-info__pin-dot" style="background:${meta.color}"></div>`
       }
     </div>
-    <span class="vhs-info__hover-label">${label}</span>
+    <span class="vhs-info__hover-label" style="color:${labelColor};font-weight:${labelFontWeight};text-shadow:${labelShadow}">${label}</span>
     <div class="vhs-info__card">
       ${imageUrl ? `<div class="vhs-info__img" style="background-image:url('${imageUrl}')"></div>` : ''}
       <div class="vhs-info__body">
@@ -250,7 +256,7 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
           ${iconUrl ? `<img class="vhs-info__icon" src="${iconUrl}" alt="" />` : ''}
           <span class="vhs-info__tag" style="color:${meta.color}">${meta.tag}</span>
         </div>
-        <p class="vhs-info__title">${label}</p>
+        <p class="vhs-info__title" style="font-weight:${labelFontWeight}">${label}</p>
         ${desc ? `<p class="vhs-info__desc">${desc}</p>` : ''}
         ${url ? `<a class="vhs-info__link" href="${url}" target="_blank" rel="noopener noreferrer" style="color:${meta.color}">Open link ↗</a>` : ''}
       </div>

@@ -8,6 +8,8 @@ export interface Hotspot {
   targetSceneId?: string
   description?: string
   icon?: string
+  labelColor?: string
+  labelBold?: boolean
   scale?: number
   hoverScale?: number
   corners?: Array<{ yaw: number; pitch: number }>

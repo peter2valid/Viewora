@@ -21,6 +21,8 @@ type EditDraft = {
   targetSceneId: string
   type: HotspotType
   icon: string
+  labelColor: string
+  labelBold: boolean
   scale: number
   hoverScale: number
   corners?: Array<{ yaw: number; pitch: number }>
@@ -38,7 +40,7 @@ export function useHotspotEditor(
   fetchHotspots: (sceneId: string) => Promise<void>,
 ) {
   const { $posthog } = useNuxtApp() as any
-  const editDraft = ref<EditDraft>({ label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', scale: 1, hoverScale: 1.3 })
+  const editDraft = ref<EditDraft>({ label: '', description: '', url: '', targetSceneId: '', type: 'info', icon: '', labelColor: '', labelBold: false, scale: 1, hoverScale: 1.3 })
   const savingHotspot = ref(false)
   const addingHotspot = ref(false)
   const hotspotSaveInFlight = ref(false)
@@ -67,7 +69,7 @@ export function useHotspotEditor(
     return hotspots.map(h => {
       if (h.id !== selectedId) return h
       const d = editDraft.value
-      return { ...h, label: d.label, description: d.description, url: d.url, targetSceneId: d.targetSceneId, type: d.type as any, icon: d.icon, scale: d.scale, hoverScale: d.hoverScale, corners: d.corners, imageUrl: d.imageUrl }
+      return { ...h, label: d.label, description: d.description, url: d.url, targetSceneId: d.targetSceneId, type: d.type as any, icon: d.icon, labelColor: d.labelColor, labelBold: d.labelBold, scale: d.scale, hoverScale: d.hoverScale, corners: d.corners, imageUrl: d.imageUrl }
     })
   })
 
@@ -91,6 +93,8 @@ export function useHotspotEditor(
       targetSceneId: validTargetId,
       type: (candidate.type as HotspotType) || 'info',
       icon: candidate.icon || '',
+      labelColor: candidate.labelColor || '',
+      labelBold: candidate.labelBold ?? false,
       scale: 1,
       hoverScale: 1.3,
     }
@@ -138,6 +142,8 @@ export function useHotspotEditor(
     payload.content = {
       ...(payload.content ?? {}),
       icon: d.icon || undefined,
+      label_color: d.labelColor || undefined,
+      label_bold: d.labelBold || undefined,
       scale: Number(d.scale || 1),
       hoverScale: Number(d.hoverScale || 1.3),
       corners: d.corners?.length === 4 ? d.corners : undefined,
@@ -206,7 +212,7 @@ export function useHotspotEditor(
     const optimisticEntry: EditorHotspot = { id: tempId, yaw, pitch: finalPitch, type, label: type === 'scene_link' ? 'Go to next room' : '', url: '', targetSceneId, description: '', _pending: true }
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), optimisticEntry] }
 
-    editDraft.value = { label: optimisticEntry.label || '', description: '', url: '', targetSceneId, type, icon: '', scale: 1, hoverScale: 1.3, imageUrl: '' }
+    editDraft.value = { label: optimisticEntry.label || '', description: '', url: '', targetSceneId, type, icon: '', labelColor: '', labelBold: false, scale: 1, hoverScale: 1.3, imageUrl: '' }
     editorStore.selectHotspot(tempId)
     quickEditHotspotId.value = tempId
     quickEditScreenPos.value = { x: screenX, y: screenY }
@@ -392,6 +398,8 @@ export function useHotspotEditor(
         targetSceneId: hotspot.targetSceneId || '',
         type: (hotspot.type as HotspotType) || 'info',
         icon: hotspot.icon || '',
+        labelColor: hotspot.labelColor || '',
+        labelBold: hotspot.labelBold ?? false,
         scale: hotspot.scale || 1,
         hoverScale: hotspot.hoverScale || 1.3,
         corners: hotspot.corners,
@@ -429,6 +437,8 @@ export function useHotspotEditor(
     patch.content = {
       ...(patch.content ?? {}),
       icon: d.icon || undefined,
+      label_color: d.labelColor || undefined,
+      label_bold: d.labelBold || undefined,
       scale: Number(d.scale || 1),
       hoverScale: Number(d.hoverScale || 1.3),
       corners: d.corners?.length === 4 ? d.corners : undefined,
@@ -440,7 +450,7 @@ export function useHotspotEditor(
     hotspotsByScene.value = {
       ...hotspotsByScene.value,
       [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h =>
-        h.id !== id ? h : { ...h, type: newType, label: patch.label, description: patch.content?.text, url: patch.content?.url, targetSceneId: patch.target_scene_id, icon: d.icon || undefined, scale: Number(d.scale), hoverScale: Number(d.hoverScale), corners: d.corners, imageUrl: d.imageUrl }
+        h.id !== id ? h : { ...h, type: newType, label: patch.label, description: patch.content?.text, url: patch.content?.url, targetSceneId: patch.target_scene_id, icon: d.icon || undefined, labelColor: d.labelColor || undefined, labelBold: d.labelBold || undefined, scale: Number(d.scale), hoverScale: Number(d.hoverScale), corners: d.corners, imageUrl: d.imageUrl }
       ),
     }
 

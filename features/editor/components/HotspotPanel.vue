@@ -14,6 +14,8 @@ const props = defineProps<{
     targetSceneId: string
     type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'
     icon: string
+    labelColor: string
+    labelBold: boolean
     scale: number
     hoverScale: number
     corners?: Array<{ yaw: number; pitch: number }>
@@ -263,6 +265,43 @@ function updateDraft(patch: Partial<typeof props.draft>) {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Label style -->
+            <div class="hs-field">
+              <label class="hs-field-label">Label Style</label>
+              <div class="hs-label-style-row">
+                <!-- Color swatches -->
+                <div class="hs-label-colors">
+                  <button
+                    class="hs-label-color-btn"
+                    :class="(!draft.labelColor || draft.labelColor === '#ffffff') ? 'hs-label-color-btn--active' : ''"
+                    title="White text"
+                    @click="updateDraft({ labelColor: '#ffffff' })"
+                  >
+                    <span class="hs-label-color-swatch" style="background:#ffffff;border-color:rgba(255,255,255,0.3)" />
+                    <span class="hs-label-color-name">White</span>
+                  </button>
+                  <button
+                    class="hs-label-color-btn"
+                    :class="draft.labelColor === '#000000' ? 'hs-label-color-btn--active' : ''"
+                    title="Black text"
+                    @click="updateDraft({ labelColor: '#000000' })"
+                  >
+                    <span class="hs-label-color-swatch" style="background:#000000;border-color:rgba(255,255,255,0.15)" />
+                    <span class="hs-label-color-name">Black</span>
+                  </button>
+                </div>
+                <!-- Bold toggle -->
+                <button
+                  class="hs-label-bold-btn"
+                  :class="draft.labelBold ? 'hs-label-bold-btn--active' : ''"
+                  title="Toggle bold"
+                  @click="updateDraft({ labelBold: !draft.labelBold })"
+                >
+                  <strong>B</strong>
+                </button>
               </div>
             </div>
 
@@ -688,6 +727,68 @@ function updateDraft(patch: Partial<typeof props.draft>) {
   background: rgba(255,255,255,0.10);
   border-color: rgba(99,102,241,0.5);
   box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
+}
+
+/* ── Label style ── */
+.hs-label-style-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hs-label-colors {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+.hs-label-color-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.hs-label-color-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+.hs-label-color-btn--active {
+  background: rgba(99,102,241,0.12);
+  border-color: rgba(99,102,241,0.45);
+  color: #a5b4fc;
+}
+.hs-label-color-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+.hs-label-color-name { font-size: 10px; }
+.hs-label-bold-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.hs-label-bold-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+.hs-label-bold-btn--active {
+  background: rgba(99,102,241,0.12);
+  border-color: rgba(99,102,241,0.45);
+  color: #a5b4fc;
 }
 
 /* ── Sliders ── */
