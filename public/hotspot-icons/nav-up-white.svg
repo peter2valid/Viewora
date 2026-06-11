@@ -1,0 +1,11 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="sh" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="rgba(0,0,0,0.35)"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="50" fill="white" filter="url(#sh)"/>
+  <circle cx="64" cy="64" r="49" fill="none" stroke="rgba(180,180,180,0.5)" stroke-width="1.5"/>
+  <!-- Up-pointing chevron, matching the nav-up.png style -->
+  <path d="M64 38 L92 72 L80 72 L80 90 L48 90 L48 72 L36 72 Z" fill="#1c1c1e"/>
+</svg>
