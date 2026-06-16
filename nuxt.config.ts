@@ -68,7 +68,7 @@ export default defineNuxtConfig({
     '/confirm': { ssr: false },
     // Public tour pages — SSR for fast first paint + Vercel edge caching
     '/p/**': { ssr: true, headers: {
-      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300',
+      'Cache-Control': 'public, s-maxage=0, must-revalidate',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'SAMEORIGIN',

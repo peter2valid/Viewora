@@ -167,7 +167,7 @@ const hasBrandingDetails = computed(() => {
 const { data: tourPayload, error: tourError } = await useAsyncData(
   `public-tour:${slug}`,
   () => apiFetch<any>(`/p/${encodeURIComponent(slug)}`),
-  { server: true, lazy: false, getCachedData: (key, nuxtApp) => nuxtApp.isHydrating ? nuxtApp.payload.data[key] : undefined },
+  { server: true, lazy: false },
 )
 
 if (tourError.value) {
