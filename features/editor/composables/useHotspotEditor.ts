@@ -20,7 +20,7 @@ type EditDraft = {
   url: string
   targetSceneId: string
   type: HotspotType
-  icon: string
+  icon: string | null
   labelColor: string
   labelBold: boolean
   scale: number

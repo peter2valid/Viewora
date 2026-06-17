@@ -7,7 +7,7 @@ export interface Hotspot {
   url?: string
   targetSceneId?: string
   description?: string
-  icon?: string
+  icon?: string | null
   labelColor?: string
   labelBold?: boolean
   scale?: number

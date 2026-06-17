@@ -159,6 +159,18 @@
           <div class="qe-section">
             <span class="qe-section-label">Hotspot Icon Style</span>
             <div class="qe-icon-scroll">
+              <!-- Default: blue dot (no custom icon — matches AI-placed hotspot look) -->
+              <span class="qe-icon-group-label">Default</span>
+              <div class="qe-icon-row">
+                <button
+                  class="qe-icon-btn"
+                  :class="!draft.icon ? 'qe-icon-btn--active' : ''"
+                  title="Blue Dot (Default)"
+                  @click="emit('update-draft', { icon: null })"
+                >
+                  <span class="qe-blue-dot-preview"></span>
+                </button>
+              </div>
               <template v-for="group in ICON_GROUPS" :key="group.key">
                 <span class="qe-icon-group-label">{{ group.label }}</span>
                 <div class="qe-icon-row">
@@ -166,7 +178,7 @@
                     v-for="iconDef in HOTSPOT_ICON_DEFS.filter(d => d.group === group.key)"
                     :key="iconDef.key"
                     class="qe-icon-btn"
-                    :class="effectiveIcon === iconDef.key ? 'qe-icon-btn--active' : ''"
+                    :class="draft.icon === iconDef.key ? 'qe-icon-btn--active' : ''"
                     :title="iconDef.label"
                     @click="emit('update-draft', { icon: iconDef.key })"
                   >
@@ -230,7 +242,7 @@ const props = defineProps<{
     url: string
     targetSceneId: string
     type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'
-    icon: string
+    icon: string | null
     scale: number
     hoverScale: number
     strokeScale: number
@@ -653,6 +665,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
 }
 .qe-icon-btn img { width: 100%; height: 100%; object-fit: contain; }
+.qe-blue-dot-preview {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.3);
+  margin: auto;
+}
 
 /* ── Sliders ── */
 .qe-slider-row {

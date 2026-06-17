@@ -3447,7 +3447,10 @@ header.nav {
 /* will-change: translate promotes each marker to its own GPU compositor layer so   */
 /* position updates land in sync with the WebGL canvas, eliminating the 1-frame-lag */
 /* "shiver" that appears during autorotate at slow rotation speeds.                  */
-.psv-marker { overflow: visible !important; background: none !important; border: none !important; will-change: translate; backface-visibility: hidden; transform: translate3d(0,0,0); perspective: 1000px; }
+/* will-change: translate is sufficient for GPU compositing; the old translate3d/perspective trick
+   created a stacking context that trapped absolutely-positioned children (e.g. info labels)
+   inside the marker bounds, letting sibling markers paint on top of them. */
+.psv-marker { overflow: visible !important; background: none !important; border: none !important; will-change: translate; }
 
 /* ── NAV hotspot — floor arrow ────────────────────────────── */
 @keyframes vhs-nav-breathe {
@@ -3518,9 +3521,9 @@ header.nav {
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
   pointer-events: none;
-  z-index: 3;
+  z-index: 1000;
 }
 
 .vhs-info__pin-ring {

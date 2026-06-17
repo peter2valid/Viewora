@@ -13,7 +13,7 @@ const props = defineProps<{
     url: string
     targetSceneId: string
     type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'
-    icon: string
+    icon: string | null
     labelColor: string
     labelBold: boolean
     scale: number
