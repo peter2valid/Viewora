@@ -3448,10 +3448,6 @@ header.nav {
 /* position updates land in sync with the WebGL canvas, eliminating the 1-frame-lag */
 /* "shiver" that appears during autorotate at slow rotation speeds.                  */
 .psv-marker { overflow: visible !important; background: none !important; border: none !important; will-change: translate; backface-visibility: hidden; transform: translate3d(0,0,0); perspective: 1000px; }
-/* During autorotate only: let the CSS compositor interpolate between PSV's position
-   updates so variable RAF timing doesn't produce per-frame jitter. 40ms is below
-   human perception threshold but long enough to smooth 1-2 frame variation. */
-.psv--autorotating .psv-marker { transition: translate 40ms linear; }
 
 /* ── NAV hotspot — floor arrow ────────────────────────────── */
 .vhs-nav {

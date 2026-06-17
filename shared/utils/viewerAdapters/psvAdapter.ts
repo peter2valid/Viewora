@@ -180,6 +180,60 @@ export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | '
 }
 
 
+// ── Marker position smoother ──────────────────────────────────────────────────
+// PSV recalculates marker positions from spherical coords every RAF. Because RAF
+// intervals are not perfectly uniform (15–18ms in practice), the per-frame pixel
+// delta varies slightly — that variation is the "shiver". Fix: our RAF fires AFTER
+// PSV's (registered later, fires later in the same frame), reads PSV's exact target
+// translate, and writes a lerp-smoothed value before the browser paints.
+// LERP=0.4 gives a ~2-frame time constant (~33ms), imperceptible as lag but enough
+// to average out the per-frame variation. Only active during autorotate; during
+// manual drag smoothing is off so markers track instantly.
+
+interface MarkerSmoother {
+  disconnect: () => void
+  setSmoothing: (on: boolean) => void
+}
+
+function installMarkerSmoother(container: HTMLElement): MarkerSmoother {
+  const state = new Map<HTMLElement, { x: number; y: number }>()
+  let active = true
+  let smoothing = false
+  let rafId = 0
+  const LERP = 0.4
+
+  function tick() {
+    if (smoothing) {
+      const markers = container.querySelectorAll<HTMLElement>('.psv-marker')
+      for (let i = 0; i < markers.length; i++) {
+        const el = markers[i]
+        const t = el.style.translate
+        if (!t) continue
+        const sp = t.indexOf(' ')
+        if (sp === -1) continue
+        const tx = parseFloat(t)
+        const ty = parseFloat(t.slice(sp + 1))
+        if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue
+
+        let s = state.get(el)
+        if (!s) { state.set(el, { x: tx, y: ty }); continue }
+
+        s.x += (tx - s.x) * LERP
+        s.y += (ty - s.y) * LERP
+        el.style.translate = `${Math.round(s.x)}px ${Math.round(s.y)}px`
+      }
+    }
+    if (active) rafId = requestAnimationFrame(tick)
+  }
+
+  rafId = requestAnimationFrame(tick)
+
+  return {
+    disconnect: () => { active = false; cancelAnimationFrame(rafId) },
+    setSmoothing: (on: boolean) => { smoothing = on; if (!on) state.clear() },
+  }
+}
+
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
 // These create standard divs that PSV MarkersPlugin handles reliably
 // across all browsers without any WebComponent registration fragility.
@@ -1158,19 +1212,22 @@ export async function initVirtualTourViewer(
     onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'))
   })
 
+  const smoother = installMarkerSmoother(container)
+  cleanupFns.push(() => smoother.disconnect())
+
   const autorotatePl = viewer.getPlugin(AutorotatePlugin)
   if (autorotatePl) {
     const handleAutorotateEv = (e: any) => {
-      const active = e.autorotateEnabled ?? false
-      // Toggle CSS class so transition:translate activates only during autorotate,
-      // keeping marker movement smooth without adding lag during manual interaction.
-      container.classList.toggle('psv--autorotating', active)
-      onAutorotateChange?.(active)
+      const isActive = e.autorotateEnabled ?? false
+      container.classList.toggle('psv--autorotating', isActive)
+      smoother.setSmoothing(isActive)
+      onAutorotateChange?.(isActive)
     }
     autorotatePl.addEventListener('autorotate', handleAutorotateEv)
     cleanupFns.push(() => {
       autorotatePl.removeEventListener('autorotate', handleAutorotateEv)
       container.classList.remove('psv--autorotating')
+      smoother.setSmoothing(false)
     })
   }
 
