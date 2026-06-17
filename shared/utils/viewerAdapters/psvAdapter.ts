@@ -234,6 +234,41 @@ function installMarkerSmoother(container: HTMLElement): MarkerSmoother {
   }
 }
 
+// ── Arrow direction tracker ───────────────────────────────────────────────────
+// HTML markers are billboards — the chevron always points "up on screen" regardless
+// of the camera heading. To make it point toward its destination (like the benchmark
+// virtual tours), we rotate the SVG every frame by (hotspotYaw - cameraYaw).
+// When looking straight at the target: diff=0 → arrow points up = forward. ✓
+// When the target is 90° to the right: diff=90° → arrow points right on screen. ✓
+
+function installArrowDirectionTracker(container: HTMLElement, viewer: any): { disconnect: () => void } {
+  let active = true
+  let rafId = 0
+
+  function tick() {
+    try {
+      const pos = viewer.getPosition?.()
+      if (pos) {
+        const cameraYaw = pos.yaw as number
+        const svgs = container.querySelectorAll<SVGElement>('.vhs-nav__floor-arrow[data-hotspot-yaw]')
+        for (let i = 0; i < svgs.length; i++) {
+          const svg = svgs[i]
+          const hotspotYaw = parseFloat((svg as HTMLElement).dataset.hotspotYaw ?? '0')
+          let diff = hotspotYaw - cameraYaw
+          // Normalise to [-π, π] so the arrow always takes the shortest turn
+          while (diff >  Math.PI) diff -= Math.PI * 2
+          while (diff < -Math.PI) diff += Math.PI * 2
+          svg.style.rotate = `${(diff * 180 / Math.PI).toFixed(1)}deg`
+        }
+      }
+    } catch { /* noop */ }
+    if (active) rafId = requestAnimationFrame(tick)
+  }
+
+  rafId = requestAnimationFrame(tick)
+  return { disconnect: () => { active = false; cancelAnimationFrame(rafId) } }
+}
+
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
 // These create standard divs that PSV MarkersPlugin handles reliably
 // across all browsers without any WebComponent registration fragility.
@@ -252,7 +287,7 @@ function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   wrap.style.transform = `perspective(120px) rotateX(52deg)${scaleStr}`
   wrap.style.transformOrigin = 'center bottom'
   wrap.innerHTML = `
-    <svg class="vhs-nav__floor-arrow" viewBox="0 0 72 40" fill="none" aria-label="${label}" role="img">
+    <svg class="vhs-nav__floor-arrow" data-hotspot-yaw="${hotspot.yaw}" viewBox="0 0 72 40" fill="none" aria-label="${label}" role="img">
       <path d="M8 34 L36 6 L64 34" stroke="${shadowStroke}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M8 34 L36 6 L64 34" stroke="${chevronStroke}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
@@ -560,6 +595,9 @@ export async function initViewer(
     markers.addEventListener('leave-marker', handleLeave)
     cleanupFns.push(() => markers.removeEventListener('leave-marker', handleLeave))
   }
+
+  const arrowTracker = installArrowDirectionTracker(container, viewer)
+  cleanupFns.push(() => arrowTracker.disconnect())
 
   return {
     viewer,
@@ -1216,6 +1254,9 @@ export async function initVirtualTourViewer(
 
   const smoother = installMarkerSmoother(container)
   cleanupFns.push(() => smoother.disconnect())
+
+  const arrowTracker = installArrowDirectionTracker(container, viewer)
+  cleanupFns.push(() => arrowTracker.disconnect())
 
   const autorotatePl = viewer.getPlugin(AutorotatePlugin)
   if (autorotatePl) {
