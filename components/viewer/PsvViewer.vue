@@ -2523,25 +2523,22 @@ watch(() => vtTransitioning.value, (loading) => {
 
 
 
-/* ── Hotspot hover labels ─────────────────────────────── */
+/* ── Hotspot hover labels — always visible, no background box ── */
 :global(.vhs-info__hover-label) {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 50%;
-  transform: translateX(-50%) translateY(3px);
-  background: rgba(10,11,16,0.95);
-  border: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(14px);
-  color: rgba(255,255,255,0.82);
-  font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+  transform: translateX(-50%);
+  background: none;
+  border: none;
+  backdrop-filter: none;
+  color: #fff;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6);
   white-space: nowrap;
-  padding: 4px 8px; border-radius: 5px;
-  opacity: 0; pointer-events: none;
-  transition: opacity 140ms ease, transform 140ms ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-}
-:global(.vhs-info:hover .vhs-info__hover-label) {
-  opacity: 1; transform: translateX(-50%) translateY(0);
+  padding: 0;
+  opacity: 1; pointer-events: none;
+  box-shadow: none;
 }
 :global(.vhs-info--active .vhs-info__hover-label) { opacity: 0; }
 
@@ -2856,7 +2853,7 @@ watch(() => vtTransitioning.value, (loading) => {
   :global(.vhs-info__hover-label) {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: rgba(8, 10, 16, 0.95) !important;
+    background: none !important;
   }
 
   /* Nav hotspot label (if shown) */
