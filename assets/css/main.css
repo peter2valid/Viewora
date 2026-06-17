@@ -412,14 +412,7 @@ header.nav {
 }
 .vhs-info__link:hover { text-decoration: underline; }
 
-/* PSV VirtualTourPlugin native arrows replaced by WebGL meshes — hide all variants globally */
-.psv-virtual-tour-link,
-.psv-virtual-tour-arrow,
-.psv-virtual-tour-arrows {
-  display: none !important;
-}
-
-/* Redundant but harmless — kept for dock-open compatibility */
+/* Hide scene link markers when the dock is open */
 .hide-nav-arrows .psv-virtual-tour-arrow {
   display: none !important;
 }

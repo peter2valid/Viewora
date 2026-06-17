@@ -1230,19 +1230,21 @@ function buildTourNodes(
     })
     const links = Array.from(uniqueLinksMap.values())
 
-    // scene_link hotspots are rendered as WebGL meshes (installWebGLNavArrows).
-    // Only info/url/video/youtube hotspots go into MarkersPlugin here.
+    // Render ALL hotspots as MarkersPlugin markers using plain-DOM builders.
+    // scene_link → floor nav arrow, others → info card.
     const markers = hotspots
-      .filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number' && h.type !== 'scene_link')
+      .filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number')
       .map(h => {
-        const el = buildInfoMarkerEl(h)
+        const isNav = h.type === 'scene_link'
+        const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
+        const hMarkerSize = isNav ? { width: 120, height: 80 } : { width: 40, height: 40 }
         return {
           id: h.id,
           position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          size: { width: 40, height: 40 },
+          size: hMarkerSize,
           anchor: 'center center',
-          hoverScale: 1,
+          hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
         }
       })
@@ -1447,54 +1449,40 @@ export async function initVirtualTourViewer(
 
   const cleanupFns: Array<() => void> = []
 
-  // ── WebGL nav arrows ─────────────────────────────────────────────────────
-  // Collect scene_link hotspots per scene and hand them to the WebGL layer.
-  // Info/url/video hotspots stay as MarkersPlugin HTML markers (unchanged).
-  const navHotspotsByScene: Record<string, Hotspot[]> = {}
-  for (const [sceneId, hs] of Object.entries(hotspotsByScene)) {
-    const nav = hs.filter(h => h.type === 'scene_link' && typeof h.yaw === 'number')
-    if (nav.length > 0) navHotspotsByScene[sceneId] = nav
-  }
-  const webglArrows = installWebGLNavArrows(
-    viewer, container, navHotspotsByScene,
-    (hotspotId, type, url) => onMarkerClick?.(hotspotId, type, url),
-  )
-  cleanupFns.push(() => webglArrows.disconnect())
-
   viewer.addEventListener('ready', () => {
     onReady?.()
 
-    // Show arrows for the start scene
-    webglArrows.setCurrentScene(startNodeId)
-
     // ── Smart Focus on Load ────────────────────────────────────────────────
-    // Point the camera at the first nav or info hotspot so the user immediately
-    // sees interactive content. Nav hotspots come from hotspotsByScene now
-    // (not from markers array, since they're WebGL meshes).
-    const startHotspots = hotspotsByScene[startNodeId] ?? []
-    const focusTarget = startHotspots.find(h => h.type === 'scene_link')
-      || startHotspots.find(h => h.type === 'info')
-      || startHotspots[0]
-
-    if (focusTarget && typeof focusTarget.yaw === 'number') {
-      setTimeout(() => {
-        try {
-          viewer.animate({
-            yaw:   focusTarget.yaw,
-            pitch: focusTarget.pitch ?? 0,
-            speed: '2rpm',
-          }).catch(() => {})
-        } catch { /* noop */ }
-      }, 800)
+    // Automatically point the camera at the first valid hotspot (nav or info)
+    // so the user immediately sees interactive content.
+    const firstNode = nodes[0]
+    const firstHotspots = firstNode?.markers || []
+    if (firstHotspots.length > 0) {
+      const targetHs = firstHotspots.find((h: any) => h.data?.type === 'scene_link' || h.data?.type === 'info')
+        || firstHotspots[0]
+      if (targetHs && targetHs.position) {
+        setTimeout(() => {
+          try {
+            viewer.animate({
+              yaw: targetHs.position.yaw,
+              pitch: targetHs.position.pitch ?? 0,
+              speed: '2rpm'
+            }).catch(() => {})
+          } catch { /* noop */ }
+        }, 800)
+      }
     }
 
     if (!isLiteMode && autoRotate) {
       requestAnimationFrame(() => {
-        try { viewer.getPlugin(AutorotatePlugin)?.start?.() } catch { /* noop */ }
+        try {
+          viewer.getPlugin(AutorotatePlugin)?.start?.()
+        } catch {
+          // noop
+        }
       })
     }
   }, { once: true })
-
   viewer.addEventListener('panorama-error', (e: any) => {
     onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'))
   })
@@ -1502,8 +1490,8 @@ export async function initVirtualTourViewer(
   const smoother = installMarkerSmoother(container)
   cleanupFns.push(() => smoother.disconnect())
 
-  // Arrow direction is handled by the WebGL RAF in installWebGLNavArrows.
-  // installArrowDirectionTracker is only needed in the editor (initViewer).
+  const arrowTracker = installArrowDirectionTracker(container, viewer)
+  cleanupFns.push(() => arrowTracker.disconnect())
 
   const autorotatePl = viewer.getPlugin(AutorotatePlugin)
   if (autorotatePl) {
@@ -1523,7 +1511,6 @@ export async function initVirtualTourViewer(
 
   const handleNodeChanged = (e: any) => {
     onNodeChanged?.(e.node.id)
-    webglArrows.setCurrentScene(e.node.id)
 
     // Prefetch tiles for all scenes reachable from the new node so the next
     // navigation feels instant. We schedule this after a short delay so the
