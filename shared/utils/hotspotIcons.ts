@@ -33,8 +33,8 @@ export const HOTSPOT_ICON_DEFS: HotspotIconDef[] = [
   { key: 'star-green',         label: 'Star Green',      group: 'star',   url: '/hotspot-icons/star-green.png' },
 
   // ── Navigation (scene links) ──────────────────────────────
-  { key: 'nav-up',             label: 'Arrow (Dark)',    group: 'nav',    url: '/hotspot-icons/nav-up.png' },
-  { key: 'nav-up-white',       label: 'Arrow (Light)',   group: 'nav',    url: '/hotspot-icons/nav-up-white.svg' },
+  { key: 'nav-up',             label: 'Arrow (White)',   group: 'nav',    url: '/hotspot-icons/nav-floor-white.svg' },
+  { key: 'nav-up-white',       label: 'Arrow (Black)',   group: 'nav',    url: '/hotspot-icons/nav-floor-black.svg' },
   { key: 'nav-sphere',         label: 'Sphere',          group: 'nav',    url: '/hotspot-icons/nav-sphere.png' },
   { key: 'nav-portal',         label: 'Portal',          group: 'nav',    url: '/hotspot-icons/nav-portal.svg' },
 ]

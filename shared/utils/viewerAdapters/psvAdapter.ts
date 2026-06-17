@@ -241,18 +241,20 @@ function installMarkerSmoother(container: HTMLElement): MarkerSmoother {
 function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   const label = esc(hotspot.label || 'Move to next scene')
   const scale = Number(hotspot.scale || 1)
+  const isBlack = hotspot.icon === 'nav-up-white' // 'nav-up-white' key now maps to the black arrow
+  const chevronStroke = isBlack ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)'
+  const shadowStroke  = isBlack ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)'
   const wrap = document.createElement('div')
   wrap.className = 'vhs-nav'
   wrap.setAttribute('data-vhs-type', 'scene_link')
   wrap.setAttribute('data-vhs-id', hotspot.id)
-  // Combine floor-perspective tilt with any per-hotspot scale
   const scaleStr = scale !== 1 ? ` scale(${scale})` : ''
   wrap.style.transform = `perspective(120px) rotateX(52deg)${scaleStr}`
   wrap.style.transformOrigin = 'center bottom'
   wrap.innerHTML = `
     <svg class="vhs-nav__floor-arrow" viewBox="0 0 72 40" fill="none" aria-label="${label}" role="img">
-      <path d="M8 34 L36 6 L64 34" stroke="rgba(0,0,0,0.35)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M8 34 L36 6 L64 34" stroke="rgba(255,255,255,0.95)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8 34 L36 6 L64 34" stroke="${shadowStroke}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8 34 L36 6 L64 34" stroke="${chevronStroke}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   `
   return wrap
