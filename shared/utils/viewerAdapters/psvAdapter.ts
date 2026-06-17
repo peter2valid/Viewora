@@ -24,6 +24,7 @@ export interface PsvViewerHandle {
   markers: any
   markerSignatures: Map<string, string>
   isEditing: boolean
+  markerRoundingObserver?: MutationObserver
   cleanup?: () => void
 }
 
@@ -177,6 +178,35 @@ export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | '
       }
     }
   })()
+}
+
+// ── Marker pixel-rounding ─────────────────────────────────────────────────────
+// PSV MarkersPlugin updates each marker's CSS transform on every render frame
+// with raw floating-point values (e.g. translate3d(234.7px, 189.3px, 0px)).
+// During autorotate these values oscillate by sub-pixel amounts per frame,
+// which the browser renders as a high-frequency "shiver" on the marker elements.
+// Rounding x/y to whole integers before the browser paints eliminates the jitter.
+
+function installMarkerRounding(container: HTMLElement): MutationObserver {
+  let busy = false
+  const observer = new MutationObserver(mutations => {
+    if (busy) return
+    busy = true
+    for (const mut of mutations) {
+      const el = mut.target as HTMLElement
+      const t = el.style.transform
+      if (!t) continue
+      const m = t.match(/translate3d\((-?[\d.]+)px,\s*(-?[\d.]+)px,/)
+      if (!m) continue
+      const rx = Math.round(parseFloat(m[1]))
+      const ry = Math.round(parseFloat(m[2]))
+      const rounded = t.replace(/translate3d\([^)]+\)/, `translate3d(${rx}px,${ry}px,0px)`)
+      if (rounded !== t) el.style.transform = rounded
+    }
+    busy = false
+  })
+  observer.observe(container, { subtree: true, attributes: true, attributeFilter: ['style'] })
+  return observer
 }
 
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
@@ -504,11 +534,14 @@ export async function initViewer(
     cleanupFns.push(() => markers.removeEventListener('leave-marker', handleLeave))
   }
 
+  const markerRoundingObserver = installMarkerRounding(container)
+
   return {
     viewer,
     markers,
     markerSignatures: new Map<string, string>(),
     isEditing,
+    markerRoundingObserver,
     cleanup: () => { for (const fn of cleanupFns) fn() },
   }
 }
@@ -752,6 +785,7 @@ export function nudgeRender(handle: PsvViewerHandle | null): void {
 export function destroy(handle: PsvViewerHandle | null): void {
   if (!handle?.viewer) return
   try { handle.cleanup?.() } catch { /* noop */ }
+  try { handle.markerRoundingObserver?.disconnect() } catch { /* noop */ }
   try { handle.viewer.destroy() } catch { /* noop */ }
 }
 
@@ -1263,11 +1297,14 @@ export async function initVirtualTourViewer(
     cleanupFns.push(() => viewer.removeEventListener('click', handleBgClick))
   }
 
+  const markerRoundingObserver = installMarkerRounding(container)
+
   return {
     viewer,
     markers,
     markerSignatures: new Map(),
     isEditing: false,
+    markerRoundingObserver,
     cleanup: () => { for (const fn of cleanupFns) fn() },
   }
 }
