@@ -198,11 +198,11 @@ function installMarkerRounding(container: HTMLElement): { disconnect: () => void
     const markers = container.querySelectorAll<HTMLElement>('.psv-marker')
     for (let i = 0; i < markers.length; i++) {
       const el = markers[i]
-      const t = el.style.transform
+      // PSV v5 uses the CSS individual 'translate' property, not style.transform
+      const t = el.style.translate
       if (t && t.includes('.')) {
-        // Only touch values that have a decimal — avoids no-op writes
         const rounded = t.replace(/(-?[\d]+\.[\d]+)px/g, (_, n) => `${Math.round(parseFloat(n))}px`)
-        if (rounded !== t) el.style.transform = rounded
+        if (rounded !== t) el.style.translate = rounded
       }
     }
     if (active) rafId = requestAnimationFrame(tick)
