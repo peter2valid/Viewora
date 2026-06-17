@@ -3450,10 +3450,16 @@ header.nav {
 .psv-marker { overflow: visible !important; background: none !important; border: none !important; will-change: translate; backface-visibility: hidden; transform: translate3d(0,0,0); perspective: 1000px; }
 
 /* ── NAV hotspot — floor arrow ────────────────────────────── */
+@keyframes vhs-nav-breathe {
+  0%, 100% { opacity: 0.92; }
+  50%       { opacity: 0.18; }
+}
+
 .vhs-nav {
   position: relative;
-  width: 72px;
-  height: 40px;
+  /* larger box = bigger invisible hit area around the 72×40 visual */
+  width: 120px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3461,10 +3467,15 @@ header.nav {
   /* perspective + rotateX make the flat SVG appear to lie on the floor */
   transform: perspective(120px) rotateX(52deg);
   transform-origin: center bottom;
-  transition: opacity 0.2s ease;
   filter: drop-shadow(0 3px 8px rgba(0,0,0,0.55));
+  animation: vhs-nav-breathe 2.8s ease-in-out infinite;
+  transition: scale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
 }
-.vhs-nav:hover { opacity: 0.65; }
+.vhs-nav:hover {
+  animation-play-state: paused;
+  opacity: 1;
+  scale: 1.25;
+}
 
 .vhs-nav__floor-arrow {
   width: 72px;

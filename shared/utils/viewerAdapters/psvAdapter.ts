@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { Viewer } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
@@ -267,6 +268,244 @@ function installArrowDirectionTracker(container: HTMLElement, viewer: any): { di
 
   rafId = requestAnimationFrame(tick)
   return { disconnect: () => { active = false; cancelAnimationFrame(rafId) } }
+}
+
+// ── WebGL Nav Arrows ─────────────────────────────────────────────────────────
+// Renders navigation arrows as Three.js PlaneGeometry meshes on the sphere
+// surface — they get the exact same equirectangular perspective distortion as
+// the panorama image itself. No DOM elements, completely invisible to DevTools.
+
+function _createNavArrowTexture(isBlack: boolean): THREE.CanvasTexture {
+  const w = 256, h = 142 // 72:40 → 256:142 scaled
+  const canvas = document.createElement('canvas')
+  canvas.width = w; canvas.height = h
+  const ctx = canvas.getContext('2d')!
+  ctx.clearRect(0, 0, w, h)
+  const strokeMain   = isBlack ? 'rgba(0,0,0,0.9)'      : 'rgba(255,255,255,0.95)'
+  const strokeShadow = isBlack ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)'
+  const drawPath = (stroke: string, lw: number) => {
+    ctx.beginPath()
+    ctx.moveTo(w * 0.11, h * 0.85)
+    ctx.lineTo(w / 2,    h * 0.15)
+    ctx.lineTo(w * 0.89, h * 0.85)
+    ctx.strokeStyle = stroke; ctx.lineWidth = lw
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+    ctx.stroke()
+  }
+  drawPath(strokeShadow, w * 0.155)
+  drawPath(strokeMain,   w * 0.097)
+  return new THREE.CanvasTexture(canvas)
+}
+
+const _WEBGL_LOCAL_Z = new THREE.Vector3(0, 0, 1)
+
+interface NavMeshState {
+  mesh: THREE.Mesh
+  hotspotId: string
+  targetSceneId: string | undefined
+  sceneId: string
+  hotspotYaw: number
+  baseQuaternion: THREE.Quaternion
+  isHovered: boolean
+  currentScale: number
+  breathePhase: number
+}
+
+interface WebGLNavArrowsHandle {
+  disconnect: () => void
+  setCurrentScene: (sceneId: string) => void
+}
+
+function installWebGLNavArrows(
+  viewer: any,
+  container: HTMLElement,
+  navHotspotsByScene: Record<string, Hotspot[]>,
+  onNavClick: (hotspotId: string, type: string, url: string) => void,
+): WebGLNavArrowsHandle {
+  const texWhite = _createNavArrowTexture(false)
+  const texBlack = _createNavArrowTexture(true)
+  const scene3d: THREE.Scene   = viewer.renderer.scene
+  const camera:  THREE.Camera  = viewer.renderer.camera
+  const states: NavMeshState[] = []
+
+  // Measure PSV sphere radius via dataHelper so plane sizes scale correctly
+  let sphereR = 1
+  try {
+    const v = viewer.dataHelper.sphericalCoordsToVector3({ yaw: 0, pitch: 0 })
+    sphereR = (v as THREE.Vector3).length() || 1
+  } catch { /* noop */ }
+
+  // Build one mesh per nav hotspot (all scenes, initially hidden)
+  for (const [sceneId, hotspots] of Object.entries(navHotspotsByScene)) {
+    for (const h of hotspots) {
+      if (h.type !== 'scene_link') continue
+      if (typeof h.yaw !== 'number' || typeof h.pitch !== 'number') continue
+
+      const arrowScale = Number(h.scale || 1)
+      const isBlack    = h.icon === 'nav-up-white'
+
+      // Plane geometry: 0.10 × 0.10 world-units (square canvas, floor foreshortening
+      // naturally compresses the vertical dimension — no extra rotation needed)
+      const geo = new THREE.PlaneGeometry(sphereR * 0.10 * arrowScale, sphereR * 0.10 * arrowScale)
+      const mat = new THREE.MeshBasicMaterial({
+        map: isBlack ? texBlack : texWhite,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        depthTest: false,
+      })
+      const mesh = new THREE.Mesh(geo, mat)
+      mesh.renderOrder = 999
+
+      // Position on sphere surface, slightly inside
+      let pos: THREE.Vector3
+      try {
+        pos = viewer.dataHelper.sphericalCoordsToVector3({ yaw: h.yaw, pitch: h.pitch }) as THREE.Vector3
+      } catch {
+        // PSV convention: forward is +Z, right is -X
+        pos = new THREE.Vector3(
+          -Math.cos(h.pitch) * Math.sin(h.yaw),
+           Math.sin(h.pitch),
+           Math.cos(h.pitch) * Math.cos(h.yaw)
+        ).multiplyScalar(sphereR)
+      }
+      mesh.position.copy(pos.clone().multiplyScalar(0.995))
+
+      // lookAt(pos * 2): mesh -Z axis points outward → front face (+Z) faces camera at origin
+      mesh.lookAt(pos.x * 2, pos.y * 2, pos.z * 2)
+
+      mesh.visible = false
+      mesh.userData.hotspotId = h.id
+      mesh.userData.sceneId   = sceneId
+      scene3d.add(mesh)
+
+      states.push({
+        mesh,
+        hotspotId: h.id,
+        targetSceneId: h.targetSceneId,
+        sceneId,
+        hotspotYaw: h.yaw,
+        baseQuaternion: mesh.quaternion.clone(),
+        isHovered: false,
+        currentScale: 1,
+        breathePhase: Math.random() * Math.PI * 2,
+      })
+    }
+  }
+
+  // ── RAF: direction, breathe, hover scale ──────────────────────────────────
+  let active = true
+  let rafId  = 0
+
+  function tick() {
+    const now = performance.now() * 0.001
+    let cameraYaw = 0
+    try { cameraYaw = viewer.getPosition?.()?.yaw ?? 0 } catch { /* noop */ }
+
+    for (const s of states) {
+      if (!s.mesh.visible) continue
+
+      // Arrow direction: rotate around local Z to point toward destination yaw
+      let diff = s.hotspotYaw - cameraYaw
+      while (diff >  Math.PI) diff -= Math.PI * 2
+      while (diff < -Math.PI) diff += Math.PI * 2
+      s.mesh.quaternion.copy(s.baseQuaternion)
+      s.mesh.rotateOnAxis(_WEBGL_LOCAL_Z, diff)
+
+      // Breathe: slow opacity pulse
+      const breathe   = 0.5 - 0.5 * Math.cos((now + s.breathePhase) * (2 * Math.PI / 2.8))
+      const targetOp  = s.isHovered ? 1.0 : 0.18 + breathe * (0.92 - 0.18)
+      ;(s.mesh.material as THREE.MeshBasicMaterial).opacity = targetOp
+
+      // Scale: lerp toward hover target
+      const targetSc  = s.isHovered ? 1.25 : 1.0
+      s.currentScale += (targetSc - s.currentScale) * 0.12
+      s.mesh.scale.setScalar(s.currentScale)
+    }
+
+    if (active) rafId = requestAnimationFrame(tick)
+  }
+  rafId = requestAnimationFrame(tick)
+
+  // ── Pointer events ────────────────────────────────────────────────────────
+  const raycaster = new THREE.Raycaster()
+  const mouse     = new THREE.Vector2()
+  let lastMoveMs  = 0
+  let pdX = 0, pdY = 0
+
+  function toNDC(clientX: number, clientY: number) {
+    const r = container.getBoundingClientRect()
+    mouse.x =  ((clientX - r.left) / r.width)  * 2 - 1
+    mouse.y = -((clientY - r.top)  / r.height) * 2 + 1
+  }
+  function visibleMeshes() { return states.filter(s => s.mesh.visible).map(s => s.mesh) }
+
+  function onMove(e: PointerEvent) {
+    const now = performance.now()
+    if (now - lastMoveMs < 16) return
+    lastMoveMs = now
+    toNDC(e.clientX, e.clientY)
+    raycaster.setFromCamera(mouse, camera)
+    const hits = new Set(raycaster.intersectObjects(visibleMeshes()).map(i => i.object))
+    let anyhovered = false
+    for (const s of states) {
+      s.isHovered = s.mesh.visible && hits.has(s.mesh)
+      if (s.isHovered) anyhovered = true
+    }
+    container.style.cursor = anyhovered ? 'pointer' : ''
+  }
+
+  function onDown(e: PointerEvent) { pdX = e.clientX; pdY = e.clientY }
+
+  // Capture phase — fires before PSV's bubble-phase listeners on the canvas
+  function onUp(e: PointerEvent) {
+    const dx = e.clientX - pdX, dy = e.clientY - pdY
+    if (dx * dx + dy * dy > 25) return  // drag
+    toNDC(e.clientX, e.clientY)
+    raycaster.setFromCamera(mouse, camera)
+    const hits = raycaster.intersectObjects(visibleMeshes())
+    if (hits.length > 0) {
+      e.stopImmediatePropagation()
+      onNavClick(hits[0].object.userData.hotspotId as string, 'scene_link', '')
+    }
+  }
+
+  // Listen on the canvas (PSV's actual event target) in capture so we intercept
+  // before PSV's own pointerup handler fires and treats it as a background click
+  const canvas = container.querySelector('canvas') as HTMLElement | null ?? container
+  container.addEventListener('pointermove', onMove, { passive: true })
+  container.addEventListener('pointerdown', onDown, { passive: true })
+  canvas.addEventListener('pointerup', onUp, { capture: true })
+
+  // ── setCurrentScene: show/hide meshes per scene ───────────────────────────
+  function setCurrentScene(sceneId: string) {
+    for (const s of states) {
+      s.mesh.visible = s.sceneId === sceneId
+      if (!s.mesh.visible) {
+        s.isHovered = false; s.currentScale = 1
+        s.mesh.scale.setScalar(1)
+        ;(s.mesh.material as THREE.MeshBasicMaterial).opacity = 0.9
+      }
+    }
+  }
+
+  function disconnect() {
+    active = false
+    cancelAnimationFrame(rafId)
+    container.removeEventListener('pointermove', onMove)
+    container.removeEventListener('pointerdown', onDown)
+    canvas.removeEventListener('pointerup', onUp, { capture: true })
+    container.style.cursor = ''
+    for (const s of states) {
+      scene3d.remove(s.mesh)
+      s.mesh.geometry.dispose()
+      ;(s.mesh.material as THREE.MeshBasicMaterial).dispose()
+    }
+    texWhite.dispose(); texBlack.dispose()
+  }
+
+  return { disconnect, setCurrentScene }
 }
 
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
@@ -657,7 +896,7 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 
       const el = isNav ? buildNavMarkerEl(hotspot) : buildInfoMarkerEl(hotspot)
 
-      const markerSize = isNav ? { width: 72, height: 40 } : { width: 40, height: 40 }
+      const markerSize = isNav ? { width: 120, height: 80 } : { width: 40, height: 40 }
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
@@ -991,21 +1230,19 @@ function buildTourNodes(
     })
     const links = Array.from(uniqueLinksMap.values())
 
-    // Render ALL hotspots as MarkersPlugin markers using plain-DOM builders.
-    // scene_link → floating nav arrow (blue pulse), others → info card.
+    // scene_link hotspots are rendered as WebGL meshes (installWebGLNavArrows).
+    // Only info/url/video/youtube hotspots go into MarkersPlugin here.
     const markers = hotspots
-      .filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number')
+      .filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number' && h.type !== 'scene_link')
       .map(h => {
-        const isNav = h.type === 'scene_link'
-        const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
-        const hMarkerSize = isNav ? { width: 72, height: 40 } : { width: 40, height: 40 }
+        const el = buildInfoMarkerEl(h)
         return {
           id: h.id,
           position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          size: hMarkerSize,
+          size: { width: 40, height: 40 },
           anchor: 'center center',
-          hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
+          hoverScale: 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
         }
       })
@@ -1210,44 +1447,54 @@ export async function initVirtualTourViewer(
 
   const cleanupFns: Array<() => void> = []
 
+  // ── WebGL nav arrows ─────────────────────────────────────────────────────
+  // Collect scene_link hotspots per scene and hand them to the WebGL layer.
+  // Info/url/video hotspots stay as MarkersPlugin HTML markers (unchanged).
+  const navHotspotsByScene: Record<string, Hotspot[]> = {}
+  for (const [sceneId, hs] of Object.entries(hotspotsByScene)) {
+    const nav = hs.filter(h => h.type === 'scene_link' && typeof h.yaw === 'number')
+    if (nav.length > 0) navHotspotsByScene[sceneId] = nav
+  }
+  const webglArrows = installWebGLNavArrows(
+    viewer, container, navHotspotsByScene,
+    (hotspotId, type, url) => onMarkerClick?.(hotspotId, type, url),
+  )
+  cleanupFns.push(() => webglArrows.disconnect())
+
   viewer.addEventListener('ready', () => {
     onReady?.()
 
-    // ── Smart Focus on Load ────────────────────────────────────────────────
-    // Automatically point the camera at the first valid hotspot (nav or info)
-    // so the user immediately sees interactive content.
-    const firstNode = nodes[0]
-    const firstHotspots = firstNode?.markers || []
-    if (firstHotspots.length > 0) {
-      // Prioritize navigation or info hotspots over others
-      const targetHs = firstHotspots.find((h: any) => h.data?.type === 'scene_link' || h.data?.type === 'info') 
-        || firstHotspots[0]
+    // Show arrows for the start scene
+    webglArrows.setCurrentScene(startNodeId)
 
-      if (targetHs && targetHs.position) {
-        // Delay until tiles have had time to upload to GPU — reduces jitter from
-        // camera animation competing with texture uploads on scene entry.
-        setTimeout(() => {
-          try {
-            viewer.animate({
-              yaw: targetHs.position.yaw,
-              pitch: targetHs.position.pitch ?? 0,
-              speed: '2rpm'
-            }).catch(() => {})
-          } catch { /* noop */ }
-        }, 800)
-      }
+    // ── Smart Focus on Load ────────────────────────────────────────────────
+    // Point the camera at the first nav or info hotspot so the user immediately
+    // sees interactive content. Nav hotspots come from hotspotsByScene now
+    // (not from markers array, since they're WebGL meshes).
+    const startHotspots = hotspotsByScene[startNodeId] ?? []
+    const focusTarget = startHotspots.find(h => h.type === 'scene_link')
+      || startHotspots.find(h => h.type === 'info')
+      || startHotspots[0]
+
+    if (focusTarget && typeof focusTarget.yaw === 'number') {
+      setTimeout(() => {
+        try {
+          viewer.animate({
+            yaw:   focusTarget.yaw,
+            pitch: focusTarget.pitch ?? 0,
+            speed: '2rpm',
+          }).catch(() => {})
+        } catch { /* noop */ }
+      }, 800)
     }
 
     if (!isLiteMode && autoRotate) {
       requestAnimationFrame(() => {
-        try {
-          viewer.getPlugin(AutorotatePlugin)?.start?.()
-        } catch {
-          // noop
-        }
+        try { viewer.getPlugin(AutorotatePlugin)?.start?.() } catch { /* noop */ }
       })
     }
   }, { once: true })
+
   viewer.addEventListener('panorama-error', (e: any) => {
     onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'))
   })
@@ -1255,8 +1502,8 @@ export async function initVirtualTourViewer(
   const smoother = installMarkerSmoother(container)
   cleanupFns.push(() => smoother.disconnect())
 
-  const arrowTracker = installArrowDirectionTracker(container, viewer)
-  cleanupFns.push(() => arrowTracker.disconnect())
+  // Arrow direction is handled by the WebGL RAF in installWebGLNavArrows.
+  // installArrowDirectionTracker is only needed in the editor (initViewer).
 
   const autorotatePl = viewer.getPlugin(AutorotatePlugin)
   if (autorotatePl) {
@@ -1276,6 +1523,7 @@ export async function initVirtualTourViewer(
 
   const handleNodeChanged = (e: any) => {
     onNodeChanged?.(e.node.id)
+    webglArrows.setCurrentScene(e.node.id)
 
     // Prefetch tiles for all scenes reachable from the new node so the next
     // navigation feels instant. We schedule this after a short delay so the
