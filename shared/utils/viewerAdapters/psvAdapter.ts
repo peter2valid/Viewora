@@ -519,8 +519,8 @@ function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   const isBlack = hotspot.icon === 'nav-up-white' // 'nav-up-white' key now maps to the black arrow
   const chevronStroke = isBlack ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)'
   const shadowStroke  = isBlack ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)'
-  const sw  = (7  * strokeScale).toFixed(1)
-  const ssw = (11 * strokeScale).toFixed(1)
+  const sw  = (10 * strokeScale).toFixed(1)
+  const ssw = (15 * strokeScale).toFixed(1)
   const wrap = document.createElement('div')
   wrap.className = 'vhs-nav'
   wrap.setAttribute('data-vhs-type', 'scene_link')
