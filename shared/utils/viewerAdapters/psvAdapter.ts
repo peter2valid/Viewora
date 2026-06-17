@@ -1160,9 +1160,18 @@ export async function initVirtualTourViewer(
 
   const autorotatePl = viewer.getPlugin(AutorotatePlugin)
   if (autorotatePl) {
-    const handleAutorotateEv = (e: any) => onAutorotateChange?.(e.autorotateEnabled ?? false)
+    const handleAutorotateEv = (e: any) => {
+      const active = e.autorotateEnabled ?? false
+      // Toggle CSS class so transition:translate activates only during autorotate,
+      // keeping marker movement smooth without adding lag during manual interaction.
+      container.classList.toggle('psv--autorotating', active)
+      onAutorotateChange?.(active)
+    }
     autorotatePl.addEventListener('autorotate', handleAutorotateEv)
-    cleanupFns.push(() => autorotatePl.removeEventListener('autorotate', handleAutorotateEv))
+    cleanupFns.push(() => {
+      autorotatePl.removeEventListener('autorotate', handleAutorotateEv)
+      container.classList.remove('psv--autorotating')
+    })
   }
 
   const handleNodeChanged = (e: any) => {
