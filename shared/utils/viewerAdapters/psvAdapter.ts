@@ -515,9 +515,12 @@ function installWebGLNavArrows(
 function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   const label = esc(hotspot.label || 'Move to next scene')
   const scale = Number(hotspot.scale || 1)
+  const strokeScale = Number(hotspot.strokeScale || 1)
   const isBlack = hotspot.icon === 'nav-up-white' // 'nav-up-white' key now maps to the black arrow
   const chevronStroke = isBlack ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)'
   const shadowStroke  = isBlack ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)'
+  const sw  = (7  * strokeScale).toFixed(1)
+  const ssw = (11 * strokeScale).toFixed(1)
   const wrap = document.createElement('div')
   wrap.className = 'vhs-nav'
   wrap.setAttribute('data-vhs-type', 'scene_link')
@@ -527,8 +530,8 @@ function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   wrap.style.transformOrigin = 'center bottom'
   wrap.innerHTML = `
     <svg class="vhs-nav__floor-arrow" data-hotspot-yaw="${hotspot.yaw}" viewBox="0 0 72 40" fill="none" aria-label="${label}" role="img">
-      <path d="M8 34 L36 6 L64 34" stroke="${shadowStroke}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M8 34 L36 6 L64 34" stroke="${chevronStroke}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8 34 L36 6 L64 34" stroke="${shadowStroke}" stroke-width="${ssw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8 34 L36 6 L64 34" stroke="${chevronStroke}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   `
   return wrap

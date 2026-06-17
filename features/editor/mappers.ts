@@ -20,6 +20,7 @@ export function mapDbHotspot(h: any): EditorHotspot {
     labelBold: h?.content?.label_bold ?? undefined,
     scale: h?.content?.scale ?? undefined,
     hoverScale: h?.content?.hoverScale ?? undefined,
+    strokeScale: h?.content?.strokeScale ?? undefined,
     corners: h?.content?.corners ?? undefined,
     imageUrl: h?.content?.image_url ?? undefined,
   }

@@ -91,7 +91,7 @@
             </div>
           </div>
 
-          <!-- Size + Hover -->
+          <!-- Size + Hover + Thickness -->
           <div class="qe-section">
             <span class="qe-section-label">Size & Hover</span>
             <div class="qe-slider-row">
@@ -106,6 +106,12 @@
             </div>
             <input class="qe-range" type="range" :value="draft.hoverScale" min="1" max="2.5" step="0.1"
               @input="emit('update-draft', { hoverScale: Number(($event.target as HTMLInputElement).value) })" />
+            <div class="qe-slider-row" style="margin-top: 8px">
+              <label class="qe-slider-label">Thickness</label>
+              <span class="qe-slider-val">{{ draft.strokeScale.toFixed(1) }}×</span>
+            </div>
+            <input class="qe-range" type="range" :value="draft.strokeScale" min="0.3" max="3" step="0.1"
+              @input="emit('update-draft', { strokeScale: Number(($event.target as HTMLInputElement).value) })" />
           </div>
         </template>
 
@@ -227,6 +233,7 @@ const props = defineProps<{
     icon: string
     scale: number
     hoverScale: number
+    strokeScale: number
     corners?: Array<{ yaw: number; pitch: number }>
     imageUrl?: string
   }

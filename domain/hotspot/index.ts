@@ -12,6 +12,7 @@ export interface Hotspot {
   labelBold?: boolean
   scale?: number
   hoverScale?: number
+  strokeScale?: number
   corners?: Array<{ yaw: number; pitch: number }>
   imageUrl?: string
 }
