@@ -3447,7 +3447,7 @@ header.nav {
 /* will-change: translate promotes each marker to its own GPU compositor layer so   */
 /* position updates land in sync with the WebGL canvas, eliminating the 1-frame-lag */
 /* "shiver" that appears during autorotate at slow rotation speeds.                  */
-.psv-marker { overflow: visible !important; background: none !important; border: none !important; will-change: translate; backface-visibility: hidden; }
+.psv-marker { overflow: visible !important; background: none !important; border: none !important; will-change: translate; backface-visibility: hidden; transform: translate3d(0,0,0); perspective: 1000px; }
 
 /* ── NAV hotspot — floor arrow ────────────────────────────── */
 .vhs-nav {
