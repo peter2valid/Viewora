@@ -184,26 +184,21 @@ export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | '
 // across all browsers without any WebComponent registration fragility.
 
 function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
-  const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || HOTSPOT_ICONS_BY_KEY['nav-up'] || ''
   const label = esc(hotspot.label || 'Move to next scene')
   const scale = Number(hotspot.scale || 1)
   const wrap = document.createElement('div')
   wrap.className = 'vhs-nav'
   wrap.setAttribute('data-vhs-type', 'scene_link')
   wrap.setAttribute('data-vhs-id', hotspot.id)
-  if (scale !== 1) {
-    wrap.style.transform = `scale(${scale})`
-    wrap.style.transformOrigin = 'center center'
-  }
+  // Combine floor-perspective tilt with any per-hotspot scale
+  const scaleStr = scale !== 1 ? ` scale(${scale})` : ''
+  wrap.style.transform = `perspective(120px) rotateX(52deg)${scaleStr}`
+  wrap.style.transformOrigin = 'center bottom'
   wrap.innerHTML = `
-    <div class="vhs-nav__pulse"></div>
-    ${iconUrl
-      ? `<img class="vhs-nav__icon" src="${iconUrl}" alt="${label}" draggable="false" />`
-      : `<div class="vhs-nav__arrow">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 19V5M5 12l7-7 7 7"/>
-          </svg>
-        </div>`}
+    <svg class="vhs-nav__floor-arrow" viewBox="0 0 72 40" fill="none" aria-label="${label}" role="img">
+      <path d="M8 34 L36 6 L64 34" stroke="rgba(0,0,0,0.35)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8 34 L36 6 L64 34" stroke="rgba(255,255,255,0.95)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
   `
   return wrap
 }
@@ -567,12 +562,12 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 
       const el = isNav ? buildNavMarkerEl(hotspot) : buildInfoMarkerEl(hotspot)
 
-      const baseSize = isNav ? 52 : 40
+      const markerSize = isNav ? { width: 72, height: 40 } : { width: 40, height: 40 }
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
         element: el,
-        size: { width: baseSize, height: baseSize },
+        size: markerSize,
         anchor: 'center center',
         tooltip: labelText && isNav ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
         hoverScale: isNav ? hoverAmount : 1,
@@ -894,7 +889,7 @@ function buildTourNodes(
           uniqueLinksMap.set(h.targetSceneId, {
             nodeId: h.targetSceneId,
             label: targetScene?.title || 'Next Scene',
-            position: { yaw: h.yaw, pitch: -0.8 }, // Force pitch to -0.8 (Zillow-style floor level)
+            position: { yaw: h.yaw, pitch: -1.3 }, // Forced to floor level (≈-75°) for painted-on-floor look
           })
         }
       }
@@ -908,12 +903,12 @@ function buildTourNodes(
       .map(h => {
         const isNav = h.type === 'scene_link'
         const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
-        const hBaseSize = isNav ? 52 : 40
+        const hMarkerSize = isNav ? { width: 72, height: 40 } : { width: 40, height: 40 }
         return {
           id: h.id,
           position: { yaw: h.yaw, pitch: h.pitch },
           element: el,
-          size: { width: hBaseSize, height: hBaseSize },
+          size: hMarkerSize,
           anchor: 'center center',
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
@@ -946,7 +941,7 @@ function buildTourNodes(
         if (sourceNode && !sourceNode.links.some((l: any) => l.nodeId === scene.id)) {
           sourceNode.links.push({
             nodeId: scene.id,
-            position: { yaw: 0, pitch: -0.8 },
+            position: { yaw: 0, pitch: -1.3 },
           })
           allTargetIds.add(scene.id)
         }

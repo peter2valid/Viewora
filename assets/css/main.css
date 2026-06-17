@@ -3446,72 +3446,28 @@ header.nav {
 /* PSV marker must allow overflow so floating cards stay visible */
 .psv-marker { overflow: visible !important; background: none !important; border: none !important; }
 
-/* ── NAV hotspot ──────────────────────────────────────────── */
+/* ── NAV hotspot — floor arrow ────────────────────────────── */
 .vhs-nav {
   position: relative;
-  width: 52px;
-  height: 52px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-.vhs-nav:hover { transform: scale(1.18); }
-
-.vhs-nav__pulse {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  margin: auto;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: 2px solid rgba(99, 102, 241, 0.75);
-  animation: vhs-nav-pulse 2s ease-out infinite;
-  pointer-events: none;
-}
-@keyframes vhs-nav-pulse {
-  0%   { transform: scale(1);   opacity: 0.8; }
-  100% { transform: scale(1.9); opacity: 0;   }
-}
-
-.vhs-nav__icon {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  pointer-events: none;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
-}
-
-.vhs-nav__arrow {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  width: 72px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.65), inset 0 1px 0 rgba(255,255,255,0.25);
+  cursor: pointer;
+  /* perspective + rotateX make the flat SVG appear to lie on the floor */
+  transform: perspective(120px) rotateX(52deg);
+  transform-origin: center bottom;
+  transition: opacity 0.2s ease;
+  filter: drop-shadow(0 3px 8px rgba(0,0,0,0.55));
 }
-.vhs-nav__arrow svg { width: 22px; height: 22px; }
+.vhs-nav:hover { opacity: 0.65; }
 
-.vhs-nav__label {
-  margin-top: 6px;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.85);
-  white-space: nowrap;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.95);
-  background: rgba(0,0,0,0.55);
-  padding: 2px 7px;
-  border-radius: 20px;
-  backdrop-filter: blur(4px);
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.vhs-nav__floor-arrow {
+  width: 72px;
+  height: 40px;
+  pointer-events: none;
+  display: block;
 }
 
 /* ── INFO hotspot ─────────────────────────────────────────── */
