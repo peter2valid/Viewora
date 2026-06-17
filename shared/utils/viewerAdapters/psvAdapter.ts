@@ -24,7 +24,7 @@ export interface PsvViewerHandle {
   markers: any
   markerSignatures: Map<string, string>
   isEditing: boolean
-  markerRoundingObserver?: MutationObserver
+  markerRoundingObserver?: { disconnect: () => void }
   cleanup?: () => void
 }
 
@@ -187,26 +187,29 @@ export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | '
 // which the browser renders as a high-frequency "shiver" on the marker elements.
 // Rounding x/y to whole integers before the browser paints eliminates the jitter.
 
-function installMarkerRounding(container: HTMLElement): MutationObserver {
-  let busy = false
-  const observer = new MutationObserver(mutations => {
-    if (busy) return
-    busy = true
-    for (const mut of mutations) {
-      const el = mut.target as HTMLElement
+// Runs every RAF *after* PSV has set marker transforms for the frame.
+// Rounds any fractional px values to whole integers, eliminating sub-pixel
+// oscillation regardless of which translate format PSV uses.
+function installMarkerRounding(container: HTMLElement): { disconnect: () => void } {
+  let active = true
+  let rafId = 0
+
+  function tick() {
+    const markers = container.querySelectorAll<HTMLElement>('.psv-marker')
+    for (let i = 0; i < markers.length; i++) {
+      const el = markers[i]
       const t = el.style.transform
-      if (!t) continue
-      const m = t.match(/translate3d\((-?[\d.]+)px,\s*(-?[\d.]+)px,/)
-      if (!m) continue
-      const rx = Math.round(parseFloat(m[1]))
-      const ry = Math.round(parseFloat(m[2]))
-      const rounded = t.replace(/translate3d\([^)]+\)/, `translate3d(${rx}px,${ry}px,0px)`)
-      if (rounded !== t) el.style.transform = rounded
+      if (t && t.includes('.')) {
+        // Only touch values that have a decimal — avoids no-op writes
+        const rounded = t.replace(/(-?[\d]+\.[\d]+)px/g, (_, n) => `${Math.round(parseFloat(n))}px`)
+        if (rounded !== t) el.style.transform = rounded
+      }
     }
-    busy = false
-  })
-  observer.observe(container, { subtree: true, attributes: true, attributeFilter: ['style'] })
-  return observer
+    if (active) rafId = requestAnimationFrame(tick)
+  }
+
+  rafId = requestAnimationFrame(tick)
+  return { disconnect: () => { active = false; cancelAnimationFrame(rafId) } }
 }
 
 // ─── Plain-DOM Hotspot Builders (no Shadow DOM / no Custom Elements) ────────
