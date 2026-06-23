@@ -1,5 +1,7 @@
 # viewora-app
 
+_Contribution update: 2026-06-23._
+
 The auth-protected dashboard SPA for Viewora. Built with **Nuxt 3**, **Tailwind CSS**, **Pinia**, and **Supabase** auth. Deployed to `app.viewora.software`.
 
 > **Standalone repo** — separate GitHub repository, deployed independently to **Vercel**. No shared code with `viewora-backend` or `viewora-marketing`.
