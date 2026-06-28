@@ -14,6 +14,7 @@
         <ViewerPsvViewer
           :tour="tour"
           :share-url="shareUrl"
+          :is-embed="true"
         />
       </div>
 

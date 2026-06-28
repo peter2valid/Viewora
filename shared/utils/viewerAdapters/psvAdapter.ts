@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Viewer } from '@photo-sphere-viewer/core'
+import { Viewer, Cache } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
 import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
@@ -73,6 +73,9 @@ let _tileThrottleInstalled = false
 function installTileFetchThrottle(): void {
   if (_tileThrottleInstalled || typeof window === 'undefined') return
   _tileThrottleInstalled = true
+  // PSV default maxItems=10 can hold ~320 MB of WebP tile textures in VRAM on large tours.
+  // Mobile shares GPU/RAM — cap lower to avoid slowdowns when navigating many scenes.
+  Cache.maxItems = window.matchMedia('(pointer: coarse)').matches ? 3 : 8
   const orig = window.fetch.bind(window)
   let active = 0
   const queue: Array<() => void> = []
@@ -1275,6 +1278,8 @@ export interface VirtualTourInitOptions {
   autoRotate?: boolean
   performanceMode?: ViewerPerformanceMode
   loadingImg?: string
+  /** When true (embed context), require two fingers to rotate — lets users scroll past the iframe. */
+  twoFingerTouch?: boolean
 }
 
 /**
@@ -1298,6 +1303,7 @@ export async function initVirtualTourViewer(
     autoRotate,
     performanceMode = 'auto',
     loadingImg = '/images/viewora-logo.png',
+    twoFingerTouch = false,
   } = options
 
   installTileFetchThrottle()
@@ -1393,7 +1399,7 @@ export async function initVirtualTourViewer(
     loadingTxt: 'Loading...',
     loadingImg,
     navbar: false,
-    touchmoveTwoFingers: false,
+    touchmoveTwoFingers: twoFingerTouch,
     fisheye: false,
     // 1.5× speed makes a full 360° orbit achievable in ~2.5 finger-swipes on mobile.
     moveSpeed: 1.5,

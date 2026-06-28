@@ -447,6 +447,7 @@ const props = defineProps<{
   imageUrl?: string
   isEditing?: boolean
   hotspots?: Hotspot[]
+  isEmbed?: boolean
 }>()
 
 const img = useImage()
@@ -821,6 +822,7 @@ async function initVT() {
         autoRotate,
         performanceMode: viewerPerformanceMode.value,
         loadingImg: optimizedLoadingLogo.value,
+        twoFingerTouch: props.isEmbed,
         onReady: () => {
           if (version !== vtInitVersion) return
           // Complete the initial load progress bar
@@ -1128,10 +1130,23 @@ onMounted(() => {
   //    Detected by checking how long the page was hidden: >30s means any
   //    in-flight fetches are likely dead, so force a full scene reload.
   let hiddenAt = 0
+  let autoRotateWasRunning = false
   const onVisibilityChange = () => {
     if (document.visibilityState === 'hidden') {
       hiddenAt = Date.now()
+      // Stop autorotate while tab is hidden — avoids burning GPU on background render frames.
+      if (vtHandle.value && isAutorotateEnabled(vtHandle.value)) {
+        autoRotateWasRunning = true
+        toggleAutorotate(vtHandle.value)
+      }
       return
+    }
+    // Resume autorotate if it was running before the tab was hidden.
+    if (autoRotateWasRunning && vtHandle.value && !isAutorotateEnabled(vtHandle.value)) {
+      autoRotateWasRunning = false
+      toggleAutorotate(vtHandle.value)
+    } else {
+      autoRotateWasRunning = false
     }
     if (!vtHandle.value) return
     const renderer = vtHandle.value.viewer?.renderer?.renderer
