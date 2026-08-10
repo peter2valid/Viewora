@@ -3,114 +3,42 @@
   <NuxtLink
     v-if="variant === 'strip'"
     to="/app/capture"
-    class="capture-nudge-strip"
+    class="flex items-center gap-3 flex-wrap px-4 py-3 rounded-xl bg-success-bg/60 border border-success/20 hover:border-success/40 transition-colors"
   >
-    <span class="capture-nudge-strip__icon">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-        <circle cx="12" cy="13" r="4"/>
-      </svg>
+    <span class="flex-shrink-0 w-7 h-7 rounded-lg bg-success-bg border border-success/25 flex items-center justify-center text-success">
+      <UiIcon name="camera" :size="14" :stroke-width="2.2" />
     </span>
-    <span class="capture-nudge-strip__text">
-      No 360° photos? <strong>Claim your free demo shoot</strong> — we come to your property, capture it, upload it.
+    <span class="flex-1 min-w-[200px] text-xs font-medium text-dim">
+      No 360&deg; photos? <strong class="text-main font-bold">Claim your free demo shoot</strong> — we come to your property, capture it, upload it.
     </span>
-    <span class="capture-nudge-strip__cta">Claim Free →</span>
+    <span class="flex-shrink-0 text-[11px] font-bold uppercase tracking-wide text-success px-2.5 py-1 rounded-md bg-success-bg border border-success/25">
+      Claim Free &rarr;
+    </span>
   </NuxtLink>
 
   <!-- Card variant (editor / empty state) -->
-  <div v-else-if="variant === 'card'" class="capture-nudge-card">
-    <div class="capture-nudge-card__icon">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-        <circle cx="12" cy="13" r="4"/>
-      </svg>
+  <div v-else-if="variant === 'card'" class="flex items-start gap-3 mt-2.5 p-4 rounded-xl bg-success-bg/60 border border-success/20">
+    <span class="flex-shrink-0 w-8 h-8 rounded-lg bg-success-bg border border-success/25 flex items-center justify-center text-success">
+      <UiIcon name="camera" :size="16" :stroke-width="2" />
+    </span>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-bold text-main mb-0.5">Claim your free demo shoot</p>
+      <p class="text-xs text-dim leading-relaxed">No 360&deg; camera needed. One free professional shoot per account — we come to you.</p>
     </div>
-    <div class="capture-nudge-card__body">
-      <p class="capture-nudge-card__title">🎁 Claim your free demo shoot</p>
-      <p class="capture-nudge-card__sub">No 360° camera needed. One free professional shoot per account — we come to you.</p>
-    </div>
-    <NuxtLink to="/app/capture" class="capture-nudge-card__btn">Book a Shoot</NuxtLink>
+    <UiButton to="/app/capture" variant="success" size="sm" class="flex-shrink-0 self-center">Book a Shoot</UiButton>
   </div>
 
   <!-- Button variant (inline next to another button) -->
-  <NuxtLink
+  <UiButton
     v-else-if="variant === 'btn'"
     to="/app/capture"
-    class="capture-nudge-btn"
+    variant="success"
   >
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-      <circle cx="12" cy="13" r="4"/>
-    </svg>
+    <UiIcon name="camera" :size="14" :stroke-width="2.2" />
     Book a Shoot
-  </NuxtLink>
+  </UiButton>
 </template>
 
 <script setup lang="ts">
 withDefaults(defineProps<{ variant?: 'strip' | 'card' | 'btn' }>(), { variant: 'strip' })
 </script>
-
-<style scoped>
-/* ── Strip ─────────────────────────────────────── */
-.capture-nudge-strip {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 16px; border-radius: 14px;
-  background: linear-gradient(135deg, rgba(37,211,102,0.07) 0%, rgba(59,130,246,0.07) 100%);
-  border: 1px solid rgba(37,211,102,0.18);
-  text-decoration: none; transition: border-color 150ms ease, background 150ms ease;
-  cursor: pointer;
-}
-.capture-nudge-strip:hover { border-color: rgba(37,211,102,0.35); background: linear-gradient(135deg, rgba(37,211,102,0.12) 0%, rgba(59,130,246,0.10) 100%); }
-.capture-nudge-strip__icon {
-  flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px;
-  background: rgba(37,211,102,0.15); border: 1px solid rgba(37,211,102,0.25);
-  display: flex; align-items: center; justify-content: center; color: #25d366;
-}
-.capture-nudge-strip__text { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.65); flex: 1; }
-.capture-nudge-strip__text strong { color: rgba(255,255,255,0.9); font-weight: 800; }
-.capture-nudge-strip__cta {
-  flex-shrink: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
-  color: #25d366; text-transform: uppercase;
-  padding: 4px 10px; border-radius: 8px;
-  background: rgba(37,211,102,0.12); border: 1px solid rgba(37,211,102,0.25);
-  transition: background 140ms ease;
-}
-.capture-nudge-strip:hover .capture-nudge-strip__cta { background: rgba(37,211,102,0.2); }
-
-/* ── Card ──────────────────────────────────────── */
-.capture-nudge-card {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 14px 16px; border-radius: 14px;
-  background: linear-gradient(135deg, rgba(37,211,102,0.06) 0%, rgba(59,130,246,0.06) 100%);
-  border: 1px solid rgba(37,211,102,0.18);
-  margin-top: 10px;
-}
-.capture-nudge-card__icon {
-  flex-shrink: 0; width: 32px; height: 32px; border-radius: 10px;
-  background: rgba(37,211,102,0.15); border: 1px solid rgba(37,211,102,0.25);
-  display: flex; align-items: center; justify-content: center; color: #25d366;
-}
-.capture-nudge-card__body { flex: 1; min-width: 0; }
-.capture-nudge-card__title { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.9); margin-bottom: 2px; }
-.capture-nudge-card__sub { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.5; font-weight: 500; }
-.capture-nudge-card__sub strong { color: rgba(255,255,255,0.7); font-weight: 800; }
-.capture-nudge-card__btn {
-  flex-shrink: 0; align-self: center; font-size: 10px; font-weight: 800;
-  letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
-  padding: 6px 12px; border-radius: 9px;
-  background: #25d366; color: #0a0a0a;
-  transition: background 140ms ease, transform 140ms ease;
-  white-space: nowrap;
-}
-.capture-nudge-card__btn:hover { background: #20bd5a; transform: translateY(-1px); }
-
-/* ── Button ────────────────────────────────────── */
-.capture-nudge-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  height: 40px; padding: 0 16px; border-radius: 12px;
-  font-size: 12px; font-weight: 700; letter-spacing: 0.02em; text-decoration: none;
-  background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.25);
-  color: #25d366; transition: all 140ms ease; white-space: nowrap;
-}
-.capture-nudge-btn:hover { background: rgba(37,211,102,0.18); border-color: rgba(37,211,102,0.45); transform: translateY(-1px); }
-</style>
