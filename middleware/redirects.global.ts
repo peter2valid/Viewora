@@ -12,4 +12,12 @@ export default defineNuxtRouteMiddleware((to) => {
   if (host === 'tst.viewora.software' && to.path === '/') {
     return navigateTo('/demo/house', { redirectCode: 302 })
   }
+
+  // view.viewora.software is the buyer-facing browse surface
+  // (VIEWORA_2_PRODUCT_SPEC.md) — not DNS-wired yet, but the redirect is
+  // ready for when it is. Root lands on the Home feed, not a single
+  // property, unlike tst.viewora.software above.
+  if (host === 'view.viewora.software' && to.path === '/') {
+    return navigateTo('/view', { redirectCode: 302 })
+  }
 })
