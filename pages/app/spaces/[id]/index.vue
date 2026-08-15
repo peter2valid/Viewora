@@ -1,5 +1,8 @@
 <template>
-  <EditorShell :space-id="spaceId" />
+  <div>
+    <EditorShell :space-id="spaceId" />
+    <ClaimBanner />
+  </div>
 </template>
 
 <script setup lang="ts">
