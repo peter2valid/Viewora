@@ -37,7 +37,7 @@
 
       <div v-else class="feed__grid">
         <article v-for="listing in listings" :key="listing.id" class="card">
-          <NuxtLink :to="`/p/${listing.slug || listing.id}`" class="card__media-link">
+          <NuxtLink :to="`/view/p/${listing.slug || listing.id}`" class="card__media-link">
             <div class="card__media">
               <img v-if="listing.hero_image" :src="listing.hero_image" :alt="listing.title" loading="lazy" />
               <div v-else class="card__media-placeholder" aria-hidden="true">
@@ -58,7 +58,7 @@
             <a
               v-if="listing.phone"
               class="card__cta"
-              :href="whatsappUrl(listing)"
+              :href="cardWhatsappUrl(listing)"
               target="_blank"
               rel="noopener"
               @click.stop
@@ -94,6 +94,7 @@ definePageMeta({ layout: false })
 import { ref, h, computed } from 'vue'
 import { useAsyncData, useHead, useSeoMeta } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
 
 interface Listing {
   id: string
@@ -187,33 +188,8 @@ async function loadMore() {
   pending.value = false
 }
 
-function formatPrice(kes: number): string {
-  return `KES ${kes.toLocaleString('en-KE')}`
-}
-
-function factsLine(l: Listing): string {
-  if (l.space_type === 'residential') {
-    const parts = []
-    if (l.bedrooms) parts.push(`${l.bedrooms} Bed`)
-    if (l.bathrooms) parts.push(`${l.bathrooms} Bath`)
-    if (l.area_sqm) parts.push(`${l.area_sqm} m²`)
-    return parts.join(' · ')
-  }
-  if (l.space_type === 'automotive') {
-    const parts = []
-    if (l.vehicle_year) parts.push(String(l.vehicle_year))
-    if (l.vehicle_mileage_km != null) parts.push(`${l.vehicle_mileage_km.toLocaleString('en-KE')} km`)
-    if (l.vehicle_transmission) parts.push(l.vehicle_transmission[0].toUpperCase() + l.vehicle_transmission.slice(1))
-    return parts.join(' · ')
-  }
-  if (l.area_sqm) return `${l.area_sqm} m²`
-  return ''
-}
-
-function whatsappUrl(l: Listing): string {
-  const digits = (l.phone || '').replace(/[^0-9]/g, '')
-  const msg = `Hi! I saw ${l.title} on Viewora and would like more details.`
-  return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
+function cardWhatsappUrl(l: Listing): string {
+  return whatsappUrl(l.phone, l.title)
 }
 
 // ── Inline nav icons — small enough not to warrant separate component files ──
