@@ -165,7 +165,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, h } from 'vue'
 import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, createError } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
@@ -260,16 +260,22 @@ const savePending = ref(false)
 
 // Only check saved state if a session already exists (persisted anon or
 // real) — don't mint a new anonymous user just to look, only when someone
-// actually taps Save.
-onMounted(async () => {
-  if (!supabaseUser.value || !space.value?.id) return
+// actually taps Save. Watched rather than a one-shot onMounted check:
+// on a fresh page load, the Supabase module restores the session from its
+// cookie asynchronously, so supabaseUser.value is still null at mount time
+// even for a returning saver — a plain onMounted read raced that restore
+// and silently never re-checked.
+let checkedSavedFor: string | null = null
+watch(supabaseUser, async (u) => {
+  if (!u || !space.value?.id || checkedSavedFor === space.value.id) return
+  checkedSavedFor = space.value.id
   try {
     const result = await apiFetch<{ saved: boolean }>(`/saved/${space.value.id}`)
     saved.value = result.saved
   } catch {
     // Non-critical — the button just starts unsaved.
   }
-})
+}, { immediate: true })
 
 async function toggleSave() {
   if (savePending.value || !space.value?.id) return
