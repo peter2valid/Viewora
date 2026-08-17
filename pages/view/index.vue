@@ -20,6 +20,10 @@
           <option value="price_desc">Price: High to Low</option>
         </select>
       </div>
+      <div v-if="hasActiveSearch" class="feed__activesearch">
+        <span>Filtered{{ route.query.q ? `: "${route.query.q}"` : '' }}</span>
+        <button class="feed__clear" @click="clearSearch">Clear</button>
+      </div>
     </header>
 
     <main class="feed__main">
@@ -80,8 +84,8 @@
     <nav class="dock" aria-label="Primary">
       <div class="dock__inner">
         <span class="tab tab--active"><HomeIcon /><span>Home</span></span>
-        <span class="tab tab--disabled" title="Coming soon"><SavedIcon /><span>Saved</span></span>
-        <span class="tab tab--disabled" title="Coming soon"><ChatIcon /><span>Chat</span></span>
+        <NuxtLink to="/view/search" class="tab"><SearchIcon /><span>Search</span></NuxtLink>
+        <span class="tab tab--disabled" title="Coming soon"><ChatIcon /><span>Chats</span></span>
         <span class="tab tab--disabled" title="Coming soon"><ProfileIcon /><span>Profile</span></span>
       </div>
     </nav>
@@ -92,7 +96,7 @@
 definePageMeta({ layout: false })
 
 import { ref, h, computed } from 'vue'
-import { useAsyncData, useHead, useSeoMeta } from '#imports'
+import { useAsyncData, useHead, useSeoMeta, useRoute } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
 
@@ -126,16 +130,36 @@ const TYPE_OPTIONS = [
 ]
 
 const { apiFetch } = useApiFetch()
+const route = useRoute()
 
-const type = ref<'all' | 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'other'>('all')
+// Search tab (pages/view/search.vue) hands filters over as query params —
+// e.g. /view?q=Kilimani&beds_min=3&price_max=10000000 — and Home applies
+// them on load rather than owning a separate results view (per
+// VIEWORA_2_PRODUCT_SPEC.md §7.2: "Apply filters -> shows filtered results
+// in the Home tab").
+const initialType = route.query.type
+const type = ref<'all' | 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'other'>(
+  (typeof initialType === 'string' ? initialType : 'all') as any,
+)
 const sort = ref<'newest' | 'price_asc' | 'price_desc'>('newest')
 const page = ref(1)
 const LIMIT = 20
+
+const searchFilters = {
+  q: route.query.q,
+  price_min: route.query.price_min,
+  price_max: route.query.price_max,
+  beds_min: route.query.beds_min,
+  baths_min: route.query.baths_min,
+  area_min: route.query.area_min,
+}
 
 const listings = ref<Listing[]>([])
 const total = ref(0)
 const pending = ref(true)
 const error = ref(false)
+
+const hasActiveSearch = computed(() => Object.values(searchFilters).some((v) => typeof v === 'string' && v.length > 0))
 
 async function fetchPage(pageNum: number) {
   return apiFetch<{ data: Listing[]; total: number; page: number; limit: number }>('/listings', {
@@ -144,8 +168,15 @@ async function fetchPage(pageNum: number) {
       limit: LIMIT,
       type: type.value,
       sort: sort.value,
+      ...searchFilters,
     },
   })
+}
+
+// searchFilters is captured once from the initial route at page load, so
+// clearing it needs a full navigation rather than a reactive reset.
+function clearSearch() {
+  window.location.href = '/view'
 }
 
 const { data: firstPage } = await useAsyncData('view-feed', () => fetchPage(1), { server: true, lazy: false })
@@ -197,8 +228,9 @@ const HomeIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'c
   h('path', { d: 'M3 11l9-8 9 8' }),
   h('path', { d: 'M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10' }),
 ])
-const SavedIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z' }),
+const SearchIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+  h('circle', { cx: '11', cy: '11', r: '7' }),
+  h('path', { d: 'm21 21-4.3-4.3' }),
 ])
 const ChatIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
   h('path', { d: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' }),
@@ -317,6 +349,29 @@ useSeoMeta({
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink);
+}
+.feed__activesearch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.feed__clear {
+  border: none;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
 }
 
 .feed__main {
@@ -440,6 +495,7 @@ useSeoMeta({
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 9px 0 8px;
   color: var(--ink-faint);
+  text-decoration: none;
 }
 .tab svg { width: 21px; height: 21px; }
 .tab span { font-size: 0.62rem; font-weight: 700; }

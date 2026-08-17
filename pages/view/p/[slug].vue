@@ -147,8 +147,8 @@
         <nav class="dock" aria-label="Primary">
           <div class="dock__inner">
             <NuxtLink to="/view" class="tab"><HomeIcon /><span>Home</span></NuxtLink>
-            <span class="tab tab--disabled" title="Coming soon"><SavedIcon /><span>Saved</span></span>
-            <span class="tab tab--disabled" title="Coming soon"><ChatIcon /><span>Chat</span></span>
+            <NuxtLink to="/view/search" class="tab"><SearchIcon /><span>Search</span></NuxtLink>
+            <span class="tab tab--disabled" title="Coming soon"><ChatIcon /><span>Chats</span></span>
             <span class="tab tab--disabled" title="Coming soon"><ProfileIcon /><span>Profile</span></span>
           </div>
         </nav>
@@ -378,8 +378,9 @@ const HomeIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'c
   h('path', { d: 'M3 11l9-8 9 8' }),
   h('path', { d: 'M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10' }),
 ])
-const SavedIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z' }),
+const SearchIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+  h('circle', { cx: '11', cy: '11', r: '7' }),
+  h('path', { d: 'm21 21-4.3-4.3' }),
 ])
 const ChatIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
   h('path', { d: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' }),
