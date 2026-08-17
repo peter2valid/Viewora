@@ -822,7 +822,7 @@ async function initVT() {
         autoRotate,
         performanceMode: viewerPerformanceMode.value,
         loadingImg: optimizedLoadingLogo.value,
-        twoFingerTouch: props.isEmbed,
+        twoFingerTouch: false,
         onReady: () => {
           if (version !== vtInitVersion) return
           // Complete the initial load progress bar
