@@ -287,13 +287,17 @@ watch(() => props.items, (items) => {
 watch(() => props.activeId, (newId) => {
   if (!newId || !stripEl.value) return
   nextTick(() => {
-    const activeBtn = stripEl.value?.querySelector(`[data-dock-id="${CSS.escape(newId)}"]`) as HTMLElement | null
-    if (activeBtn) {
-      activeBtn.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center'
-      })
+    const strip = stripEl.value
+    const activeBtn = strip?.querySelector(`[data-dock-id="${CSS.escape(newId)}"]`) as HTMLElement | null
+    if (activeBtn && strip) {
+      // Manual scrollBy instead of scrollIntoView: scrollIntoView walks up the
+      // scroll-ancestor chain, which includes the parent document when this
+      // dock is rendered inside an embedded iframe, causing the host page to
+      // scroll. scrollBy is confined to this element.
+      const stripRect = strip.getBoundingClientRect()
+      const btnRect = activeBtn.getBoundingClientRect()
+      const offset = (btnRect.left + btnRect.width / 2) - (stripRect.left + stripRect.width / 2)
+      strip.scrollBy({ left: offset, behavior: 'smooth' })
     }
   })
 }, { immediate: true })
