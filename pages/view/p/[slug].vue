@@ -34,7 +34,7 @@
             <template v-if="isPanorama">360° · {{ heroItems.length }} {{ heroItems.length === 1 ? 'Room' : 'Rooms' }}</template>
             <template v-else>{{ heroItems.length }} {{ heroItems.length === 1 ? 'Photo' : 'Photos' }}</template>
           </span>
-          <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" aria-label="Save listing" @click="toggleSave">
+          <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
             <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           </button>
         </div>
@@ -166,11 +166,14 @@
 definePageMeta({ layout: false })
 
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
-import { useAsyncData, useHead, useRoute, useSeoMeta, createError } from '#imports'
+import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, createError } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
 
 const { apiFetch } = useApiFetch()
+const { ensureSession } = useAnonymousAuth()
+const supabaseUser = useSupabaseUser()
 const route = useRoute()
 const slug = route.params.slug as string
 
@@ -253,11 +256,35 @@ const keyFacts = computed(() => {
 })
 
 const saved = ref(false)
-function toggleSave() {
-  // Client-visual only for now — persisting a save requires the anonymous
-  // Supabase session + a saved_properties write, not built yet on this
-  // screen. Don't claim it's saved anywhere real until that lands.
-  saved.value = !saved.value
+const savePending = ref(false)
+
+// Only check saved state if a session already exists (persisted anon or
+// real) — don't mint a new anonymous user just to look, only when someone
+// actually taps Save.
+onMounted(async () => {
+  if (!supabaseUser.value || !space.value?.id) return
+  try {
+    const result = await apiFetch<{ saved: boolean }>(`/saved/${space.value.id}`)
+    saved.value = result.saved
+  } catch {
+    // Non-critical — the button just starts unsaved.
+  }
+})
+
+async function toggleSave() {
+  if (savePending.value || !space.value?.id) return
+  savePending.value = true
+  const next = !saved.value
+  try {
+    await ensureSession()
+    const result = await apiFetch<{ saved: boolean }>(`/saved/${space.value.id}`, {
+      method: next ? 'POST' : 'DELETE',
+    })
+    saved.value = result.saved
+  } catch {
+    // Leave saved state unchanged on failure rather than lying about it.
+  }
+  savePending.value = false
 }
 
 // ── Drag-to-pan on the persistent hero + draggable bottom sheet ─────────
