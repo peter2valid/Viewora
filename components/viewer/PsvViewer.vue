@@ -75,8 +75,11 @@
       </div>
     </Transition>
 
-    <!-- Control stack: toggle always visible, rail hides with chrome -->
-    <div ref="controlStackEl" class="viewer-control-stack">
+    <!-- Control stack: toggle always visible, rail hides with chrome.
+         Hidden entirely when hideOwnChrome is set — the host page (e.g. the
+         buyer-facing detail screen) owns its own chrome (back/save buttons, room list,
+         Chat CTA) and this would just duplicate it. -->
+    <div v-if="!props.hideOwnChrome" ref="controlStackEl" class="viewer-control-stack">
 
       <!-- Always-visible chrome toggle (lives outside the rail so opacity:0 never touches it) -->
       <button
@@ -160,7 +163,7 @@
     <!-- WhatsApp Contact Button — left side, opposite the control rail -->
     <Transition name="wa-btn">
       <a
-        v-if="whatsappHref && !chromeHidden"
+        v-if="whatsappHref && !chromeHidden && !props.hideOwnChrome"
         :href="whatsappHref"
         class="viewer-wa-btn"
         target="_blank"
@@ -178,7 +181,7 @@
     <!-- Floating CTA button (bottom-left, always above dock) -->
     <Transition name="viewer-cta-fade">
       <a
-        v-if="ctaEnabled && !chromeHidden"
+        v-if="ctaEnabled && !chromeHidden && !props.hideOwnChrome"
         :href="ctaHref"
         class="viewer-cta-btn"
         target="_blank"
@@ -193,7 +196,7 @@
 
     <!-- Post-guided-tour modal -->
     <Transition name="post-tour">
-      <div v-if="showPostTourModal" class="post-tour-overlay" @click.self="showPostTourModal = false">
+      <div v-if="showPostTourModal && !props.hideOwnChrome" class="post-tour-overlay" @click.self="showPostTourModal = false">
         <div class="post-tour-card">
           <button class="post-tour__close" aria-label="Close" @click="showPostTourModal = false">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -218,7 +221,7 @@
     </Transition>
 
     <Transition name="share-modal">
-      <div v-if="showShareModal" class="share-overlay" @click.self="showShareModal = false">
+      <div v-if="showShareModal && !props.hideOwnChrome" class="share-overlay" @click.self="showShareModal = false">
         <div class="share-modal" role="dialog" aria-modal="true" aria-label="Share your tour">
           <div class="share-modal__topbar">
             <h2 class="share-modal__title">Share</h2>
@@ -398,9 +401,10 @@
       @hotspot-click="emit('hotspot-click', $event)"
     />
 
-    <!-- ── Scene dock (both modes) ── -->
+    <!-- ── Scene dock (both modes) — hidden when hideOwnChrome is set; the
+         host page drives scene switching itself via goToScene() ── -->
     <GlassDock
-      v-if="sceneCount > 0 && !chromeHidden"
+      v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome"
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
       :active-id="activeSceneId"
@@ -451,6 +455,15 @@ const props = defineProps<{
   isEditing?: boolean
   hotspots?: Hotspot[]
   isEmbed?: boolean
+  // Suppresses this component's own floating chrome (control rail, WhatsApp
+  // button, CTA button, scene dock, share/post-tour modals) for a host page
+  // that supplies all of that itself — e.g. the buyer-facing detail screen
+  // (pages/view/p/[slug].vue), which mounts this component directly inside
+  // its own UI rather than as a full-page/iframed viewer. Deliberately a
+  // separate flag from isEmbed (used by pages/embed/[slug].vue for real
+  // third-party iframe embeds, which still need their own scene switcher
+  // and WhatsApp lead button since there's no host chrome around them).
+  hideOwnChrome?: boolean
 }>()
 
 const img = useImage()
@@ -463,6 +476,7 @@ const emit = defineEmits<{
   (e: 'hotspot-click', id: string): void
   (e: 'remove-hotspot', id: string): void
   (e: 'chrome-toggle', hidden: boolean): void
+  (e: 'scene-changed', sceneId: string): void
 }>()
 
 const { $posthog } = useNuxtApp()
@@ -1069,7 +1083,7 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
 }
 
 // ── GlassDock navigation ───────────────────────────────────────────────────
-async function handleDockSelect(sceneId: string) {
+async function handleDockSelect(sceneId: string, via: string = 'dock') {
   autoplayFromButton = true
   if (autoplaying.value) { autoplaying.value = false; if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null } }
   if (vtHandle.value && !vtTransitioning.value && vtActiveNodeId.value !== sceneId) {
@@ -1077,7 +1091,7 @@ async function handleDockSelect(sceneId: string) {
     $posthog?.capture('scene_navigated', {
       from_scene: vtActiveNodeId.value,
       to_scene: sceneId,
-      via: 'dock',
+      via,
     })
     try {
       const success = await vtGoToNode(vtHandle.value, sceneId)
@@ -1087,6 +1101,13 @@ async function handleDockSelect(sceneId: string) {
     }
   }
 }
+
+// Lets a host page using hideOwnChrome (e.g. the buyer-facing detail
+// screen, which hides this component's own scene dock) drive scene
+// switching from its own room list instead.
+defineExpose({
+  goToScene: (sceneId: string) => handleDockSelect(sceneId, 'host-chrome'),
+})
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 // ── Tooltip touch flash ────────────────────────────────────────────────────
@@ -1388,10 +1409,14 @@ watch(
 watch(vtActiveNodeId, (newId, oldId) => {
   if (!newId || newId === oldId) return
 
+  emit('scene-changed', newId)
+
   // ── Persist current scene in URL hash ─────────────────────────────────
   // Allows the viewer to resume from this scene on refresh, and makes the
   // URL shareable — someone opening the link lands on the same scene.
-  if (typeof window !== 'undefined') {
+  // Skipped when hideOwnChrome is set: the host page owns its own URL, this isn't ours
+  // to rewrite there.
+  if (typeof window !== 'undefined' && !props.hideOwnChrome) {
     const url = `${window.location.pathname}${window.location.search}#scene=${newId}`
     window.history.replaceState(null, '', url)
   }

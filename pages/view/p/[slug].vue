@@ -16,7 +16,16 @@
 
     <template v-else-if="space">
       <div class="stage">
+        <ViewerPsvViewer
+          v-if="isPanorama"
+          ref="psvViewerRef"
+          :tour="tourData"
+          :hide-own-chrome="true"
+          class="pano pano--psv"
+          @scene-changed="onViewerSceneChanged"
+        />
         <div
+          v-else
           ref="panoEl"
           class="pano"
           :style="{ backgroundImage: heroImage ? `url('${heroImage}')` : 'none' }"
@@ -183,6 +192,10 @@ const state = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const space = ref<any>(null)
 const rooms = ref<Array<{ id: string; name: string; thumbnail_url: string }>>([])
 const photos = ref<Array<{ id: string; name: string; thumbnail_url: string }>>([])
+// Raw { space, scenes } payload, passed straight through to ViewerPsvViewer
+// (same shape it already consumes on pages/p/[slug].vue) when the listing
+// has real 360 scenes.
+const tourData = ref<any>(null)
 
 const { data: tourPayload, error: tourError } = await useAsyncData(
   `view-tour:${slug}`,
@@ -199,6 +212,7 @@ if (tourError.value) {
   state.value = 'error'
 } else if (tourPayload.value) {
   const tour = tourPayload.value?.tour ?? tourPayload.value
+  tourData.value = tour
   space.value = tour?.space ?? null
   rooms.value = (tour?.scenes ?? [])
     .filter((s: any) => s.thumbnail_url)
@@ -218,11 +232,27 @@ const activeIndex = ref(0)
 // hero source for listings that only have gallery photos.
 const isPanorama = computed(() => rooms.value.length > 0)
 const heroItems = computed(() => (isPanorama.value ? rooms.value : photos.value))
-const heroImage = computed(() => heroItems.value[activeIndex.value]?.thumbnail_url || null)
+// Only meaningful for the flat-photo fallback below — the real panorama
+// viewer renders its own canvas, it doesn't use a background image.
+const heroImage = computed(() => (isPanorama.value ? null : heroItems.value[activeIndex.value]?.thumbnail_url || null))
+
+const psvViewerRef = ref<any>(null)
 
 function setActiveRoom(i: number) {
   activeIndex.value = i
-  if (panoEl.value) panoEl.value.style.backgroundPositionX = '0px'
+  if (isPanorama.value) {
+    const targetId = rooms.value[i]?.id
+    if (targetId) psvViewerRef.value?.goToScene(targetId)
+  } else if (panoEl.value) {
+    panoEl.value.style.backgroundPositionX = '0px'
+  }
+}
+
+// Keeps our room rail/list highlight in sync if the scene changes by any
+// means other than tapping our own UI (e.g. a future in-viewer hotspot jump).
+function onViewerSceneChanged(sceneId: string) {
+  const idx = rooms.value.findIndex((r) => r.id === sceneId)
+  if (idx !== -1) activeIndex.value = idx
 }
 
 const priceText = computed(() => formatPrice(space.value?.price_kes))
@@ -303,27 +333,40 @@ const handleEl = ref<HTMLElement | null>(null)
 let cleanupFns: Array<() => void> = []
 
 onMounted(() => {
-  const pano = panoEl.value
   const sheet = sheetEl.value
   const handle = handleEl.value
-  if (!pano || !sheet || !handle) return
+  if (!sheet || !handle) return
 
-  // Pano drag-to-pan
-  let panoDragging = false, startX = 0, startPos = 0
-  const posX = () => parseFloat(getComputedStyle(pano).backgroundPositionX) || 0
-  const panoDown = (x: number) => { panoDragging = true; startX = x; startPos = posX() }
-  const panoMove = (x: number) => { if (panoDragging) pano.style.backgroundPositionX = `${startPos + (x - startX)}px` }
-  const panoUp = () => { panoDragging = false }
-  const onPanoMouseDown = (e: MouseEvent) => panoDown(e.clientX)
-  const onPanoMouseMove = (e: MouseEvent) => panoMove(e.clientX)
-  const onPanoTouchStart = (e: TouchEvent) => panoDown(e.touches[0].clientX)
-  const onPanoTouchMove = (e: TouchEvent) => panoMove(e.touches[0].clientX)
-  pano.addEventListener('mousedown', onPanoMouseDown)
-  window.addEventListener('mousemove', onPanoMouseMove)
-  window.addEventListener('mouseup', panoUp)
-  pano.addEventListener('touchstart', onPanoTouchStart, { passive: true })
-  pano.addEventListener('touchmove', onPanoTouchMove, { passive: true })
-  pano.addEventListener('touchend', panoUp)
+  const localCleanup: Array<() => void> = []
+
+  // Pano drag-to-pan — only for the flat-photo fallback (no panoEl exists
+  // when isPanorama, since ViewerPsvViewer handles its own real gestures).
+  const pano = panoEl.value
+  if (pano) {
+    let panoDragging = false, startX = 0, startPos = 0
+    const posX = () => parseFloat(getComputedStyle(pano).backgroundPositionX) || 0
+    const panoDown = (x: number) => { panoDragging = true; startX = x; startPos = posX() }
+    const panoMove = (x: number) => { if (panoDragging) pano.style.backgroundPositionX = `${startPos + (x - startX)}px` }
+    const panoUp = () => { panoDragging = false }
+    const onPanoMouseDown = (e: MouseEvent) => panoDown(e.clientX)
+    const onPanoMouseMove = (e: MouseEvent) => panoMove(e.clientX)
+    const onPanoTouchStart = (e: TouchEvent) => panoDown(e.touches[0].clientX)
+    const onPanoTouchMove = (e: TouchEvent) => panoMove(e.touches[0].clientX)
+    pano.addEventListener('mousedown', onPanoMouseDown)
+    window.addEventListener('mousemove', onPanoMouseMove)
+    window.addEventListener('mouseup', panoUp)
+    pano.addEventListener('touchstart', onPanoTouchStart, { passive: true })
+    pano.addEventListener('touchmove', onPanoTouchMove, { passive: true })
+    pano.addEventListener('touchend', panoUp)
+    localCleanup.push(
+      () => pano.removeEventListener('mousedown', onPanoMouseDown),
+      () => window.removeEventListener('mousemove', onPanoMouseMove),
+      () => window.removeEventListener('mouseup', panoUp),
+      () => pano.removeEventListener('touchstart', onPanoTouchStart),
+      () => pano.removeEventListener('touchmove', onPanoTouchMove),
+      () => pano.removeEventListener('touchend', panoUp),
+    )
+  }
 
   // Bottom sheet snap drag
   const PEEK_PX = 190
@@ -396,13 +439,7 @@ onMounted(() => {
   handle.addEventListener('touchend', sheetUp)
   handle.addEventListener('click', onHandleClick)
 
-  cleanupFns = [
-    () => pano.removeEventListener('mousedown', onPanoMouseDown),
-    () => window.removeEventListener('mousemove', onPanoMouseMove),
-    () => window.removeEventListener('mouseup', panoUp),
-    () => pano.removeEventListener('touchstart', onPanoTouchStart),
-    () => pano.removeEventListener('touchmove', onPanoTouchMove),
-    () => pano.removeEventListener('touchend', panoUp),
+  localCleanup.push(
     () => window.removeEventListener('resize', onResize),
     () => handle.removeEventListener('mousedown', onHandleMouseDown),
     () => window.removeEventListener('mousemove', onHandleMouseMove),
@@ -411,7 +448,8 @@ onMounted(() => {
     () => handle.removeEventListener('touchmove', onHandleTouchMove),
     () => handle.removeEventListener('touchend', sheetUp),
     () => handle.removeEventListener('click', onHandleClick),
-  ]
+  )
+  cleanupFns = localCleanup
 })
 
 onBeforeUnmount(() => {
@@ -521,6 +559,10 @@ useSeoMeta({
   cursor: grab; touch-action: pan-y; user-select: none;
 }
 .pano:active { cursor: grabbing; }
+/* Real panorama viewer manages its own cursor/gesture handling — the
+   grab-cursor/pan-y/no-select rules above are for the flat-photo fallback
+   only and would fight ViewerPsvViewer's internal touch handling. */
+.pano--psv { cursor: auto; touch-action: auto; user-select: auto; }
 .pano__scrim {
   position: absolute; inset: 0;
   background: linear-gradient(180deg, var(--scrim-top) 0%, transparent 20%, transparent 58%, var(--scrim-bottom) 100%);
