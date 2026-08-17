@@ -47,7 +47,7 @@
               <div v-else class="card__media-placeholder" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
               </div>
-              <span v-if="listing.hero_image" class="card__badge">360°</span>
+              <span v-if="listing.has_360" class="card__badge">360°</span>
             </div>
           </NuxtLink>
 
@@ -117,6 +117,7 @@ interface Listing {
   vehicle_fuel_type: string | null
   amenities: string[]
   phone: string | null
+  has_360: boolean
   hero_image: string | null
   created_at: string
 }

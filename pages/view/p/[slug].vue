@@ -29,24 +29,26 @@
           <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </NuxtLink>
-          <span v-if="rooms.length > 0" class="trustbadge">
-            <span class="trustbadge__dot" />360° · {{ rooms.length }} {{ rooms.length === 1 ? 'Room' : 'Rooms' }}
+          <span v-if="heroItems.length > 0" class="trustbadge">
+            <span class="trustbadge__dot" />
+            <template v-if="isPanorama">360° · {{ heroItems.length }} {{ heroItems.length === 1 ? 'Room' : 'Rooms' }}</template>
+            <template v-else>{{ heroItems.length }} {{ heroItems.length === 1 ? 'Photo' : 'Photos' }}</template>
           </span>
           <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" aria-label="Save listing" @click="toggleSave">
             <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           </button>
         </div>
 
-        <div v-if="rooms.length > 1" class="roomrail" :style="{ bottom: 'calc(92vh + 12px)' }">
+        <div v-if="heroItems.length > 1" class="roomrail" :style="{ bottom: 'calc(92vh + 12px)' }">
           <button
-            v-for="(room, i) in rooms"
-            :key="room.id"
+            v-for="(item, i) in heroItems"
+            :key="item.id"
             class="roomchip"
             :class="{ 'roomchip--active': i === activeIndex }"
             @click="setActiveRoom(i)"
           >
-            <img :src="room.thumbnail_url" alt="" loading="lazy" />
-            {{ room.name }}
+            <img :src="item.thumbnail_url" alt="" loading="lazy" />
+            {{ item.name }}
           </button>
         </div>
 
@@ -98,27 +100,30 @@
               <p class="sheet__desc">{{ space.description }}</p>
             </template>
 
-            <template v-if="rooms.length > 0">
+            <template v-if="heroItems.length > 0">
               <p class="sheet__section-label">
-                Walk Through <span class="sheet__section-count">{{ rooms.length }} {{ rooms.length === 1 ? 'room' : 'rooms' }}</span>
+                {{ isPanorama ? 'Walk Through' : 'Photos' }}
+                <span class="sheet__section-count">
+                  {{ heroItems.length }} {{ isPanorama ? (heroItems.length === 1 ? 'room' : 'rooms') : (heroItems.length === 1 ? 'photo' : 'photos') }}
+                </span>
               </p>
               <div class="roomlist">
                 <button
-                  v-for="(room, i) in rooms"
-                  :key="room.id"
+                  v-for="(item, i) in heroItems"
+                  :key="item.id"
                   class="roomrow"
                   :class="{ 'roomrow--active': i === activeIndex }"
                   @click="setActiveRoom(i)"
                 >
-                  <img :src="room.thumbnail_url" alt="" loading="lazy" />
+                  <img :src="item.thumbnail_url" alt="" loading="lazy" />
                   <span>
                     <span class="roomrow__index">{{ String(i + 1).padStart(2, '0') }}</span>
-                    <span class="roomrow__name">{{ room.name }}</span>
+                    <span class="roomrow__name">{{ item.name }}</span>
                   </span>
                 </button>
               </div>
 
-              <a class="btn btn--ghost btn--full" :href="fullTourUrl">
+              <a v-if="isPanorama" class="btn btn--ghost btn--full" :href="fullTourUrl">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5 3 12l6 7M15 5l6 7-6 7"/></svg>
                 Step inside the full 360° tour
               </a>
@@ -174,6 +179,7 @@ const fetchError = ref('')
 const state = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const space = ref<any>(null)
 const rooms = ref<Array<{ id: string; name: string; thumbnail_url: string }>>([])
+const photos = ref<Array<{ id: string; name: string; thumbnail_url: string }>>([])
 
 const { data: tourPayload, error: tourError } = await useAsyncData(
   `view-tour:${slug}`,
@@ -195,12 +201,21 @@ if (tourError.value) {
     .filter((s: any) => s.thumbnail_url)
     .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
     .map((s: any) => ({ id: s.id, name: s.name || 'Room', thumbnail_url: s.thumbnail_url }))
-  state.value = rooms.value.length > 0 ? 'ready' : 'empty'
+  // Gallery-only listings (no 360° scene) still deserve a working detail
+  // screen — previously any listing without a scene fell straight to the
+  // "empty" state even when real photos existed.
+  photos.value = (tour?.gallery ?? [])
+    .map((g: any, i: number) => ({ id: g.id, name: `Photo ${i + 1}`, thumbnail_url: g.url }))
+  state.value = (rooms.value.length > 0 || photos.value.length > 0) ? 'ready' : 'empty'
 }
 pending.value = false
 
 const activeIndex = ref(0)
-const heroImage = computed(() => rooms.value[activeIndex.value]?.thumbnail_url || null)
+// Real 360° scenes take priority when both exist; photos are the fallback
+// hero source for listings that only have gallery photos.
+const isPanorama = computed(() => rooms.value.length > 0)
+const heroItems = computed(() => (isPanorama.value ? rooms.value : photos.value))
+const heroImage = computed(() => heroItems.value[activeIndex.value]?.thumbnail_url || null)
 
 function setActiveRoom(i: number) {
   activeIndex.value = i
