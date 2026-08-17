@@ -108,7 +108,7 @@
 
       <!-- Navigation Content -->
       <div class="flex-1 overflow-y-auto px-2 py-6 space-y-4">
-        <nav class="space-y-1">
+        <nav class="space-y-2">
           <SidebarLink
             to="/app"
             icon="dashboard"
@@ -153,7 +153,7 @@
 
         <div class="border-t border-border dark:border-white/5 mx-2"></div>
 
-        <nav class="space-y-1">
+        <nav class="space-y-2">
           <SidebarLink
             to="/app/settings"
             icon="settings"
@@ -180,7 +180,7 @@
         <!-- Expanded profile -->
         <div
           v-if="!isSidebarCollapsed"
-          class="flex items-center gap-3 mb-3 px-2 py-2 bg-white rounded-xl shadow-md dark:bg-white/[0.06] dark:shadow-none"
+          class="flex items-center gap-3 mb-3 px-2 py-2 bg-surface border border-border rounded-xl dark:bg-white/[0.06] dark:border-transparent"
         >
           <div
             class="w-9 h-9 rounded-full bg-surface-alt dark:bg-white/5 border border-border dark:border-white/10 flex items-center justify-center text-xs font-bold text-main dark:text-white shadow-sm flex-shrink-0"
@@ -222,48 +222,17 @@
               : undefined
           "
           :class="[
-            'flex items-center w-full py-2.5 text-xs font-black uppercase tracking-widest text-dim hover:text-main dark:text-zinc-400 dark:hover:text-white hover:bg-main/5 dark:hover:bg-white/5 rounded-2xl transition-all mb-1 group active:scale-95',
-            isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4',
+            'flex items-center w-full h-9 text-xs font-semibold uppercase tracking-wide text-dim hover:text-main dark:text-zinc-400 dark:hover:text-white hover:bg-main/5 dark:hover:bg-white/5 rounded-lg transition-colors mb-1 group',
+            isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
           ]"
         >
-          <svg
-            v-if="isDark"
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="group-hover:rotate-45 transition-transform duration-500 flex-shrink-0"
-          >
-            <circle cx="12" cy="12" r="5" />
-            <line x1="12" y1="1" x2="12" y2="3" />
-            <line x1="12" y1="21" x2="12" y2="23" />
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-            <line x1="1" y1="12" x2="3" y2="12" />
-            <line x1="21" y1="12" x2="23" y2="12" />
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-          </svg>
-          <svg
-            v-else
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="group-hover:-rotate-12 transition-transform duration-500 flex-shrink-0"
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
+          <UiIcon
+            :name="isDark ? 'sun' : 'moon'"
+            :size="16"
+            :stroke-width="2.5"
+            :class="isDark ? 'group-hover:rotate-45' : 'group-hover:-rotate-12'"
+            class="transition-transform duration-500 flex-shrink-0"
+          />
           <span v-if="!isSidebarCollapsed"
             >{{ isDark ? "Light" : "Dark" }} Appearance</span
           >
@@ -273,8 +242,8 @@
           @click="logout"
           :title="isSidebarCollapsed ? 'Sign Out' : undefined"
           :class="[
-            'flex items-center w-full py-2.5 text-xs font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 rounded-2xl transition-all active:scale-95 group',
-            isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4',
+            'flex items-center w-full h-9 text-xs font-semibold uppercase tracking-wide text-danger hover:bg-danger-bg rounded-lg transition-colors group',
+            isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
           ]"
         >
           <svg
@@ -325,62 +294,15 @@
         <div class="flex items-center gap-1">
           <button
             @click="toggleTheme"
-            class="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+            class="p-2 text-dim hover:text-main transition-colors"
           >
-            <svg
-              v-if="isDark"
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <line x1="12" y1="1" x2="12" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="23" />
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-              <line x1="1" y1="12" x2="3" y2="12" />
-              <line x1="21" y1="12" x2="23" y2="12" />
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-            </svg>
-            <svg
-              v-else
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
+            <UiIcon :name="isDark ? 'sun' : 'moon'" :size="18" />
           </button>
           <button
-            class="p-2 -mr-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
+            class="p-2 -mr-2 text-dim hover:text-main transition-colors"
             @click="isSidebarOpen = true"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
+            <UiIcon name="list" :size="20" />
           </button>
         </div>
       </header>
@@ -388,7 +310,7 @@
       <!-- App View -->
       <main
         ref="mainScrollRef"
-        class="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 lg:px-16 py-8 md:py-12 w-full max-w-[1600px] mx-auto"
+        class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-10 py-8 md:py-12 w-full max-w-[1440px] mx-auto"
       >
         <slot />
       </main>

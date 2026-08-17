@@ -68,7 +68,7 @@ export default defineNuxtConfig({
     '/confirm': { ssr: false },
     // Public tour pages — SSR for fast first paint + Vercel edge caching
     '/p/**': { ssr: true, headers: {
-      'Cache-Control': 'public, s-maxage=0, must-revalidate',
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'SAMEORIGIN',
@@ -80,6 +80,44 @@ export default defineNuxtConfig({
         "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://extension-cdn.getdirecto.com https://app.viewora.software",
         "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
         "frame-src 'self' https://www.youtube.com https://youtube.com",
+        "worker-src 'self' blob:",
+        "upgrade-insecure-requests",
+      ].join('; '),
+    }},
+    // Buyer-facing browse surface (view.viewora.software — not yet DNS-wired,
+    // see VIEWORA_2_PRODUCT_SPEC.md). SSR + edge caching, same posture as
+    // /p/** and /demo/** below since it's public, unauthenticated content.
+    '/view/**': { ssr: true, headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Content-Security-Policy': [
+        "default-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co",
+        "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co",
+        "frame-src 'self'",
+        "worker-src 'self' blob:",
+        "upgrade-insecure-requests",
+      ].join('; '),
+    }},
+    // Public demo/marketing pages (e.g. tst.viewora.software) — SSR + edge caching
+    '/demo/**': { ssr: true, headers: {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Content-Security-Policy': [
+        "default-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://app.viewora.software",
+        "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
+        "frame-src 'self'",
         "worker-src 'self' blob:",
         "upgrade-insecure-requests",
       ].join('; '),

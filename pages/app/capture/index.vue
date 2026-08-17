@@ -955,83 +955,82 @@ function formatDate(iso: string) {
 .pkg-card {
   position: relative; display: flex; flex-direction: column; gap: 4px;
   padding: 14px 12px; border-radius: 16px; text-align: left;
-  border: 1px solid var(--color-border, rgba(255,255,255,0.08));
-  background: var(--color-card, rgba(255,255,255,0.02));
+  border: 1px solid var(--border);
+  background: var(--card);
   cursor: pointer; transition: all 160ms ease;
 }
-.pkg-card:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
-.pkg-card--highlight { border-color: rgba(255,255,255,0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+.pkg-card:hover { border-color: var(--text-dim); background: var(--surface-alt); }
+.pkg-card--highlight { border-color: var(--text-main); box-shadow: var(--shadow-sm); }
 .pkg-card__book {
   margin-top: 10px; width: 100%; height: 28px; border-radius: 8px;
-  background: var(--color-main, #fff); color: var(--color-bg, #0a0a0a);
+  background: var(--text-main); color: var(--bg);
   font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
   cursor: pointer; transition: opacity 120ms ease, transform 120ms ease;
   border: none;
 }
 .pkg-card__book:hover { opacity: 0.85; transform: translateY(-1px); }
 .pkg-card__book:active { transform: scale(0.97); }
-.pkg-card__badge { position: absolute; top: 8px; right: 8px; font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 999px; background: var(--color-main, #fff); color: var(--color-bg, #0a0a0a); }
-.pkg-card__name { font-size: 13px; font-weight: 800; color: var(--color-main); letter-spacing: -0.01em; }
-.pkg-card__price { font-size: 12px; font-weight: 900; color: var(--color-main); }
-.pkg-card__desc { font-size: 10px; font-weight: 600; color: var(--color-dim); line-height: 1.4; }
+.pkg-card__badge { position: absolute; top: 8px; right: 8px; font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 999px; background: var(--text-main); color: var(--bg); }
+.pkg-card__name { font-size: 13px; font-weight: 800; color: var(--text-main); letter-spacing: -0.01em; }
+.pkg-card__price { font-size: 12px; font-weight: 900; color: var(--text-main); }
+.pkg-card__desc { font-size: 10px; font-weight: 600; color: var(--text-dim); line-height: 1.4; }
 
 /* ── Department filter pills ─────────────────────────────────── */
 .dept-pill {
   display: inline-flex; align-items: center; gap: 5px;
   height: 32px; padding: 0 12px; border-radius: 999px;
-  border: 1px solid var(--color-border, rgba(255,255,255,0.08));
-  background: var(--color-card, rgba(255,255,255,0.03));
-  color: var(--color-dim); font-size: 11px; font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-dim); font-size: 11px; font-weight: 700;
   cursor: pointer; transition: all 140ms ease; white-space: nowrap;
 }
-.dept-pill:hover { color: var(--color-main); border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); }
-.dept-pill--active { background: var(--color-main, #fff); color: var(--color-bg, #0a0a0a); border-color: var(--color-main, #fff); }
+.dept-pill:hover { color: var(--text-main); border-color: var(--text-dim); background: var(--surface-alt); }
+.dept-pill--active { background: var(--text-main); color: var(--bg); border-color: var(--text-main); }
 
 /* ── Department cards ────────────────────────────────────────── */
 .dept-card {
   display: flex; flex-direction: column;
-  background: var(--color-card); border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+  background: var(--card); border: 1px solid var(--border);
   border-radius: 20px; padding: 20px;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
-.dept-card:hover { border-color: rgba(255,255,255,0.18); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+.dept-card:hover { border-color: var(--text-dim); box-shadow: var(--shadow-md); }
 .dept-card__icon-wrap {
   width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
-  background: var(--color-surface-alt, rgba(255,255,255,0.04));
-  border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  color: var(--color-main, #fff);
+  color: var(--text-main);
 }
 
 /* ── Free banner ─────────────────────────────────────────────── */
 .free-banner__offer {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
   padding: 20px 24px; border-radius: 20px;
-  background: linear-gradient(135deg, rgba(37,211,102,0.1) 0%, rgba(59,130,246,0.06) 100%);
+  background: var(--success-bg);
   border: 1px solid rgba(37,211,102,0.3);
-  box-shadow: 0 0 40px rgba(37,211,102,0.08);
 }
 .free-banner__claimed {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 16px 20px; border-radius: 16px;
-  background: rgba(37,211,102,0.06); border: 1px solid rgba(37,211,102,0.2);
+  background: var(--success-bg); border: 1px solid rgba(37,211,102,0.2);
 }
 .free-banner__left { display: flex; align-items: flex-start; gap: 16px; flex: 1; }
 .free-banner__gift { font-size: 2rem; flex-shrink: 0; line-height: 1; }
-.free-banner__title { font-size: 1.1rem; font-weight: 900; color: var(--color-main, #fff); letter-spacing: -0.01em; margin-bottom: 4px; }
-.free-banner__sub { font-size: 12px; color: var(--color-dim, rgba(255,255,255,0.5)); font-weight: 600; line-height: 1.5; max-width: 460px; }
+.free-banner__title { font-size: 1.1rem; font-weight: 900; color: var(--text-main); letter-spacing: -0.01em; margin-bottom: 4px; }
+.free-banner__sub { font-size: 12px; color: var(--text-dim); font-weight: 600; line-height: 1.5; max-width: 460px; }
 .free-banner__upgrade {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 16px 20px; border-radius: 16px;
-  background: rgba(255,255,255,0.03); border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+  background: var(--surface-alt); border: 1px solid var(--border);
 }
 .free-banner__used {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 14px 18px; border-radius: 14px;
-  background: rgba(255,255,255,0.02); border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+  background: var(--surface-alt); border: 1px solid var(--border);
 }
 .free-banner__btn--upgrade {
-  background: var(--color-main, #fff); color: var(--color-bg, #0a0a0a);
+  background: var(--text-main); color: var(--bg);
   text-decoration: none;
 }
 .free-banner__btn--upgrade:hover { opacity: 0.85; }

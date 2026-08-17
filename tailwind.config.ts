@@ -23,6 +23,10 @@ export default <Partial<Config>>{
           alt: 'rgb(var(--color-surface-alt-rgb) / <alpha-value>)',
         },
         card: 'rgb(var(--color-card-rgb) / <alpha-value>)',
+        success: 'rgb(var(--color-success-rgb) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger-rgb) / <alpha-value>)',
+        'success-bg': 'var(--success-bg)',
+        'danger-bg': 'var(--danger-bg)',
         // Static brand colors
         ink: {
           DEFAULT: '#0a0a0a',
