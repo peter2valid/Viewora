@@ -582,6 +582,9 @@
                   </div>
                   <p class="share-modal__qr-text">Scan to open the tour on any device.</p>
                   <p class="share-modal__qr-url">{{ publicUrl }}</p>
+                  <button v-if="qrDataUrl" type="button" class="share-modal__copy" @click="downloadQrCode">
+                    Download PNG
+                  </button>
                 </div>
               </div>
             </div>
@@ -1261,7 +1264,7 @@ watch([showShareModal, publicUrl], async ([open, url]) => {
   qrLoading.value = true
   try {
     qrDataUrl.value = await QRCode.toDataURL(url, {
-      width: 192,
+      width: 512,
       margin: 2,
       errorCorrectionLevel: 'M',
       color: {
@@ -1275,6 +1278,15 @@ watch([showShareModal, publicUrl], async ([open, url]) => {
     qrLoading.value = false
   }
 }, { immediate: true })
+
+function downloadQrCode() {
+  if (!qrDataUrl.value) return
+  const slug = publicUrl.value.split('/').filter(Boolean).pop() || 'viewora-tour'
+  const link = document.createElement('a')
+  link.href = qrDataUrl.value
+  link.download = `${slug}-qr.png`
+  link.click()
+}
 
 const hasPanorama = computed(() => Boolean(scenes.value.length || Object.keys(pendingScenePreviewById.value).length))
 

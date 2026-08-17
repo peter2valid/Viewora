@@ -68,6 +68,9 @@
                 </div>
                 <p class="share-modal__qr-text">Scan to open the tour on any device.</p>
                 <p class="share-modal__qr-url">{{ publicUrl }}</p>
+                <button v-if="qrDataUrl" type="button" class="share-modal__copy" @click="downloadQrCode">
+                  Download PNG
+                </button>
               </div>
             </div>
           </div>
@@ -140,7 +143,7 @@ watch(() => props.space, async (space) => {
   try {
     const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.slug || space.id}`
     qrDataUrl.value = await QRCode.toDataURL(url, {
-      width: 192, margin: 2, errorCorrectionLevel: 'M',
+      width: 512, margin: 2, errorCorrectionLevel: 'M',
       color: { dark: '#111827', light: '#ffffff' },
     })
   } catch {
@@ -149,6 +152,15 @@ watch(() => props.space, async (space) => {
     qrLoading.value = false
   }
 })
+
+function downloadQrCode() {
+  if (!qrDataUrl.value) return
+  const slug = publicUrl.value.split('/').filter(Boolean).pop() || 'viewora-tour'
+  const link = document.createElement('a')
+  link.href = qrDataUrl.value
+  link.download = `${slug}-qr.png`
+  link.click()
+}
 </script>
 
 <style scoped>
