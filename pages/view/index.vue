@@ -5,9 +5,6 @@
         <NuxtLink to="/view" class="feed__brand" aria-label="Viewora home">
           <span class="feed__logo-text">Viewora</span>
         </NuxtLink>
-        <button class="feed__theme" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
-          {{ isDark ? 'Light' : 'Dark' }}
-        </button>
       </div>
       <div class="feed__controls">
         <div class="feed__chips" role="tablist" aria-label="Property type">
@@ -132,7 +129,7 @@ const TYPE_OPTIONS = [
 
 const { apiFetch } = useApiFetch()
 const route = useRoute()
-const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
+const { init: initTheme } = useTheme()
 onMounted(initTheme)
 
 // Search tab (pages/view/search.vue) hands filters over as query params —
@@ -312,18 +309,6 @@ useSeoMeta({
   font-size: 1.05rem;
   letter-spacing: -0.01em;
   color: var(--ink);
-}
-.feed__theme {
-  flex: 0 0 auto;
-  border: 1px solid var(--line);
-  border-radius: var(--vo-radius-sm);
-  padding: 5px 9px;
-  background: transparent;
-  color: var(--ink-soft);
-  font: 500 0.68rem var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
 }
 .feed__controls {
   display: flex;

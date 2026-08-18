@@ -5,9 +5,6 @@
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </NuxtLink>
       <span class="search__title">Search</span>
-      <button class="search__theme" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
-        {{ isDark ? 'Light' : 'Dark' }}
-      </button>
     </header>
 
     <main class="search__main">
@@ -140,7 +137,7 @@ interface RecentSearch {
 }
 
 const router = useRouter()
-const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
+const { init: initTheme } = useTheme()
 onMounted(initTheme)
 
 const q = ref('')
@@ -287,18 +284,6 @@ useSeoMeta({
   font-weight: 800;
   font-size: 1.05rem;
   letter-spacing: -0.01em;
-}
-.search__theme {
-  margin-left: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--vo-radius-sm);
-  padding: 5px 9px;
-  background: transparent;
-  color: var(--ink-soft);
-  font: 500 0.68rem var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
 }
 
 .search__main {

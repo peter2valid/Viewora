@@ -46,22 +46,20 @@
                 <template v-if="isPanorama">360° · {{ heroItems.length }} {{ heroItems.length === 1 ? 'Room' : 'Rooms' }}</template>
                 <template v-else>{{ heroItems.length }} {{ heroItems.length === 1 ? 'Photo' : 'Photos' }}</template>
               </span>
-              <button class="themebtn" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
-                {{ isDark ? 'Light' : 'Dark' }}
-              </button>
-              <!-- Same top-right icon-rail placement app.viewora.software's
-                   own viewer uses for its Fullscreen control, rather than a
-                   bottom-right float — which collided with the scene dock
-                   once both were on screen at mobile fullscreen sizes. -->
-              <button class="iconbtn" type="button" :aria-label="fullscreen ? 'Show property details' : 'View fullscreen'" @click="toggleFullscreen">
-                <svg v-if="!fullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
-                <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M21 8V3h-5M21 16v5h-5M3 16v5h5"/></svg>
-              </button>
               <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
                 <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
               </button>
             </div>
           </div>
+
+          <!-- Bottom-right in the split view (free real estate there since
+               the dock never shows outside fullscreen); auto-relocates to
+               the right edge, vertically centered, once fullscreen — clear
+               of the dock's centered strip instead of colliding with it. -->
+          <button class="expandbtn" type="button" :aria-label="fullscreen ? 'Show property details' : 'View fullscreen'" @click="toggleFullscreen">
+            <svg v-if="!fullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M21 8V3h-5M21 16v5h-5M3 16v5h5"/></svg>
+          </button>
 
           <!-- Only shown fullscreen — at the split-screen sizes the strip of
                large thumbnail cards overwhelmed the pane. The room list
@@ -207,7 +205,7 @@ import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
 
 const { apiFetch } = useApiFetch()
 const { ensureSession } = useAnonymousAuth()
-const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
+const { init: initTheme } = useTheme()
 onMounted(initTheme)
 const supabaseUser = useSupabaseUser()
 const route = useRoute()
@@ -588,6 +586,19 @@ useSeoMeta({
 /* Dragging sets an inline height directly, so don't fight it with a
    transition meant for the fullscreen-toggle case. */
 .viewer-pane.is-resizing { transition: none; }
+.expandbtn {
+  position: absolute; z-index: 22;
+  right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
+  width: 38px; height: 38px; border-radius: var(--vo-radius-sm);
+  background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border);
+  color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+/* Fullscreen: the dock sits centered at the bottom, so move to the side,
+   vertically centered, instead of fighting it for the same bottom-right
+   corner. */
+.stage--full .expandbtn {
+  bottom: auto; top: 50%; transform: translateY(-50%);
+}
 .resizer {
   flex: 0 0 auto; height: 18px; display: flex; align-items: center; justify-content: center;
   background: var(--sheet); cursor: row-resize; touch-action: none;
@@ -621,18 +632,6 @@ useSeoMeta({
   flex: 0 0 auto;
 }
 .iconbtn--saved { color: var(--accent); }
-.themebtn {
-  border: 1px solid var(--glass-border);
-  border-radius: var(--vo-radius-sm);
-  padding: 7px 9px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  color: rgba(255,255,255,0.88);
-  font: 500 0.64rem var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-}
 .trustbadge {
   display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 999px;
   background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border);
