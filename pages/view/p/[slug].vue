@@ -40,12 +40,8 @@
             <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </NuxtLink>
+            <h1 class="topbar__title">{{ space.title }}</h1>
             <div class="topbar__right">
-              <span v-if="heroItems.length > 0" class="trustbadge">
-                <span class="trustbadge__dot" />
-                <template v-if="isPanorama">360° · {{ heroItems.length }} {{ heroItems.length === 1 ? 'Room' : 'Rooms' }}</template>
-                <template v-else>{{ heroItems.length }} {{ heroItems.length === 1 ? 'Photo' : 'Photos' }}</template>
-              </span>
               <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
                 <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
               </button>
@@ -621,10 +617,20 @@ useSeoMeta({
 }
 .topbar {
   position: absolute; top: 0; left: 0; right: 0; z-index: 20;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; gap: 10px;
   padding: max(16px, env(safe-area-inset-top)) 16px 12px;
 }
-.topbar__right { display: flex; align-items: center; gap: 8px; }
+/* iOS-style 3-region bar: fixed-width back button, title filling and
+   truncating in whatever's left, fixed-width action cluster — so it holds
+   together at any title length or screen width instead of a hardcoded gap. */
+.topbar__title {
+  flex: 1 1 auto; min-width: 0;
+  margin: 0; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.92rem; font-weight: 700; color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.topbar__right { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
 .iconbtn {
   width: 42px; height: 42px; border-radius: 999px; background: var(--glass-bg);
   backdrop-filter: blur(12px); border: 1px solid var(--glass-border); color: #fff;
@@ -632,12 +638,6 @@ useSeoMeta({
   flex: 0 0 auto;
 }
 .iconbtn--saved { color: var(--accent); }
-.trustbadge {
-  display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 999px;
-  background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border);
-  color: #fff; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.07em; text-transform: uppercase;
-}
-.trustbadge__dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.82); display: inline-block; }
 
 .sheet {
   flex: 1 1 auto; min-height: 0;
