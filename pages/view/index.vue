@@ -81,21 +81,14 @@
       </div>
     </main>
 
-    <nav class="dock" aria-label="Primary">
-      <div class="dock__inner">
-        <span class="tab tab--active"><HomeIcon /><span>Home</span></span>
-        <NuxtLink to="/view/search" class="tab"><SearchIcon /><span>Search</span></NuxtLink>
-        <span class="tab tab--disabled" title="Coming soon"><ChatIcon /><span>Chats</span></span>
-        <span class="tab tab--disabled" title="Coming soon"><ProfileIcon /><span>Profile</span></span>
-      </div>
-    </nav>
+    <UiNavDock active="home" />
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { ref, h, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useAsyncData, useHead, useSeoMeta, useRoute } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
@@ -223,23 +216,6 @@ async function loadMore() {
 function cardWhatsappUrl(l: Listing): string {
   return whatsappUrl(l.phone, l.title)
 }
-
-// ── Inline nav icons — small enough not to warrant separate component files ──
-const HomeIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M3 11l9-8 9 8' }),
-  h('path', { d: 'M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10' }),
-])
-const SearchIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('circle', { cx: '11', cy: '11', r: '7' }),
-  h('path', { d: 'm21 21-4.3-4.3' }),
-])
-const ChatIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' }),
-])
-const ProfileIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('circle', { cx: '12', cy: '8', r: '4' }),
-  h('path', { d: 'M4 21c0-4 4-6 8-6s8 2 8 6' }),
-])
 
 // Fonts scoped to this page only — matches pages/demo/[slug].vue's precedent
 // rather than the dashboard's global Inter/Outfit (nuxt.config.ts).
@@ -472,34 +448,4 @@ useSeoMeta({
   cursor: pointer;
 }
 .loadmore-btn:disabled { opacity: 0.6; cursor: default; }
-
-.dock {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-  display: flex; justify-content: center;
-  padding-bottom: max(14px, env(safe-area-inset-bottom));
-  pointer-events: none;
-}
-.dock__inner {
-  pointer-events: auto;
-  display: flex; align-items: center; gap: 2px;
-  padding: 6px; border-radius: 999px;
-  background: rgba(255,255,255,0.86);
-  backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid rgba(28,29,33,0.06);
-  box-shadow: 0 12px 32px rgba(15,13,10,0.28);
-}
-@media (prefers-color-scheme: dark) {
-  .dock__inner { background: rgba(28,30,34,0.78); border-color: rgba(255,255,255,0.08); }
-}
-.tab {
-  width: 72px;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 9px 0 8px;
-  color: var(--ink-faint);
-  text-decoration: none;
-}
-.tab svg { width: 21px; height: 21px; }
-.tab span { font-size: 0.62rem; font-weight: 700; }
-.tab--active { color: var(--accent); }
-.tab--disabled { opacity: 0.45; }
 </style>

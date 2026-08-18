@@ -158,14 +158,7 @@
           </div>
         </div>
 
-        <nav class="dock" aria-label="Primary">
-          <div class="dock__inner">
-            <NuxtLink to="/view" class="tab"><HomeIcon /><span>Home</span></NuxtLink>
-            <NuxtLink to="/view/search" class="tab"><SearchIcon /><span>Search</span></NuxtLink>
-            <span class="tab tab--disabled" title="Coming soon"><ChatIcon /><span>Chats</span></span>
-            <span class="tab tab--disabled" title="Coming soon"><ProfileIcon /><span>Profile</span></span>
-          </div>
-        </nav>
+        <UiNavDock />
       </div>
     </template>
   </div>
@@ -460,22 +453,6 @@ onBeforeUnmount(() => {
 const WhatsappIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': 'true' }, [
   h('path', { d: 'M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2m0 18.1a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.18 8.18 0 0 1-1.26-4.4c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.27-8.24 8.27m4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.4-.12-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.87.85-.87 2.07 0 1.22.89 2.4 1.02 2.57.12.17 1.75 2.67 4.24 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.28' }),
 ])
-const HomeIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M3 11l9-8 9 8' }),
-  h('path', { d: 'M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10' }),
-])
-const SearchIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('circle', { cx: '11', cy: '11', r: '7' }),
-  h('path', { d: 'm21 21-4.3-4.3' }),
-])
-const ChatIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' }),
-])
-const ProfileIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('circle', { cx: '12', cy: '8', r: '4' }),
-  h('path', { d: 'M4 21c0-4 4-6 8-6s8 2 8 6' }),
-])
-
 // Fonts scoped to this page only, matching pages/view/index.vue
 useHead({
   link: [
@@ -654,10 +631,4 @@ useSeoMeta({
 .sheet__cta p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); max-width: 30ch; }
 .sheet__phone { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); }
 
-.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: flex; justify-content: center; padding-bottom: max(14px, env(safe-area-inset-bottom)); pointer-events: none; }
-.dock__inner { pointer-events: auto; display: flex; align-items: center; gap: 2px; padding: 6px; border-radius: 999px; background: var(--dock-bg); backdrop-filter: blur(20px) saturate(1.4); border: 1px solid var(--dock-border); box-shadow: 0 12px 32px var(--shadow-lg); }
-.tab { width: 72px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 0 8px; color: var(--ink-faint); text-decoration: none; background: none; border: none; }
-.tab svg { width: 21px; height: 21px; }
-.tab span { font-size: 0.62rem; font-weight: 700; }
-.tab--disabled { opacity: 0.45; }
 </style>
