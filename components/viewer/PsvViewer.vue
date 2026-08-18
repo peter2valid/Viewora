@@ -372,7 +372,7 @@
         :class="{
           'vt-canvas--ready': vtReady,
           'vt-canvas--focused': vtFocusing,
-          'hide-nav-arrows': !dockCollapsed
+          'hide-nav-arrows': !dockCollapsed || props.hideNavArrows
         }"
       />
 
@@ -464,6 +464,14 @@ const props = defineProps<{
   // third-party iframe embeds, which still need their own scene switcher
   // and WhatsApp lead button since there's no host chrome around them).
   hideOwnChrome?: boolean
+  // Externally hides the in-panorama walk-through nav-arrow markers (same
+  // .hide-nav-arrows mechanism this component already uses internally to
+  // hide them while its own scene dock is expanded, via dockCollapsed —
+  // see the `hide-nav-arrows` class binding above). Needed when hideOwnChrome
+  // is set: the host page's own dock is a separate component instance with
+  // its own collapsed state, so this component's internal dockCollapsed
+  // never changes and can't drive that coordination on its own.
+  hideNavArrows?: boolean
 }>()
 
 const img = useImage()

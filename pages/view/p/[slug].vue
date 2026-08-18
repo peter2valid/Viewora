@@ -22,6 +22,7 @@
             ref="psvViewerRef"
             :tour="tourData"
             :hide-own-chrome="true"
+            :hide-nav-arrows="fullscreen && !dockCollapsed"
             class="pano pano--psv"
             @scene-changed="onViewerSceneChanged"
           />
@@ -48,6 +49,14 @@
               <button class="themebtn" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
                 {{ isDark ? 'Light' : 'Dark' }}
               </button>
+              <!-- Same top-right icon-rail placement app.viewora.software's
+                   own viewer uses for its Fullscreen control, rather than a
+                   bottom-right float — which collided with the scene dock
+                   once both were on screen at mobile fullscreen sizes. -->
+              <button class="iconbtn" type="button" :aria-label="fullscreen ? 'Show property details' : 'View fullscreen'" @click="toggleFullscreen">
+                <svg v-if="!fullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M21 8V3h-5M21 16v5h-5M3 16v5h5"/></svg>
+              </button>
               <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
                 <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
               </button>
@@ -56,7 +65,11 @@
 
           <!-- Only shown fullscreen — at the split-screen sizes the strip of
                large thumbnail cards overwhelmed the pane. The room list
-               inside the sheet below still covers scene-switching there. -->
+               inside the sheet below still covers scene-switching there.
+               Starts collapsed, same default as app.viewora.software's own
+               dock (dockCollapsed in components/viewer/PsvViewer.vue) —
+               opening it hides the in-panorama walk-through arrows via
+               hide-nav-arrows above, so the two don't overlap. -->
           <UiGlassDock
             v-if="heroItems.length > 1 && fullscreen"
             v-model:collapsed="dockCollapsed"
@@ -69,14 +82,6 @@
             glass-class="dock-glass-superdark"
             @select="onDockSelect"
           />
-
-          <!-- Fullscreen toggle — bottom-right of the pane, like the expand
-               control on Google Maps' Street View panel, not up in the
-               topbar icon cluster. -->
-          <button class="expandbtn" type="button" :aria-label="fullscreen ? 'Show property details' : 'View fullscreen'" @click="toggleFullscreen">
-            <svg v-if="!fullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
-            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M21 8V3h-5M21 16v5h-5M3 16v5h5"/></svg>
-          </button>
         </div>
 
         <!-- Drag to resize the split — not locked to a fixed ratio. -->
@@ -279,7 +284,9 @@ const dockItems = computed(() =>
   heroItems.value.map((item) => ({ id: item.id, label: item.name, imageUrl: item.thumbnail_url })),
 )
 const activeDockId = computed(() => heroItems.value[activeIndex.value]?.id ?? '')
-const dockCollapsed = ref(false)
+// Starts collapsed, matching PsvViewer's own internal dock default — avoids
+// popping open over an in-panorama nav arrow the instant fullscreen opens.
+const dockCollapsed = ref(true)
 function onDockSelect(id: string) {
   const idx = heroItems.value.findIndex((item) => item.id === id)
   if (idx !== -1) setActiveRoom(idx)
@@ -309,6 +316,13 @@ function clampViewerHeight(px: number): number {
 const isResizing = ref(false)
 let resizeStartY = 0
 let resizeStartHeight = 0
+// The panorama is a WebGL canvas that resizes+re-renders on every container
+// size change — applying every raw pointermove directly fired more resizes
+// than the GPU could keep up with, so the image visibly lagged/jumped
+// during the drag. Batching to one update per animation frame caps it to
+// what the browser can actually paint.
+let pendingHeight: number | null = null
+let resizeRaf: number | null = null
 
 function onResizeStart(e: MouseEvent | TouchEvent) {
   if (!viewerPaneEl.value) return
@@ -324,10 +338,18 @@ function onResizeMove(e: MouseEvent | TouchEvent) {
   if (!isResizing.value) return
   if ('touches' in e) e.preventDefault()
   const y = 'touches' in e ? e.touches[0].clientY : e.clientY
-  viewerHeightPx.value = clampViewerHeight(resizeStartHeight + (y - resizeStartY))
+  pendingHeight = clampViewerHeight(resizeStartHeight + (y - resizeStartY))
+  if (resizeRaf == null) {
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = null
+      if (pendingHeight != null) viewerHeightPx.value = pendingHeight
+    })
+  }
 }
 function onResizeEnd() {
   isResizing.value = false
+  if (resizeRaf != null) { cancelAnimationFrame(resizeRaf); resizeRaf = null }
+  if (pendingHeight != null) { viewerHeightPx.value = pendingHeight; pendingHeight = null }
   window.removeEventListener('mousemove', onResizeMove)
   window.removeEventListener('mouseup', onResizeEnd)
   window.removeEventListener('touchmove', onResizeMove)
@@ -566,13 +588,6 @@ useSeoMeta({
 /* Dragging sets an inline height directly, so don't fight it with a
    transition meant for the fullscreen-toggle case. */
 .viewer-pane.is-resizing { transition: none; }
-.expandbtn {
-  position: absolute; z-index: 22;
-  right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
-  width: 38px; height: 38px; border-radius: var(--vo-radius-sm);
-  background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border);
-  color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
-}
 .resizer {
   flex: 0 0 auto; height: 18px; display: flex; align-items: center; justify-content: center;
   background: var(--sheet); cursor: row-resize; touch-action: none;
