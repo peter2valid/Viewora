@@ -1,7 +1,14 @@
 <template>
   <div class="feed">
     <header class="feed__topbar">
-      <span class="feed__brand">Viewora</span>
+      <div class="feed__row">
+        <NuxtLink to="/view" class="feed__brand" aria-label="Viewora home">
+          <span class="feed__logo-text">Viewora</span>
+        </NuxtLink>
+        <button class="feed__theme" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
+          {{ isDark ? 'Light' : 'Dark' }}
+        </button>
+      </div>
       <div class="feed__controls">
         <div class="feed__chips" role="tablist" aria-label="Property type">
           <button
@@ -88,7 +95,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAsyncData, useHead, useSeoMeta, useRoute } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
@@ -125,6 +132,8 @@ const TYPE_OPTIONS = [
 
 const { apiFetch } = useApiFetch()
 const route = useRoute()
+const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
+onMounted(initTheme)
 
 // Search tab (pages/view/search.vue) hands filters over as query params —
 // e.g. /view?q=Kilimani&beds_min=3&price_max=10000000 — and Home applies
@@ -237,30 +246,29 @@ useSeoMeta({
 
 <style scoped>
 .feed {
-  --ground: #EFF1F3;
-  --sheet: #FFFFFF;
-  --sheet-2: #F6F7F8;
-  --ink: #1C1D21;
-  --ink-soft: #6B6E76;
-  --ink-faint: #9598A0;
-  --line: #E3E5E9;
-  --accent: #C2410C;
-  --accent-strong: #9A3412;
-  --accent-tint: #FBEAE1;
-  --whatsapp: #1FA855;
-  --whatsapp-ink: #06210F;
-  --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --ground: var(--vo-page);
+  --sheet: var(--vo-surface);
+  --sheet-2: var(--vo-elevated);
+  --ink: var(--vo-text);
+  --ink-soft: var(--vo-secondary);
+  --ink-faint: var(--vo-muted);
+  --line: var(--vo-border);
+  --accent: var(--vo-text);
+  --accent-strong: var(--vo-text);
+  --accent-tint: var(--vo-elevated);
+  --whatsapp: var(--vo-text);
+  --whatsapp-ink: var(--vo-inverse);
+  --font-display: 'Plus Jakarta Sans', Inter, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 
   min-height: 100vh;
   background: var(--ground);
   color: var(--ink);
   font-family: var(--font-display);
-  padding-bottom: 90px;
+  padding-bottom: 104px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .feed {
+ :global(.dark) .feed {
     --ground: #121316;
     --sheet: #1C1E22;
     --sheet-2: #16181B;
@@ -268,64 +276,105 @@ useSeoMeta({
     --ink-soft: #9A9DA6;
     --ink-faint: #6D6F76;
     --line: #2A2D32;
-    --accent: #FB923C;
-    --accent-strong: #FDBA74;
-    --accent-tint: #2E2013;
-  }
+    --accent: var(--vo-text);
+    --accent-strong: var(--vo-text);
+    --accent-tint: var(--vo-elevated);
 }
 
 .feed__topbar {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--ground);
+  background: var(--vo-glass);
+  backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--line);
-  padding: 16px 16px 12px;
+  padding: 18px max(20px, calc((100vw - 1320px) / 2)) 14px;
 }
-.feed__brand {
-  font-weight: 800;
-  font-size: 1.1rem;
-  letter-spacing: -0.01em;
-}
-.feed__controls {
+.feed__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 10px;
+}
+.feed__brand {
+  display: inline-flex;
+  align-items: center;
+}
+/* No small-format mark exists yet — the only brand asset (globe-icon.png /
+   images/viewora-logo.png) is an intricate wireframe sphere that turns into
+   an illegible gray smudge below ~50px (checked by rendering it at 20/26/32/
+   44px). It's fine at the large sizes it's already used at (dashboard
+   sidebar logo, tour-loading overlay) but not as a compact header mark —
+   would need a simplified low-detail version to work here. Text-only
+   wordmark until one exists. */
+.feed__logo-text {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.feed__theme {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--vo-radius-sm);
+  padding: 5px 9px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 500 0.68rem var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.feed__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
   overflow-x: auto;
 }
 .feed__chips {
   display: flex;
   gap: 6px;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.feed__chips::-webkit-scrollbar { display: none; }
 .chip {
   flex: 0 0 auto;
-  padding: 6px 13px;
-  border-radius: 999px;
+  padding: 6px 12px;
+  border-radius: var(--vo-radius-pill);
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
 }
 .chip--active {
-  background: var(--accent);
+  background: var(--ink);
   border-color: var(--accent);
   color: #fff;
 }
 .feed__sort {
   flex: 0 0 auto;
+  margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  padding: 6px 10px;
+  font-size: 0.7rem;
+  height: 30px;
+  padding: 0 10px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink);
+}
+@media (max-width: 639px) {
+  .feed__controls { flex-wrap: wrap; overflow: visible; }
+  .feed__sort { order: -1; margin-left: auto; }
+  .feed__chips { flex-basis: 100%; width: 100%; margin-left: 0; }
 }
 .feed__activesearch {
   display: flex;
@@ -352,7 +401,9 @@ useSeoMeta({
 }
 
 .feed__main {
-  padding: 16px;
+  width: min(100% - 40px, 1320px);
+  margin: 0 auto;
+  padding: 32px 0 0;
 }
 .feed__state {
   padding: 60px 16px;
@@ -366,7 +417,7 @@ useSeoMeta({
 .feed__grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 24px;
 }
 @media (min-width: 640px) {
   .feed__grid { grid-template-columns: repeat(2, 1fr); }
@@ -374,20 +425,30 @@ useSeoMeta({
 @media (min-width: 1024px) {
   .feed__grid { grid-template-columns: repeat(3, 1fr); }
 }
+@media (min-width: 1440px) {
+  .feed__grid { grid-template-columns: repeat(4, 1fr); }
+}
 
 .card {
   background: var(--sheet);
-  border-radius: 16px;
+  border-radius: var(--vo-radius-lg);
   overflow: hidden;
   border: 1px solid var(--line);
+  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+}
+.card:hover {
+  border-color: var(--vo-border-strong);
+  background: var(--vo-elevated);
+  transform: translateY(-2px);
 }
 .card__media-link { display: block; }
 .card__media {
   position: relative;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 4 / 3;
   background: var(--sheet-2);
 }
-.card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card__media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 500ms cubic-bezier(.2,.7,.2,1); }
+.card:hover .card__media img { transform: scale(1.025); }
 .card__media-placeholder {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
@@ -395,7 +456,7 @@ useSeoMeta({
 }
 .card__badge {
   position: absolute; top: 10px; left: 10px;
-  background: rgba(20,18,16,0.55);
+  background: rgba(7, 7, 7, 0.58);
   backdrop-filter: blur(8px);
   color: #fff;
   font-family: var(--font-mono);
@@ -408,8 +469,8 @@ useSeoMeta({
 .card__price {
   font-family: var(--font-mono);
   font-weight: 500;
-  font-size: 1.05rem;
-  margin: 0 0 4px;
+  font-size: 1.15rem;
+  margin: 0 0 7px;
 }
 .card__facts {
   font-size: 0.8rem;
@@ -430,16 +491,19 @@ useSeoMeta({
   font-weight: 700;
   font-size: 0.8rem;
   padding: 9px 14px;
-  border-radius: 999px;
+  border: 1px solid var(--vo-border-strong);
+  border-radius: var(--vo-radius-sm);
   text-decoration: none;
   width: 100%;
   justify-content: center;
+  transition: background-color 180ms ease, color 180ms ease;
 }
+.card__cta:hover { background: var(--vo-inverse); color: var(--vo-text); opacity: 1; }
 
 .feed__loadmore { display: flex; justify-content: center; padding: 24px 0; }
 .loadmore-btn {
   padding: 10px 22px;
-  border-radius: 999px;
+  border-radius: var(--vo-radius-sm);
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink);

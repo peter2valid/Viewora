@@ -5,6 +5,9 @@
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </NuxtLink>
       <span class="search__title">Search</span>
+      <button class="search__theme" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
+        {{ isDark ? 'Light' : 'Dark' }}
+      </button>
     </header>
 
     <main class="search__main">
@@ -31,48 +34,45 @@
       <hr class="search__divider" />
 
       <section class="search__section">
-        <h2 class="search__heading">Filters</h2>
+        <h2 class="search__heading">Type</h2>
+        <div class="search__pills">
+          <button
+            v-for="opt in TYPE_OPTIONS"
+            :key="opt.value"
+            class="pill"
+            :class="{ 'pill--active': type === opt.value }"
+            @click="type = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </section>
 
-        <div class="filter">
-          <span class="filter__label">Type</span>
-          <div class="search__pills">
-            <button
-              v-for="opt in TYPE_OPTIONS"
-              :key="opt.value"
-              class="pill"
-              :class="{ 'pill--active': type === opt.value }"
-              @click="type = opt.value"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
+      <section class="search__section">
+        <div class="filter__range">
+          <input v-model="priceMin" type="number" min="0" inputmode="numeric" placeholder="Min price (KES)" />
+          <span class="filter__range-sep">–</span>
+          <input v-model="priceMax" type="number" min="0" inputmode="numeric" placeholder="Max price (KES)" />
         </div>
 
-        <div class="filter">
-          <span class="filter__label">Price (KES)</span>
-          <div class="filter__range">
-            <input v-model="priceMin" type="number" min="0" inputmode="numeric" placeholder="Min" />
-            <span class="filter__range-sep">–</span>
-            <input v-model="priceMax" type="number" min="0" inputmode="numeric" placeholder="Max" />
-          </div>
+        <div v-if="type === 'all' || type === 'residential'" class="search__pills search__pills--beds">
+          <button
+            v-for="n in [1, 2, 3, 4, 5]"
+            :key="n"
+            class="pill"
+            :class="{ 'pill--active': bedsMin === n }"
+            @click="bedsMin = bedsMin === n ? null : n"
+          >
+            {{ n }}{{ n === 5 ? '+' : '' }} bed
+          </button>
         </div>
 
-        <template v-if="type === 'all' || type === 'residential'">
-          <div class="filter">
-            <span class="filter__label">Beds</span>
-            <div class="search__pills">
-              <button
-                v-for="n in [1, 2, 3, 4, 5]"
-                :key="n"
-                class="pill"
-                :class="{ 'pill--active': bedsMin === n }"
-                @click="bedsMin = bedsMin === n ? null : n"
-              >
-                {{ n }}{{ n === 5 ? '+' : '' }}
-              </button>
-            </div>
-          </div>
+        <button v-if="type === 'all' || type === 'residential'" class="search__more" type="button" @click="showMore = !showMore">
+          {{ showMore ? 'Fewer filters' : 'More filters' }}
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" :style="{ transform: showMore ? 'rotate(180deg)' : 'none' }"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
 
+        <template v-if="showMore && (type === 'all' || type === 'residential')">
           <div class="filter">
             <span class="filter__label">Baths</span>
             <div class="search__pills">
@@ -116,7 +116,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useHead, useSeoMeta, useRouter } from '#imports'
 
 const TYPE_OPTIONS = [
@@ -140,6 +140,8 @@ interface RecentSearch {
 }
 
 const router = useRouter()
+const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
+onMounted(initTheme)
 
 const q = ref('')
 const type = ref<'all' | 'residential' | 'automotive' | 'commercial' | 'other'>('all')
@@ -148,6 +150,9 @@ const priceMax = ref<string>('')
 const bedsMin = ref<number | null>(null)
 const bathsMin = ref<number | null>(null)
 const areaMin = ref<string>('')
+// Baths/area are lower-intent filters — collapsed by default so the page
+// reads as "type, price, beds" at a glance rather than a long form.
+const showMore = ref(false)
 
 const recentSearches = ref<RecentSearch[]>(loadRecents())
 
@@ -226,16 +231,16 @@ useSeoMeta({
 
 <style scoped>
 .search {
-  --ground: #EFF1F3;
-  --sheet: #FFFFFF;
-  --sheet-2: #F6F7F8;
-  --ink: #1C1D21;
-  --ink-soft: #6B6E76;
-  --ink-faint: #9598A0;
-  --line: #E3E5E9;
-  --accent: #C2410C;
-  --accent-strong: #9A3412;
-  --accent-tint: #FBEAE1;
+  --ground: var(--vo-page);
+  --sheet: var(--vo-surface);
+  --sheet-2: var(--vo-elevated);
+  --ink: var(--vo-text);
+  --ink-soft: var(--vo-secondary);
+  --ink-faint: var(--vo-muted);
+  --line: var(--vo-border);
+  --accent: var(--vo-text);
+  --accent-strong: var(--vo-text);
+  --accent-tint: var(--vo-elevated);
   --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
@@ -246,19 +251,17 @@ useSeoMeta({
   padding-bottom: 100px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .search {
-    --ground: #121316;
-    --sheet: #1C1E22;
-    --sheet-2: #16181B;
-    --ink: #F2F1EE;
-    --ink-soft: #9A9DA6;
-    --ink-faint: #6D6F76;
-    --line: #2A2D32;
-    --accent: #FB923C;
-    --accent-strong: #FDBA74;
-    --accent-tint: #2E2013;
-  }
+:global(.dark) .search {
+  --ground: var(--vo-page);
+  --sheet: var(--vo-surface);
+  --sheet-2: var(--vo-elevated);
+  --ink: var(--vo-text);
+  --ink-soft: var(--vo-secondary);
+  --ink-faint: var(--vo-muted);
+  --line: var(--vo-border);
+  --accent: var(--vo-text);
+  --accent-strong: var(--vo-text);
+  --accent-tint: var(--vo-elevated);
 }
 
 .search__topbar {
@@ -270,7 +273,7 @@ useSeoMeta({
   gap: 12px;
   background: var(--ground);
   border-bottom: 1px solid var(--line);
-  padding: 14px 16px;
+  padding: 16px max(20px, calc((100vw - 1320px) / 2));
 }
 .search__back {
   display: flex; align-items: center; justify-content: center;
@@ -285,9 +288,23 @@ useSeoMeta({
   font-size: 1.05rem;
   letter-spacing: -0.01em;
 }
+.search__theme {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--vo-radius-sm);
+  padding: 5px 9px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 500 0.68rem var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
 
 .search__main {
-  padding: 16px;
+  width: min(100% - 40px, 920px);
+  margin: 0 auto;
+  padding: 32px 0 0;
 }
 
 .search__box {
@@ -296,7 +313,7 @@ useSeoMeta({
   gap: 10px;
   background: var(--sheet);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--vo-radius-md);
   padding: 12px 14px;
   color: var(--ink-faint);
 }
@@ -327,8 +344,8 @@ useSeoMeta({
   gap: 7px;
 }
 .pill {
-  padding: 7px 14px;
-  border-radius: 999px;
+  padding: 7px 13px;
+  border-radius: var(--vo-radius-pill);
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink-soft);
@@ -337,7 +354,7 @@ useSeoMeta({
   cursor: pointer;
 }
 .pill--active {
-  background: var(--accent);
+  background: var(--ink);
   border-color: var(--accent);
   color: #fff;
 }
@@ -348,7 +365,17 @@ useSeoMeta({
   margin: 22px 0 0;
 }
 
-.filter { margin-bottom: 16px; }
+.search__pills--beds { margin-top: 14px; }
+.search__more {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 14px;
+  border: none; background: none; padding: 0;
+  color: var(--ink-soft); font-size: 0.8rem; font-weight: 600;
+  cursor: pointer;
+}
+.search__more svg { transition: transform 200ms ease; }
+
+.filter { margin-bottom: 16px; margin-top: 18px; }
 .filter__label {
   display: block;
   font-size: 0.8rem;
@@ -377,8 +404,8 @@ useSeoMeta({
   width: 100%;
   margin-top: 8px;
   padding: 13px;
-  border: none;
-  border-radius: 12px;
+  border: 1px solid var(--vo-border-strong);
+  border-radius: var(--vo-radius-sm);
   background: var(--accent);
   color: #fff;
   font-weight: 700;

@@ -15,57 +15,64 @@
     </div>
 
     <template v-else-if="space">
-      <div class="stage">
-        <ViewerPsvViewer
-          v-if="isPanorama"
-          ref="psvViewerRef"
-          :tour="tourData"
-          :hide-own-chrome="true"
-          class="pano pano--psv"
-          @scene-changed="onViewerSceneChanged"
-        />
-        <div
-          v-else
-          ref="panoEl"
-          class="pano"
-          :style="{ backgroundImage: heroImage ? `url('${heroImage}')` : 'none' }"
-          role="img"
-          :aria-label="`${space.title} preview, drag to look around`"
-        />
-        <div class="pano__scrim" />
+      <div class="stage" :class="{ 'stage--full': fullscreen }">
+        <div class="viewer-pane">
+          <ViewerPsvViewer
+            v-if="isPanorama"
+            ref="psvViewerRef"
+            :tour="tourData"
+            :hide-own-chrome="true"
+            class="pano pano--psv"
+            @scene-changed="onViewerSceneChanged"
+          />
+          <div
+            v-else
+            ref="panoEl"
+            class="pano"
+            :style="{ backgroundImage: heroImage ? `url('${heroImage}')` : 'none' }"
+            role="img"
+            :aria-label="`${space.title} preview, drag to look around`"
+          />
+          <div class="pano__scrim" />
 
-        <div class="topbar">
-          <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          </NuxtLink>
-          <span v-if="heroItems.length > 0" class="trustbadge">
-            <span class="trustbadge__dot" />
-            <template v-if="isPanorama">360° · {{ heroItems.length }} {{ heroItems.length === 1 ? 'Room' : 'Rooms' }}</template>
-            <template v-else>{{ heroItems.length }} {{ heroItems.length === 1 ? 'Photo' : 'Photos' }}</template>
-          </span>
-          <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
-            <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
-          </button>
-        </div>
-
-        <div v-if="heroItems.length > 1" class="roomrail" :style="{ bottom: 'calc(92vh + 12px)' }">
-          <button
-            v-for="(item, i) in heroItems"
-            :key="item.id"
-            class="roomchip"
-            :class="{ 'roomchip--active': i === activeIndex }"
-            @click="setActiveRoom(i)"
-          >
-            <img :src="item.thumbnail_url" alt="" loading="lazy" />
-            {{ item.name }}
-          </button>
-        </div>
-
-        <div ref="sheetEl" class="sheet">
-          <div ref="handleEl" class="sheet__handlewrap">
-            <div class="sheet__handle" />
+          <div class="topbar">
+            <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </NuxtLink>
+            <div class="topbar__right">
+              <span v-if="heroItems.length > 0" class="trustbadge">
+                <span class="trustbadge__dot" />
+                <template v-if="isPanorama">360° · {{ heroItems.length }} {{ heroItems.length === 1 ? 'Room' : 'Rooms' }}</template>
+                <template v-else>{{ heroItems.length }} {{ heroItems.length === 1 ? 'Photo' : 'Photos' }}</template>
+              </span>
+              <button class="themebtn" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
+                {{ isDark ? 'Light' : 'Dark' }}
+              </button>
+              <button class="iconbtn" type="button" :aria-label="fullscreen ? 'Show property details' : 'View fullscreen'" @click="toggleFullscreen">
+                <svg v-if="!fullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M21 8V3h-5M21 16v5h-5M3 16v5h5"/></svg>
+              </button>
+              <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
+                <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+              </button>
+            </div>
           </div>
 
+          <div v-if="heroItems.length > 1" class="roomrail">
+            <button
+              v-for="(item, i) in heroItems"
+              :key="item.id"
+              class="roomchip"
+              :class="{ 'roomchip--active': i === activeIndex }"
+              @click="setActiveRoom(i)"
+            >
+              <img :src="item.thumbnail_url" alt="" loading="lazy" />
+              {{ item.name }}
+            </button>
+          </div>
+        </div>
+
+        <div v-show="!fullscreen" ref="sheetEl" class="sheet">
           <div class="sheet__header">
             <div class="sheet__eyebrow-row">
               <span class="sheet__tag">{{ statusLabel }}</span>
@@ -158,7 +165,7 @@
           </div>
         </div>
 
-        <UiNavDock />
+        <UiNavDock v-if="!fullscreen" />
       </div>
     </template>
   </div>
@@ -175,6 +182,8 @@ import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
 
 const { apiFetch } = useApiFetch()
 const { ensureSession } = useAnonymousAuth()
+const { isDark, toggle: toggleTheme, init: initTheme } = useTheme()
+onMounted(initTheme)
 const supabaseUser = useSupabaseUser()
 const route = useRoute()
 const slug = route.params.slug as string
@@ -230,6 +239,18 @@ const heroItems = computed(() => (isPanorama.value ? rooms.value : photos.value)
 const heroImage = computed(() => (isPanorama.value ? null : heroItems.value[activeIndex.value]?.thumbnail_url || null))
 
 const psvViewerRef = ref<any>(null)
+
+// Google Maps-style split: the viewer pane and the details pane are two
+// fixed, non-overlapping regions (see .viewer-pane / .sheet below) — tapping
+// this expands the viewer pane to fill the screen and hides the details
+// pane, rather than dragging one over the other.
+const fullscreen = ref(false)
+function toggleFullscreen() {
+  fullscreen.value = !fullscreen.value
+}
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && fullscreen.value) fullscreen.value = false
+}
 
 function setActiveRoom(i: number) {
   activeIndex.value = i
@@ -316,133 +337,44 @@ async function toggleSave() {
   savePending.value = false
 }
 
-// ── Drag-to-pan on the persistent hero + draggable bottom sheet ─────────
-// Ported from the approved view-mockup2.html mockup — same interaction,
-// now driven by real scene data instead of the hardcoded House scenes.
+// ── Drag-to-pan on the flat-photo fallback hero ──────────────────────────
+// Real 360° scenes (ViewerPsvViewer) handle their own pan/zoom gestures —
+// this is only for listings with gallery photos and no scene data.
 const panoEl = ref<HTMLElement | null>(null)
 const sheetEl = ref<HTMLElement | null>(null)
-const handleEl = ref<HTMLElement | null>(null)
 
 let cleanupFns: Array<() => void> = []
 
 onMounted(() => {
-  const sheet = sheetEl.value
-  const handle = handleEl.value
-  if (!sheet || !handle) return
+  window.addEventListener('keydown', onKeydown)
+  cleanupFns.push(() => window.removeEventListener('keydown', onKeydown))
 
-  const localCleanup: Array<() => void> = []
-
-  // Pano drag-to-pan — only for the flat-photo fallback (no panoEl exists
-  // when isPanorama, since ViewerPsvViewer handles its own real gestures).
   const pano = panoEl.value
-  if (pano) {
-    let panoDragging = false, startX = 0, startPos = 0
-    const posX = () => parseFloat(getComputedStyle(pano).backgroundPositionX) || 0
-    const panoDown = (x: number) => { panoDragging = true; startX = x; startPos = posX() }
-    const panoMove = (x: number) => { if (panoDragging) pano.style.backgroundPositionX = `${startPos + (x - startX)}px` }
-    const panoUp = () => { panoDragging = false }
-    const onPanoMouseDown = (e: MouseEvent) => panoDown(e.clientX)
-    const onPanoMouseMove = (e: MouseEvent) => panoMove(e.clientX)
-    const onPanoTouchStart = (e: TouchEvent) => panoDown(e.touches[0].clientX)
-    const onPanoTouchMove = (e: TouchEvent) => panoMove(e.touches[0].clientX)
-    pano.addEventListener('mousedown', onPanoMouseDown)
-    window.addEventListener('mousemove', onPanoMouseMove)
-    window.addEventListener('mouseup', panoUp)
-    pano.addEventListener('touchstart', onPanoTouchStart, { passive: true })
-    pano.addEventListener('touchmove', onPanoTouchMove, { passive: true })
-    pano.addEventListener('touchend', panoUp)
-    localCleanup.push(
-      () => pano.removeEventListener('mousedown', onPanoMouseDown),
-      () => window.removeEventListener('mousemove', onPanoMouseMove),
-      () => window.removeEventListener('mouseup', panoUp),
-      () => pano.removeEventListener('touchstart', onPanoTouchStart),
-      () => pano.removeEventListener('touchmove', onPanoTouchMove),
-      () => pano.removeEventListener('touchend', panoUp),
-    )
-  }
+  if (!pano) return
 
-  // Bottom sheet snap drag
-  const PEEK_PX = 190
-  let sheetH = 0
-  let snaps = { full: 0, half: 0, peek: 0 }
-  let sheetState: 'peek' | 'half' | 'full' = 'half'
-
-  function computeSnaps() {
-    sheetH = window.innerHeight * 0.92
-    const full = 0
-    const half = sheetH - window.innerHeight * 0.46
-    const peek = sheetH - PEEK_PX
-    snaps = { full, half, peek }
-  }
-  computeSnaps()
-  const onResize = () => computeSnaps()
-  window.addEventListener('resize', onResize)
-
-  const scrollEl = sheet.querySelector('.sheet__scroll') as HTMLElement | null
-  const roomrailEl = document.querySelector('.roomrail') as HTMLElement | null
-
-  function setTransform(y: number, animate: boolean) {
-    sheet.style.transition = animate ? 'transform 380ms cubic-bezier(.2,.85,.25,1)' : 'none'
-    sheet.style.transform = `translateY(${y}px)`
-    if (roomrailEl) {
-      roomrailEl.style.transition = sheet.style.transition
-      roomrailEl.style.opacity = y > snaps.half - 40 ? '0' : '1'
-      roomrailEl.style.pointerEvents = y > snaps.half - 40 ? 'none' : 'auto'
-    }
-    if (scrollEl) scrollEl.style.overflowY = y < snaps.half - 10 ? 'auto' : 'hidden'
-  }
-
-  function goTo(name: 'peek' | 'half' | 'full') {
-    sheetState = name
-    setTransform(snaps[name], true)
-  }
-  goTo('half')
-
-  let sheetDragging = false, sheetStartY = 0, startTranslate = 0
-  function sheetDown(y: number) {
-    sheetDragging = true
-    sheetStartY = y
-    const m = /translateY\(([-.\d]+)px\)/.exec(sheet.style.transform)
-    startTranslate = m ? parseFloat(m[1]) : snaps[sheetState]
-  }
-  function sheetMove(y: number) {
-    if (!sheetDragging) return
-    const next = Math.min(snaps.peek, Math.max(snaps.full, startTranslate + (y - sheetStartY)))
-    setTransform(next, false)
-  }
-  function sheetUp() {
-    if (!sheetDragging) return
-    sheetDragging = false
-    const m = /translateY\(([-.\d]+)px\)/.exec(sheet.style.transform)
-    const cur = m ? parseFloat(m[1]) : snaps[sheetState]
-    const nearest = (Object.entries(snaps) as Array<[typeof sheetState, number]>)
-      .sort((a, b) => Math.abs(a[1] - cur) - Math.abs(b[1] - cur))[0][0]
-    goTo(nearest)
-  }
-  const onHandleMouseDown = (e: MouseEvent) => sheetDown(e.clientY)
-  const onHandleMouseMove = (e: MouseEvent) => sheetMove(e.clientY)
-  const onHandleTouchStart = (e: TouchEvent) => sheetDown(e.touches[0].clientY)
-  const onHandleTouchMove = (e: TouchEvent) => sheetMove(e.touches[0].clientY)
-  const onHandleClick = () => goTo(sheetState === 'peek' ? 'half' : sheetState === 'half' ? 'full' : 'peek')
-  handle.addEventListener('mousedown', onHandleMouseDown)
-  window.addEventListener('mousemove', onHandleMouseMove)
-  window.addEventListener('mouseup', sheetUp)
-  handle.addEventListener('touchstart', onHandleTouchStart, { passive: true })
-  handle.addEventListener('touchmove', onHandleTouchMove, { passive: true })
-  handle.addEventListener('touchend', sheetUp)
-  handle.addEventListener('click', onHandleClick)
-
-  localCleanup.push(
-    () => window.removeEventListener('resize', onResize),
-    () => handle.removeEventListener('mousedown', onHandleMouseDown),
-    () => window.removeEventListener('mousemove', onHandleMouseMove),
-    () => window.removeEventListener('mouseup', sheetUp),
-    () => handle.removeEventListener('touchstart', onHandleTouchStart),
-    () => handle.removeEventListener('touchmove', onHandleTouchMove),
-    () => handle.removeEventListener('touchend', sheetUp),
-    () => handle.removeEventListener('click', onHandleClick),
+  let panoDragging = false, startX = 0, startPos = 0
+  const posX = () => parseFloat(getComputedStyle(pano).backgroundPositionX) || 0
+  const panoDown = (x: number) => { panoDragging = true; startX = x; startPos = posX() }
+  const panoMove = (x: number) => { if (panoDragging) pano.style.backgroundPositionX = `${startPos + (x - startX)}px` }
+  const panoUp = () => { panoDragging = false }
+  const onPanoMouseDown = (e: MouseEvent) => panoDown(e.clientX)
+  const onPanoMouseMove = (e: MouseEvent) => panoMove(e.clientX)
+  const onPanoTouchStart = (e: TouchEvent) => panoDown(e.touches[0].clientX)
+  const onPanoTouchMove = (e: TouchEvent) => panoMove(e.touches[0].clientX)
+  pano.addEventListener('mousedown', onPanoMouseDown)
+  window.addEventListener('mousemove', onPanoMouseMove)
+  window.addEventListener('mouseup', panoUp)
+  pano.addEventListener('touchstart', onPanoTouchStart, { passive: true })
+  pano.addEventListener('touchmove', onPanoTouchMove, { passive: true })
+  pano.addEventListener('touchend', panoUp)
+  cleanupFns.push(
+    () => pano.removeEventListener('mousedown', onPanoMouseDown),
+    () => window.removeEventListener('mousemove', onPanoMouseMove),
+    () => window.removeEventListener('mouseup', panoUp),
+    () => pano.removeEventListener('touchstart', onPanoTouchStart),
+    () => pano.removeEventListener('touchmove', onPanoTouchMove),
+    () => pano.removeEventListener('touchend', panoUp),
   )
-  cleanupFns = localCleanup
 })
 
 onBeforeUnmount(() => {
@@ -484,22 +416,22 @@ useSeoMeta({
 
 <style scoped>
 .detail {
-  --ground: #EFF1F3;
-  --sheet: #FFFFFF;
-  --sheet-2: #F6F7F8;
-  --ink: #1C1D21;
-  --ink-soft: #6B6E76;
-  --ink-faint: #9598A0;
-  --line: #E3E5E9;
-  --accent: #C2410C;
-  --accent-strong: #9A3412;
-  --accent-tint: #FBEAE1;
-  --whatsapp: #1FA855;
-  --whatsapp-ink: #06210F;
-  --shadow-lg: rgba(15, 13, 10, 0.28);
+  --ground: var(--vo-page);
+  --sheet: var(--vo-surface);
+  --sheet-2: var(--vo-elevated);
+  --ink: var(--vo-text);
+  --ink-soft: var(--vo-secondary);
+  --ink-faint: var(--vo-muted);
+  --line: var(--vo-border);
+  --accent: var(--vo-text);
+  --accent-strong: var(--vo-text);
+  --accent-tint: var(--vo-elevated);
+  --whatsapp: var(--vo-text);
+  --whatsapp-ink: var(--vo-inverse);
+  --shadow-lg: rgba(0, 0, 0, 0.2);
   --scrim-top: rgba(8, 7, 6, 0.5);
   --scrim-bottom: rgba(6, 5, 4, 0.62);
-  --glass-bg: rgba(20, 18, 16, 0.44);
+  --glass-bg: rgba(7, 7, 7, 0.52);
   --glass-border: rgba(255,255,255,0.16);
   --dock-bg: rgba(255, 255, 255, 0.78);
   --dock-border: rgba(28, 29, 33, 0.06);
@@ -512,13 +444,10 @@ useSeoMeta({
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
 }
-@media (prefers-color-scheme: dark) {
-  .detail {
-    --ground: #121316; --sheet: #1C1E22; --sheet-2: #16181B;
-    --ink: #F2F1EE; --ink-soft: #9A9DA6; --ink-faint: #6D6F76; --line: #2A2D32;
-    --accent: #FB923C; --accent-strong: #FDBA74; --accent-tint: #2E2013;
-    --glass-bg: rgba(10, 9, 8, 0.5); --dock-bg: rgba(28, 30, 34, 0.78); --dock-border: rgba(255,255,255,0.08);
-  }
+ :global(.dark) .detail {
+  --glass-bg: rgba(7, 7, 7, 0.62);
+  --dock-bg: rgba(13, 13, 13, 0.78);
+  --dock-border: rgba(255,255,255,0.08);
 }
 
 .detail__state {
@@ -529,7 +458,22 @@ useSeoMeta({
 .detail__state-text { color: var(--ink-soft); font-size: 0.9rem; max-width: 32ch; }
 .detail__state-link { color: var(--accent); font-weight: 700; text-decoration: none; }
 
-.stage { position: fixed; inset: 0; }
+/* Google Maps-style split: .stage is a fixed-viewport flex column with two
+   non-overlapping regions — .viewer-pane (top) and .sheet (bottom, the
+   details panel) — so the 360°/photo controls can never collide with the
+   property details. Fullscreen just grows .viewer-pane to fill .stage and
+   hides .sheet, instead of dragging one region over the other. */
+.stage { position: fixed; inset: 0; display: flex; flex-direction: column; }
+.viewer-pane {
+  position: relative; flex: 0 0 auto; overflow: hidden;
+  height: 42vh; height: 42dvh;
+  background: var(--sheet-2);
+  transition: height 360ms cubic-bezier(.2,.8,.2,1);
+}
+@media (min-width: 720px) {
+  .viewer-pane { height: 54vh; height: 54dvh; }
+}
+.stage--full .viewer-pane { height: 100vh; height: 100dvh; }
 .pano {
   position: absolute; inset: 0; background-color: var(--sheet-2);
   background-repeat: repeat-x; background-size: auto 100%; background-position: 0 center;
@@ -550,20 +494,34 @@ useSeoMeta({
   display: flex; align-items: center; justify-content: space-between;
   padding: max(16px, env(safe-area-inset-top)) 16px 12px;
 }
+.topbar__right { display: flex; align-items: center; gap: 8px; }
 .iconbtn {
   width: 42px; height: 42px; border-radius: 999px; background: var(--glass-bg);
   backdrop-filter: blur(12px); border: 1px solid var(--glass-border); color: #fff;
   display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
+  flex: 0 0 auto;
 }
 .iconbtn--saved { color: var(--accent); }
+.themebtn {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--vo-radius-sm);
+  padding: 7px 9px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  color: rgba(255,255,255,0.88);
+  font: 500 0.64rem var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
 .trustbadge {
   display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 999px;
   background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border);
   color: #fff; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.07em; text-transform: uppercase;
 }
-.trustbadge__dot { width: 6px; height: 6px; border-radius: 50%; background: #6be08a; box-shadow: 0 0 8px #6be08a; display: inline-block; }
+.trustbadge__dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.82); display: inline-block; }
 .roomrail {
-  position: absolute; left: 0; right: 0; z-index: 15; display: flex; gap: 8px;
+  position: absolute; left: 0; right: 0; bottom: 12px; z-index: 15; display: flex; gap: 8px;
   padding: 0 16px; overflow-x: auto;
 }
 .roomchip {
@@ -572,16 +530,14 @@ useSeoMeta({
   border: 1px solid var(--glass-border); color: rgba(255,255,255,0.88); font-size: 0.78rem; font-weight: 600; cursor: pointer;
 }
 .roomchip img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
-.roomchip--active { background: var(--accent); color: #fff; border-color: transparent; }
+.roomchip--active { background: rgba(255,255,255,0.92); color: #070707; border-color: transparent; }
 
 .sheet {
-  position: fixed; left: 0; right: 0; bottom: 0; height: 92vh; z-index: 30;
-  background: var(--sheet); border-radius: 26px 26px 0 0; box-shadow: 0 -16px 48px var(--shadow-lg);
+  flex: 1 1 auto; min-height: 0;
+  background: var(--sheet); border-top: 1px solid var(--line);
   display: flex; flex-direction: column;
 }
-.sheet__handlewrap { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; padding: 10px 0 2px; cursor: grab; touch-action: none; }
-.sheet__handle { width: 38px; height: 4px; border-radius: 999px; background: var(--line); }
-.sheet__header { flex: 0 0 auto; padding: 14px 20px 14px; border-bottom: 1px solid var(--line); }
+.sheet__header { flex: 0 0 auto; padding: 16px 20px 14px; border-bottom: 1px solid var(--line); }
 .sheet__eyebrow-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
 .sheet__tag {
   display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.66rem;
@@ -598,7 +554,8 @@ useSeoMeta({
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px;
   font-weight: 700; border: none; cursor: pointer; white-space: nowrap; text-decoration: none;
 }
-.btn--whatsapp { background: var(--whatsapp); color: var(--whatsapp-ink); height: 46px; padding: 0 20px; font-size: 0.88rem; box-shadow: 0 10px 24px rgba(31, 168, 85, 0.32); flex: 0 0 auto; }
+.btn--whatsapp { background: var(--whatsapp); color: var(--whatsapp-ink); height: 46px; padding: 0 20px; font-size: 0.88rem; border: 1px solid var(--vo-border-strong); flex: 0 0 auto; transition: filter 180ms ease; }
+.btn--whatsapp:hover { filter: brightness(0.9); opacity: 1; }
 .btn--ghost { background: var(--sheet-2); color: var(--ink); height: 46px; padding: 0 18px; font-size: 0.85rem; border: 1px solid var(--line); margin-top: 16px; }
 .btn--full { width: 100%; }
 
@@ -624,7 +581,7 @@ useSeoMeta({
 .roomrow__name { font-size: 0.92rem; font-weight: 700; }
 .roomrow__index { font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-faint); letter-spacing: 0.04em; }
 .ownercard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: var(--sheet-2); border: 1px solid var(--line); }
-.ownercard__avatar { width: 46px; height: 46px; border-radius: 50%; flex: 0 0 auto; background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
+.ownercard__avatar { width: 46px; height: 46px; border-radius: 50%; flex: 0 0 auto; background: var(--ink); color: var(--vo-inverse); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
 .ownercard__name { font-weight: 800; font-size: 0.9rem; margin: 0; }
 .ownercard__meta { font-size: 0.74rem; color: var(--ink-soft); margin: 1px 0 0; }
 .sheet__cta { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 16px; border-radius: 18px; background: var(--sheet-2); text-align: center; }

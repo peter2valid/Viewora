@@ -57,6 +57,28 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Public presentation surfaces use these tokens without changing the dashboard contract. */
+  --vo-page: #f8f8f7;
+  --vo-surface: #ffffff;
+  --vo-elevated: #f1f1f0;
+  --vo-glass: rgba(255, 255, 255, 0.78);
+  --vo-text: #111111;
+  --vo-secondary: #5f5f5c;
+  --vo-muted: #8c8c87;
+  --vo-border: #dededb;
+  --vo-border-strong: #c9c9c5;
+  --vo-inverse: #ffffff;
+  --vo-radius-sm: 6px;
+  --vo-radius-md: 10px;
+  --vo-radius-lg: 14px;
+  --vo-radius-pill: 999px;
+  --vo-space-1: 0.25rem;
+  --vo-space-2: 0.5rem;
+  --vo-space-3: 0.75rem;
+  --vo-space-4: 1rem;
+  --vo-space-6: 1.5rem;
+  --vo-space-8: 2rem;
 }
 
 .dark {
@@ -95,6 +117,17 @@
   --color-card-rgb: 30 30 34;
   --color-success-rgb: 74 222 128;
   --color-danger-rgb: 248 113 113;
+
+  --vo-page: #070707;
+  --vo-surface: #0d0d0d;
+  --vo-elevated: #141414;
+  --vo-glass: rgba(13, 13, 13, 0.78);
+  --vo-text: #f4f4f1;
+  --vo-secondary: #a0a09a;
+  --vo-muted: #70706b;
+  --vo-border: #242424;
+  --vo-border-strong: #343434;
+  --vo-inverse: #070707;
 }
 
 /* ── PSV Controls & Overlays ── Ensure visibility on bright backgrounds */

@@ -62,12 +62,13 @@ const items = [
   pointer-events: auto;
   display: flex; align-items: center; gap: 2px;
   padding: 6px; border-radius: 999px;
-  background: rgba(255,255,255,0.86);
+  background: var(--vo-glass, rgba(255,255,255,0.86));
   backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid rgba(28,29,33,0.06);
-  box-shadow: 0 12px 32px rgba(15,13,10,0.28);
+  border: 1px solid var(--vo-border, rgba(28,29,33,0.06));
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
 }
-@media (prefers-color-scheme: dark) {
-  .nav-dock__inner { background: rgba(28,30,34,0.78); border-color: rgba(255,255,255,0.08); }
+:global(.dark) .nav-dock__inner {
+  background: var(--vo-glass, rgba(13,13,13,0.78));
+  border-color: rgba(255,255,255,0.08);
 }
 </style>

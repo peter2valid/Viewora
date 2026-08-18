@@ -77,7 +77,7 @@ const iconStyle = computed(() => {
   align-items: center;
   gap: 3px;
   padding: 9px 0 8px;
-  color: var(--ink-faint);
+  color: var(--vo-muted, var(--text-dim));
   text-decoration: none;
 }
 .tab__icon {
@@ -91,6 +91,6 @@ const iconStyle = computed(() => {
 }
 .tab__icon :deep(svg) { width: 21px; height: 21px; display: block; }
 .tab__label { font-size: 0.62rem; font-weight: 700; }
-.tab--active { color: var(--accent); }
+.tab--active { color: var(--vo-text, var(--accent)); }
 .tab--disabled { opacity: 0.45; }
 </style>
