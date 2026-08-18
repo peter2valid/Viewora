@@ -16,7 +16,7 @@
 
     <template v-else-if="space">
       <div class="stage" :class="{ 'stage--full': fullscreen }">
-        <div class="viewer-pane">
+        <div ref="viewerPaneEl" class="viewer-pane" :class="{ 'is-resizing': isResizing }" :style="viewerPaneStyle">
           <ViewerPsvViewer
             v-if="isPanorama"
             ref="psvViewerRef"
@@ -48,27 +48,48 @@
               <button class="themebtn" type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
                 {{ isDark ? 'Light' : 'Dark' }}
               </button>
-              <button class="iconbtn" type="button" :aria-label="fullscreen ? 'Show property details' : 'View fullscreen'" @click="toggleFullscreen">
-                <svg v-if="!fullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
-                <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M21 8V3h-5M21 16v5h-5M3 16v5h5"/></svg>
-              </button>
               <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
                 <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
               </button>
             </div>
           </div>
 
+          <!-- Only shown fullscreen — at the split-screen sizes the strip of
+               large thumbnail cards overwhelmed the pane. The room list
+               inside the sheet below still covers scene-switching there. -->
           <UiGlassDock
-            v-if="heroItems.length > 1"
+            v-if="heroItems.length > 1 && fullscreen"
             v-model:collapsed="dockCollapsed"
             :items="dockItems"
             :active-id="activeDockId"
             :sortable="false"
-            :bottom-px="dockBottomPx"
+            :show-controls="false"
+            :bottom-px="20"
             :edge-inset-px="16"
             glass-class="dock-glass-superdark"
             @select="onDockSelect"
           />
+
+          <!-- Fullscreen toggle — bottom-right of the pane, like the expand
+               control on Google Maps' Street View panel, not up in the
+               topbar icon cluster. -->
+          <button class="expandbtn" type="button" :aria-label="fullscreen ? 'Show property details' : 'View fullscreen'" @click="toggleFullscreen">
+            <svg v-if="!fullscreen" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V3h5M21 8V3h-5M21 16v5h-5M3 16v5h5"/></svg>
+          </button>
+        </div>
+
+        <!-- Drag to resize the split — not locked to a fixed ratio. -->
+        <div
+          v-if="!fullscreen"
+          class="resizer"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize viewer"
+          @mousedown="onResizeStart"
+          @touchstart="onResizeStart"
+        >
+          <span class="resizer__grip" />
         </div>
 
         <div v-show="!fullscreen" ref="sheetEl" class="sheet">
@@ -264,19 +285,57 @@ function onDockSelect(id: string) {
   if (idx !== -1) setActiveRoom(idx)
 }
 
-// GlassDock positions itself with `position: fixed; bottom: {bottomPx}px`
-// against the viewport, not against .viewer-pane — so it needs to be told
-// how far the viewer pane's bottom edge sits above the viewport bottom
-// (i.e. .sheet's height) or it'll float down over the details pane, which
-// is the exact overlap bug the split-screen layout was built to avoid.
-// In fullscreen there's no sheet below it, so it falls back to sitting near
-// the screen edge like it does on the standalone tour page.
-const dockBottomPx = ref(20)
-let dockResizeObserver: ResizeObserver | null = null
-function updateDockBottom() {
-  dockBottomPx.value = fullscreen.value ? 20 : (sheetEl.value?.offsetHeight ?? 0) + 12
+// ── Drag to resize the viewer pane / details sheet split ────────────────
+// Not locked to a fixed ratio (Google Maps-style: the boundary between the
+// map/Street View pane and the details panel is user-draggable). Sets an
+// explicit pixel height on .viewer-pane once the user drags; until then it
+// falls back to the CSS default (42vh mobile / 54vh desktop).
+const viewerPaneEl = ref<HTMLElement | null>(null)
+const viewerHeightPx = ref<number | null>(null)
+// Fullscreen always wins over a manually dragged height — .stage--full's
+// CSS rule handles that, an inline style here would fight it.
+const viewerPaneStyle = computed(() =>
+  !fullscreen.value && viewerHeightPx.value != null ? { height: `${viewerHeightPx.value}px` } : {},
+)
+
+const RESIZE_MIN_PX = 160
+const RESIZE_BOTTOM_RESERVE_PX = 180 // keeps the sheet's price/CTA header grabbable
+
+function clampViewerHeight(px: number): number {
+  const max = window.innerHeight - RESIZE_BOTTOM_RESERVE_PX
+  return Math.min(Math.max(px, RESIZE_MIN_PX), Math.max(max, RESIZE_MIN_PX))
 }
-watch(fullscreen, () => nextTick(updateDockBottom))
+
+const isResizing = ref(false)
+let resizeStartY = 0
+let resizeStartHeight = 0
+
+function onResizeStart(e: MouseEvent | TouchEvent) {
+  if (!viewerPaneEl.value) return
+  isResizing.value = true
+  resizeStartY = 'touches' in e ? e.touches[0].clientY : e.clientY
+  resizeStartHeight = viewerPaneEl.value.getBoundingClientRect().height
+  window.addEventListener('mousemove', onResizeMove)
+  window.addEventListener('mouseup', onResizeEnd)
+  window.addEventListener('touchmove', onResizeMove, { passive: false })
+  window.addEventListener('touchend', onResizeEnd)
+}
+function onResizeMove(e: MouseEvent | TouchEvent) {
+  if (!isResizing.value) return
+  if ('touches' in e) e.preventDefault()
+  const y = 'touches' in e ? e.touches[0].clientY : e.clientY
+  viewerHeightPx.value = clampViewerHeight(resizeStartHeight + (y - resizeStartY))
+}
+function onResizeEnd() {
+  isResizing.value = false
+  window.removeEventListener('mousemove', onResizeMove)
+  window.removeEventListener('mouseup', onResizeEnd)
+  window.removeEventListener('touchmove', onResizeMove)
+  window.removeEventListener('touchend', onResizeEnd)
+}
+function onWindowResize() {
+  if (viewerHeightPx.value != null) viewerHeightPx.value = clampViewerHeight(viewerHeightPx.value)
+}
 
 function setActiveRoom(i: number) {
   activeIndex.value = i
@@ -375,12 +434,8 @@ onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   cleanupFns.push(() => window.removeEventListener('keydown', onKeydown))
 
-  if (sheetEl.value) {
-    dockResizeObserver = new ResizeObserver(updateDockBottom)
-    dockResizeObserver.observe(sheetEl.value)
-  }
-  updateDockBottom()
-  cleanupFns.push(() => dockResizeObserver?.disconnect())
+  window.addEventListener('resize', onWindowResize)
+  cleanupFns.push(() => window.removeEventListener('resize', onWindowResize))
 
   const pano = panoEl.value
   if (!pano) return
@@ -411,6 +466,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  onResizeEnd()
   cleanupFns.forEach((fn) => fn())
 })
 
@@ -506,7 +562,22 @@ useSeoMeta({
 @media (min-width: 720px) {
   .viewer-pane { height: 54vh; height: 54dvh; }
 }
-.stage--full .viewer-pane { height: 100vh; height: 100dvh; }
+.stage--full .viewer-pane { height: 100vh !important; height: 100dvh !important; }
+/* Dragging sets an inline height directly, so don't fight it with a
+   transition meant for the fullscreen-toggle case. */
+.viewer-pane.is-resizing { transition: none; }
+.expandbtn {
+  position: absolute; z-index: 22;
+  right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
+  width: 38px; height: 38px; border-radius: var(--vo-radius-sm);
+  background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border);
+  color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.resizer {
+  flex: 0 0 auto; height: 18px; display: flex; align-items: center; justify-content: center;
+  background: var(--sheet); cursor: row-resize; touch-action: none;
+}
+.resizer__grip { width: 36px; height: 4px; border-radius: 999px; background: var(--line); }
 .pano {
   position: absolute; inset: 0; background-color: var(--sheet-2);
   background-repeat: repeat-x; background-size: auto 100%; background-position: 0 center;
