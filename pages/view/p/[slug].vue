@@ -58,18 +58,17 @@
             </div>
           </div>
 
-          <div v-if="heroItems.length > 1" class="roomrail">
-            <button
-              v-for="(item, i) in heroItems"
-              :key="item.id"
-              class="roomchip"
-              :class="{ 'roomchip--active': i === activeIndex }"
-              @click="setActiveRoom(i)"
-            >
-              <img :src="item.thumbnail_url" alt="" loading="lazy" />
-              {{ item.name }}
-            </button>
-          </div>
+          <UiGlassDock
+            v-if="heroItems.length > 1"
+            v-model:collapsed="dockCollapsed"
+            :items="dockItems"
+            :active-id="activeDockId"
+            :sortable="false"
+            :bottom-px="dockBottomPx"
+            :edge-inset-px="16"
+            glass-class="dock-glass-superdark"
+            @select="onDockSelect"
+          />
         </div>
 
         <div v-show="!fullscreen" ref="sheetEl" class="sheet">
@@ -174,7 +173,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { ref, computed, watch, onMounted, onBeforeUnmount, h } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'vue'
 import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, createError } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
@@ -251,6 +250,33 @@ function toggleFullscreen() {
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && fullscreen.value) fullscreen.value = false
 }
+
+// Same scene-switcher UI as app.viewora.software's standalone tour page
+// (components/ui/GlassDock.vue, glass-class="dock-glass-superdark") instead
+// of a bespoke pill row, so the two products look and feel like one thing.
+const dockItems = computed(() =>
+  heroItems.value.map((item) => ({ id: item.id, label: item.name, imageUrl: item.thumbnail_url })),
+)
+const activeDockId = computed(() => heroItems.value[activeIndex.value]?.id ?? '')
+const dockCollapsed = ref(false)
+function onDockSelect(id: string) {
+  const idx = heroItems.value.findIndex((item) => item.id === id)
+  if (idx !== -1) setActiveRoom(idx)
+}
+
+// GlassDock positions itself with `position: fixed; bottom: {bottomPx}px`
+// against the viewport, not against .viewer-pane — so it needs to be told
+// how far the viewer pane's bottom edge sits above the viewport bottom
+// (i.e. .sheet's height) or it'll float down over the details pane, which
+// is the exact overlap bug the split-screen layout was built to avoid.
+// In fullscreen there's no sheet below it, so it falls back to sitting near
+// the screen edge like it does on the standalone tour page.
+const dockBottomPx = ref(20)
+let dockResizeObserver: ResizeObserver | null = null
+function updateDockBottom() {
+  dockBottomPx.value = fullscreen.value ? 20 : (sheetEl.value?.offsetHeight ?? 0) + 12
+}
+watch(fullscreen, () => nextTick(updateDockBottom))
 
 function setActiveRoom(i: number) {
   activeIndex.value = i
@@ -348,6 +374,13 @@ let cleanupFns: Array<() => void> = []
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   cleanupFns.push(() => window.removeEventListener('keydown', onKeydown))
+
+  if (sheetEl.value) {
+    dockResizeObserver = new ResizeObserver(updateDockBottom)
+    dockResizeObserver.observe(sheetEl.value)
+  }
+  updateDockBottom()
+  cleanupFns.push(() => dockResizeObserver?.disconnect())
 
   const pano = panoEl.value
   if (!pano) return
@@ -520,17 +553,6 @@ useSeoMeta({
   color: #fff; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.07em; text-transform: uppercase;
 }
 .trustbadge__dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.82); display: inline-block; }
-.roomrail {
-  position: absolute; left: 0; right: 0; bottom: 12px; z-index: 15; display: flex; gap: 8px;
-  padding: 0 16px; overflow-x: auto;
-}
-.roomchip {
-  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px;
-  border-radius: 999px; background: var(--glass-bg); backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border); color: rgba(255,255,255,0.88); font-size: 0.78rem; font-weight: 600; cursor: pointer;
-}
-.roomchip img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
-.roomchip--active { background: rgba(255,255,255,0.92); color: #070707; border-color: transparent; }
 
 .sheet {
   flex: 1 1 auto; min-height: 0;
