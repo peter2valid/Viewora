@@ -270,7 +270,10 @@ useSeoMeta({
   gap: 12px;
   background: var(--ground);
   border-bottom: 1px solid var(--line);
-  padding: 16px max(20px, calc((100vw - 1320px) / 2));
+  /* viewport-fit=cover (nuxt.config.ts) extends the page under the status
+     bar/notch on phones that have one — without this the back button/title
+     would render underneath it instead of below. */
+  padding: max(16px, calc(env(safe-area-inset-top) + 8px)) max(20px, calc((100vw - 1320px) / 2));
 }
 .search__back {
   display: flex; align-items: center; justify-content: center;

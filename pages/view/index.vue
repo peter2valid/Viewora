@@ -285,7 +285,10 @@ useSeoMeta({
   background: var(--vo-glass);
   backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--line);
-  padding: 18px max(20px, calc((100vw - 1320px) / 2)) 14px;
+  /* viewport-fit=cover (nuxt.config.ts) extends the page under the status
+     bar/notch on phones that have one — without this the topbar's content
+     would render underneath it instead of below. */
+  padding: max(18px, calc(env(safe-area-inset-top) + 8px)) max(20px, calc((100vw - 1320px) / 2)) 14px;
 }
 .feed__row {
   display: flex;
