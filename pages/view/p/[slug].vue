@@ -569,6 +569,23 @@ useSeoMeta({
    property details. Fullscreen just grows .viewer-pane to fill .stage and
    hides .sheet, instead of dragging one region over the other. */
 .stage { position: fixed; inset: 0; display: flex; flex-direction: column; }
+/* On a wide desktop window, edge-to-edge stretches the panorama into a thin
+   letterboxed strip and every sheet row (key facts, amenities…) into an
+   absurdly wide line. Cap and center the same stacked layout instead of
+   changing it — .detail's own background (var(--ground)) already shows
+   through the newly-exposed sides, so no extra fill is needed. Same
+   min(100%, max-width)-centered framing pattern the feed and search pages
+   already use. Fullscreen deliberately breaks out of the cap — tapping it
+   should give the most immersive view the screen allows, not stay boxed in. */
+@media (min-width: 1024px) {
+  .stage {
+    left: 50%; right: auto;
+    width: min(100%, 720px);
+    transform: translateX(-50%);
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  .stage--full { left: 0; right: 0; width: auto; transform: none; box-shadow: none; }
+}
 .viewer-pane {
   position: relative; flex: 0 0 auto; overflow: hidden;
   height: 42vh; height: 42dvh;
