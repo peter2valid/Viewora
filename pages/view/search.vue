@@ -317,6 +317,13 @@ useSeoMeta({
   border-radius: var(--vo-radius-md);
   padding: 12px 14px;
   color: var(--ink-faint);
+  transition: border-color 150ms ease;
+}
+/* The input's own outline is suppressed below (it doesn't sit flush with
+   the rounded box otherwise) — this replaces it so keyboard focus is still
+   visible, rather than removing the indicator with nothing standing in. */
+.search__box:focus-within {
+  border-color: var(--vo-border-strong);
 }
 .search__box input {
   flex: 1;
