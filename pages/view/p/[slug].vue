@@ -150,35 +150,6 @@
               <p class="sheet__desc">{{ space.description }}</p>
             </template>
 
-            <template v-if="heroItems.length > 0">
-              <p class="sheet__section-label">
-                {{ isPanorama ? 'Walk Through' : 'Photos' }}
-                <span class="sheet__section-count">
-                  {{ heroItems.length }} {{ isPanorama ? (heroItems.length === 1 ? 'room' : 'rooms') : (heroItems.length === 1 ? 'photo' : 'photos') }}
-                </span>
-              </p>
-              <div class="roomlist">
-                <button
-                  v-for="(item, i) in heroItems"
-                  :key="item.id"
-                  class="roomrow"
-                  :class="{ 'roomrow--active': i === activeIndex }"
-                  @click="setActiveRoom(i)"
-                >
-                  <img :src="item.thumbnail_url" alt="" loading="lazy" />
-                  <span>
-                    <span class="roomrow__index">{{ String(i + 1).padStart(2, '0') }}</span>
-                    <span class="roomrow__name">{{ item.name }}</span>
-                  </span>
-                </button>
-              </div>
-
-              <a v-if="isPanorama" class="btn btn--ghost btn--full" :href="fullTourUrl">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5 3 12l6 7M15 5l6 7-6 7"/></svg>
-                Step inside the full 360° tour
-              </a>
-            </template>
-
             <p class="sheet__section-label">Listed By</p>
             <div class="ownercard">
               <div class="ownercard__avatar">PO</div>
@@ -379,7 +350,6 @@ function onViewerSceneChanged(sceneId: string) {
 const priceText = computed(() => formatPrice(space.value?.price_kes))
 const facts = computed(() => (space.value ? factsLine(space.value) : ''))
 const whatsapp = computed(() => whatsappUrl(space.value?.phone, space.value?.title || 'this listing'))
-const fullTourUrl = computed(() => `/p/${space.value?.slug || slug}`)
 
 const STATUS_LABELS: Record<string, string> = { available: 'Available', sold: 'Sold', rented: 'Rented' }
 const statusLabel = computed(() => STATUS_LABELS[space.value?.listing_status] || 'Available')
@@ -710,8 +680,6 @@ useSeoMeta({
 }
 .btn--whatsapp { background: var(--whatsapp); color: var(--whatsapp-ink); height: 46px; padding: 0 20px; font-size: 0.88rem; border: 1px solid var(--vo-border-strong); flex: 0 0 auto; transition: filter 180ms ease; }
 .btn--whatsapp:hover { filter: brightness(0.9); opacity: 1; }
-.btn--ghost { background: var(--sheet-2); color: var(--ink); height: 46px; padding: 0 18px; font-size: 0.85rem; border: 1px solid var(--line); margin-top: 16px; }
-.btn--full { width: 100%; }
 
 .sheet__scroll { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px calc(120px + env(safe-area-inset-bottom)); }
 .sheet__section-label {
@@ -719,7 +687,6 @@ useSeoMeta({
   color: var(--accent-strong); margin: 26px 0 12px; display: flex; align-items: center; justify-content: space-between;
 }
 .sheet__section-label:first-child { margin-top: 0; }
-.sheet__section-count { color: var(--ink-faint); font-weight: 500; }
 .factgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-top: 26px; }
 .factgrid:first-child { margin-top: 0; }
 .factcard { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 14px 12px; border-radius: var(--vo-radius-lg); background: var(--sheet-2); border: 1px solid var(--line); }
@@ -729,13 +696,6 @@ useSeoMeta({
 .amenities:first-child { margin-top: 0; }
 .amenity { display: inline-flex; align-items: center; padding: 8px 13px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); font-size: 0.79rem; font-weight: 600; color: var(--ink); }
 .sheet__desc { font-size: 0.88rem; line-height: 1.6; color: var(--ink-soft); margin: 0; }
-.roomlist { display: flex; flex-direction: column; gap: 2px; }
-.roomrow { display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 12px; cursor: pointer; border: none; background: transparent; text-align: left; width: 100%; }
-.roomrow--active { background: var(--accent-tint); }
-.roomrow img { width: 52px; height: 52px; border-radius: var(--vo-radius-md); object-fit: cover; flex: 0 0 auto; }
-.roomrow span { display: flex; flex-direction: column; }
-.roomrow__name { font-size: 0.92rem; font-weight: 700; }
-.roomrow__index { font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-faint); letter-spacing: 0.04em; }
 .ownercard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: var(--sheet-2); border: 1px solid var(--line); }
 .ownercard__avatar { width: 46px; height: 46px; border-radius: 50%; flex: 0 0 auto; background: var(--ink); color: var(--vo-inverse); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
 .ownercard__name { font-weight: 800; font-size: 0.9rem; margin: 0; }
