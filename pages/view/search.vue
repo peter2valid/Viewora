@@ -294,6 +294,11 @@ useSeoMeta({
   margin: 0 auto;
   padding: 32px 0 0;
 }
+/* Same framing system as the feed and detail pages — capped, centered, a
+   subtle side frame — same var(--line) token, same 1024px breakpoint. */
+@media (min-width: 1024px) {
+  .search__main { border-left: 1px solid var(--line); border-right: 1px solid var(--line); padding-left: 24px; padding-right: 24px; }
+}
 
 .search__box {
   display: flex;

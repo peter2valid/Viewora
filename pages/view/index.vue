@@ -393,6 +393,14 @@ useSeoMeta({
   margin: 0 auto;
   padding: 32px 0 0;
 }
+/* Same framing system as the detail page's .stage — capped, centered, a
+   subtle side frame — just sized for what this page holds: a multi-column
+   grid needs to stay wide so cards don't shrink to 1-2 columns on a big
+   screen, unlike the single-column search/detail pages. Same var(--line)
+   token, same 1024px breakpoint, everywhere. */
+@media (min-width: 1024px) {
+  .feed__main { border-left: 1px solid var(--line); border-right: 1px solid var(--line); padding-left: 24px; padding-right: 24px; }
+}
 .feed__state {
   padding: 60px 16px;
   text-align: center;
