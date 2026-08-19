@@ -48,9 +48,9 @@
 
       <section class="search__section">
         <div class="filter__range">
-          <input v-model="priceMin" type="number" min="0" inputmode="numeric" placeholder="Min price (KES)" />
+          <input v-model="priceMin" type="number" min="0" inputmode="numeric" placeholder="Min price (KES)" aria-label="Minimum price in KES" />
           <span class="filter__range-sep">–</span>
-          <input v-model="priceMax" type="number" min="0" inputmode="numeric" placeholder="Max price (KES)" />
+          <input v-model="priceMax" type="number" min="0" inputmode="numeric" placeholder="Max price (KES)" aria-label="Maximum price in KES" />
         </div>
 
         <div v-if="type === 'all' || type === 'residential'" class="search__pills search__pills--beds">
@@ -88,7 +88,7 @@
 
           <div class="filter">
             <span class="filter__label">Min Area (m²)</span>
-            <input v-model="areaMin" type="number" min="0" inputmode="numeric" placeholder="e.g. 100" class="filter__single" />
+            <input v-model="areaMin" type="number" min="0" inputmode="numeric" placeholder="e.g. 100" class="filter__single" aria-label="Minimum floor area in square metres" />
           </div>
         </template>
       </section>
