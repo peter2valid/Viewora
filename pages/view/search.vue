@@ -1,5 +1,6 @@
 <template>
   <div class="search">
+   <div class="search__frame">
     <header class="search__topbar">
       <NuxtLink to="/view" class="search__back" aria-label="Back to Home">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -105,6 +106,7 @@
         </div>
       </section>
     </main>
+   </div>
 
     <UiNavDock active="search" />
   </div>
@@ -261,6 +263,19 @@ useSeoMeta({
   --accent-tint: var(--vo-elevated);
 }
 
+/* Single shared frame the topbar and main content both live inside — see
+   pages/view/index.vue's .feed__frame for why (guarantees identical width
+   instead of two independent formulas that can drift, which is what was
+   happening: this topbar centered against a 1320px column left over from
+   copying the feed's number, while the body below it caps at 920px). Same
+   var(--line) token, same 1024px breakpoint as the feed and detail pages. */
+.search__frame {
+  width: min(100% - 40px, 920px);
+  margin: 0 auto;
+}
+@media (min-width: 1024px) {
+  .search__frame { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+}
 .search__topbar {
   position: sticky;
   top: 0;
@@ -273,7 +288,7 @@ useSeoMeta({
   /* viewport-fit=cover (nuxt.config.ts) extends the page under the status
      bar/notch on phones that have one — without this the back button/title
      would render underneath it instead of below. */
-  padding: max(16px, calc(env(safe-area-inset-top) + 8px)) max(20px, calc((100vw - 1320px) / 2));
+  padding: max(16px, calc(env(safe-area-inset-top) + 8px)) 20px;
 }
 .search__back {
   display: flex; align-items: center; justify-content: center;
@@ -290,14 +305,7 @@ useSeoMeta({
 }
 
 .search__main {
-  width: min(100% - 40px, 920px);
-  margin: 0 auto;
-  padding: 32px 0 0;
-}
-/* Same framing system as the feed and detail pages — capped, centered, a
-   subtle side frame — same var(--line) token, same 1024px breakpoint. */
-@media (min-width: 1024px) {
-  .search__main { border-left: 1px solid var(--line); border-right: 1px solid var(--line); padding-left: 24px; padding-right: 24px; }
+  padding: 32px 20px 0;
 }
 
 .search__box {

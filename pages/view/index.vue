@@ -1,5 +1,6 @@
 <template>
   <div class="feed">
+   <div class="feed__frame">
     <header class="feed__topbar">
       <div class="feed__row">
         <NuxtLink to="/view" class="feed__brand" aria-label="Viewora home">
@@ -84,6 +85,7 @@
         </button>
       </div>
     </main>
+   </div>
 
     <UiNavDock active="home" />
   </div>
@@ -278,6 +280,22 @@ useSeoMeta({
     --accent-tint: var(--vo-elevated);
 }
 
+/* Single shared frame the topbar and main content both live inside, so
+   they're guaranteed the same width instead of two independent formulas
+   that can drift out of alignment (which is what was happening before —
+   the topbar centered its content via a 100vw-based calc while the body
+   used a 100%-based width, and 100vw includes the scrollbar's width that
+   100% doesn't, on top of which every buyer page had a slightly different
+   number in that calc). Border only shows once there's room for visible
+   gutters beside it — matches the detail page's .stage frame: same
+   var(--line) token, same 1024px breakpoint. */
+.feed__frame {
+  width: min(100% - 40px, 1320px);
+  margin: 0 auto;
+}
+@media (min-width: 1024px) {
+  .feed__frame { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+}
 .feed__topbar {
   position: sticky;
   top: 0;
@@ -288,7 +306,7 @@ useSeoMeta({
   /* viewport-fit=cover (nuxt.config.ts) extends the page under the status
      bar/notch on phones that have one — without this the topbar's content
      would render underneath it instead of below. */
-  padding: max(18px, calc(env(safe-area-inset-top) + 8px)) max(20px, calc((100vw - 1320px) / 2)) 14px;
+  padding: max(18px, calc(env(safe-area-inset-top) + 8px)) 20px 14px;
 }
 .feed__row {
   display: flex;
@@ -389,17 +407,7 @@ useSeoMeta({
 }
 
 .feed__main {
-  width: min(100% - 40px, 1320px);
-  margin: 0 auto;
-  padding: 32px 0 0;
-}
-/* Same framing system as the detail page's .stage — capped, centered, a
-   subtle side frame — just sized for what this page holds: a multi-column
-   grid needs to stay wide so cards don't shrink to 1-2 columns on a big
-   screen, unlike the single-column search/detail pages. Same var(--line)
-   token, same 1024px breakpoint, everywhere. */
-@media (min-width: 1024px) {
-  .feed__main { border-left: 1px solid var(--line); border-right: 1px solid var(--line); padding-left: 24px; padding-right: 24px; }
+  padding: 32px 20px 0;
 }
 .feed__state {
   padding: 60px 16px;
