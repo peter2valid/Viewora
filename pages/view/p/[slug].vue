@@ -131,7 +131,6 @@
 
           <div class="sheet__scroll">
             <template v-if="keyFacts.length > 0">
-              <p class="sheet__section-label">Key Facts</p>
               <div class="factgrid">
                 <div v-for="f in keyFacts" :key="f.label" class="factcard">
                   <b>{{ f.value }}</b>
@@ -141,7 +140,6 @@
             </template>
 
             <template v-if="space.amenities && space.amenities.length > 0">
-              <p class="sheet__section-label">Features &amp; Amenities</p>
               <div class="amenities">
                 <span v-for="a in space.amenities" :key="a" class="amenity">{{ a }}</span>
               </div>
@@ -186,17 +184,8 @@
               <div class="ownercard__avatar">PO</div>
               <div class="ownercard__body">
                 <p class="ownercard__name">Property Owner</p>
-                <p class="ownercard__meta">Contact via WhatsApp below</p>
+                <p v-if="space.phone" class="ownercard__meta ownercard__meta--phone">+{{ space.phone }}</p>
               </div>
-            </div>
-
-            <div v-if="space.phone" class="sheet__cta">
-              <p>Questions about this listing? Reach out directly on WhatsApp.</p>
-              <a class="btn btn--whatsapp" :href="whatsapp" target="_blank" rel="noopener">
-                <WhatsappIcon />
-                Chat on WhatsApp
-              </a>
-              <p class="sheet__phone">+{{ space.phone }}</p>
             </div>
           </div>
         </div>
@@ -731,11 +720,13 @@ useSeoMeta({
 }
 .sheet__section-label:first-child { margin-top: 0; }
 .sheet__section-count { color: var(--ink-faint); font-weight: 500; }
-.factgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
+.factgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-top: 26px; }
+.factgrid:first-child { margin-top: 0; }
 .factcard { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 14px 12px; border-radius: var(--vo-radius-lg); background: var(--sheet-2); border: 1px solid var(--line); }
 .factcard b { font-size: 0.95rem; }
 .factcard span { font-size: 0.66rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono); }
-.amenities { display: flex; flex-wrap: wrap; gap: 8px; }
+.amenities { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.amenities:first-child { margin-top: 0; }
 .amenity { display: inline-flex; align-items: center; padding: 8px 13px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); font-size: 0.79rem; font-weight: 600; color: var(--ink); }
 .sheet__desc { font-size: 0.88rem; line-height: 1.6; color: var(--ink-soft); margin: 0; }
 .roomlist { display: flex; flex-direction: column; gap: 2px; }
@@ -749,8 +740,6 @@ useSeoMeta({
 .ownercard__avatar { width: 46px; height: 46px; border-radius: 50%; flex: 0 0 auto; background: var(--ink); color: var(--vo-inverse); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
 .ownercard__name { font-weight: 800; font-size: 0.9rem; margin: 0; }
 .ownercard__meta { font-size: 0.74rem; color: var(--ink-soft); margin: 1px 0 0; }
-.sheet__cta { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 16px; border-radius: 18px; background: var(--sheet-2); text-align: center; }
-.sheet__cta p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); max-width: 30ch; }
-.sheet__phone { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); }
+.ownercard__meta--phone { font-family: var(--font-mono); color: var(--ink-faint); }
 
 </style>
