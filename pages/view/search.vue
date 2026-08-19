@@ -357,7 +357,7 @@ useSeoMeta({
 .pill--active {
   background: var(--ink);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--vo-inverse);
 }
 
 .search__divider {
@@ -408,7 +408,7 @@ useSeoMeta({
   border: 1px solid var(--vo-border-strong);
   border-radius: var(--vo-radius-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--vo-inverse);
   font-weight: 700;
   font-size: 0.92rem;
   cursor: pointer;

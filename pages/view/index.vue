@@ -374,7 +374,7 @@ useSeoMeta({
 .chip--active {
   background: var(--ink);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--vo-inverse);
 }
 .feed__sort {
   flex: 0 0 auto;
