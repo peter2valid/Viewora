@@ -32,16 +32,27 @@
     </header>
 
     <main class="feed__main">
-      <div v-if="pending && listings.length === 0" class="feed__state">
-        <p class="feed__state-text">Loading listings…</p>
+      <div v-if="pending && listings.length === 0" class="feed__grid" aria-label="Loading listings" aria-busy="true">
+        <div v-for="n in 8" :key="n" class="card card--skeleton">
+          <div class="card__media skeleton" />
+          <div class="card__body">
+            <div class="skeleton skeleton--price" />
+            <div class="skeleton skeleton--line" />
+            <div class="skeleton skeleton--line skeleton--short" />
+            <div class="skeleton skeleton--cta" />
+          </div>
+        </div>
       </div>
 
       <div v-else-if="error" class="feed__state">
         <p class="feed__state-text">Couldn't load listings right now. Try again shortly.</p>
+        <button class="feed__state-action" @click="reload">Try again</button>
       </div>
 
       <div v-else-if="listings.length === 0" class="feed__state">
         <p class="feed__state-text">No listings yet{{ type !== 'all' ? ' in this category' : '' }}.</p>
+        <button v-if="type !== 'all'" class="feed__state-action" @click="setType('all')">Show all listings</button>
+        <button v-else-if="hasActiveSearch" class="feed__state-action" @click="clearSearch">Clear search</button>
       </div>
 
       <div v-else class="feed__grid">
@@ -412,10 +423,24 @@ useSeoMeta({
 .feed__state {
   padding: 60px 16px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 .feed__state-text {
   color: var(--ink-soft);
   font-size: 0.9rem;
+}
+.feed__state-action {
+  padding: 9px 18px;
+  border-radius: var(--vo-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--sheet);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
 }
 
 .feed__grid {
@@ -503,6 +528,31 @@ useSeoMeta({
   transition: background-color 180ms ease, color 180ms ease;
 }
 .card__cta:hover { background: var(--vo-inverse); color: var(--vo-text); opacity: 1; }
+
+/* Loading skeleton — neutral grayscale sweep, no color, matches the real
+   card's exact geometry (media aspect-ratio, body padding) so nothing
+   shifts when real listings replace it. */
+.card--skeleton { pointer-events: none; }
+.card--skeleton:hover { transform: none; border-color: var(--line); background: var(--sheet); }
+.skeleton {
+  position: relative; overflow: hidden;
+  background: var(--sheet-2);
+  border-radius: 4px;
+}
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--vo-border-strong) 50%, transparent);
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+.skeleton--price { height: 20px; width: 55%; margin: 0 0 11px; }
+.skeleton--line { height: 12px; width: 40%; margin: 0 0 8px; }
+.skeleton--short { width: 30%; margin: 0 0 16px; }
+.skeleton--cta { height: 38px; width: 100%; border-radius: var(--vo-radius-sm); }
+@keyframes skeleton-sweep { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
 
 .feed__loadmore { display: flex; justify-content: center; padding: 24px 0; }
 .loadmore-btn {

@@ -1,7 +1,24 @@
 <template>
   <div class="detail">
-    <div v-if="pending" class="detail__state">
-      <p class="detail__state-text">Loading…</p>
+    <div v-if="pending" class="stage" aria-label="Loading tour" aria-busy="true">
+      <div class="viewer-pane">
+        <div class="skeleton skeleton--fill" />
+      </div>
+      <div class="sheet">
+        <div class="sheet__header">
+          <div class="skeleton skeleton--line skeleton--short" />
+          <div class="sheet__pricerow">
+            <div class="skeleton skeleton--price" />
+          </div>
+        </div>
+        <div class="sheet__scroll">
+          <div class="factgrid">
+            <div class="skeleton skeleton--fact" />
+            <div class="skeleton skeleton--fact" />
+            <div class="skeleton skeleton--fact" />
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-else-if="fetchError" class="detail__state">
@@ -562,6 +579,30 @@ useSeoMeta({
 }
 .detail__state-text { color: var(--ink-soft); font-size: 0.9rem; max-width: 32ch; }
 .detail__state-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+
+/* Loading skeleton — same neutral grayscale sweep as the feed's card
+   skeletons, shaped like the real viewer-pane/sheet split so nothing jumps
+   when the tour data arrives. */
+.skeleton {
+  position: relative; overflow: hidden;
+  background: var(--sheet-2);
+  border-radius: 4px;
+}
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--vo-border-strong) 50%, transparent);
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-sweep { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+.skeleton--fill { position: absolute; inset: 0; border-radius: 0; }
+.skeleton--line { height: 12px; width: 30%; margin: 0 0 10px; }
+.skeleton--short { width: 20%; }
+.skeleton--price { height: 26px; width: 45%; }
+.skeleton--fact { height: 70px; border-radius: 14px; }
 
 /* Google Maps-style split: .stage is a fixed-viewport flex column with two
    non-overlapping regions — .viewer-pane (top) and .sheet (bottom, the
