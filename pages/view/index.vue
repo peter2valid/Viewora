@@ -400,7 +400,7 @@ useSeoMeta({
   gap: 10px;
   margin-top: 10px;
   padding: 7px 12px;
-  border-radius: 10px;
+  border-radius: var(--vo-radius-md);
   background: var(--accent-tint);
   color: var(--accent-strong);
   font-size: 0.78rem;
@@ -492,7 +492,7 @@ useSeoMeta({
   font-size: 0.62rem;
   letter-spacing: 0.06em;
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: var(--vo-radius-pill);
 }
 .card__body { padding: 14px; }
 .card__price {

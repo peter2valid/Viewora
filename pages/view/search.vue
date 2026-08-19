@@ -293,7 +293,7 @@ useSeoMeta({
 .search__back {
   display: flex; align-items: center; justify-content: center;
   width: 34px; height: 34px;
-  border-radius: 999px;
+  border-radius: var(--vo-radius-pill);
   background: var(--sheet);
   border: 1px solid var(--line);
   color: var(--ink);
@@ -392,7 +392,7 @@ useSeoMeta({
 .filter__single {
   width: 100%;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--vo-radius-md);
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink);
