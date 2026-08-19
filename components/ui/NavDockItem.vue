@@ -5,6 +5,9 @@
     class="tab"
     :class="{ 'tab--active': active, 'tab--disabled': disabled }"
     :title="disabled ? 'Coming soon' : undefined"
+    :aria-label="disabled ? `${label} (coming soon)` : undefined"
+    :aria-disabled="disabled ? 'true' : undefined"
+    :aria-current="active ? 'page' : undefined"
   >
     <span ref="iconEl" class="tab__icon" :style="iconStyle">
       <component :is="icon" />
