@@ -213,12 +213,13 @@
 definePageMeta({ layout: false })
 
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'vue'
-import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, createError } from '#imports'
+import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtApp, createError } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
 
 const { apiFetch } = useApiFetch()
+const { $posthog } = useNuxtApp()
 const { ensureSession } = useAnonymousAuth()
 const { init: initTheme } = useTheme()
 onMounted(initTheme)
@@ -532,6 +533,22 @@ const sheetEl = ref<HTMLElement | null>(null)
 let cleanupFns: Array<() => void> = []
 
 onMounted(() => {
+  // Fires unconditionally, before the panoEl-dependent code below returns
+  // early for panorama listings — this page never called /analytics/view at
+  // all before, so the owner's dashboard was blind to every view here.
+  if (space.value?.id) {
+    apiFetch('/analytics/view', {
+      method: 'POST',
+      body: { spaceId: space.value.id, source: route.query.src || 'direct' },
+    }).catch(() => {})
+    $posthog?.capture('tour_viewed', {
+      space_id: space.value.id,
+      source: route.query.src || 'direct',
+      referrer: typeof document !== 'undefined' ? (document.referrer || 'direct') : 'direct',
+      slug,
+    })
+  }
+
   window.addEventListener('keydown', onKeydown)
   cleanupFns.push(() => window.removeEventListener('keydown', onKeydown))
 
