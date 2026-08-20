@@ -341,6 +341,123 @@
                 </div>
               </div>
 
+              <!-- SECTION: Listing Details — price/status/facts the buyer-facing
+                   detail screen reads directly (view/p/[slug].vue's keyFacts).
+                   Type-specific fields mirror that page's own branching so
+                   nothing collected here goes undisplayed, and nothing shown
+                   there lacks an editing path. -->
+              <div class="ts-section">
+                <div class="ts-section__label">Listing Details</div>
+
+                <div class="ts-field">
+                  <label class="ts-field__label">Price (KES) <span class="ts-field__opt">optional</span></label>
+                  <input
+                    class="ts-input"
+                    v-model.number="settingsDraft.priceKes"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 18500000"
+                  />
+                </div>
+
+                <div class="ts-field">
+                  <label class="ts-field__label">Status</label>
+                  <div class="ts-seg">
+                    <button
+                      v-for="opt in listingStatusOptions"
+                      :key="opt.value"
+                      class="ts-seg__btn"
+                      :class="{ 'ts-seg__btn--active': settingsDraft.listingStatus === opt.value }"
+                      type="button"
+                      @click="settingsDraft.listingStatus = opt.value"
+                    >{{ opt.label }}</button>
+                  </div>
+                </div>
+
+                <template v-if="space?.space_type === 'residential'">
+                  <div class="ts-field ts-field--row">
+                    <div>
+                      <label class="ts-field__label">Bedrooms</label>
+                      <input class="ts-input" v-model.number="settingsDraft.bedrooms" type="number" min="0" placeholder="0" />
+                    </div>
+                    <div>
+                      <label class="ts-field__label">Bathrooms</label>
+                      <input class="ts-input" v-model.number="settingsDraft.bathrooms" type="number" min="0" placeholder="0" />
+                    </div>
+                  </div>
+                  <div class="ts-field">
+                    <label class="ts-field__label">Floor Area (m²)</label>
+                    <input class="ts-input" v-model.number="settingsDraft.areaSqm" type="number" min="0" placeholder="e.g. 220" />
+                  </div>
+                </template>
+
+                <template v-else-if="space?.space_type === 'automotive'">
+                  <div class="ts-field ts-field--row">
+                    <div>
+                      <label class="ts-field__label">Year</label>
+                      <input class="ts-input" v-model.number="settingsDraft.vehicleYear" type="number" min="1900" max="2100" placeholder="e.g. 2021" />
+                    </div>
+                    <div>
+                      <label class="ts-field__label">Mileage (km)</label>
+                      <input class="ts-input" v-model.number="settingsDraft.vehicleMileageKm" type="number" min="0" placeholder="e.g. 45000" />
+                    </div>
+                  </div>
+                  <div class="ts-field">
+                    <label class="ts-field__label">Transmission</label>
+                    <div class="ts-seg">
+                      <button
+                        v-for="opt in vehicleTransmissionOptions"
+                        :key="opt.value"
+                        class="ts-seg__btn"
+                        :class="{ 'ts-seg__btn--active': settingsDraft.vehicleTransmission === opt.value }"
+                        type="button"
+                        @click="settingsDraft.vehicleTransmission = opt.value"
+                      >{{ opt.label }}</button>
+                    </div>
+                  </div>
+                  <div class="ts-field">
+                    <label class="ts-field__label">Fuel Type</label>
+                    <div class="ts-seg">
+                      <button
+                        v-for="opt in vehicleFuelTypeOptions"
+                        :key="opt.value"
+                        class="ts-seg__btn"
+                        :class="{ 'ts-seg__btn--active': settingsDraft.vehicleFuelType === opt.value }"
+                        type="button"
+                        @click="settingsDraft.vehicleFuelType = opt.value"
+                      >{{ opt.label }}</button>
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <div class="ts-field">
+                    <label class="ts-field__label">Floor Area (m²) <span class="ts-field__opt">optional</span></label>
+                    <input class="ts-input" v-model.number="settingsDraft.areaSqm" type="number" min="0" placeholder="e.g. 500" />
+                  </div>
+                </template>
+
+                <div class="ts-field">
+                  <label class="ts-field__label">Amenities <span class="ts-field__opt">optional</span></label>
+                  <div class="ts-tags">
+                    <span v-for="(a, i) in settingsDraft.amenities" :key="a" class="ts-tag">
+                      {{ a }}
+                      <button type="button" class="ts-tag__remove" :aria-label="`Remove ${a}`" @click="removeAmenity(i)">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </span>
+                  </div>
+                  <input
+                    class="ts-input"
+                    v-model="amenityDraft"
+                    placeholder="Type an amenity and press Enter — e.g. Parking"
+                    maxlength="60"
+                    @keydown.enter.prevent="addAmenity"
+                    @keydown="onAmenityKeydown"
+                  />
+                </div>
+              </div>
+
               <!-- SECTION: Viewer -->
               <div class="ts-section">
                 <div class="ts-section__label">Viewer</div>
@@ -1014,6 +1131,46 @@ const ctaActionOptions = [
   { value: 'email', label: 'Email' },
   { value: 'phone', label: 'Phone' },
 ] as const
+
+// ── Settings panel: listing details ──────────────────────────────────────────
+const listingStatusOptions = [
+  { value: 'available', label: 'Available' },
+  { value: 'sold', label: 'Sold' },
+  { value: 'rented', label: 'Rented' },
+] as const
+
+const vehicleTransmissionOptions = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'automatic', label: 'Automatic' },
+] as const
+
+const vehicleFuelTypeOptions = [
+  { value: 'petrol', label: 'Petrol' },
+  { value: 'diesel', label: 'Diesel' },
+  { value: 'electric', label: 'Electric' },
+  { value: 'hybrid', label: 'Hybrid' },
+] as const
+
+const amenityDraft = ref('')
+function addAmenity() {
+  const value = amenityDraft.value.trim()
+  if (!value) return
+  if (!settingsDraft.value.amenities.includes(value)) {
+    settingsDraft.value.amenities.push(value)
+  }
+  amenityDraft.value = ''
+}
+// Comma also commits the current amenity — matches the bot's own
+// "parking, security, wifi" comma-separated input convention.
+function onAmenityKeydown(e: KeyboardEvent) {
+  if (e.key === ',') {
+    e.preventDefault()
+    addAmenity()
+  }
+}
+function removeAmenity(index: number) {
+  settingsDraft.value.amenities.splice(index, 1)
+}
 
 // ── Settings panel: location geocoding ──────────────────────────────────────
 type NominatimResult = { display_name: string; lat: string; lon: string }
@@ -2762,6 +2919,27 @@ defineExpose({
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* Listing details — two-column field row (bedrooms/bathrooms, year/mileage) */
+.ts-field--row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ts-field--row .ts-field__label { margin-bottom: 7px; }
+
+/* Amenity tags */
+.ts-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ts-tags:empty { margin-bottom: 0; }
+.ts-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 6px 5px 10px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600;
+}
+.ts-tag__remove {
+  display: flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%; padding: 0;
+  background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.6);
+  cursor: pointer; transition: background 120ms, color 120ms;
+}
+.ts-tag__remove:hover { background: rgba(255,255,255,0.2); color: #fff; }
 
 /* ── AI Auto-link modal ─────────────────────────────────────── */
 .al-modal {

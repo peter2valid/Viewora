@@ -41,6 +41,22 @@ export function useEditorPublish(
     ctaButtonText: 'Book a Viewing',
     ctaAction: 'link' as 'link' | 'email' | 'phone',
     ctaDestination: '',
+    // listing facts (VIEWORA_2_PRODUCT_SPEC.md §3.1) — what the buyer-facing
+    // detail screen actually reads. land_acres/land_type are deliberately
+    // left out here: no public page reads them (view/p/[slug].vue's
+    // keyFacts only branches on residential/automotive), and there's no
+    // 'land' space_type to gate them on — collecting data nobody displays
+    // isn't worth the UI.
+    priceKes: null as number | null,
+    listingStatus: 'available' as 'available' | 'sold' | 'rented',
+    bedrooms: null as number | null,
+    bathrooms: null as number | null,
+    areaSqm: null as number | null,
+    vehicleYear: null as number | null,
+    vehicleMileageKm: null as number | null,
+    vehicleTransmission: '' as '' | 'manual' | 'automatic',
+    vehicleFuelType: '' as '' | 'petrol' | 'diesel' | 'electric' | 'hybrid',
+    amenities: [] as string[],
   })
   const settingsSaving = ref(false)
   const showShareModal = ref(false)
@@ -67,6 +83,16 @@ export function useEditorPublish(
         ctaButtonText: space.value?.cta_button_text ?? 'Book a Viewing',
         ctaAction: (space.value?.cta_action as 'link' | 'email' | 'phone') ?? 'link',
         ctaDestination: space.value?.cta_destination ?? '',
+        priceKes: space.value?.price_kes ?? null,
+        listingStatus: (space.value?.listing_status as 'available' | 'sold' | 'rented') ?? 'available',
+        bedrooms: space.value?.bedrooms ?? null,
+        bathrooms: space.value?.bathrooms ?? null,
+        areaSqm: space.value?.area_sqm ?? null,
+        vehicleYear: space.value?.vehicle_year ?? null,
+        vehicleMileageKm: space.value?.vehicle_mileage_km ?? null,
+        vehicleTransmission: (space.value?.vehicle_transmission as '' | 'manual' | 'automatic') ?? '',
+        vehicleFuelType: (space.value?.vehicle_fuel_type as '' | 'petrol' | 'diesel' | 'electric' | 'hybrid') ?? '',
+        amenities: [...(space.value?.amenities ?? [])],
       }
       editorStore.openModal()
     } else {
@@ -200,9 +226,34 @@ export function useEditorPublish(
       cta_button_text: settingsDraft.value.ctaButtonText || 'Book a Viewing',
       cta_action: settingsDraft.value.ctaAction,
       cta_destination: settingsDraft.value.ctaDestination || null,
+      listing_status: settingsDraft.value.listingStatus,
+      amenities: settingsDraft.value.amenities,
     }
     if (settingsDraft.value.locationLat !== null) spacePatch.location_lat = settingsDraft.value.locationLat
     if (settingsDraft.value.locationLng !== null) spacePatch.location_lng = settingsDraft.value.locationLng
+    // v-model.number leaves the ref as '' (not null) when a number input is
+    // cleared — Vue's own looseToNumber() only coerces strings that parse as
+    // a valid float and passes anything else through unchanged. A bare
+    // `!== null` guard would let '' slip into the PATCH body and fail the
+    // backend's z.number() validation. positiveNumberOrUndefined() treats
+    // null/''/NaN alike as "not set".
+    const positiveNumberOrUndefined = (v: unknown): number | undefined =>
+      typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined
+
+    const price = positiveNumberOrUndefined(settingsDraft.value.priceKes)
+    if (price !== undefined && price > 0) spacePatch.price_kes = price
+    const bedrooms = positiveNumberOrUndefined(settingsDraft.value.bedrooms)
+    if (bedrooms !== undefined) spacePatch.bedrooms = bedrooms
+    const bathrooms = positiveNumberOrUndefined(settingsDraft.value.bathrooms)
+    if (bathrooms !== undefined) spacePatch.bathrooms = bathrooms
+    const areaSqm = positiveNumberOrUndefined(settingsDraft.value.areaSqm)
+    if (areaSqm !== undefined) spacePatch.area_sqm = areaSqm
+    const vehicleYear = positiveNumberOrUndefined(settingsDraft.value.vehicleYear)
+    if (vehicleYear !== undefined) spacePatch.vehicle_year = vehicleYear
+    const vehicleMileageKm = positiveNumberOrUndefined(settingsDraft.value.vehicleMileageKm)
+    if (vehicleMileageKm !== undefined) spacePatch.vehicle_mileage_km = vehicleMileageKm
+    if (settingsDraft.value.vehicleTransmission) spacePatch.vehicle_transmission = settingsDraft.value.vehicleTransmission
+    if (settingsDraft.value.vehicleFuelType) spacePatch.vehicle_fuel_type = settingsDraft.value.vehicleFuelType
 
     const prevSettings = space.value?.property_360_settings?.[0]
     const prevSpace = { ...space.value }
