@@ -111,15 +111,57 @@
         <div v-show="!fullscreen" ref="sheetEl" class="sheet">
           <div class="sheet__header">
             <div class="sheet__eyebrow-row">
-              <span class="sheet__tag">{{ statusLabel }}</span>
+              <span v-if="!isOwner" class="sheet__tag">{{ statusLabel }}</span>
+              <div v-else class="owner-status">
+                <button class="sheet__tag sheet__tag--editable" :disabled="savingStatus" @click="showStatusPicker = !showStatusPicker">
+                  {{ statusLabel }}
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div v-if="showStatusPicker" class="owner-status__drop">
+                  <button
+                    v-for="opt in STATUS_PICKER_OPTIONS"
+                    :key="opt.value"
+                    class="owner-status__opt"
+                    :class="{ 'owner-status__opt--active': opt.value === space.listing_status }"
+                    @click="setStatus(opt.value)"
+                  >{{ opt.label }}</button>
+                </div>
+              </div>
               <span v-if="space.location_text" class="sheet__location">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>
                 {{ space.location_text }}
               </span>
             </div>
             <div class="sheet__pricerow">
-              <div>
-                <p class="sheet__price">{{ priceText }} <small>{{ space.title }}</small></p>
+              <div class="sheet__pricecol">
+                <template v-if="isOwner && editingPrice">
+                  <div class="owner-price-edit">
+                    <input
+                      v-model="priceDraft"
+                      type="number"
+                      min="0"
+                      inputmode="numeric"
+                      class="owner-price-edit__input"
+                      placeholder="Price in KES"
+                      autofocus
+                      @keydown.enter="savePrice"
+                      @keydown.esc="editingPrice = false"
+                    />
+                    <button class="owner-price-edit__btn owner-price-edit__btn--save" :disabled="savingPrice" aria-label="Save price" @click="savePrice">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button class="owner-price-edit__btn" aria-label="Cancel" @click="editingPrice = false">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                  <p v-if="priceError" class="owner-price-edit__error">{{ priceError }}</p>
+                </template>
+                <template v-else>
+                  <p class="sheet__price" :class="{ 'sheet__price--editable': isOwner }" @click="isOwner && startEditPrice()">
+                    {{ priceText }} <small>{{ space.title }}</small>
+                    <svg v-if="isOwner" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" class="owner-edit-icon"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </p>
+                </template>
                 <p v-if="facts" class="sheet__facts">{{ facts }}</p>
               </div>
               <a v-if="space.phone" class="btn btn--whatsapp" :href="whatsapp" target="_blank" rel="noopener">
@@ -414,6 +456,73 @@ async function toggleSave() {
   savePending.value = false
 }
 
+// ── Owner inline editing — price & status ────────────────────────────────
+// Lets an owner tweak the two most common post-publish edits right on their
+// own listing page instead of always sending them to the full editor.
+// Everything else (photos, 360 scenes, amenities) still routes there.
+const isOwner = ref(false)
+let checkedOwnerFor: string | null = null
+watch(supabaseUser, async (u) => {
+  if (!u || !space.value?.id || checkedOwnerFor === space.value.id) return
+  checkedOwnerFor = space.value.id
+  try {
+    const result = await apiFetch<{ isOwner: boolean }>(`/p/${encodeURIComponent(slug)}/is-owner`)
+    isOwner.value = result.isOwner
+  } catch {
+    // Non-critical — owner tools just won't show.
+  }
+}, { immediate: true })
+
+const editingPrice = ref(false)
+const priceDraft = ref('')
+const savingPrice = ref(false)
+const priceError = ref('')
+function startEditPrice() {
+  priceDraft.value = space.value?.price_kes ? String(space.value.price_kes) : ''
+  priceError.value = ''
+  editingPrice.value = true
+}
+async function savePrice() {
+  const value = Number(priceDraft.value)
+  if (!Number.isFinite(value) || value <= 0) {
+    priceError.value = 'Enter a valid price'
+    return
+  }
+  savingPrice.value = true
+  priceError.value = ''
+  try {
+    await apiFetch(`/spaces/${space.value.id}`, { method: 'PATCH', body: { price_kes: Math.round(value) } })
+    space.value.price_kes = Math.round(value)
+    editingPrice.value = false
+  } catch {
+    priceError.value = 'Failed to save — try again'
+  } finally {
+    savingPrice.value = false
+  }
+}
+
+const showStatusPicker = ref(false)
+const savingStatus = ref(false)
+const STATUS_PICKER_OPTIONS: Array<{ value: 'available' | 'sold' | 'rented'; label: string }> = [
+  { value: 'available', label: 'Available' },
+  { value: 'sold', label: 'Sold' },
+  { value: 'rented', label: 'Rented' },
+]
+async function setStatus(newStatus: 'available' | 'sold' | 'rented') {
+  showStatusPicker.value = false
+  if (!space.value || newStatus === space.value.listing_status || savingStatus.value) return
+  const prevStatus = space.value.listing_status
+  space.value.listing_status = newStatus
+  savingStatus.value = true
+  try {
+    await apiFetch(`/spaces/${space.value.id}`, { method: 'PATCH', body: { listing_status: newStatus } })
+  } catch {
+    space.value.listing_status = prevStatus
+  } finally {
+    savingStatus.value = false
+  }
+}
+
 // ── Drag-to-pan on the flat-photo fallback hero ──────────────────────────
 // Real 360° scenes (ViewerPsvViewer) handle their own pan/zoom gestures —
 // this is only for listings with gallery photos and no scene data.
@@ -673,6 +782,39 @@ useSeoMeta({
 .sheet__price { font-family: var(--font-mono); font-weight: 500; font-size: 1.4rem; letter-spacing: -0.01em; line-height: 1.2; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
 .sheet__price small { font-family: var(--font-display); font-size: 0.66rem; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; }
 .sheet__facts { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); margin: 6px 0 0; }
+.sheet__pricecol { min-width: 0; }
+
+/* Owner inline editing — status pill */
+.owner-status { position: relative; }
+.sheet__tag--editable { border: none; cursor: pointer; }
+.owner-status__drop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 5;
+  display: flex; flex-direction: column; min-width: 120px;
+  background: var(--sheet); border: 1px solid var(--line); border-radius: var(--vo-radius-md, 10px);
+  box-shadow: 0 8px 24px var(--shadow-lg); overflow: hidden;
+}
+.owner-status__opt {
+  padding: 9px 12px; text-align: left; background: none; border: none; cursor: pointer;
+  font-size: 0.8rem; font-weight: 600; color: var(--ink);
+}
+.owner-status__opt:hover { background: var(--sheet-2); }
+.owner-status__opt--active { color: var(--accent); }
+
+/* Owner inline editing — price */
+.sheet__price--editable { cursor: pointer; }
+.owner-edit-icon { color: var(--ink-faint); flex: 0 0 auto; }
+.owner-price-edit { display: flex; align-items: center; gap: 6px; }
+.owner-price-edit__input {
+  font-family: var(--font-mono); font-size: 1.1rem; font-weight: 500; width: 140px;
+  padding: 6px 8px; border-radius: var(--vo-radius-sm); border: 1px solid var(--line);
+  background: var(--sheet-2); color: var(--ink);
+}
+.owner-price-edit__btn {
+  width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--sheet-2); border: 1px solid var(--line); color: var(--ink-soft); cursor: pointer; flex: 0 0 auto;
+}
+.owner-price-edit__btn--save { background: var(--accent); color: var(--vo-inverse, #fff); border-color: transparent; }
+.owner-price-edit__error { font-size: 0.72rem; color: #dc2626; margin: 6px 0 0; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: var(--vo-radius-pill);
