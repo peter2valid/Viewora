@@ -164,8 +164,18 @@
             <span class="text-[10px] font-bold text-dim uppercase px-2.5 py-1 bg-surface-alt rounded-md tracking-wide">360 WebXR</span>
           </div>
 
-          <div class="w-32 hidden md:block">
+          <div class="w-32 hidden md:flex flex-col gap-1.5" @click.stop>
             <UiBadge :status="space.is_published ? 'published' : 'draft'" dot>{{ space.is_published ? 'Live' : 'Draft' }}</UiBadge>
+            <select
+              :value="space.listing_status"
+              class="w-full text-[10px] font-bold uppercase px-2 py-1 bg-surface-alt border border-border rounded-md tracking-wide text-main outline-none cursor-pointer"
+              title="Listing status"
+              @change="handleStatusChange(space, ($event.target as HTMLSelectElement).value as Space['listing_status'])"
+            >
+              <option value="available">Available</option>
+              <option value="sold">Sold</option>
+              <option value="rented">Rented</option>
+            </select>
           </div>
 
           <div class="w-48 hidden lg:block text-right pr-20">
@@ -213,7 +223,7 @@ import { toast } from 'vue-sonner'
 import type { Space } from '~/composables/useSpaces'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
-const { spaces, pending, fetchSpaces, deleteSpace, publishSpace } = useSpaces()
+const { spaces, pending, fetchSpaces, deleteSpace, publishSpace, updateSpace } = useSpaces()
 const planStore = usePlanStore()
 
 const search = ref('')
@@ -293,6 +303,23 @@ const handleTogglePublish = async (space: Space) => {
     showToast(isLive ? `"${space.title}" unpublished` : `"${space.title}" is now live`)
   } catch (e: any) {
     showToast(e.data?.statusMessage ?? 'Failed to update publish status.', 'error')
+  }
+}
+
+// Listing status — the single most common post-publish edit, so it gets its
+// own quick control on the list row instead of requiring the full editor's
+// Listing Details panel just to mark something sold.
+const STATUS_LABELS: Record<Space['listing_status'], string> = { available: 'Available', sold: 'Sold', rented: 'Rented' }
+const handleStatusChange = async (space: Space, newStatus: Space['listing_status']) => {
+  if (newStatus === space.listing_status) return
+  const prevStatus = space.listing_status
+  space.listing_status = newStatus
+  try {
+    await updateSpace(space.id, { listing_status: newStatus })
+    showToast(`"${space.title}" marked ${STATUS_LABELS[newStatus]}`)
+  } catch (e: any) {
+    space.listing_status = prevStatus
+    showToast(e.data?.statusMessage ?? 'Failed to update status.', 'error')
   }
 }
 
