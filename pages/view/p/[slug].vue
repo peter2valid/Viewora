@@ -204,6 +204,12 @@
         </div>
 
         <UiNavDock v-if="!fullscreen" />
+        <!-- Only ever mounts for the listing's own (still-anonymous) creator
+             — isOwner is a real ownership check, so no other visitor ever
+             sees this. ClaimBanner itself further gates on isAnonymous, so
+             an already-claimed owner viewing their own listing sees nothing
+             either. -->
+        <ClaimBanner v-if="isOwner && !fullscreen" class="detail-claim-banner" />
       </div>
     </template>
   </div>
@@ -878,4 +884,9 @@ useSeoMeta({
 .ownercard__meta { font-size: 0.74rem; color: var(--ink-soft); margin: 1px 0 0; }
 .ownercard__meta--phone { font-family: var(--font-mono); color: var(--ink-faint); }
 
+/* ClaimBanner defaults to bottom:20px, which collides with the dock nav
+   pill sitting in that same lower strip on this page — raise it clear.
+   The class lands on ClaimBanner's own root element via attr fallthrough
+   (single-root component), so this is a plain selector, not :deep(). */
+.detail-claim-banner { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
 </style>
