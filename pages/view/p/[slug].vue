@@ -626,10 +626,36 @@ useHead({
   ],
 })
 
-const seoTitle = computed(() => space.value ? `${space.value.title} — View on Viewora` : 'Listing — Viewora')
-const seoDescription = computed(() =>
-  space.value?.description || `${space.value?.title || 'A property'} on Viewora — real 360° tour, chat directly with the owner on WhatsApp.`
-)
+// Rich, type-aware OG title (VIEWORA_2_PRODUCT_SPEC.md §11.3) — the actual
+// growth loop is pasting this link into a WhatsApp chat, so what the
+// preview card shows matters more than almost anything else on this page.
+// The spec's title table assumes fields this schema doesn't have (car
+// make/model, a land space_type) — leans on the listing's own title for
+// that instead of trying to reconstruct it, and only prefixes the one fact
+// people scan a listing card for first (bed count / vehicle year).
+const seoTitle = computed(() => {
+  const s = space.value
+  if (!s) return 'Listing — Viewora'
+  let factsPrefix = ''
+  if (s.space_type === 'residential' && s.bedrooms) factsPrefix = `${s.bedrooms} Bed `
+  else if (s.space_type === 'automotive' && s.vehicle_year) factsPrefix = `${s.vehicle_year} `
+  let title = `${factsPrefix}${s.title}`
+  if (s.location_text) title += ` in ${s.location_text}`
+  if (s.price_kes) title += ` | ${formatPrice(s.price_kes)}`
+  return title
+})
+const seoDescription = computed(() => {
+  const s = space.value
+  if (!s) return 'A property on Viewora.'
+  if (s.description) return s.description
+  const factsPart = facts.value ? `${facts.value}. ` : ''
+  // Never claims a 360° walkthrough for a listing that's actually just
+  // flat photos — same honesty rule the rest of this page already follows.
+  const tourPart = isPanorama.value
+    ? 'Explore the full 360° tour — walk through every room.'
+    : 'See real photos of this listing.'
+  return `${factsPart}${tourPart} Chat directly with the owner on WhatsApp.`
+})
 useSeoMeta({
   title: seoTitle,
   description: seoDescription,
