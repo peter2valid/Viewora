@@ -164,7 +164,7 @@
                 </template>
                 <p v-if="facts" class="sheet__facts">{{ facts }}</p>
               </div>
-              <a v-if="space.phone" class="btn btn--whatsapp" :href="whatsapp" target="_blank" rel="noopener">
+              <a v-if="space.phone" class="btn btn--whatsapp" :href="whatsapp" target="_blank" rel="noopener" @click="logEngagement('whatsapp_click')">
                 <WhatsappIcon />
                 Chat
               </a>
@@ -451,10 +451,27 @@ async function toggleSave() {
       method: next ? 'POST' : 'DELETE',
     })
     saved.value = result.saved
+    // Buyer-intent signal for the owner's dashboard — only on the save
+    // direction, not unsave; "expressed interest" isn't undone by changing
+    // your mind later.
+    if (next && saved.value) logEngagement('save')
   } catch {
     // Leave saved state unchanged on failure rather than lying about it.
   }
   savePending.value = false
+}
+
+// ── Engagement tracking — buyer-intent signals for the owner's dashboard ──
+// property_engagements existed since the listing-facts migration but had
+// zero API/frontend wiring until now (viewora-backend's POST/GET
+// /analytics/engagement). Fire-and-forget, same as the view-tracking call
+// above — never blocks or fails the buyer's actual action.
+function logEngagement(action: 'whatsapp_click' | 'save') {
+  if (!space.value?.id) return
+  apiFetch('/analytics/engagement', {
+    method: 'POST',
+    body: { propertyId: space.value.id, action },
+  }).catch(() => {})
 }
 
 // ── Owner inline editing — price & status ────────────────────────────────
