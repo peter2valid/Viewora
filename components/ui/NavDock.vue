@@ -47,7 +47,7 @@ const items = [
   { key: 'home' as const, icon: HomeIcon, label: 'Home', to: '/view' },
   { key: 'search' as const, icon: SearchIcon, label: 'Search', to: '/view/search' },
   { key: 'chats' as const, icon: ChatIcon, label: 'Chats', to: undefined, disabled: true },
-  { key: 'profile' as const, icon: ProfileIcon, label: 'Profile', to: undefined, disabled: true },
+  { key: 'profile' as const, icon: ProfileIcon, label: 'Saved', to: '/view/profile' },
 ]
 </script>
 

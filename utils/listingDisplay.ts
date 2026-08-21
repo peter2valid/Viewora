@@ -14,6 +14,24 @@ export interface ListingLike {
   vehicle_fuel_type?: string | null
 }
 
+// The card shape GET /listings, GET /saved, and the ids= collection view
+// all return (see viewora-backend/src/utils/listingMapper.ts) — shared here
+// so ListingCard.vue and every page that renders a grid of these use one
+// definition instead of three drifting copies.
+export interface Listing extends ListingLike {
+  id: string
+  slug: string | null
+  title: string
+  location_text: string | null
+  price_kes: number
+  listing_status: string
+  amenities: string[]
+  phone: string | null
+  has_360: boolean
+  hero_image: string | null
+  created_at: string
+}
+
 export function formatPrice(kes: number | null | undefined): string {
   if (kes == null) return 'Contact for price'
   return `KES ${kes.toLocaleString('en-KE')}`
