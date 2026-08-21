@@ -59,6 +59,10 @@
             </NuxtLink>
             <h1 class="topbar__title">{{ space.title }}</h1>
             <div class="topbar__right">
+              <button class="iconbtn" aria-label="Share listing" @click="shareListing">
+                <svg v-if="!shareCopied" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
               <button class="iconbtn" :class="{ 'iconbtn--saved': saved }" :disabled="savePending" aria-label="Save listing" @click="toggleSave">
                 <svg viewBox="0 0 24 24" width="18" height="18" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
               </button>
@@ -446,6 +450,34 @@ watch(supabaseUser, async (u) => {
     // Non-critical — the button just starts unsaved.
   }
 }, { immediate: true })
+
+// ── Share ─────────────────────────────────────────────────────────────
+// Web Share API first — on mobile (the vast majority of buyer traffic)
+// this hands off to the real OS share sheet (WhatsApp included) for free,
+// rather than us hardcoding a handful of destinations. Desktop browsers
+// without it fall back to copying the link, with a brief checkmark swap
+// on the button itself instead of pulling in a toast library for one spot.
+const shareCopied = ref(false)
+async function shareListing() {
+  if (!space.value || typeof window === 'undefined') return
+  const url = window.location.href
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: seoTitle.value, text: seoDescription.value, url })
+    } catch {
+      // User cancelled or the OS share sheet failed — nothing to recover from.
+    }
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(url)
+    shareCopied.value = true
+    setTimeout(() => { shareCopied.value = false }, 2000)
+  } catch {
+    // No Web Share API and no Clipboard API — genuinely nothing left to do
+    // silently; the URL bar itself is still the fallback.
+  }
+}
 
 async function toggleSave() {
   if (savePending.value || !space.value?.id) return
