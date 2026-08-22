@@ -204,6 +204,11 @@
                 <p v-if="space.phone" class="ownercard__meta ownercard__meta--phone">+{{ space.phone }}</p>
               </div>
             </div>
+
+            <NuxtLink :to="`/view/brochure/${slug}`" class="brochure-link">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h1"/></svg>
+              Print-friendly brochure
+            </NuxtLink>
           </div>
         </div>
 
@@ -941,6 +946,11 @@ useSeoMeta({
 .ownercard__name { font-weight: 800; font-size: 0.9rem; margin: 0; }
 .ownercard__meta { font-size: 0.74rem; color: var(--ink-soft); margin: 1px 0 0; }
 .ownercard__meta--phone { font-family: var(--font-mono); color: var(--ink-faint); }
+.brochure-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 14px; font-size: 0.78rem; font-weight: 600;
+  color: var(--ink-faint); text-decoration: none;
+}
 
 /* ClaimBanner defaults to bottom:20px, which collides with the dock nav
    pill sitting in that same lower strip on this page — raise it clear.
