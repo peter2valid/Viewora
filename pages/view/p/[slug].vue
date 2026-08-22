@@ -33,7 +33,7 @@
 
     <template v-else-if="space">
       <div class="stage" :class="{ 'stage--full': fullscreen }">
-        <div ref="viewerPaneEl" class="viewer-pane" :class="{ 'is-resizing': isResizing }" :style="viewerPaneStyle">
+        <div class="viewer-pane">
           <ViewerPsvViewer
             v-if="isPanorama"
             ref="psvViewerRef"
@@ -97,19 +97,6 @@
             glass-class="dock-glass-superdark"
             @select="onDockSelect"
           />
-        </div>
-
-        <!-- Drag to resize the split — not locked to a fixed ratio. -->
-        <div
-          v-if="!fullscreen"
-          class="resizer"
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label="Resize viewer"
-          @mousedown="onResizeStart"
-          @touchstart="onResizeStart"
-        >
-          <span class="resizer__grip" />
         </div>
 
         <div v-show="!fullscreen" ref="sheetEl" class="sheet">
@@ -319,73 +306,6 @@ const dockCollapsed = ref(true)
 function onDockSelect(id: string) {
   const idx = heroItems.value.findIndex((item) => item.id === id)
   if (idx !== -1) setActiveRoom(idx)
-}
-
-// ── Drag to resize the viewer pane / details sheet split ────────────────
-// Not locked to a fixed ratio (Google Maps-style: the boundary between the
-// map/Street View pane and the details panel is user-draggable). Sets an
-// explicit pixel height on .viewer-pane once the user drags; until then it
-// falls back to the CSS default (42vh mobile / 54vh desktop).
-const viewerPaneEl = ref<HTMLElement | null>(null)
-const viewerHeightPx = ref<number | null>(null)
-// Fullscreen always wins over a manually dragged height — .stage--full's
-// CSS rule handles that, an inline style here would fight it.
-const viewerPaneStyle = computed(() =>
-  !fullscreen.value && viewerHeightPx.value != null ? { height: `${viewerHeightPx.value}px` } : {},
-)
-
-const RESIZE_MIN_PX = 160
-const RESIZE_BOTTOM_RESERVE_PX = 180 // keeps the sheet's price/CTA header grabbable
-
-function clampViewerHeight(px: number): number {
-  const max = window.innerHeight - RESIZE_BOTTOM_RESERVE_PX
-  return Math.min(Math.max(px, RESIZE_MIN_PX), Math.max(max, RESIZE_MIN_PX))
-}
-
-const isResizing = ref(false)
-let resizeStartY = 0
-let resizeStartHeight = 0
-// The panorama is a WebGL canvas that resizes+re-renders on every container
-// size change — applying every raw pointermove directly fired more resizes
-// than the GPU could keep up with, so the image visibly lagged/jumped
-// during the drag. Batching to one update per animation frame caps it to
-// what the browser can actually paint.
-let pendingHeight: number | null = null
-let resizeRaf: number | null = null
-
-function onResizeStart(e: MouseEvent | TouchEvent) {
-  if (!viewerPaneEl.value) return
-  isResizing.value = true
-  resizeStartY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  resizeStartHeight = viewerPaneEl.value.getBoundingClientRect().height
-  window.addEventListener('mousemove', onResizeMove)
-  window.addEventListener('mouseup', onResizeEnd)
-  window.addEventListener('touchmove', onResizeMove, { passive: false })
-  window.addEventListener('touchend', onResizeEnd)
-}
-function onResizeMove(e: MouseEvent | TouchEvent) {
-  if (!isResizing.value) return
-  if ('touches' in e) e.preventDefault()
-  const y = 'touches' in e ? e.touches[0].clientY : e.clientY
-  pendingHeight = clampViewerHeight(resizeStartHeight + (y - resizeStartY))
-  if (resizeRaf == null) {
-    resizeRaf = requestAnimationFrame(() => {
-      resizeRaf = null
-      if (pendingHeight != null) viewerHeightPx.value = pendingHeight
-    })
-  }
-}
-function onResizeEnd() {
-  isResizing.value = false
-  if (resizeRaf != null) { cancelAnimationFrame(resizeRaf); resizeRaf = null }
-  if (pendingHeight != null) { viewerHeightPx.value = pendingHeight; pendingHeight = null }
-  window.removeEventListener('mousemove', onResizeMove)
-  window.removeEventListener('mouseup', onResizeEnd)
-  window.removeEventListener('touchmove', onResizeMove)
-  window.removeEventListener('touchend', onResizeEnd)
-}
-function onWindowResize() {
-  if (viewerHeightPx.value != null) viewerHeightPx.value = clampViewerHeight(viewerHeightPx.value)
 }
 
 function setActiveRoom(i: number) {
@@ -612,9 +532,6 @@ onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   cleanupFns.push(() => window.removeEventListener('keydown', onKeydown))
 
-  window.addEventListener('resize', onWindowResize)
-  cleanupFns.push(() => window.removeEventListener('resize', onWindowResize))
-
   const pano = panoEl.value
   if (!pano) return
 
@@ -644,7 +561,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  onResizeEnd()
   cleanupFns.forEach((fn) => fn())
 })
 
@@ -775,12 +691,16 @@ useSeoMeta({
 .skeleton--price { height: 26px; width: 45%; }
 .skeleton--fact { height: 70px; border-radius: var(--vo-radius-lg); }
 
-/* Google Maps-style split: .stage is a fixed-viewport flex column with two
-   non-overlapping regions — .viewer-pane (top) and .sheet (bottom, the
-   details panel) — so the 360°/photo controls can never collide with the
-   property details. Fullscreen just grows .viewer-pane to fill .stage and
-   hides .sheet, instead of dragging one region over the other. */
-.stage { position: fixed; inset: 0; display: flex; flex-direction: column; }
+/* One continuous document flow — .viewer-pane (hero) and .sheet (details)
+   stack as normal in-flow blocks, so the whole page scrolls as a single
+   unit from anywhere (image, gap, or text alike), with no seam or dead
+   zone between them. Only "fullscreen" (tapping the expand button) breaks
+   out into a fixed, full-viewport overlay of just the viewer. */
+.stage { position: relative; }
+.stage--full {
+  position: fixed; inset: 0; z-index: 100;
+  width: auto !important; margin: 0 !important; box-shadow: none !important;
+}
 /* On a wide desktop window, edge-to-edge stretches the panorama into a thin
    letterboxed strip and every sheet row (key facts, amenities…) into an
    absurdly wide line. Cap and center the same stacked layout instead of
@@ -791,26 +711,20 @@ useSeoMeta({
    should give the most immersive view the screen allows, not stay boxed in. */
 @media (min-width: 1024px) {
   .stage {
-    left: 50%; right: auto;
     width: min(100%, 720px);
-    transform: translateX(-50%);
+    margin: 0 auto;
     box-shadow: 0 0 0 1px var(--line);
   }
-  .stage--full { left: 0; right: 0; width: auto; transform: none; box-shadow: none; }
 }
 .viewer-pane {
-  position: relative; flex: 0 0 auto; overflow: hidden;
+  position: relative; overflow: hidden;
   height: 42vh; height: 42dvh;
   background: var(--sheet-2);
-  transition: height 360ms cubic-bezier(.2,.8,.2,1);
 }
 @media (min-width: 720px) {
   .viewer-pane { height: 54vh; height: 54dvh; }
 }
 .stage--full .viewer-pane { height: 100vh !important; height: 100dvh !important; }
-/* Dragging sets an inline height directly, so don't fight it with a
-   transition meant for the fullscreen-toggle case. */
-.viewer-pane.is-resizing { transition: none; }
 .expandbtn {
   position: absolute; z-index: 22;
   right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
@@ -824,11 +738,6 @@ useSeoMeta({
 .stage--full .expandbtn {
   bottom: auto; top: 50%; transform: translateY(-50%);
 }
-.resizer {
-  flex: 0 0 auto; height: 18px; display: flex; align-items: center; justify-content: center;
-  background: var(--sheet); cursor: row-resize; touch-action: none;
-}
-.resizer__grip { width: 36px; height: 4px; border-radius: var(--vo-radius-pill); background: var(--line); }
 .pano {
   position: absolute; inset: 0; background-color: var(--sheet-2);
   background-repeat: repeat-x; background-size: auto 100%; background-position: 0 center;
@@ -869,11 +778,9 @@ useSeoMeta({
 .iconbtn--saved { color: var(--accent); }
 
 .sheet {
-  flex: 1 1 auto; min-height: 0;
   background: var(--sheet); border-top: 1px solid var(--line);
-  display: flex; flex-direction: column;
 }
-.sheet__header { flex: 0 0 auto; padding: 16px 20px 14px; border-bottom: 1px solid var(--line); }
+.sheet__header { padding: 16px 20px 14px; border-bottom: 1px solid var(--line); }
 .sheet__eyebrow-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
 .sheet__tag {
   display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.66rem;
@@ -926,7 +833,7 @@ useSeoMeta({
 .btn--whatsapp { background: var(--whatsapp); color: var(--whatsapp-ink); height: 46px; padding: 0 20px; font-size: 0.88rem; border: 1px solid var(--vo-border-strong); flex: 0 0 auto; transition: filter 180ms ease; }
 .btn--whatsapp:hover { filter: brightness(0.9); opacity: 1; }
 
-.sheet__scroll { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px calc(120px + env(safe-area-inset-bottom)); }
+.sheet__scroll { padding: 20px 20px calc(120px + env(safe-area-inset-bottom)); }
 .sheet__section-label {
   font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--accent-strong); margin: 26px 0 12px; display: flex; align-items: center; justify-content: space-between;
