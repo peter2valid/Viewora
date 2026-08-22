@@ -237,13 +237,25 @@
                 </div>
 
                 <div class="ts-field">
-                  <label class="ts-field__label">Description <span class="ts-field__opt">optional</span></label>
+                  <div class="ts-field__label-row">
+                    <label class="ts-field__label">Description <span class="ts-field__opt">optional</span></label>
+                    <button
+                      type="button"
+                      class="ts-ai-btn"
+                      :disabled="generatingDescription"
+                      @click="generateDescription"
+                    >
+                      <span v-if="generatingDescription" class="ts-spin ts-spin--invert" />
+                      <span v-else>✨ Generate with AI</span>
+                    </button>
+                  </div>
                   <textarea
                     class="ts-textarea"
                     v-model="settingsDraft.description"
                     placeholder="Describe this tour…"
                     rows="3"
                   />
+                  <div class="ts-toggle-sub" style="margin-top: 5px;">Drafts a description from the price, facts, and amenities you've filled in below — review and edit before saving.</div>
                 </div>
 
                 <div class="ts-field">
@@ -1025,6 +1037,8 @@ const {
   showShareModal,
   handleTogglePublish,
   saveSettings,
+  generatingDescription,
+  generateDescription,
 } = useEditorPublish(
   props.spaceId,
   apiFetch,
@@ -2677,6 +2691,17 @@ defineExpose({
   color: rgba(255,255,255,0.55); margin-bottom: 7px; letter-spacing: 0.01em;
 }
 .ts-field__opt { font-weight: 400; color: rgba(255,255,255,0.22); margin-left: 4px; font-size: 10px; }
+.ts-field__label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.ts-field__label-row .ts-field__label { margin-bottom: 0; }
+.ts-ai-btn {
+  flex: 0 0 auto; height: 24px; padding: 0 9px; border-radius: 999px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.7); font-size: 10.5px; font-weight: 600;
+  cursor: pointer; transition: background 130ms, border-color 130ms; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+}
+.ts-ai-btn:hover { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.2); }
+.ts-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .ts-input {
   width: 100%; height: 38px; padding: 0 12px; border-radius: 7px;
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);

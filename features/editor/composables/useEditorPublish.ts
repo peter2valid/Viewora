@@ -5,6 +5,15 @@ import { isLocalSceneId } from '~/features/editor/composables/useEditorUpload'
 
 type EditorStore = { openModal: () => void; closeModal: () => void }
 
+// v-model.number leaves the ref as '' (not null) when a number input is
+// cleared — Vue's own looseToNumber() only coerces strings that parse as a
+// valid float and passes anything else through unchanged. A bare `!== null`
+// guard would let '' slip into a PATCH/POST body and fail the backend's
+// z.number() validation. Treats null/''/NaN alike as "not set".
+function positiveNumberOrUndefined(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined
+}
+
 export function useEditorPublish(
   spaceId: string,
   apiFetch: (url: string, opts?: any) => Promise<any>,
@@ -240,15 +249,6 @@ export function useEditorPublish(
     }
     if (settingsDraft.value.locationLat !== null) spacePatch.location_lat = settingsDraft.value.locationLat
     if (settingsDraft.value.locationLng !== null) spacePatch.location_lng = settingsDraft.value.locationLng
-    // v-model.number leaves the ref as '' (not null) when a number input is
-    // cleared — Vue's own looseToNumber() only coerces strings that parse as
-    // a valid float and passes anything else through unchanged. A bare
-    // `!== null` guard would let '' slip into the PATCH body and fail the
-    // backend's z.number() validation. positiveNumberOrUndefined() treats
-    // null/''/NaN alike as "not set".
-    const positiveNumberOrUndefined = (v: unknown): number | undefined =>
-      typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined
-
     const price = positiveNumberOrUndefined(settingsDraft.value.priceKes)
     if (price !== undefined && price > 0) spacePatch.price_kes = price
     const bedrooms = positiveNumberOrUndefined(settingsDraft.value.bedrooms)
@@ -296,6 +296,44 @@ export function useEditorPublish(
     }
   }
 
+  // ── AI-drafted description ────────────────────────────────────────────
+  // Grounded strictly in whatever facts are already filled into the draft
+  // (price, bed/bath/m² or vehicle specs, amenities) — never sent until the
+  // owner has actually typed/selected those, since an empty draft would
+  // only give the AI a title to work from. Fills the textarea for review;
+  // doesn't save on its own — the owner still hits Save Settings after.
+  const generatingDescription = ref(false)
+  async function generateDescription() {
+    if (generatingDescription.value) return
+    generatingDescription.value = true
+    const d = settingsDraft.value
+    try {
+      const result = await apiFetch<{ description: string }>(`/spaces/${spaceId}/generate-description`, {
+        method: 'POST',
+        body: {
+          title: d.title || undefined,
+          space_type: space.value?.space_type || undefined,
+          location_text: d.locationText || undefined,
+          price_kes: positiveNumberOrUndefined(d.priceKes),
+          listing_status: d.listingStatus || undefined,
+          bedrooms: positiveNumberOrUndefined(d.bedrooms),
+          bathrooms: positiveNumberOrUndefined(d.bathrooms),
+          area_sqm: positiveNumberOrUndefined(d.areaSqm),
+          vehicle_year: positiveNumberOrUndefined(d.vehicleYear),
+          vehicle_mileage_km: positiveNumberOrUndefined(d.vehicleMileageKm),
+          vehicle_transmission: d.vehicleTransmission || undefined,
+          vehicle_fuel_type: d.vehicleFuelType || undefined,
+          amenities: d.amenities.length ? d.amenities : undefined,
+        },
+      })
+      settingsDraft.value.description = result.description
+    } catch (e: any) {
+      showToast(e?.data?.statusMessage || 'Could not generate a description — try again.', 'error')
+    } finally {
+      generatingDescription.value = false
+    }
+  }
+
   return {
     publishing,
     showSettingsPanel,
@@ -305,5 +343,7 @@ export function useEditorPublish(
     validateTourHealth,
     handleTogglePublish,
     saveSettings,
+    generatingDescription,
+    generateDescription,
   }
 }
