@@ -32,8 +32,8 @@
     </div>
 
     <template v-else-if="space">
-      <div class="stage" :class="{ 'stage--full': fullscreen }">
-        <div class="viewer-pane">
+      <div ref="stageEl" class="stage" :class="{ 'stage--full': fullscreen, 'stage--panorama': isPanorama }">
+        <div ref="viewerPaneEl" class="viewer-pane" :class="{ 'is-snapping': snapping }" :style="viewerPaneStyle">
           <ViewerPsvViewer
             v-if="isPanorama"
             ref="psvViewerRef"
@@ -162,7 +162,7 @@
             </div>
           </div>
 
-          <div class="sheet__scroll">
+          <div ref="sheetScrollEl" class="sheet__scroll">
             <template v-if="keyFacts.length > 0">
               <div class="factgrid">
                 <div v-for="f in keyFacts" :key="f.label" class="factcard">
@@ -292,6 +292,149 @@ function toggleFullscreen() {
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && fullscreen.value) fullscreen.value = false
 }
+
+// ── Scroll-driven resize (360° listings only) ────────────────────────────
+// Flat-photo listings never touch any of this — the photo has a fixed
+// height and the page just scrolls normally past it (see the non
+// ".stage--panorama" CSS below). For a real 360° tour, scrolling anywhere
+// grows the photo toward fullscreen (auto-snapping past ~75% of the
+// viewport) or shrinks it back down to reveal the details card — a
+// "look closer" gesture instead of a plain page scroll.
+//
+// Once the photo has been grown and is scrolled back down to its resting
+// size, `readingDetails` hands control to the details card's own native
+// scroll so its (possibly long) description/amenities are readable; the
+// next time the user scrolls up past the very top of that content, control
+// reverts back to resizing.
+const stageEl = ref<HTMLElement | null>(null)
+const viewerHeightPx = ref<number | null>(null) // null = resting/CSS-default height
+const readingDetails = ref(false)
+const snapping = ref(false)
+let baselineHeightPx = 0
+const FULLSCREEN_TRIGGER_FRACTION = 0.75
+
+function measureBaseline() {
+  if (viewerPaneEl.value && viewerHeightPx.value == null) {
+    baselineHeightPx = viewerPaneEl.value.getBoundingClientRect().height
+  }
+}
+
+function flashSnap() {
+  snapping.value = true
+  setTimeout(() => { snapping.value = false }, 340)
+}
+
+// Shared by both the wheel (desktop) and touch (mobile) input paths below.
+function applyPanoramaScrollDelta(deltaY: number) {
+  if (!isPanorama.value || fullscreen.value || readingDetails.value) return
+  if (!baselineHeightPx) measureBaseline()
+  const maxPx = window.innerHeight * FULLSCREEN_TRIGGER_FRACTION
+  const current = viewerHeightPx.value ?? baselineHeightPx
+  const next = current + deltaY
+
+  if (next <= baselineHeightPx) {
+    const wasGrown = current > baselineHeightPx + 0.5
+    viewerHeightPx.value = null
+    if (wasGrown) {
+      flashSnap()
+      readingDetails.value = true
+    }
+    return
+  }
+  if (next >= maxPx) {
+    flashSnap()
+    viewerHeightPx.value = null
+    fullscreen.value = true
+    return
+  }
+  viewerHeightPx.value = next
+}
+
+// Batches rapid wheel ticks to one update per frame — the panorama is a
+// WebGL canvas that resizes+re-renders on every container size change,
+// same GPU-pacing concern as the old drag-resize handler this replaces.
+let pendingDelta = 0
+let resizeRaf: number | null = null
+function queuePanoramaScrollDelta(deltaY: number) {
+  pendingDelta += deltaY
+  if (resizeRaf == null) {
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = null
+      const d = pendingDelta
+      pendingDelta = 0
+      applyPanoramaScrollDelta(d)
+    })
+  }
+}
+
+// Captured on the whole stage (image + details card alike — scrolling
+// "anywhere" resizes first) in the CAPTURE phase, ahead of the panorama
+// viewer's own bubbling wheel-zoom listener, so the two don't fight over
+// the same gesture while not fullscreen.
+function onStageWheel(e: WheelEvent) {
+  if (!isPanorama.value) return
+  if (fullscreen.value) {
+    if (e.deltaY < 0) {
+      e.preventDefault()
+      e.stopPropagation()
+      fullscreen.value = false
+      viewerHeightPx.value = window.innerHeight * FULLSCREEN_TRIGGER_FRACTION
+      queuePanoramaScrollDelta(e.deltaY)
+    }
+    return
+  }
+  if (readingDetails.value) {
+    const el = sheetScrollEl.value
+    if (e.deltaY < 0 && el && el.scrollTop <= 0) {
+      e.preventDefault()
+      e.stopPropagation()
+      readingDetails.value = false
+      queuePanoramaScrollDelta(e.deltaY)
+    }
+    return
+  }
+  e.preventDefault()
+  e.stopPropagation()
+  queuePanoramaScrollDelta(e.deltaY)
+}
+
+// Touch equivalent — deliberately bound to the details card only, not the
+// photo itself, so swiping the panorama keeps spinning the view like it
+// always has; resize-by-touch happens via the card/margins instead.
+let touchActive = false
+let touchLastY = 0
+function onSheetTouchStart(e: TouchEvent) {
+  if (!isPanorama.value || fullscreen.value) return
+  touchActive = true
+  touchLastY = e.touches[0].clientY
+}
+function onSheetTouchMove(e: TouchEvent) {
+  if (!isPanorama.value || fullscreen.value || !touchActive) return
+  const y = e.touches[0].clientY
+  const delta = touchLastY - y // swiping up == scrolling down
+  touchLastY = y
+
+  if (readingDetails.value) {
+    const el = sheetScrollEl.value
+    if (delta < 0 && el && el.scrollTop <= 0) {
+      e.preventDefault()
+      readingDetails.value = false
+      queuePanoramaScrollDelta(delta)
+    }
+    return
+  }
+  e.preventDefault()
+  queuePanoramaScrollDelta(delta)
+}
+function onSheetTouchEnd() {
+  touchActive = false
+}
+
+const viewerPaneStyle = computed(() =>
+  isPanorama.value && !fullscreen.value && viewerHeightPx.value != null
+    ? { height: `${viewerHeightPx.value}px` }
+    : {},
+)
 
 // Same scene-switcher UI as app.viewora.software's standalone tour page
 // (components/ui/GlassDock.vue, glass-class="dock-glass-superdark") instead
@@ -509,6 +652,8 @@ async function setStatus(newStatus: 'available' | 'sold' | 'rented') {
 // this is only for listings with gallery photos and no scene data.
 const panoEl = ref<HTMLElement | null>(null)
 const sheetEl = ref<HTMLElement | null>(null)
+const viewerPaneEl = ref<HTMLElement | null>(null)
+const sheetScrollEl = ref<HTMLElement | null>(null)
 
 let cleanupFns: Array<() => void> = []
 
@@ -531,6 +676,27 @@ onMounted(() => {
 
   window.addEventListener('keydown', onKeydown)
   cleanupFns.push(() => window.removeEventListener('keydown', onKeydown))
+
+  measureBaseline()
+  const onWindowResizeForBaseline = () => measureBaseline()
+  window.addEventListener('resize', onWindowResizeForBaseline)
+  cleanupFns.push(() => window.removeEventListener('resize', onWindowResizeForBaseline))
+
+  if (stageEl.value) {
+    stageEl.value.addEventListener('wheel', onStageWheel, { capture: true, passive: false })
+    cleanupFns.push(() => stageEl.value?.removeEventListener('wheel', onStageWheel, { capture: true } as any))
+  }
+  if (sheetEl.value) {
+    const sheet = sheetEl.value
+    sheet.addEventListener('touchstart', onSheetTouchStart, { passive: true })
+    sheet.addEventListener('touchmove', onSheetTouchMove, { passive: false })
+    sheet.addEventListener('touchend', onSheetTouchEnd)
+    cleanupFns.push(
+      () => sheet.removeEventListener('touchstart', onSheetTouchStart),
+      () => sheet.removeEventListener('touchmove', onSheetTouchMove),
+      () => sheet.removeEventListener('touchend', onSheetTouchEnd),
+    )
+  }
 
   const pano = panoEl.value
   if (!pano) return
@@ -561,6 +727,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (resizeRaf != null) cancelAnimationFrame(resizeRaf)
   cleanupFns.forEach((fn) => fn())
 })
 
@@ -691,12 +858,19 @@ useSeoMeta({
 .skeleton--price { height: 26px; width: 45%; }
 .skeleton--fact { height: 70px; border-radius: var(--vo-radius-lg); }
 
-/* One continuous document flow — .viewer-pane (hero) and .sheet (details)
-   stack as normal in-flow blocks, so the whole page scrolls as a single
-   unit from anywhere (image, gap, or text alike), with no seam or dead
-   zone between them. Only "fullscreen" (tapping the expand button) breaks
-   out into a fixed, full-viewport overlay of just the viewer. */
+/* Flat-photo listings: .viewer-pane (hero) and .sheet (details) stack as
+   normal in-flow blocks, so the whole page scrolls as a single unit from
+   anywhere, with no seam between them. There's nothing to grow toward —
+   the photo has a fixed height and scrolls away like ordinary content. */
 .stage { position: relative; }
+/* 360° listings: a fixed-viewport split whose ratio is scroll-driven (see
+   onStageWheel/onSheetTouchMove in the script) — scrolling anywhere grows
+   the photo toward fullscreen or shrinks it back to reveal the details
+   card, rather than just scrolling the page. */
+.stage--panorama { position: fixed; inset: 0; display: flex; flex-direction: column; overscroll-behavior: contain; }
+/* Tapping the expand button (or scrolling a 360° photo past ~75% of the
+   screen) breaks out into a fixed, full-viewport overlay of just the
+   viewer, for both listing kinds. */
 .stage--full {
   position: fixed; inset: 0; z-index: 100;
   width: auto !important; margin: 0 !important; box-shadow: none !important;
@@ -715,16 +889,23 @@ useSeoMeta({
     margin: 0 auto;
     box-shadow: 0 0 0 1px var(--line);
   }
+  .stage--panorama { width: min(100%, 720px); margin: 0 auto; box-shadow: 0 0 0 1px var(--line); }
 }
 .viewer-pane {
   position: relative; overflow: hidden;
   height: 42vh; height: 42dvh;
   background: var(--sheet-2);
+  transition: none;
 }
+.stage--panorama .viewer-pane { flex: 0 0 auto; }
 @media (min-width: 720px) {
   .viewer-pane { height: 54vh; height: 54dvh; }
 }
 .stage--full .viewer-pane { height: 100vh !important; height: 100dvh !important; }
+/* Only the discrete "snap" moments (entering/exiting fullscreen, settling
+   back to rest) animate — continuous scroll-driven resizing stays 1:1 with
+   input, unsmoothed, so it doesn't lag behind the gesture. */
+.viewer-pane.is-snapping { transition: height 340ms cubic-bezier(.2,.8,.2,1); }
 .expandbtn {
   position: absolute; z-index: 22;
   right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
@@ -780,6 +961,13 @@ useSeoMeta({
 .sheet {
   background: var(--sheet); border-top: 1px solid var(--line);
 }
+/* 360° listings only — the sheet is a fixed-size region below the
+   scroll-resized photo, so its own content needs its own scroll once
+   "reading" mode hands control back to it (see readingDetails in the
+   script). Flat-photo listings stay plain in-flow blocks (default .sheet
+   above) since the whole page scrolls there instead. */
+.stage--panorama .sheet { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.stage--panorama .sheet__scroll { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .sheet__header { padding: 16px 20px 14px; border-bottom: 1px solid var(--line); }
 .sheet__eyebrow-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
 .sheet__tag {
