@@ -373,29 +373,34 @@ function queuePanoramaScrollDelta(deltaY: number) {
 // the same gesture while not fullscreen.
 function onStageWheel(e: WheelEvent) {
   if (!isPanorama.value) return
+  // Wheel deltaY's raw sign came out backwards from the spec convention in
+  // real testing (scrolling down was shrinking the photo, not growing it) —
+  // negate once here so every check below can read "positive = scrolled
+  // down = grow" at face value.
+  const delta = -e.deltaY
   if (fullscreen.value) {
-    if (e.deltaY < 0) {
+    if (delta < 0) {
       e.preventDefault()
       e.stopPropagation()
       fullscreen.value = false
       viewerHeightPx.value = window.innerHeight * FULLSCREEN_TRIGGER_FRACTION
-      queuePanoramaScrollDelta(e.deltaY)
+      queuePanoramaScrollDelta(delta)
     }
     return
   }
   if (readingDetails.value) {
     const el = sheetScrollEl.value
-    if (e.deltaY < 0 && el && el.scrollTop <= 0) {
+    if (delta < 0 && el && el.scrollTop <= 0) {
       e.preventDefault()
       e.stopPropagation()
       readingDetails.value = false
-      queuePanoramaScrollDelta(e.deltaY)
+      queuePanoramaScrollDelta(delta)
     }
     return
   }
   e.preventDefault()
   e.stopPropagation()
-  queuePanoramaScrollDelta(e.deltaY)
+  queuePanoramaScrollDelta(delta)
 }
 
 // Touch equivalent — deliberately bound to the details card only, not the
@@ -411,7 +416,8 @@ function onSheetTouchStart(e: TouchEvent) {
 function onSheetTouchMove(e: TouchEvent) {
   if (!isPanorama.value || fullscreen.value || !touchActive) return
   const y = e.touches[0].clientY
-  const delta = touchLastY - y // swiping up == scrolling down
+  // Same sign correction as the wheel path above, so both inputs agree.
+  const delta = y - touchLastY
   touchLastY = y
 
   if (readingDetails.value) {
