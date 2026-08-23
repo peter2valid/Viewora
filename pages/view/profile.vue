@@ -18,6 +18,46 @@
     </header>
 
     <main class="profile__main">
+      <!-- Account identity — real signed-in user, or a guest prompt. -->
+      <section class="account-card" :class="{ 'account-card--skeleton': pending }" aria-label="Account">
+        <template v-if="pending">
+          <div class="account-card__avatar skeleton" />
+          <div class="account-card__body">
+            <div class="skeleton skeleton--line skeleton--short" />
+            <div class="skeleton skeleton--line" />
+          </div>
+        </template>
+
+        <template v-else-if="accountUser">
+          <img v-if="accountAvatar" :src="accountAvatar" class="account-card__avatar" :alt="accountName" referrerpolicy="no-referrer" />
+          <div v-else class="account-card__avatar account-card__avatar--fallback">{{ accountInitial }}</div>
+          <div class="account-card__body">
+            <p class="account-card__name">{{ accountName }}</p>
+            <p v-if="accountUser.email" class="account-card__sub">{{ accountUser.email }}</p>
+          </div>
+          <button class="account-card__action" :disabled="signingOut" @click="handleSignOut">
+            {{ signingOut ? 'Signing out…' : 'Sign out' }}
+          </button>
+        </template>
+
+        <template v-else>
+          <div class="account-card__avatar account-card__avatar--fallback">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>
+          </div>
+          <div class="account-card__body">
+            <p class="account-card__name">Browsing as a guest</p>
+            <p class="account-card__sub">Sign in to sync saved listings across devices</p>
+          </div>
+          <button class="account-card__action account-card__action--primary" :disabled="signingIn" @click="handleSignIn">
+            <GoogleIcon />
+            {{ signingIn ? 'Opening…' : 'Sign in' }}
+          </button>
+        </template>
+      </section>
+      <p v-if="authError" class="account-card__error">{{ authError }}</p>
+
+      <p class="profile__section-label">Saved Listings</p>
+
       <div v-if="pending" class="profile__grid" aria-label="Loading saved listings" aria-busy="true">
         <div v-for="n in 4" :key="n" class="card card--skeleton">
           <div class="card__media skeleton" />
@@ -48,9 +88,10 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
 import { useHead, useSeoMeta, useSupabaseUser } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import type { Listing } from '~/utils/listingDisplay'
 
 const { apiFetch } = useApiFetch()
@@ -58,6 +99,7 @@ const { init: initTheme } = useTheme()
 onMounted(initTheme)
 
 const supabaseUser = useSupabaseUser()
+const { isAnonymous, claimWithGoogle, signInWithGoogle, signOut } = useAnonymousAuth()
 const listings = ref<Listing[]>([])
 // Distinguishes "still figuring out if there's a session at all" from "we
 // checked, there genuinely isn't one" — an anonymous session that only
@@ -88,6 +130,64 @@ watch(supabaseUser, async (u) => {
     pending.value = false
   }
 }, { immediate: true })
+
+// ── Account identity ─────────────────────────────────────────────────────
+// A real, non-anonymous session only — an anonymous session (e.g. from
+// saving a listing before ever signing in) still shows the guest prompt,
+// since it isn't a real account yet.
+const accountUser = computed(() => (supabaseUser.value && !isAnonymous.value) ? supabaseUser.value : null)
+const accountName = computed(() => {
+  const meta = (accountUser.value?.user_metadata ?? {}) as Record<string, any>
+  return meta.full_name || meta.name || accountUser.value?.email || 'Signed in'
+})
+const accountAvatar = computed(() => {
+  const meta = (accountUser.value?.user_metadata ?? {}) as Record<string, any>
+  return meta.avatar_url || meta.picture || null
+})
+const accountInitial = computed(() => accountName.value.charAt(0).toUpperCase())
+
+const signingIn = ref(false)
+const signingOut = ref(false)
+const authError = ref<string | null>(null)
+
+async function handleSignIn() {
+  if (signingIn.value) return
+  signingIn.value = true
+  authError.value = null
+  try {
+    const redirectTo = typeof window !== 'undefined' ? window.location.href : undefined
+    // Anonymous session already exists (e.g. saved a listing earlier) —
+    // upgrade it in place so those saves stay attached; otherwise it's a
+    // plain first-time sign-in, nothing to preserve.
+    if (isAnonymous.value) await claimWithGoogle(redirectTo)
+    else await signInWithGoogle(redirectTo)
+  } catch (e: any) {
+    authError.value = e.message ?? 'Could not start sign-in. Try again.'
+    signingIn.value = false
+  }
+}
+
+async function handleSignOut() {
+  if (signingOut.value) return
+  signingOut.value = true
+  authError.value = null
+  try {
+    await signOut()
+    listings.value = []
+    signedIn.value = false
+  } catch (e: any) {
+    authError.value = e.message ?? 'Could not sign out. Try again.'
+  } finally {
+    signingOut.value = false
+  }
+}
+
+const GoogleIcon = () => h('svg', { viewBox: '0 0 24 24', width: '15', height: '15', 'aria-hidden': 'true' }, [
+  h('path', { fill: '#4285F4', d: 'M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z' }),
+  h('path', { fill: '#34A853', d: 'M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.26v3.11A12 12 0 0 0 12 24Z' }),
+  h('path', { fill: '#FBBC05', d: 'M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.61H1.26A12 12 0 0 0 0 12c0 1.94.46 3.77 1.26 5.39l4.01-3.11Z' }),
+  h('path', { fill: '#EA4335', d: 'M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.26 6.61l4.01 3.11C6.22 6.87 8.87 4.75 12 4.75Z' }),
+])
 
 // Same Web Share API first, clipboard fallback pattern as the detail
 // page's Share button — see pages/view/p/[slug].vue.
@@ -195,6 +295,38 @@ useSeoMeta({
 
 .profile__main { padding: 20px 20px 0; }
 
+.account-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; margin-bottom: 22px;
+  border-radius: var(--vo-radius-lg); background: var(--sheet); border: 1px solid var(--line);
+}
+.account-card__avatar {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+}
+.account-card__avatar.skeleton { border-radius: 50%; }
+.account-card__avatar--fallback {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--sheet-2); color: var(--ink-soft); font-weight: 800; font-size: 1rem;
+}
+.account-card__body { flex: 1 1 auto; min-width: 0; }
+.account-card__name { font-weight: 800; font-size: 0.92rem; margin: 0; }
+.account-card__sub { font-size: 0.78rem; color: var(--ink-faint); margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-card__action {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 14px; border-radius: var(--vo-radius-pill);
+  background: var(--sheet-2); border: 1px solid var(--line); color: var(--ink);
+  font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.account-card__action:disabled { opacity: 0.6; cursor: default; }
+.account-card__action--primary { background: var(--ink); color: var(--vo-inverse); border-color: transparent; }
+.account-card__error { font-size: 0.78rem; color: #dc2626; margin: -14px 0 22px; }
+.account-card--skeleton .account-card__body { display: flex; flex-direction: column; gap: 8px; }
+
+.profile__section-label {
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0 0 12px;
+}
+
 .profile__grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -241,6 +373,7 @@ useSeoMeta({
 }
 .skeleton--price { height: 20px; width: 55%; margin: 0 0 11px; }
 .skeleton--line { height: 12px; width: 40%; }
+.skeleton--short { width: 45%; margin-bottom: 4px; }
 @keyframes skeleton-sweep { to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { animation: none; }

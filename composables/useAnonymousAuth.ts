@@ -34,5 +34,21 @@ export const useAnonymousAuth = () => {
     if (error) throw error
   }
 
-  return { isAnonymous, ensureSession, claimWithGoogle }
+  // Plain Google sign-in for a visitor with no session at all yet — nothing
+  // anonymous to preserve, so this is a normal OAuth sign-in rather than
+  // claimWithGoogle's linkIdentity upgrade path.
+  const signInWithGoogle = async (redirectTo?: string) => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: redirectTo ? { redirectTo } : undefined,
+    })
+    if (error) throw error
+  }
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+  }
+
+  return { isAnonymous, ensureSession, claimWithGoogle, signInWithGoogle, signOut }
 }
