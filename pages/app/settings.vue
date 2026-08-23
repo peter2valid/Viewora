@@ -34,6 +34,40 @@
               placeholder="e.g. Peter Parker"
             />
           </div>
+
+          <!-- Profile Photo -->
+          <div class="space-y-3">
+            <label class="text-sm font-bold text-main">Profile Photo</label>
+            <div class="flex flex-wrap items-center gap-6">
+              <div class="w-20 h-20 bg-surface-alt rounded-full border border-black/[0.08] dark:border-white/20 flex items-center justify-center overflow-hidden shadow-inner">
+                <img v-if="profileForm.photoUrl" :src="profileForm.photoUrl" alt="Profile photo" class="w-full h-full object-cover" />
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-dim/50"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+              </div>
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                  <input type="file" id="avatar-upload" accept="image/*" class="hidden" :disabled="uploadingAvatar" @change="handleAvatarUpload" />
+                  <label for="avatar-upload" class="btn btn-secondary !py-2 !px-4 !text-xs shadow-sm cursor-pointer" :class="{ 'pointer-events-none opacity-50': uploadingAvatar }">
+                    {{ uploadingAvatar ? 'Uploading...' : 'Change Photo' }}
+                  </label>
+                  <button v-if="profileForm.photoUrl" class="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors" @click="profileForm.photoUrl = ''">Remove</button>
+                </div>
+                <p class="text-xs text-dim">Shown on your public seller profile.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bio -->
+          <div class="flex flex-col gap-2">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1" for="bio">Bio <span class="normal-case font-medium text-dim/60">(shown on your public profile)</span></label>
+            <textarea
+              id="bio"
+              v-model="profileForm.bio"
+              rows="3"
+              maxlength="500"
+              class="input-glass w-full px-5 py-3 text-sm font-medium placeholder:text-dim/40 resize-none"
+              placeholder="A short introduction buyers will see on your profile…"
+            />
+          </div>
         </div>
       </section>
 
@@ -142,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { definePageMeta, useSeoMeta, useSupabaseUser, useSupabaseClient } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -158,6 +192,7 @@ const { apiFetch } = useApiFetch()
 
 const saving = ref(false)
 const uploading = ref(false)
+const uploadingAvatar = ref(false)
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
 
@@ -169,10 +204,28 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   }
 }
 
+// full_name/bio/photoUrl come from the `profiles` table (GET /profile below)
+// rather than user_metadata — that table is the source of truth the public
+// seller profile page (view/seller/[id].vue) actually reads from, so this
+// page needs to read and write the same place or edits here would silently
+// never show up there.
 const profileForm = ref({
-  fullName: user.value?.user_metadata?.full_name || '',
+  fullName: '',
+  bio: '',
+  photoUrl: '',
   agencyName: user.value?.user_metadata?.agency_name || '',
   agencyLogoUrl: user.value?.user_metadata?.agency_logo_url || ''
+})
+
+onMounted(async () => {
+  try {
+    const profile = await apiFetch<any>('/profile')
+    profileForm.value.fullName = profile?.full_name || ''
+    profileForm.value.bio = profile?.bio || ''
+    profileForm.value.photoUrl = profile?.avatar_url || ''
+  } catch {
+    // Non-critical — fields just start blank if this fails.
+  }
 })
 
 function unwrapApiData<T = any>(value: any): T {
@@ -224,12 +277,62 @@ async function handleLogoUpload(e: any) {
   }
 }
 
+async function handleAvatarUpload(e: any) {
+  const file = e.target.files[0] as File
+  if (!file) return
+
+  uploadingAvatar.value = true
+  try {
+    const signedPayload = unwrapApiData<any>(await apiFetch<any>('/uploads/create-signed-url', {
+      method: 'POST',
+      body: {
+        mediaType: 'avatar',
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size
+      }
+    }))
+
+    const signedUrl = signedPayload?.signedUrl
+    const publicUrl = signedPayload?.publicUrl
+    if (!signedUrl || !publicUrl) {
+      throw new Error('Invalid upload signing response from server')
+    }
+
+    await $fetch(signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+        'Cache-Control': 'public, max-age=31536000, immutable'
+      }
+    })
+
+    profileForm.value.photoUrl = publicUrl
+  } catch (err: any) {
+    showToast(`Failed to upload photo: ${err.data?.statusMessage || err.message}`, 'error')
+  } finally {
+    uploadingAvatar.value = false
+  }
+}
+
 async function saveProfile() {
   saving.value = true
   try {
+    // Agency branding stays on user_metadata (unrelated to this feature) —
+    // full_name/bio/photo go through /profile (the `profiles` table) since
+    // that's what the public seller profile page reads.
+    await apiFetch('/profile', {
+      method: 'PATCH',
+      body: {
+        full_name: profileForm.value.fullName,
+        bio: profileForm.value.bio,
+        avatar_url: profileForm.value.photoUrl,
+      },
+    })
+
     const { error } = await supabase.auth.updateUser({
       data: {
-        full_name: profileForm.value.fullName,
         agency_name: profileForm.value.agencyName,
         agency_logo_url: profileForm.value.agencyLogoUrl
       }
@@ -238,7 +341,7 @@ async function saveProfile() {
     if (error) throw error
     showToast('Settings saved successfully')
   } catch (err: any) {
-    showToast(`Failed to save settings: ${err.message}`, 'error')
+    showToast(`Failed to save settings: ${err.data?.statusMessage || err.message}`, 'error')
   } finally {
     saving.value = false
   }

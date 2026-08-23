@@ -203,7 +203,16 @@
             </template>
 
             <p class="sheet__section-label">Listed By</p>
-            <div class="ownercard">
+            <NuxtLink v-if="seller?.id" :to="`/view/seller/${seller.id}`" class="ownercard ownercard--link">
+              <img v-if="seller.avatar_url" :src="seller.avatar_url" class="ownercard__avatar ownercard__avatar--img" :alt="sellerName" referrerpolicy="no-referrer" />
+              <div v-else class="ownercard__avatar">{{ sellerInitial }}</div>
+              <div class="ownercard__body">
+                <p class="ownercard__name">{{ sellerName }}</p>
+                <p v-if="space.phone" class="ownercard__meta ownercard__meta--phone">+{{ space.phone }}</p>
+              </div>
+              <svg class="ownercard__chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+            </NuxtLink>
+            <div v-else class="ownercard">
               <div class="ownercard__avatar">PO</div>
               <div class="ownercard__body">
                 <p class="ownercard__name">Property Owner</p>
@@ -272,6 +281,7 @@ const photos = ref<Array<{ id: string; name: string; thumbnail_url: string }>>([
 // (same shape it already consumes on pages/p/[slug].vue) when the listing
 // has real 360 scenes.
 const tourData = ref<any>(null)
+const seller = ref<{ id: string; full_name: string | null; avatar_url: string | null } | null>(null)
 
 const { data: tourPayload, error: tourError } = await useAsyncData(
   `view-tour:${slug}`,
@@ -299,6 +309,7 @@ if (tourError.value) {
   // "empty" state even when real photos existed.
   photos.value = (tour?.gallery ?? [])
     .map((g: any, i: number) => ({ id: g.id, name: `Photo ${i + 1}`, thumbnail_url: g.url }))
+  seller.value = tour?.seller ?? null
   state.value = (rooms.value.length > 0 || photos.value.length > 0) ? 'ready' : 'empty'
 }
 pending.value = false
@@ -440,6 +451,9 @@ const ownerEditHref = computed(() => {
   if (!space.value?.id) return '/app/spaces'
   return isPanorama.value ? `/app/spaces/${space.value.id}` : `/app/spaces/${space.value.id}?tab=photos`
 })
+
+const sellerName = computed(() => seller.value?.full_name || 'Property Owner')
+const sellerInitial = computed(() => sellerName.value.charAt(0).toUpperCase())
 
 const priceText = computed(() => formatPrice(space.value?.price_kes))
 const facts = computed(() => (space.value ? factsLine(space.value) : ''))
@@ -953,7 +967,10 @@ useSeoMeta({
 .amenity { display: inline-flex; align-items: center; padding: 8px 13px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); font-size: 0.79rem; font-weight: 600; color: var(--ink); }
 .sheet__desc { font-size: 0.88rem; line-height: 1.6; color: var(--ink-soft); margin: 0; }
 .ownercard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: var(--sheet-2); border: 1px solid var(--line); }
+.ownercard--link { text-decoration: none; color: inherit; }
 .ownercard__avatar { width: 46px; height: 46px; border-radius: 50%; flex: 0 0 auto; background: var(--ink); color: var(--vo-inverse); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
+.ownercard__avatar--img { object-fit: cover; background: var(--sheet-2); }
+.ownercard__chevron { flex: 0 0 auto; color: var(--ink-faint); }
 .ownercard__name { font-weight: 800; font-size: 0.9rem; margin: 0; }
 .ownercard__meta { font-size: 0.74rem; color: var(--ink-soft); margin: 1px 0 0; }
 .ownercard__meta--phone { font-family: var(--font-mono); color: var(--ink-faint); }
