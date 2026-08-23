@@ -208,12 +208,12 @@
 
       <!-- ── Tour Settings Panel ─────────────────────────────────────────── -->
       <Transition name="ts-slide">
-        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Tour settings">
+        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Listing settings">
           <div class="ts-panel">
 
             <!-- Header -->
             <div class="ts-header">
-              <span class="ts-header__title">Tour Settings</span>
+              <span class="ts-header__title">Listing Settings</span>
               <button class="ts-close" @click="showSettingsPanel = false" aria-label="Close settings">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -222,16 +222,16 @@
             <!-- Scrollable body -->
             <div class="ts-body ts-scroll">
 
-              <!-- SECTION: Tour Info -->
+              <!-- SECTION: Basic Info -->
               <div class="ts-section">
-                <div class="ts-section__label">Tour Info</div>
+                <div class="ts-section__label">Basic Info</div>
 
                 <div class="ts-field">
                   <label class="ts-field__label">Name</label>
                   <input
                     class="ts-input"
                     v-model="settingsDraft.title"
-                    placeholder="Enter tour name"
+                    placeholder="Enter listing name"
                     maxlength="120"
                   />
                 </div>
@@ -252,7 +252,7 @@
                   <textarea
                     class="ts-textarea"
                     v-model="settingsDraft.description"
-                    placeholder="Describe this tour…"
+                    placeholder="Describe this listing…"
                     rows="3"
                   />
                   <div class="ts-toggle-sub" style="margin-top: 5px;">Drafts a description from the price, facts, and amenities you've filled in below — review and edit before saving.</div>
@@ -470,8 +470,9 @@
                 </div>
               </div>
 
-              <!-- SECTION: Viewer -->
-              <div class="ts-section">
+              <!-- SECTION: Viewer — panorama-only (FOV/yaw/pitch/auto-rotate
+                   are meaningless for a gallery-only listing with no scenes). -->
+              <div v-if="scenes.length > 0" class="ts-section">
                 <div class="ts-section__label">Viewer</div>
 
                 <div class="ts-field">
@@ -1957,6 +1958,11 @@ defineExpose({
   showToast,
   statusLabel,
   statusBadgeClass,
+  // Lets a host page (e.g. the Details tab on gallery-only listings) open
+  // the Tour Settings drawer directly without switching to the 360° pane —
+  // the drawer itself is Teleport'd to <body>, so it renders fine even while
+  // .editor-shell's own wrapper is display:none via the host's v-show.
+  openSettings: () => { showSettingsPanel.value = true },
 })
 </script>
 

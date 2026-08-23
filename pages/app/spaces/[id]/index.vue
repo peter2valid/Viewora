@@ -15,13 +15,22 @@
         :class="{ 'mode-switch__btn--active': mode === 'photos' }"
         @click="setMode('photos')"
       >Photos</button>
+      <!-- Not a pane like the two tabs above — opens EditorShell's Listing
+           Settings drawer (name, description, price, amenities…) on top of
+           whichever pane is currently showing, so it's reachable without
+           detouring through the 360°-labeled tab on a gallery-only listing. -->
+      <button
+        type="button"
+        class="mode-switch__btn"
+        @click="openDetails"
+      >Details</button>
     </div>
 
     <!-- v-show, not v-if — EditorShell owns a live WebGL canvas + upload
          state; destroying and remounting it on every tab switch would be
          wasteful and would drop in-progress uploads. -->
     <div v-show="mode === 'tour'" class="mode-pane">
-      <EditorShell :space-id="spaceId" />
+      <EditorShell ref="editorShellRef" :space-id="spaceId" />
     </div>
     <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
 
@@ -46,6 +55,11 @@ const mode = ref<'tour' | 'photos'>(route.query.tab === 'photos' ? 'photos' : 't
 function setMode(next: 'tour' | 'photos') {
   mode.value = next
   router.replace({ query: { ...route.query, tab: next } })
+}
+
+const editorShellRef = ref<InstanceType<typeof EditorShell> | null>(null)
+function openDetails() {
+  editorShellRef.value?.openSettings()
 }
 </script>
 
