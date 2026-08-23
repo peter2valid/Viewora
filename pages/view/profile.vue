@@ -5,7 +5,7 @@
       <NuxtLink to="/view" class="profile__back" aria-label="Back to Home">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </NuxtLink>
-      <span class="profile__title">Saved</span>
+      <span class="profile__title">Profile</span>
       <button
         v-if="listings.length > 0"
         class="profile__share"
@@ -122,7 +122,7 @@ useHead({
 })
 
 useSeoMeta({
-  title: 'Saved — Viewora',
+  title: 'Profile — Viewora',
   description: 'Your saved property and vehicle tours on Viewora.',
 })
 </script>

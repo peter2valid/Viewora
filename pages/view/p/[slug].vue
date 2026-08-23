@@ -27,7 +27,10 @@
     </div>
 
     <div v-else-if="state === 'empty'" class="detail__state">
-      <p class="detail__state-text">This tour is published, but no renderable photos are available yet.</p>
+      <p class="detail__state-text">
+        {{ isOwner ? "This listing is published, but you haven't added any photos yet." : 'This listing is published, but no renderable photos are available yet.' }}
+      </p>
+      <NuxtLink v-if="isOwner && space?.id" :to="ownerEditHref" class="detail__state-link detail__state-link--primary">Add photos</NuxtLink>
       <NuxtLink to="/view" class="detail__state-link">Back to listings</NuxtLink>
     </div>
 
@@ -59,6 +62,9 @@
             </NuxtLink>
             <h1 class="topbar__title">{{ space.title }}</h1>
             <div class="topbar__right">
+              <NuxtLink v-if="isOwner" :to="ownerEditHref" class="iconbtn" aria-label="Edit listing">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              </NuxtLink>
               <button class="iconbtn" aria-label="Share listing" @click="shareListing">
                 <svg v-if="!shareCopied" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
                 <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -227,7 +233,7 @@
         :initial-index="galleryStartIndex"
         :title="space.title"
         :is-owner="isOwner"
-        :owner-edit-href="isOwner ? `/app/spaces/${space.id}?tab=photos` : null"
+        :owner-edit-href="isOwner ? ownerEditHref : null"
         :saved="saved"
         :save-pending="savePending"
         @close="showGallery = false"
@@ -424,6 +430,16 @@ function onViewerSceneChanged(sceneId: string) {
   const idx = rooms.value.findIndex((r) => r.id === sceneId)
   if (idx !== -1) activeIndex.value = idx
 }
+
+// Single source of truth for "where does editing this listing live" — the
+// owner-only Edit button in the topbar, the empty-state Add Photos CTA, and
+// the gallery overlay's Edit Photos link all point here. Never rebuilds any
+// editor UI on this page — always hands off to the real app.viewora.software
+// editor (features/editor/EditorShell.vue + PhotosPanel.vue).
+const ownerEditHref = computed(() => {
+  if (!space.value?.id) return '/app/spaces'
+  return isPanorama.value ? `/app/spaces/${space.value.id}` : `/app/spaces/${space.value.id}?tab=photos`
+})
 
 const priceText = computed(() => formatPrice(space.value?.price_kes))
 const facts = computed(() => (space.value ? factsLine(space.value) : ''))
@@ -736,6 +752,10 @@ useSeoMeta({
 }
 .detail__state-text { color: var(--ink-soft); font-size: 0.9rem; max-width: 32ch; }
 .detail__state-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+.detail__state-link--primary {
+  padding: 10px 20px; border-radius: var(--vo-radius-pill);
+  background: var(--ink); color: var(--vo-inverse);
+}
 
 /* Loading skeleton — same neutral grayscale sweep as the feed's card
    skeletons, shaped like the real viewer-pane/sheet split so nothing jumps
