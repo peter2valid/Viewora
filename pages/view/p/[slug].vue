@@ -43,13 +43,13 @@
             class="pano pano--psv"
             @scene-changed="onViewerSceneChanged"
           />
-          <div
+          <ViewerGalleryCarousel
             v-else
-            ref="panoEl"
-            class="pano"
-            :style="{ backgroundImage: heroImage ? `url('${heroImage}')` : 'none' }"
-            role="img"
-            :aria-label="`${space.title} preview, drag to look around`"
+            class="pano pano--gallery"
+            :photos="photos"
+            :index="activeIndex"
+            @update:index="activeIndex = $event"
+            @tap="openGallery"
           />
           <div class="pano__scrim" />
 
@@ -220,6 +220,20 @@
              either. -->
         <ClaimBanner v-if="isOwner && !fullscreen" class="detail-claim-banner" />
       </div>
+
+      <ViewerGalleryOverlay
+        v-if="showGallery"
+        :photos="photos"
+        :initial-index="galleryStartIndex"
+        :title="space.title"
+        :is-owner="isOwner"
+        :owner-edit-href="isOwner ? `/app/spaces/${space.id}?tab=photos` : null"
+        :saved="saved"
+        :save-pending="savePending"
+        @close="showGallery = false"
+        @toggle-save="toggleSave"
+        @share="shareListing"
+      />
     </template>
   </div>
 </template>
@@ -393,9 +407,15 @@ function setActiveRoom(i: number) {
   if (isPanorama.value) {
     const targetId = rooms.value[i]?.id
     if (targetId) psvViewerRef.value?.goToScene(targetId)
-  } else if (panoEl.value) {
-    panoEl.value.style.backgroundPositionX = '0px'
   }
+}
+
+// ── Full-screen photo gallery (grid + lightbox) — flat-photo listings only ──
+const showGallery = ref(false)
+const galleryStartIndex = ref(0)
+function openGallery(i: number) {
+  galleryStartIndex.value = i
+  showGallery.value = true
 }
 
 // Keeps our room rail/list highlight in sync if the scene changes by any
@@ -584,18 +604,11 @@ async function setStatus(newStatus: 'available' | 'sold' | 'rented') {
   }
 }
 
-// ── Drag-to-pan on the flat-photo fallback hero ──────────────────────────
-// Real 360° scenes (ViewerPsvViewer) handle their own pan/zoom gestures —
-// this is only for listings with gallery photos and no scene data.
-const panoEl = ref<HTMLElement | null>(null)
 const sheetEl = ref<HTMLElement | null>(null)
 
 let cleanupFns: Array<() => void> = []
 
 onMounted(() => {
-  // Fires unconditionally, before the panoEl-dependent code below returns
-  // early for panorama listings — this page never called /analytics/view at
-  // all before, so the owner's dashboard was blind to every view here.
   if (space.value?.id) {
     apiFetch('/analytics/view', {
       method: 'POST',
@@ -614,33 +627,6 @@ onMounted(() => {
 
   window.addEventListener('resize', onWindowResize)
   cleanupFns.push(() => window.removeEventListener('resize', onWindowResize))
-
-  const pano = panoEl.value
-  if (!pano) return
-
-  let panoDragging = false, startX = 0, startPos = 0
-  const posX = () => parseFloat(getComputedStyle(pano).backgroundPositionX) || 0
-  const panoDown = (x: number) => { panoDragging = true; startX = x; startPos = posX() }
-  const panoMove = (x: number) => { if (panoDragging) pano.style.backgroundPositionX = `${startPos + (x - startX)}px` }
-  const panoUp = () => { panoDragging = false }
-  const onPanoMouseDown = (e: MouseEvent) => panoDown(e.clientX)
-  const onPanoMouseMove = (e: MouseEvent) => panoMove(e.clientX)
-  const onPanoTouchStart = (e: TouchEvent) => panoDown(e.touches[0].clientX)
-  const onPanoTouchMove = (e: TouchEvent) => panoMove(e.touches[0].clientX)
-  pano.addEventListener('mousedown', onPanoMouseDown)
-  window.addEventListener('mousemove', onPanoMouseMove)
-  window.addEventListener('mouseup', panoUp)
-  pano.addEventListener('touchstart', onPanoTouchStart, { passive: true })
-  pano.addEventListener('touchmove', onPanoTouchMove, { passive: true })
-  pano.addEventListener('touchend', panoUp)
-  cleanupFns.push(
-    () => pano.removeEventListener('mousedown', onPanoMouseDown),
-    () => window.removeEventListener('mousemove', onPanoMouseMove),
-    () => window.removeEventListener('mouseup', panoUp),
-    () => pano.removeEventListener('touchstart', onPanoTouchStart),
-    () => pano.removeEventListener('touchmove', onPanoTouchMove),
-    () => pano.removeEventListener('touchend', panoUp),
-  )
 })
 
 onBeforeUnmount(() => {
@@ -839,6 +825,11 @@ useSeoMeta({
    grab-cursor/pan-y/no-select rules above are for the flat-photo fallback
    only and would fight ViewerPsvViewer's internal touch handling. */
 .pano--psv { cursor: auto; touch-action: auto; user-select: auto; }
+/* Flat-photo gallery carousel handles its own horizontal swipe via native
+   scroll-snap — the base .pano rules above (grab-cursor, vertical-only
+   touch-action for the old JS drag-pan) would block that horizontal
+   gesture on touch devices. */
+.pano--gallery { cursor: default; touch-action: pan-x; user-select: auto; }
 .pano__scrim {
   position: absolute; inset: 0;
   background: linear-gradient(180deg, var(--scrim-top) 0%, transparent 20%, transparent 58%, var(--scrim-bottom) 100%);
