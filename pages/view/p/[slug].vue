@@ -986,7 +986,23 @@ useSeoMeta({
 .btn--whatsapp { background: var(--whatsapp); color: var(--whatsapp-ink); height: 46px; padding: 0 20px; font-size: 0.88rem; border: 1px solid var(--vo-border-strong); flex: 0 0 auto; transition: filter 180ms ease; }
 .btn--whatsapp:hover { filter: brightness(0.9); opacity: 1; }
 
-.sheet__scroll { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px calc(120px + env(safe-area-inset-bottom)); }
+/* The floating nav dock (fixed, see UiNavDock) sits over the bottom ~85px
+   of this scrollable panel regardless of scroll position — the 120px
+   bottom padding above guarantees the LAST piece of real content (the
+   "Listed By" card) can scroll fully clear of it, but on first paint /
+   mid-scroll, whatever content currently occupies that zone would
+   otherwise look abruptly cut off behind the dock rather than "more
+   below, keep scrolling". A bottom mask fade (a standard pattern for
+   content under a floating bar) makes that read as intentional. Sized to
+   the dock's footprint, not the full 120px padding, so it fades real
+   content only while some is still hidden, not the safe blank padding
+   past it once actually scrolled to the end. */
+.sheet__scroll {
+  flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 20px 20px calc(120px + env(safe-area-inset-bottom));
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 100px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 100px), transparent 100%);
+}
 .sheet__section-label {
   font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--accent-strong); margin: 26px 0 12px; display: flex; align-items: center; justify-content: space-between;

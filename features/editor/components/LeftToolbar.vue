@@ -218,7 +218,25 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  width: 52px;
+  height: 52px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: color 140ms, background 140ms;
+  padding: 0;
+}
 
+/* A missing closing brace on .lt-btn above used to swallow these two
+   @media blocks as nested rules inside it — under CSS nesting, a bare
+   ".lt-bar" selector nested that way means ".lt-btn .lt-bar" (a
+   descendant of the button), which .lt-bar (the button's own ancestor)
+   can never match. The toolbar silently never switched to its mobile
+   bottom-bar layout as a result, and stayed pinned over the main content
+   on narrow phone widths instead. */
 @media (max-width: 768px) {
   .lt-bar {
     left: 50%;
@@ -267,17 +285,6 @@ onBeforeUnmount(() => {
   .lt-btn {
     height: 42px;
   }
-}
-  gap: 4px;
-  width: 52px;
-  height: 52px;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  transition: color 140ms, background 140ms;
-  padding: 0;
 }
 
 .lt-btn:hover {

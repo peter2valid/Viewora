@@ -48,9 +48,9 @@
 
       <section class="search__section">
         <div class="filter__range">
-          <input v-model="priceMin" type="number" min="0" inputmode="numeric" placeholder="Min price (KES)" aria-label="Minimum price in KES" />
+          <input v-model="priceMin" type="number" min="0" inputmode="numeric" placeholder="Min price" aria-label="Minimum price in KES" />
           <span class="filter__range-sep">–</span>
-          <input v-model="priceMax" type="number" min="0" inputmode="numeric" placeholder="Max price (KES)" aria-label="Maximum price in KES" />
+          <input v-model="priceMax" type="number" min="0" inputmode="numeric" placeholder="Max price" aria-label="Maximum price in KES" />
         </div>
 
         <div v-if="type === 'all' || type === 'residential'" class="search__pills search__pills--beds">
@@ -398,6 +398,7 @@ useSeoMeta({
 .filter__range input,
 .filter__single {
   width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   border-radius: var(--vo-radius-md);
   border: 1px solid var(--line);
@@ -405,6 +406,10 @@ useSeoMeta({
   color: var(--ink);
   font-family: var(--font-mono);
   font-size: 0.85rem;
+  /* Defends against a hard mid-character clip (what "Min price (KES)"
+     did on a narrow phone width before it was shortened) — a value or
+     placeholder that still doesn't fit degrades to an ellipsis instead. */
+  text-overflow: ellipsis;
 }
 .filter__range-sep { color: var(--ink-faint); flex: 0 0 auto; }
 

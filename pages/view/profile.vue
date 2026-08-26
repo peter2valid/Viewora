@@ -46,7 +46,7 @@
           </div>
           <div class="account-card__body">
             <p class="account-card__name">Browsing as a guest</p>
-            <p class="account-card__sub">Sign in to sync saved listings across devices</p>
+            <p class="account-card__sub account-card__sub--wrap">Sync saved listings</p>
           </div>
           <button class="account-card__action account-card__action--primary" :disabled="signingIn" @click="handleSignIn">
             <GoogleIcon />
@@ -311,6 +311,14 @@ useSeoMeta({
 .account-card__body { flex: 1 1 auto; min-width: 0; }
 .account-card__name { font-weight: 800; font-size: 0.92rem; margin: 0; }
 .account-card__sub { font-size: 0.78rem; color: var(--ink-faint); margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The signed-in case truncates an arbitrary-length email — correct to
+   force one line there. The guest-state copy is fixed, known text; letting
+   it wrap instead of truncating means it never silently loses words if a
+   narrower viewport or a translation makes it a few characters longer than
+   whatever happened to fit here today (this is what was cutting "Sign in
+   to sync saved listings across devices" down to "Sign in to sync sav…"
+   on a 390px-wide phone). */
+.account-card__sub--wrap { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
 .account-card__action {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
   height: 36px; padding: 0 14px; border-radius: var(--vo-radius-pill);
