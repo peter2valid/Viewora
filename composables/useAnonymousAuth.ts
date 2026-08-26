@@ -12,6 +12,7 @@
 export const useAnonymousAuth = () => {
   const user = useSupabaseUser()
   const supabase = useSupabaseClient()
+  const { apiFetch } = useApiFetch()
 
   const isAnonymous = computed(() => Boolean((user.value as any)?.is_anonymous))
 
@@ -50,5 +51,24 @@ export const useAnonymousAuth = () => {
     if (error) throw error
   }
 
-  return { isAnonymous, ensureSession, claimWithGoogle, signInWithGoogle, signOut }
+  // Redeems a one-time claim token (from a bot-sent "?claim=..." listing
+  // link — see VIEWORA_ARCHITECTURE_AUDIT.md §11/§23) into a real browser
+  // session for the anonymous Supabase user the bot conversation already
+  // created. This is what lets a WhatsApp/Telegram-created listing be
+  // claimed via the exact same claimWithGoogle() flow as a web-anonymous
+  // one, without ever exposing the bot's long-lived stored refresh token —
+  // the backend mints and returns a fresh, single-purpose session instead.
+  const redeemClaimToken = async (token: string) => {
+    const result = await apiFetch<{ access_token: string; refresh_token: string }>('/claim/redeem', {
+      method: 'POST',
+      body: { token },
+    })
+    const { error } = await supabase.auth.setSession({
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
+    })
+    if (error) throw error
+  }
+
+  return { isAnonymous, ensureSession, claimWithGoogle, signInWithGoogle, signOut, redeemClaimToken }
 }

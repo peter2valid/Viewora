@@ -257,14 +257,14 @@
 definePageMeta({ layout: false })
 
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'vue'
-import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtApp, createError } from '#imports'
+import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtApp, createError, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
 
 const { apiFetch } = useApiFetch()
 const { $posthog } = useNuxtApp()
-const { ensureSession } = useAnonymousAuth()
+const { ensureSession, redeemClaimToken } = useAnonymousAuth()
 const { init: initTheme } = useTheme()
 onMounted(initTheme)
 const supabaseUser = useSupabaseUser()
@@ -573,16 +573,51 @@ function logEngagement(action: 'whatsapp_click' | 'save') {
 // Everything else (photos, 360 scenes, amenities) still routes there.
 const isOwner = ref(false)
 let checkedOwnerFor: string | null = null
-watch(supabaseUser, async (u) => {
-  if (!u || !space.value?.id || checkedOwnerFor === space.value.id) return
-  checkedOwnerFor = space.value.id
+async function checkOwnership() {
   try {
     const result = await apiFetch<{ isOwner: boolean }>(`/p/${encodeURIComponent(slug)}/is-owner`)
     isOwner.value = result.isOwner
   } catch {
     // Non-critical — owner tools just won't show.
   }
+}
+watch(supabaseUser, async (u) => {
+  if (!u || !space.value?.id || checkedOwnerFor === space.value.id) return
+  checkedOwnerFor = space.value.id
+  await checkOwnership()
 }, { immediate: true })
+
+// A bot-sent listing link carries a one-time "?claim=" token (see
+// VIEWORA_ARCHITECTURE_AUDIT.md §11) for listings created via WhatsApp/
+// Telegram. Redeeming it adopts the bot-held anonymous session into this
+// browser, after which ClaimBanner's existing isAnonymous check and the
+// claimWithGoogle() upgrade flow work exactly as they already do for a
+// web-anonymous-created listing — this only bridges the identity, it
+// changes nothing about how claiming itself works.
+onMounted(async () => {
+  const token = route.query.claim
+  if (typeof token !== 'string' || !token) return
+
+  // Strip the token from the URL immediately, whether or not redemption
+  // succeeds — it's single-use, and it shouldn't linger in the address bar
+  // or get re-shared if this page's URL is copied.
+  const { claim: _claim, ...restQuery } = route.query
+  navigateTo({ path: route.path, query: restQuery }, { replace: true })
+
+  try {
+    await redeemClaimToken(token)
+    // The session just changed identity out from under the watcher above,
+    // which may have already run (and marked this space "checked") against
+    // whatever session — or lack of one — existed before redemption. Force
+    // a fresh check against the newly-adopted session rather than trusting
+    // that guard.
+    checkedOwnerFor = space.value?.id ?? null
+    await checkOwnership()
+  } catch {
+    // Expired/already-used/invalid token — the listing still works as a
+    // normal (unclaimed) public page; there's just nothing more to do here.
+  }
+})
 
 const editingPrice = ref(false)
 const priceDraft = ref('')
