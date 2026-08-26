@@ -335,10 +335,18 @@ useSeoMeta({
   color: var(--ink-faint); margin: 0 0 12px;
 }
 
+/* Single column below 480px — same fix as pages/view/collection.vue's
+   grid, same root cause: a fixed 2-column grid squeezes UiListingCard's
+   price/facts text into a card too narrow for it on a phone. Not
+   visible while testing with an empty saved-listings state; confirmed
+   against the same card component's real overflow on the Collection page. */
 .profile__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 14px;
+}
+@media (min-width: 480px) {
+  .profile__grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 640px) {
   .profile__grid { grid-template-columns: repeat(3, 1fr); }

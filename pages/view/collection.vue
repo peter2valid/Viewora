@@ -142,10 +142,17 @@ useSeoMeta({
   margin: 0 0 14px;
 }
 
+/* Single column below 640px, matching pages/view/index.vue's feed grid —
+   UiListingCard's price/facts text isn't designed to fit a sub-170px-wide
+   card, which a fixed 2-column grid produces on a 390px phone (confirmed:
+   it clipped "KES 18,500,000" and wrapped the facts line awkwardly). */
 .collection__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 14px;
+}
+@media (min-width: 480px) {
+  .collection__grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 640px) {
   .collection__grid { grid-template-columns: repeat(3, 1fr); }

@@ -36,8 +36,14 @@ defineProps<{
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--vo-muted); margin: 0 0 14px;
 }
 .seller-listings__empty { font-size: 0.85rem; color: var(--vo-muted); padding: 20px 0; text-align: center; }
+/* Same fix as pages/view/collection.vue and pages/view/profile.vue's
+   grids: a fixed 2-column layout squeezes UiListingCard's price/facts
+   text into an overflowing card on a phone — single column below 480px. */
 .seller-listings__grid {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+  display: grid; grid-template-columns: 1fr; gap: 14px;
+}
+@media (min-width: 480px) {
+  .seller-listings__grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 640px) {
   .seller-listings__grid { grid-template-columns: repeat(3, 1fr); }
