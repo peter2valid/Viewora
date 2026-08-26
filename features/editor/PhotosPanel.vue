@@ -40,17 +40,39 @@
           <p class="photo-card__status">{{ uploadStateLabel(u.state) }}</p>
         </div>
 
-        <div v-for="p in photos" :key="p.id" class="photo-card">
+        <div
+          v-for="p in photos"
+          :key="p.id"
+          class="photo-card"
+          :class="{ 'photo-card--cover': p.is_primary, 'photo-card--dragging': draggedId === p.id }"
+          :draggable="!p.is_primary"
+          @dragstart="onDragStart(p, $event)"
+          @dragover.prevent="onDragOver(p)"
+          @dragend="onDragEnd"
+        >
           <img :src="p.public_url" :alt="space?.title || 'Photo'" loading="lazy" />
+          <span v-if="p.is_primary" class="photo-card__cover-badge">Cover</span>
           <span v-if="p.processing_status !== 'complete'" class="photo-card__badge" :class="`photo-card__badge--${p.processing_status}`">
             {{ p.processing_status === 'failed' ? 'Failed' : 'Processing…' }}
           </span>
+          <button
+            v-if="!p.is_primary"
+            class="photo-card__cover-btn"
+            :disabled="settingCoverId === p.id"
+            aria-label="Set as cover photo"
+            title="Set as cover photo"
+            @click="handleSetCover(p)"
+          >
+            <svg v-if="settingCoverId !== p.id" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"/></svg>
+            <span v-else class="photos-spin photos-spin--sm" />
+          </button>
           <button class="photo-card__delete" :disabled="deletingId === p.id" aria-label="Delete photo" @click="handleDelete(p)">
             <svg v-if="deletingId !== p.id" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
             <span v-else class="photos-spin photos-spin--sm" />
           </button>
         </div>
       </div>
+      <p v-if="photos.length > 1" class="photos-hint">Drag a photo to reorder. The cover photo is always shown first — use the star to change it.</p>
     </div>
   </div>
 </template>
@@ -142,6 +164,69 @@ async function handleDelete(photo: any) {
     deletingId.value = null
   }
 }
+
+// ── Cover photo ───────────────────────────────────────────────────────────
+const settingCoverId = ref<string | null>(null)
+async function handleSetCover(photo: any) {
+  if (settingCoverId.value) return
+  settingCoverId.value = photo.id
+  try {
+    await apiFetch(`/uploads/${photo.id}/set-cover`, { method: 'PATCH' })
+    // Mirror server-side demote-then-promote locally rather than reloading —
+    // only one gallery_image can be is_primary at a time.
+    for (const m of (space.value?.property_media ?? [])) {
+      if (m.media_type === 'gallery_image') m.is_primary = m.id === photo.id
+    }
+  } catch {
+    toast.error('Failed to set cover photo')
+  } finally {
+    settingCoverId.value = null
+  }
+}
+
+// ── Drag-to-reorder ───────────────────────────────────────────────────────
+// The cover photo always sorts first (see `photos` computed above) regardless
+// of sort_order, so it's excluded from dragging entirely rather than allowing
+// a drag that visually snaps back and confuses the reorder gesture.
+const draggedId = ref<string | null>(null)
+
+function onDragStart(photo: any, e: DragEvent) {
+  if (photo.is_primary) return
+  draggedId.value = photo.id
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', photo.id)
+  }
+}
+
+// Live-reorders by rewriting sort_order on the underlying media objects —
+// `photos` is a computed sorted by (is_primary, sort_order), so mutating
+// sort_order here is what actually moves the cards, not array splicing.
+function onDragOver(photo: any) {
+  if (!draggedId.value || draggedId.value === photo.id || photo.is_primary) return
+  const list = photos.value.filter((p: any) => !p.is_primary)
+  const from = list.findIndex((p: any) => p.id === draggedId.value)
+  const to = list.findIndex((p: any) => p.id === photo.id)
+  if (from === -1 || to === -1) return
+  const [moved] = list.splice(from, 1)
+  list.splice(to, 0, moved)
+  list.forEach((p: any, idx: number) => { p.sort_order = idx })
+}
+
+async function onDragEnd() {
+  const wasDragging = !!draggedId.value
+  draggedId.value = null
+  if (!wasDragging || !space.value?.id) return
+  try {
+    await apiFetch('/uploads/reorder', {
+      method: 'PATCH',
+      body: { propertyId: space.value.id, orderedIds: photos.value.map((p: any) => p.id) },
+    })
+  } catch {
+    toast.error('Failed to save photo order')
+    await loadSpace()
+  }
+}
 </script>
 
 <style scoped>
@@ -211,6 +296,25 @@ async function handleDelete(photo: any) {
 }
 .photo-card__delete:hover { background: rgba(220,38,38,0.85); }
 .photo-card__delete:disabled { cursor: not-allowed; }
+
+.photo-card--cover { outline: 2px solid #fff; outline-offset: -2px; }
+.photo-card--dragging { opacity: 0.4; }
+.photo-card[draggable="true"] { cursor: grab; }
+.photo-card__cover-badge {
+  position: absolute; left: 6px; bottom: 6px; z-index: 2;
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 3px 7px; border-radius: 5px; background: rgba(255,255,255,0.92); color: #0a0a0b;
+}
+.photo-card__cover-btn {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55); border: none; color: rgba(255,255,255,0.85); cursor: pointer;
+  transition: background 120ms;
+}
+.photo-card__cover-btn:hover { background: rgba(255,255,255,0.25); }
+.photo-card__cover-btn:disabled { cursor: not-allowed; }
+
+.photos-hint { margin: 14px 0 0; font-size: 11.5px; color: rgba(255,255,255,0.35); text-align: center; }
 
 .photos-spin {
   display: inline-block; width: 20px; height: 20px;
