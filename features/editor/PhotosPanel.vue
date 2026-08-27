@@ -35,9 +35,17 @@
       </div>
 
       <div v-else class="photos-grid">
-        <div v-for="u in localUploads" :key="u.id" class="photo-card photo-card--uploading">
-          <div class="photo-card__spin-wrap"><span class="photos-spin" /></div>
-          <p class="photo-card__status">{{ uploadStateLabel(u.state) }}</p>
+        <div
+          v-for="u in localUploads"
+          :key="u.id"
+          class="photo-card photo-card--uploading"
+          :class="{ 'photo-card--upload-failed': u.state === 'failed' }"
+        >
+          <img v-if="u.previewUrl" :src="u.previewUrl" alt="" class="photo-card__preview" />
+          <div class="photo-card__uploading-overlay">
+            <span class="photos-spin photos-spin--sm" />
+            <p class="photo-card__status">{{ uploadStateLabel(u.state) }}</p>
+          </div>
         </div>
 
         <div
@@ -50,7 +58,15 @@
           @dragover.prevent="onDragOver(p)"
           @dragend="onDragEnd"
         >
-          <img :src="p.public_url" :alt="space?.title || 'Photo'" loading="lazy" />
+          <NuxtImg
+            :src="p.public_url"
+            :alt="space?.title || 'Photo'"
+            width="240"
+            height="240"
+            format="webp"
+            quality="75"
+            loading="lazy"
+          />
           <span v-if="p.is_primary" class="photo-card__cover-badge">Cover</span>
           <span v-if="p.processing_status !== 'complete'" class="photo-card__badge" :class="`photo-card__badge--${p.processing_status}`">
             {{ p.processing_status === 'failed' ? 'Failed' : 'Processing…' }}
@@ -138,7 +154,12 @@ async function handleFileChange(e: Event) {
   async function worker() {
     while (next < files.length) {
       const file = files[next++]
+      // Instant preview — same createObjectURL-before-network pattern the
+      // 360 panorama pipeline uses, so a photo appears the moment it's
+      // picked instead of only after sign+upload+register round-trips.
+      const previewUrl = URL.createObjectURL(file)
       await uploadFile(file, 'gallery', {
+        previewUrl,
         onRegister: async (record: any) => {
           if (!space.value.property_media) space.value.property_media = []
           space.value.property_media = [...space.value.property_media, record]
@@ -263,6 +284,18 @@ async function onDragEnd() {
 .photos-add-btn:hover { background: rgba(255,255,255,0.88); }
 .photos-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Three unrelated-width items (icon button / running-text title / action
+   button) crammed onto one row is what made this look cramped on phones —
+   the title's two-line subtitle had nothing to wrap into and pushed the
+   back/add buttons out of vertical alignment. Keep both buttons on a
+   single top row and drop the title block to its own full-width row. */
+@media (max-width: 640px) {
+  .photos-header { flex-wrap: wrap; row-gap: 12px; }
+  .photos-back { order: 1; }
+  .photos-add-btn { order: 2; margin-left: auto; margin-top: 0; }
+  .photos-header__title { order: 3; flex-basis: 100%; }
+}
+
 .photos-body { max-width: 1000px; margin: 0 auto; padding: 0 20px 40px; }
 
 .photos-empty {
@@ -272,16 +305,29 @@ async function onDragEnd() {
 .photos-empty p { font-size: 0.85rem; font-weight: 600; margin: 0; }
 
 .photos-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;
+  /* auto-fit (not auto-fill) — with few photos, auto-fill still reserves
+     as many 160px+ tracks as would fit, so a single photo sat pinned to
+     the left with a row's worth of empty, invisible columns beside it.
+     auto-fit collapses those unused tracks so the real card(s) fill the
+     row's 1fr space instead of looking orphaned. */
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;
 }
 .photo-card {
   position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden;
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
 }
 .photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.photo-card--uploading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-.photo-card__spin-wrap { display: flex; }
-.photo-card__status { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); margin: 0; }
+/* Uploading card shows the actual picked photo immediately (via a local
+   blob: preview) with a small status overlay, instead of hiding it behind
+   a full spinner — matches the 360 panorama upload's instant-feedback feel. */
+.photo-card__preview { opacity: 0.55; }
+.photo-card__uploading-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.photo-card--upload-failed .photo-card__preview { opacity: 0.3; }
+.photo-card--upload-failed .photo-card__status { color: #f87171; }
+.photo-card__status { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.75); margin: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
 .photo-card__badge {
   position: absolute; left: 6px; bottom: 6px; z-index: 2;
   font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
