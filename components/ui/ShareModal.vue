@@ -47,16 +47,26 @@
               </div>
             </div>
             <div v-else-if="shareTab === 'embed'" class="share-modal__panel" role="tabpanel">
-              <p class="share-modal__eyebrow">Embed</p>
-              <div class="share-modal__link-row share-modal__link-row--code">
-                <code class="share-modal__link share-modal__link--code">{{ shareEmbedCode }}</code>
-                <button class="share-modal__copy" @click="copyEmbedCode">
-                  <template v-if="embedCopied"><UiIcon name="check" :size="14" :stroke-width="2.8" /> Copied</template>
-                  <template v-else>Copy iframe</template>
-                </button>
-              </div>
-              <div class="share-modal__preview-card">
-                <iframe :src="embedUrl" class="share-modal__preview-frame" title="Tour embed preview" loading="lazy" referrerpolicy="no-referrer" />
+              <template v-if="canEmbed">
+                <p class="share-modal__eyebrow">Embed</p>
+                <div class="share-modal__link-row share-modal__link-row--code">
+                  <code class="share-modal__link share-modal__link--code">{{ shareEmbedCode }}</code>
+                  <button class="share-modal__copy" @click="copyEmbedCode">
+                    <template v-if="embedCopied"><UiIcon name="check" :size="14" :stroke-width="2.8" /> Copied</template>
+                    <template v-else>Copy iframe</template>
+                  </button>
+                </div>
+                <div class="share-modal__preview-card">
+                  <iframe :src="embedUrl" class="share-modal__preview-frame" title="Tour embed preview" loading="lazy" referrerpolicy="no-referrer" />
+                </div>
+              </template>
+              <div v-else class="share-modal__paywall">
+                <div class="share-modal__paywall-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <p class="share-modal__paywall-title">Embeds are a paid feature</p>
+                <p class="share-modal__paywall-body">Upgrade your plan to embed this tour on any website.</p>
+                <NuxtLink to="/app/billing" class="share-modal__paywall-btn">Upgrade Plan</NuxtLink>
               </div>
             </div>
             <div v-else class="share-modal__panel share-modal__panel--qr" role="tabpanel">
@@ -85,8 +95,22 @@ import { ref, computed, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import QRCode from 'qrcode'
 import type { Space } from '~/composables/useSpaces'
+import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
+import { usePlanStore } from '~/stores/plan'
 
-const props = defineProps<{ space: Space | null }>()
+const planStore = usePlanStore()
+const canEmbed = computed(() => planStore.can('embeds_enabled'))
+
+const props = withDefaults(defineProps<{
+  space: Space | null
+  /** Which editor tab this share/publish action originated from — only
+   * matters for a listing with both 360 scenes and gallery photos, where
+   * it decides app.viewora.software vs view.viewora.software. See
+   * utils/publicTourUrl.ts for the full rule. */
+  context?: 'tour' | 'details'
+}>(), {
+  context: 'details',
+})
 defineEmits<{ close: [] }>()
 
 const shareTab = ref<'link' | 'embed' | 'qr'>('link')
@@ -100,11 +124,7 @@ const shareTabs: Array<{ id: 'link' | 'embed' | 'qr'; label: string }> = [
   { id: 'qr', label: 'QR code' },
 ]
 
-const publicUrl = computed(() => {
-  if (!props.space) return ''
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
-  return `${base}/p/${props.space.slug || props.space.id}`
-})
+const publicUrl = computed(() => (props.space ? resolvePublicTourUrl(props.space, props.context) : ''))
 const embedUrl = computed(() => {
   if (!props.space) return ''
   const base = typeof window !== 'undefined' ? window.location.origin : ''
@@ -141,8 +161,7 @@ watch(() => props.space, async (space) => {
   if (!space) return
   qrLoading.value = true
   try {
-    const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.slug || space.id}`
-    qrDataUrl.value = await QRCode.toDataURL(url, {
+    qrDataUrl.value = await QRCode.toDataURL(publicUrl.value, {
       width: 512, margin: 2, errorCorrectionLevel: 'M',
       color: { dark: '#111827', light: '#ffffff' },
     })
@@ -193,6 +212,11 @@ function downloadQrCode() {
 .share-modal__share-label { font-size: 12px; font-weight: 500; color: #3c4043; }
 .share-modal__preview-card { border: 1px solid #dadce0; border-radius: 14px; overflow: hidden; background: #f8f9fa; }
 .share-modal__preview-frame { display: block; width: 100%; height: 300px; border: 0; background: #fff; }
+.share-modal__paywall { padding: 24px 8px; text-align: center; }
+.share-modal__paywall-icon { width: 48px; height: 48px; border-radius: 12px; background: #f1f3f4; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; border: 1px solid #dadce0; color: #5f6368; }
+.share-modal__paywall-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; color: #202124; }
+.share-modal__paywall-body { font-size: 12px; color: #5f6368; margin-bottom: 20px; line-height: 1.5; }
+.share-modal__paywall-btn { display: inline-block; padding: 10px 24px; background: #202124; color: #fff; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; }
 .share-modal__panel--qr { align-items: center; }
 .share-modal__qr-card { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; border: 1px solid #dadce0; border-radius: 16px; padding: 20px; background: #fff; }
 .share-modal__qr-wrap { width: 192px; height: 192px; border-radius: 14px; border: 1px solid #e8eaed; display: flex; align-items: center; justify-content: center; background: #fff; }

@@ -11,6 +11,16 @@
       </div>
 
       <button
+        v-if="space?.is_published"
+        class="details-share-btn"
+        aria-label="Share tour"
+        title="Share tour"
+        @click="showShareModal = true"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
+      </button>
+
+      <button
         v-if="space"
         class="details-publish-btn"
         :class="{ 'details-publish-btn--live': space.is_published }"
@@ -21,6 +31,12 @@
         <template v-else>{{ space.is_published ? 'Unpublish' : 'Publish Tour' }}</template>
       </button>
     </header>
+
+    <UiShareModal
+      :space="showShareModal ? (space as any) : null"
+      context="details"
+      @close="showShareModal = false"
+    />
 
     <div v-if="pending" class="details-empty"><span class="df-spin" /></div>
 
@@ -349,6 +365,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import SpacePill from '~/features/editor/components/SpacePill.vue'
+import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
 import { toast } from 'vue-sonner'
 
 const props = defineProps<{ spaceId: string }>()
@@ -362,6 +379,7 @@ const pending = ref(true)
 const saving = ref(false)
 const isDirty = ref(false)
 const publishing = ref(false)
+const showShareModal = ref(false)
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
   if (type === 'error') toast.error(message)
@@ -522,6 +540,13 @@ async function togglePublish() {
     space.value = { ...space.value, ...(updated as any) }
     showToast(isLive ? 'Tour unpublished' : 'Tour published! Buyers can now find it.')
     emit('published')
+    // Take them straight to the live tour — always the view.viewora.software
+    // side of the split (see utils/publicTourUrl.ts), since publishing from
+    // Details is exactly the "this listing as a whole" context that page is
+    // for, not just the panorama.
+    if (!isLive && typeof window !== 'undefined') {
+      window.open(resolvePublicTourUrl(space.value, 'details'), '_blank')
+    }
   } catch (e: any) {
     showToast(e?.data?.statusMessage || 'Publishing failed', 'error')
   } finally {
@@ -818,6 +843,15 @@ async function handleRemoveBg() {
 .details-back:hover { color: #fff; background: rgba(255,255,255,0.1); }
 .details-header__title { flex: 1 1 auto; min-width: 0; }
 
+.details-share-btn {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 130ms, color 130ms;
+}
+.details-share-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
 .details-publish-btn {
   flex: 0 0 auto; height: 36px; padding: 0 18px; border-radius: 10px;
   background: #2563eb; color: #fff; border: none;
@@ -833,8 +867,9 @@ async function handleRemoveBg() {
 @media (max-width: 640px) {
   .details-header { flex-wrap: wrap; row-gap: 12px; }
   .details-back { order: 1; }
-  .details-publish-btn { order: 2; margin-left: auto; }
-  .details-header__title { order: 3; flex-basis: 100%; }
+  .details-share-btn { order: 2; margin-left: auto; }
+  .details-publish-btn { order: 3; }
+  .details-header__title { order: 4; flex-basis: 100%; }
 }
 
 .details-empty { display: flex; align-items: center; justify-content: center; padding: 80px 20px; }
