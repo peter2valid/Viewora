@@ -87,6 +87,6 @@ const whatsappHref = computed(() => `https://wa.me/${telDigits.value}?text=${enc
   text-decoration: none; cursor: pointer; border: 1px solid var(--vo-border-strong);
   background: var(--vo-surface); color: var(--vo-text); transition: filter 180ms ease;
 }
-.seller-card__btn--whatsapp { background: var(--vo-text); color: var(--vo-inverse); border-color: transparent; }
+.seller-card__btn--whatsapp { background: var(--whatsapp, #25D366); color: var(--whatsapp-ink, #06210F); border-color: transparent; }
 .seller-card__btn:hover { filter: brightness(0.94); }
 </style>

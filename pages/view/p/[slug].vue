@@ -762,8 +762,8 @@ useSeoMeta({
   --accent: var(--vo-text);
   --accent-strong: var(--vo-text);
   --accent-tint: var(--vo-elevated);
-  --whatsapp: var(--vo-text);
-  --whatsapp-ink: var(--vo-inverse);
+  --whatsapp: #25D366;
+  --whatsapp-ink: #06210F;
   --shadow-lg: rgba(0, 0, 0, 0.2);
   --scrim-top: rgba(8, 7, 6, 0.5);
   --scrim-bottom: rgba(6, 5, 4, 0.62);

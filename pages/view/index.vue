@@ -209,8 +209,8 @@ useSeoMeta({
   --accent: var(--vo-text);
   --accent-strong: var(--vo-text);
   --accent-tint: var(--vo-elevated);
-  --whatsapp: var(--vo-text);
-  --whatsapp-ink: var(--vo-inverse);
+  --whatsapp: #25D366;
+  --whatsapp-ink: #06210F;
   --font-display: 'Plus Jakarta Sans', Inter, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 
