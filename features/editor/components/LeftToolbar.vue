@@ -1,6 +1,6 @@
 <template>
   <Transition name="lt-slide">
-    <aside v-if="visible" class="lt-bar">
+    <aside v-if="visible" class="lt-bar" :class="{ 'lt-bar--no-scene': !hasScene }">
 
       <!-- Info hotspot -->
       <div class="lt-item">
@@ -105,10 +105,13 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from '#imports'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   activePlacementType?: 'info' | 'nav' | null
   settingsOpen?: boolean
-}>()
+  hasScene?: boolean
+}>(), {
+  hasScene: true,
+})
 
 const emit = defineEmits<{
   (e: 'place-hotspot', type: 'info' | 'nav'): void
@@ -279,6 +282,19 @@ onBeforeUnmount(() => {
     width: 1px;
     height: auto;
     margin: 4px 0;
+  }
+
+  /* The empty-state "Upload your first 360° image" card (ViewerCanvas.vue)
+     is vertically centered across the FULL viewport, independent of this
+     bar or SceneDock — with no scene yet, this bar's 184px clearance for
+     SceneDock instead landed it on top of that card's own content (the
+     "Book a Shoot" link was hidden behind it). Hotspot placement, AI
+     scene-linking, and (mostly) settings are meaningless before a scene
+     exists anyway — Settings stays reachable via TopBar's own icon — so
+     just hide this bar until the first scene/upload exists, matching the
+     360 empty state exactly like the reference screenshot expected. */
+  .lt-bar--no-scene {
+    display: none;
   }
 }
 

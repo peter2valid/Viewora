@@ -87,6 +87,7 @@
 
     <LeftToolbar
       v-if="editorStore.mode !== 'preview'"
+      :has-scene="hasPanorama"
       :active-placement-type="activePlacementType"
       :settings-open="showSettingsPanel"
       @place-hotspot="handlePlaceHotspot"
