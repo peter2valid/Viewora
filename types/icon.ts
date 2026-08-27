@@ -12,4 +12,4 @@ export type IconName =
   | 'gauge' | 'manual-gearbox' | 'gas-station'
   | 'parking' | 'wifi' | 'pool' | 'droplet' | 'bolt' | 'shield-check'
   | 'barbell' | 'paw' | 'elevator' | 'trees' | 'snowflake' | 'flame'
-  | 'washing-machine' | 'sofa' | 'building-community'
+  | 'washing-machine' | 'sofa' | 'building-community' | 'phone'
