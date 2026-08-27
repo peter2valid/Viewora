@@ -893,10 +893,13 @@ async function copyEmbedCode() {
   }
 }
 
-const publicUrl = computed(() => {
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
-  return `${base}/p/${space.value?.slug || space.value?.id}`
-})
+// view.viewora.software (not the app.viewora.software domain this editor
+// runs on, and not /p/ — that classic page is 360-scene-only with no
+// gallery fallback, so it 404s/dead-ends for photo-only listings). This is
+// the actual buyer-facing link shared via WhatsApp/QR/copy-link, so it
+// should point at the domain built specifically for buyers, and the route
+// that actually renders both panorama and gallery-only listings.
+const publicUrl = computed(() => `https://view.viewora.software/view/p/${space.value?.slug || space.value?.id}`)
 const embedUrl = computed(() => {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
   return `${base}/embed/${space.value?.slug || space.value?.id}`

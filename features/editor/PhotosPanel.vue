@@ -32,6 +32,7 @@
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         <p>No photos yet</p>
         <button class="photos-add-btn" :disabled="!space" @click="fileInput?.click()">Add your first photo</button>
+        <NuxtLink :to="{ query: { tab: 'details' } }" class="photos-next-link">Next: Details &amp; Publish →</NuxtLink>
       </div>
 
       <div v-else class="photos-grid">
@@ -90,6 +91,7 @@
         </div>
       </div>
       <p v-if="photos.length > 1" class="photos-hint">Drag a photo to reorder. The cover photo is always shown first — use the star to change it.</p>
+      <NuxtLink v-if="photos.length" :to="{ query: { tab: 'details' } }" class="photos-next-link photos-next-link--filled">Next: Details &amp; Publish →</NuxtLink>
 
       <Teleport to="body">
         <div v-if="lightboxIndex !== null" class="photo-lightbox" role="dialog" aria-modal="true" @click.self="closeLightbox">
@@ -347,6 +349,13 @@ async function onDragEnd() {
   gap: 12px; padding: 80px 20px; color: rgba(255,255,255,0.35); text-align: center;
 }
 .photos-empty p { font-size: 0.85rem; font-weight: 600; margin: 0; }
+
+.photos-next-link {
+  font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,0.5);
+  text-decoration: none; margin-top: 4px;
+}
+.photos-next-link:hover { color: #fff; }
+.photos-next-link--filled { display: block; text-align: center; margin: 18px 0 0; }
 
 .photos-grid {
   /* auto-fit (not auto-fill) — with few photos, auto-fill still reserves

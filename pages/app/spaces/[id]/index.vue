@@ -31,14 +31,14 @@
       <EditorShell ref="editorShellRef" :space-id="spaceId" />
     </div>
     <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
-    <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" />
+    <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" @published="editorShellRef?.fetchSpace(true)" />
 
     <ClaimBanner />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { definePageMeta, useSeoMeta, useRoute, useRouter } from '#imports'
 import EditorShell from '~/features/editor/EditorShell.vue'
 import PhotosPanel from '~/features/editor/PhotosPanel.vue'
@@ -65,6 +65,14 @@ function setMode(next: Mode) {
   router.replace({ query: { ...route.query, tab: next } })
   if (leavingDetails) editorShellRef.value?.fetchSpace(true)
 }
+
+// Lets a child panel's own "Next"/"Skip" links (plain NuxtLinks to
+// ?tab=...) drive the same tab switch as clicking the pills above, instead
+// of every panel needing setMode threaded down as a prop/emit.
+watch(() => route.query.tab, (t) => {
+  const next: Mode = t === 'photos' ? 'photos' : t === 'details' ? 'details' : 'tour'
+  if (next !== mode.value) setMode(next)
+})
 </script>
 
 <style scoped>

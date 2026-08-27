@@ -98,7 +98,11 @@
             <button class="w-10 h-10 flex items-center justify-center bg-surface border border-border rounded-lg text-main shadow-sm hover:bg-main hover:text-bg transition-colors" @click.stop="navigateTo(`/app/spaces/${space.id}`)" title="Edit">
               <UiIcon name="edit" :size="16" />
             </button>
-            <a v-if="space.is_published && space.slug" :href="`/p/${space.slug}`" target="_blank" class="w-10 h-10 flex items-center justify-center bg-surface border border-border rounded-lg text-main shadow-sm hover:bg-main hover:text-bg transition-colors" @click.stop title="View Live">
+            <!-- /view/p/, not the classic /p/ — that page is 360-scene-only
+                 with no gallery fallback, so it 404s/dead-ends for
+                 photo-only listings. /view/p/ is the one that actually
+                 renders both. -->
+            <a v-if="space.is_published && space.slug" :href="`/view/p/${space.slug}`" target="_blank" class="w-10 h-10 flex items-center justify-center bg-surface border border-border rounded-lg text-main shadow-sm hover:bg-main hover:text-bg transition-colors" @click.stop title="View Live">
               <UiIcon name="external-link" :size="16" />
             </a>
           </template>

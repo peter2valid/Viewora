@@ -8,13 +8,18 @@
       </NuxtLink>
       <div class="details-header__title">
         <SpacePill :name="space?.title || 'MY TOUR'" mode="Details" />
-        <p>Name, price, facts, and contact info for this listing.</p>
-        <div class="details-legend">
-          <span class="details-legend__item"><span class="df-field__req">required</span> — every listing needs one</span>
-          <span class="details-legend__item"><span class="df-field__rec">recommended</span> — buyers can't contact you without it</span>
-          <span class="details-legend__item"><span class="df-field__opt">optional</span> — fine to leave blank</span>
-        </div>
       </div>
+
+      <button
+        v-if="space"
+        class="details-publish-btn"
+        :class="{ 'details-publish-btn--live': space.is_published }"
+        :disabled="publishing"
+        @click="togglePublish"
+      >
+        <span v-if="publishing" class="df-spin df-spin--invert" />
+        <template v-else>{{ space.is_published ? 'Unpublish' : 'Publish Tour' }}</template>
+      </button>
     </header>
 
     <div v-if="pending" class="details-empty"><span class="df-spin" /></div>
@@ -347,6 +352,7 @@ import SpacePill from '~/features/editor/components/SpacePill.vue'
 import { toast } from 'vue-sonner'
 
 const props = defineProps<{ spaceId: string }>()
+const emit = defineEmits<{ published: [] }>()
 
 const { apiFetch } = useApiFetch()
 const { fetchSpace: fetchSpaceRaw } = useSpaces()
@@ -355,6 +361,7 @@ const space = ref<any>(null)
 const pending = ref(true)
 const saving = ref(false)
 const isDirty = ref(false)
+const publishing = ref(false)
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
   if (type === 'error') toast.error(message)
@@ -481,6 +488,44 @@ async function save() {
     showToast(e?.data?.statusMessage || 'Failed to save details', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+// ── Publish ───────────────────────────────────────────────────────────────
+// A lighter gate than EditorShell's full validateTourHealth() (broken
+// hotspot links, unreachable rooms, still-processing scenes) — this panel
+// doesn't fetch scenes/hotspots, only has_360/has_gallery already present
+// on the space row. Good enough to block the one thing that actually
+// matters here (publishing literal nothing); the fuller health check still
+// runs whenever Publish is used from the 360° Tour tab's TopBar.
+async function togglePublish() {
+  if (publishing.value || !space.value) return
+  const isLive = space.value.is_published
+  if (!isLive && !space.value.has_360 && !space.value.has_gallery) {
+    showToast('Add at least one 360° scene or photo before publishing.', 'error')
+    return
+  }
+  publishing.value = true
+  try {
+    const updated = await apiFetch(`/spaces/${props.spaceId}/publish`, {
+      method: 'POST',
+      body: {
+        publish: !isLive,
+        slug: space.value.slug,
+        lead_form_enabled: space.value.lead_form_enabled,
+        branding_enabled: space.value.branding_enabled,
+      },
+    })
+    // The publish endpoint returns flat columns only — merge rather than
+    // replace so nested relations (property_media, property_360_settings)
+    // already on this space aren't dropped.
+    space.value = { ...space.value, ...(updated as any) }
+    showToast(isLive ? 'Tour unpublished' : 'Tour published! Buyers can now find it.')
+    emit('published')
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || 'Publishing failed', 'error')
+  } finally {
+    publishing.value = false
   }
 }
 
@@ -761,7 +806,7 @@ async function handleRemoveBg() {
 .hidden-input { display: none; }
 
 .details-header {
-  display: flex; align-items: flex-start; gap: 14px;
+  display: flex; align-items: center; gap: 14px;
   max-width: 720px; margin: 0 auto; padding: 0 20px 28px;
 }
 .details-back {
@@ -772,12 +817,24 @@ async function handleRemoveBg() {
 }
 .details-back:hover { color: #fff; background: rgba(255,255,255,0.1); }
 .details-header__title { flex: 1 1 auto; min-width: 0; }
-.details-header__title p { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin: 8px 0 0; }
-.details-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 12px; }
-.details-legend__item { font-size: 11px; color: rgba(255,255,255,0.38); font-weight: 500; }
+
+.details-publish-btn {
+  flex: 0 0 auto; height: 36px; padding: 0 18px; border-radius: 10px;
+  background: #2563eb; color: #fff; border: none;
+  font-size: 12.5px; font-weight: 800; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: inherit; transition: background 130ms;
+}
+.details-publish-btn:hover { background: #1d4ed8; }
+.details-publish-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.details-publish-btn--live { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); }
+.details-publish-btn--live:hover { background: rgba(255,255,255,0.13); }
 
 @media (max-width: 640px) {
   .details-header { flex-wrap: wrap; row-gap: 12px; }
+  .details-back { order: 1; }
+  .details-publish-btn { order: 2; margin-left: auto; }
+  .details-header__title { order: 3; flex-basis: 100%; }
 }
 
 .details-empty { display: flex; align-items: center; justify-content: center; padding: 80px 20px; }
