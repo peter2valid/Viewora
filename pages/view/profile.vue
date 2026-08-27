@@ -297,8 +297,9 @@ useSeoMeta({
 
 .account-card {
   display: flex; align-items: center; gap: 12px;
-  padding: 14px; margin-bottom: 22px;
+  padding: 16px; margin-bottom: 22px;
   border-radius: var(--vo-radius-lg); background: var(--sheet); border: 1px solid var(--line);
+  box-shadow: var(--vo-shadow-sm);
 }
 .account-card__avatar {
   flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; object-fit: cover;

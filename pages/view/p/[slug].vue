@@ -1008,16 +1008,16 @@ useSeoMeta({
   color: var(--accent-strong); margin: 26px 0 12px; display: flex; align-items: center; justify-content: space-between;
 }
 .sheet__section-label:first-child { margin-top: 0; }
-.factgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-top: 26px; }
+.factgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin-top: 26px; }
 .factgrid:first-child { margin-top: 0; }
-.factcard { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 14px 12px; border-radius: var(--vo-radius-lg); background: var(--sheet-2); border: 1px solid var(--line); }
-.factcard b { font-size: 0.95rem; }
-.factcard span { font-size: 0.66rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono); }
+.factcard { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 16px 14px; border-radius: var(--vo-radius-lg); background: var(--sheet-2); border: 1px solid var(--line); box-shadow: var(--vo-shadow-sm); }
+.factcard b { font-size: 1.05rem; font-weight: 700; }
+.factcard span { font-size: 0.66rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--font-mono); }
 .amenities { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .amenities:first-child { margin-top: 0; }
-.amenity { display: inline-flex; align-items: center; padding: 8px 13px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); font-size: 0.79rem; font-weight: 600; color: var(--ink); }
+.amenity { display: inline-flex; align-items: center; padding: 9px 15px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); box-shadow: var(--vo-shadow-sm); font-size: 0.8rem; font-weight: 600; color: var(--ink); }
 .sheet__desc { font-size: 0.88rem; line-height: 1.6; color: var(--ink-soft); margin: 0; }
-.ownercard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: var(--sheet-2); border: 1px solid var(--line); }
+.ownercard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--vo-radius-lg); background: var(--sheet-2); border: 1px solid var(--line); box-shadow: var(--vo-shadow-sm); }
 .ownercard--link { text-decoration: none; color: inherit; }
 .ownercard__avatar { width: 46px; height: 46px; border-radius: 50%; flex: 0 0 auto; background: var(--ink); color: var(--vo-inverse); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
 .ownercard__avatar--img { object-fit: cover; background: var(--sheet-2); }

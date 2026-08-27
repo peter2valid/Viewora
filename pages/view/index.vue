@@ -280,9 +280,9 @@ useSeoMeta({
    would need a simplified low-detail version to work here. Text-only
    wordmark until one exists. */
 .feed__logo-text {
-  font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 .feed__controls {
@@ -292,45 +292,74 @@ useSeoMeta({
   margin-top: 14px;
   overflow-x: auto;
 }
+/* Wider chips (see .chip below) no longer all fit in one row on a phone —
+   confirmed by rendering it: "Other" was hard-clipped right at the frame
+   edge with zero indication it was scrollable, not just narrower. A right-
+   edge fade signals "more chips, scroll" instead, same pattern already
+   used on the detail page's .sheet__scroll for the same reason. */
 .feed__chips {
   display: flex;
   gap: 6px;
-  flex: 0 1 auto;
+  /* 1 1 auto (not the shrink-to-fit default) so this box always spans the
+     row's full available width — otherwise the fade mask below, which
+     fades the box's own last 28px, would dim the last chip even when
+     everything already fits and there's nothing to scroll to. */
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
 }
 .feed__chips::-webkit-scrollbar { display: none; }
 .chip {
   flex: 0 0 auto;
-  padding: 6px 12px;
+  padding: 7px 14px;
   border-radius: var(--vo-radius-pill);
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink-soft);
-  font-size: 0.76rem;
+  font-size: 0.79rem;
   font-weight: 600;
-  height: 30px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
 }
+.chip:hover { border-color: var(--vo-border-strong); }
 .chip--active {
   background: var(--ink);
   border-color: var(--accent);
   color: var(--vo-inverse);
+  box-shadow: var(--vo-shadow-sm);
 }
+/* Native <select>, styled to sit next to the hand-styled pill chips without
+   looking like a bare OS control — same custom-chevron technique already
+   used for .spaces-sort elsewhere in this app (assets/css/main.css),
+   applied here for consistency. */
 .feed__sort {
   flex: 0 0 auto;
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  height: 34px;
+  padding: 0 30px 0 12px;
+  border-radius: var(--vo-radius-pill);
   border: 1px solid var(--line);
-  background: var(--sheet);
+  background-color: var(--sheet);
   color: var(--ink);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238c8c87' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 160ms ease;
 }
+.feed__sort:hover { border-color: var(--vo-border-strong); }
+.feed__sort:focus-visible { outline: 2px solid var(--vo-border-strong); outline-offset: 1px; }
 @media (max-width: 639px) {
   .feed__controls { flex-wrap: wrap; overflow: visible; }
   .feed__sort { order: -1; margin-left: auto; }

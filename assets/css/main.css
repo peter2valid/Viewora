@@ -72,6 +72,7 @@
   --vo-radius-sm: 6px;
   --vo-radius-md: 10px;
   --vo-radius-lg: 14px;
+  --vo-radius-xl: 20px;
   --vo-radius-pill: 999px;
   --vo-space-1: 0.25rem;
   --vo-space-2: 0.5rem;
@@ -79,6 +80,13 @@
   --vo-space-4: 1rem;
   --vo-space-6: 1.5rem;
   --vo-space-8: 2rem;
+
+  /* Real elevation instead of a flat 1px border — the buyer-facing surfaces
+     (feed cards, sheets, dropdowns) read as "premium" partly through depth,
+     not just correct spacing. Two steps: -sm for resting cards, -md for
+     anything raised on hover/focus or floating (the nav dock, dropdowns). */
+  --vo-shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.04), 0 1px 1px rgba(17, 17, 17, 0.03);
+  --vo-shadow-md: 0 12px 28px rgba(17, 17, 17, 0.09), 0 2px 6px rgba(17, 17, 17, 0.05);
 }
 
 .dark {
@@ -128,6 +136,13 @@
   --vo-border: #242424;
   --vo-border-strong: #343434;
   --vo-inverse: #070707;
+
+  /* Dark surfaces don't get lift from a soft shadow the way light ones do
+     (there's no ambient light to block) — depth instead comes from a real
+     black cast plus a faint top highlight, which is what actually reads as
+     "raised" against a near-black page. */
+  --vo-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --vo-shadow-md: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* ── PSV Controls & Overlays ── Ensure visibility on bright backgrounds */
