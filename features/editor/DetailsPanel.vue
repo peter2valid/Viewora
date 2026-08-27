@@ -8,7 +8,7 @@
       </NuxtLink>
       <div class="details-header__title">
         <SpacePill :name="space?.title || 'MY TOUR'" mode="Details" />
-        <p>Everything buyers see about this listing — name, price, contact, and facts.</p>
+        <p>Name, price, facts, and contact info for this listing.</p>
       </div>
     </header>
 
@@ -16,43 +16,23 @@
 
     <form v-else class="details-body" @submit.prevent="save">
 
-      <!-- SECTION: Basic Info -->
+      <!-- SECTION 1: Listing Basics — everything a buyer sees the moment
+           the tour opens (view/p/[slug].vue: title, price/status row,
+           location, facts row, amenities). Ordered top-to-bottom to match
+           that page, and ordered BEFORE Description so the AI draft below
+           has real facts to work from on the first pass. -->
       <section class="df-card">
         <div class="df-card__head">
           <span class="df-card__num">1</span>
           <div>
-            <h2 class="df-card__title">Basic Info</h2>
-            <p class="df-card__sub">Name, description, and how buyers reach you.</p>
+            <h2 class="df-card__title">Listing Basics</h2>
+            <p class="df-card__sub">What buyers see first — title, price, location, and facts.</p>
           </div>
         </div>
 
         <div class="df-field">
           <label class="df-field__label">Name</label>
           <input class="df-input" v-model="draft.title" placeholder="Enter listing name" maxlength="120" />
-        </div>
-
-        <div class="df-field">
-          <div class="df-field__label-row">
-            <label class="df-field__label">Description <span class="df-field__opt">optional</span></label>
-            <button type="button" class="df-ai-btn" :disabled="generatingDescription" @click="generateDescription">
-              <span v-if="generatingDescription" class="df-spin df-spin--invert" />
-              <span v-else>✨ Generate with AI</span>
-            </button>
-          </div>
-          <textarea class="df-textarea" v-model="draft.description" placeholder="Describe this listing…" rows="4" />
-          <div class="df-hint">Drafts a description from the price, facts, and amenities below — review and edit before saving.</div>
-        </div>
-
-        <div class="df-field-grid">
-          <div class="df-field">
-            <label class="df-field__label">WhatsApp Number <span class="df-field__opt">optional</span></label>
-            <input class="df-input" v-model="draft.phone" placeholder="+27117537025 or +254712345678" type="tel" />
-            <div class="df-hint">Include the country code — adds a green WhatsApp button on the viewer.</div>
-          </div>
-          <div class="df-field">
-            <label class="df-field__label">Email <span class="df-field__opt">optional</span></label>
-            <input class="df-input" v-model="draft.email" placeholder="contact@example.com" type="email" />
-          </div>
         </div>
 
         <div class="df-field">
@@ -77,62 +57,7 @@
             </div>
             <iframe v-if="mapEmbedUrl" :src="mapEmbedUrl" class="df-map" frameborder="0" scrolling="no" title="Location map" />
           </div>
-        </div>
-
-        <div class="df-field">
-          <label class="df-field__label">Brand Logo <span class="df-field__opt">shows in viewer</span></label>
-          <div class="df-logo-area" @click="logoFileInput?.click()">
-            <template v-if="draft.logoUrl">
-              <img :src="draft.logoUrl" class="df-logo-preview" alt="Logo" />
-              <button class="df-logo-remove" type="button" @click.stop="clearLogo()" aria-label="Remove logo">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </template>
-            <template v-else>
-              <div class="df-logo-placeholder">
-                <svg v-if="!logoUploading" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                </svg>
-                <span v-if="logoUploading" class="df-spin" />
-                <span class="df-logo-hint">{{ logoUploading ? 'Uploading…' : 'Click to upload logo' }}</span>
-              </div>
-            </template>
-          </div>
-          <button
-            v-if="draft.logoUrl"
-            class="df-bg-remove-btn"
-            type="button"
-            :class="{ 'df-bg-remove-btn--done': bgRemoved }"
-            :disabled="bgRemoving"
-            @click.prevent="handleRemoveBg"
-          >
-            <span v-if="bgRemoving" class="df-spin df-spin--invert" />
-            <template v-else-if="bgRemoved">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-              Background removed
-            </template>
-            <template v-else>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
-              Remove background
-            </template>
-          </button>
-        </div>
-      </section>
-
-      <!-- SECTION: Listing Details — price/status/facts the buyer-facing
-           detail screen reads directly (view/p/[slug].vue's keyFacts).
-           Type-specific fields mirror that page's own branching so nothing
-           collected here goes undisplayed, and nothing shown there lacks
-           an editing path. -->
-      <section class="df-card">
-        <div class="df-card__head">
-          <span class="df-card__num">2</span>
-          <div>
-            <h2 class="df-card__title">Listing Details</h2>
-            <p class="df-card__sub">Price and the facts buyers see on the detail page.</p>
-          </div>
+          <div class="df-hint">Buyers only see this as text under the title — search just helps you find accurate wording, the map itself isn't shown on the tour.</div>
         </div>
 
         <div class="df-field-grid">
@@ -239,20 +164,116 @@
         </div>
       </section>
 
-      <!-- SECTION: Lead Capture -->
+      <!-- SECTION 2: Description — comes after Basics on purpose, so the AI
+           draft (grounded in price/facts/amenities above) has something
+           real to work from on the very first click. -->
+      <section class="df-card">
+        <div class="df-card__head">
+          <span class="df-card__num">2</span>
+          <div>
+            <h2 class="df-card__title">Description</h2>
+            <p class="df-card__sub">The story buyers read under "About" on your listing.</p>
+          </div>
+        </div>
+
+        <div class="df-field">
+          <div class="df-field__label-row">
+            <label class="df-field__label">Description <span class="df-field__opt">optional</span></label>
+            <button type="button" class="df-ai-btn" :disabled="generatingDescription" @click="generateDescription">
+              <span v-if="generatingDescription" class="df-spin df-spin--invert" />
+              <span v-else>✨ Generate with AI</span>
+            </button>
+          </div>
+          <textarea class="df-textarea" v-model="draft.description" placeholder="Describe this listing…" rows="4" />
+          <div class="df-hint">Drafts from the price, facts, and amenities above — review and edit before saving.</div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: Contact — the one field that actually adds a working
+           button to the live tour (the green Chat button + the seller
+           contact card). Kept as its own section since it's the single
+           highest-impact field on this whole page. -->
       <section class="df-card">
         <div class="df-card__head">
           <span class="df-card__num">3</span>
           <div>
-            <h2 class="df-card__title">Lead Capture</h2>
-            <p class="df-card__sub">An optional call-to-action button on the tour.</p>
+            <h2 class="df-card__title">Contact</h2>
+            <p class="df-card__sub">Powers the Chat button buyers tap to reach you.</p>
           </div>
+        </div>
+
+        <div class="df-field">
+          <label class="df-field__label">WhatsApp Number <span class="df-field__opt">optional</span></label>
+          <input class="df-input" v-model="draft.phone" placeholder="+27117537025 or +254712345678" type="tel" />
+          <div class="df-hint">Include the country code (e.g. +27 for SA, +254 for Kenya). Without this, buyers have no way to contact you from the tour.</div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: Classic Tour Page & Embed — everything below only
+           renders on the standalone /p/[id] tour link and embedded tours
+           (components/viewer/PsvViewer.vue's post-tour card, gated on
+           hideOwnChrome — which the main listing page always sets, so none
+           of this shows there). Kept last and clearly scoped so filling it
+           out isn't mistaken for changing the main listing page. -->
+      <section class="df-card">
+        <div class="df-card__head">
+          <span class="df-card__num">4</span>
+          <div>
+            <h2 class="df-card__title">Classic Tour Page &amp; Embed</h2>
+            <p class="df-card__sub">Only shown on the standalone tour link (viewora.software/p/…) and when embedded elsewhere — not on your main listing page.</p>
+          </div>
+        </div>
+
+        <div class="df-field">
+          <label class="df-field__label">Email <span class="df-field__opt">optional</span></label>
+          <input class="df-input" v-model="draft.email" placeholder="contact@example.com" type="email" />
+        </div>
+
+        <div class="df-field">
+          <label class="df-field__label">Brand Logo <span class="df-field__opt">optional</span></label>
+          <div class="df-logo-area" @click="logoFileInput?.click()">
+            <template v-if="draft.logoUrl">
+              <img :src="draft.logoUrl" class="df-logo-preview" alt="Logo" />
+              <button class="df-logo-remove" type="button" @click.stop="clearLogo()" aria-label="Remove logo">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </template>
+            <template v-else>
+              <div class="df-logo-placeholder">
+                <svg v-if="!logoUploading" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span v-if="logoUploading" class="df-spin" />
+                <span class="df-logo-hint">{{ logoUploading ? 'Uploading…' : 'Click to upload logo' }}</span>
+              </div>
+            </template>
+          </div>
+          <button
+            v-if="draft.logoUrl"
+            class="df-bg-remove-btn"
+            type="button"
+            :class="{ 'df-bg-remove-btn--done': bgRemoved }"
+            :disabled="bgRemoving"
+            @click.prevent="handleRemoveBg"
+          >
+            <span v-if="bgRemoving" class="df-spin df-spin--invert" />
+            <template v-else-if="bgRemoved">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              Background removed
+            </template>
+            <template v-else>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              Remove background
+            </template>
+          </button>
         </div>
 
         <div class="df-toggle-row">
           <div>
             <div class="df-field__label">CTA Button</div>
-            <div class="df-hint">Show a call-to-action button on the tour</div>
+            <div class="df-hint">Adds a call-to-action button to the standalone tour and its post-tour card</div>
           </div>
           <button
             class="df-toggle"
