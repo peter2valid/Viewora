@@ -185,6 +185,7 @@
             <template v-if="keyFacts.length > 0">
               <div class="factgrid">
                 <div v-for="f in keyFacts" :key="f.label" class="factcard">
+                  <UiIcon :name="f.icon" :size="18" :stroke-width="1.8" class="factcard__icon" />
                   <b>{{ f.value }}</b>
                   <span>{{ f.label }}</span>
                 </div>
@@ -193,7 +194,10 @@
 
             <template v-if="space.amenities && space.amenities.length > 0">
               <div class="amenities">
-                <span v-for="a in space.amenities" :key="a" class="amenity">{{ a }}</span>
+                <span v-for="a in space.amenities" :key="a" class="amenity">
+                  <UiIcon :name="amenityIcon(a)" :size="15" :stroke-width="2" />
+                  {{ a }}
+                </span>
               </div>
             </template>
 
@@ -254,6 +258,8 @@ import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtAp
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
+import { amenityIcon } from '~/utils/amenityIcon'
+import type { IconName } from '~/types/icon'
 
 const { apiFetch } = useApiFetch()
 const { $posthog } = useNuxtApp()
@@ -454,25 +460,25 @@ const whatsapp = computed(() => whatsappUrl(space.value?.phone, space.value?.tit
 const STATUS_LABELS: Record<string, string> = { available: 'Available', sold: 'Sold', rented: 'Rented' }
 const statusLabel = computed(() => STATUS_LABELS[space.value?.listing_status] || 'Available')
 
-const keyFacts = computed(() => {
+const keyFacts = computed((): Array<{ value: string; label: string; icon: IconName }> => {
   const s = space.value
   if (!s) return []
   if (s.space_type === 'residential') {
-    const out = []
-    if (s.bedrooms) out.push({ value: String(s.bedrooms), label: 'Bedrooms' })
-    if (s.bathrooms) out.push({ value: String(s.bathrooms), label: 'Bathrooms' })
-    if (s.area_sqm) out.push({ value: `${s.area_sqm} m²`, label: 'Floor Area' })
+    const out: Array<{ value: string; label: string; icon: IconName }> = []
+    if (s.bedrooms) out.push({ value: String(s.bedrooms), label: 'Bedrooms', icon: 'bed' })
+    if (s.bathrooms) out.push({ value: String(s.bathrooms), label: 'Bathrooms', icon: 'bath' })
+    if (s.area_sqm) out.push({ value: `${s.area_sqm} m²`, label: 'Floor Area', icon: 'ruler' })
     return out
   }
   if (s.space_type === 'automotive') {
-    const out = []
-    if (s.vehicle_year) out.push({ value: String(s.vehicle_year), label: 'Year' })
-    if (s.vehicle_mileage_km != null) out.push({ value: `${s.vehicle_mileage_km.toLocaleString('en-KE')} km`, label: 'Mileage' })
-    if (s.vehicle_transmission) out.push({ value: s.vehicle_transmission[0].toUpperCase() + s.vehicle_transmission.slice(1), label: 'Transmission' })
-    if (s.vehicle_fuel_type) out.push({ value: s.vehicle_fuel_type[0].toUpperCase() + s.vehicle_fuel_type.slice(1), label: 'Fuel' })
+    const out: Array<{ value: string; label: string; icon: IconName }> = []
+    if (s.vehicle_year) out.push({ value: String(s.vehicle_year), label: 'Year', icon: 'calendar' })
+    if (s.vehicle_mileage_km != null) out.push({ value: `${s.vehicle_mileage_km.toLocaleString('en-KE')} km`, label: 'Mileage', icon: 'gauge' })
+    if (s.vehicle_transmission) out.push({ value: s.vehicle_transmission[0].toUpperCase() + s.vehicle_transmission.slice(1), label: 'Transmission', icon: 'manual-gearbox' })
+    if (s.vehicle_fuel_type) out.push({ value: s.vehicle_fuel_type[0].toUpperCase() + s.vehicle_fuel_type.slice(1), label: 'Fuel', icon: 'gas-station' })
     return out
   }
-  if (s.area_sqm) return [{ value: `${s.area_sqm} m²`, label: 'Floor Area' }]
+  if (s.area_sqm) return [{ value: `${s.area_sqm} m²`, label: 'Floor Area', icon: 'ruler' }]
   return []
 })
 
@@ -1003,11 +1009,13 @@ useSeoMeta({
 .factgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin-top: 26px; }
 .factgrid:first-child { margin-top: 0; }
 .factcard { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 16px 14px; border-radius: var(--vo-radius-lg); background: var(--sheet-2); border: 1px solid var(--line); box-shadow: var(--vo-shadow-sm); }
+.factcard__icon { color: var(--accent-strong); }
 .factcard b { font-size: 1.05rem; font-weight: 700; }
 .factcard span { font-size: 0.66rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--font-mono); }
 .amenities { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .amenities:first-child { margin-top: 0; }
-.amenity { display: inline-flex; align-items: center; padding: 9px 15px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); box-shadow: var(--vo-shadow-sm); font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.amenity { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); box-shadow: var(--vo-shadow-sm); font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.amenity :deep(svg) { color: var(--accent-strong); flex-shrink: 0; }
 .sheet__desc { font-size: 0.88rem; line-height: 1.6; color: var(--ink-soft); margin: 0; }
 .brochure-link {
   display: inline-flex; align-items: center; gap: 6px;
