@@ -16,11 +16,7 @@
             </svg>
           </NuxtLink>
 
-          <div class="topbar-tour-pill" :title="spaceName">
-            <span class="topbar-tour-pill__label">{{ spaceName || 'MY TOUR' }}</span>
-            <span class="topbar-tour-pill__dot hidden sm:inline">•</span>
-            <span class="topbar-tour-pill__mode hidden sm:inline">360°</span>
-          </div>
+          <SpacePill :name="spaceName" mode="360°" />
 
           <Transition name="dot-pop">
             <span
@@ -99,6 +95,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
+import SpacePill from '~/features/editor/components/SpacePill.vue'
 
 defineProps<{
   spaceName: string
@@ -138,42 +135,6 @@ onMounted(() => { visible.value = true })
 .dot-pop-enter-from,
 .dot-pop-leave-to     { opacity: 0; transform: scale(0); }
 
-.topbar-tour-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06));
-  border: 1px solid rgba(255,255,255,0.15);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
-  max-width: 280px;
-}
-
-.topbar-tour-pill__label {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  font-weight: 700;
-  color: rgba(255,255,255,0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 210px;
-}
-
-.topbar-tour-pill__dot {
-  color: rgba(255,255,255,0.45);
-  font-size: 11px;
-}
-
-.topbar-tour-pill__mode {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-  color: rgba(255,255,255,0.65);
-}
-
 @media (max-width: 768px) {
   header {
     top: 8px;
@@ -183,14 +144,6 @@ onMounted(() => { visible.value = true })
     padding-bottom: 8px;
   }
 
-  .topbar-tour-pill {
-    max-width: 40vw;
-  }
-
-  .topbar-tour-pill__label {
-    max-width: 26vw;
-  }
-
   .flex.items-center.gap-2.flex-shrink-0 {
     gap: 6px;
   }
@@ -198,16 +151,6 @@ onMounted(() => { visible.value = true })
   .flex.items-center.gap-2.flex-shrink-0 > button {
     height: 34px;
     padding-inline: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .topbar-tour-pill {
-    max-width: 34vw;
-  }
-
-  .topbar-tour-pill__label {
-    max-width: 20vw;
   }
 }
 </style>

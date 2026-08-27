@@ -14,7 +14,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       </NuxtLink>
       <div class="photos-header__title">
-        <h1>{{ space?.title || 'Photos' }}</h1>
+        <SpacePill :name="space?.title || 'MY TOUR'" mode="Photos" />
         <p>Regular photos — no 360° camera needed. Buyers see these as a swipeable gallery.</p>
       </div>
       <button class="photos-add-btn" :disabled="pending || !space" @click="fileInput?.click()">
@@ -98,6 +98,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
+import SpacePill from '~/features/editor/components/SpacePill.vue'
 import { toast } from 'vue-sonner'
 
 const props = defineProps<{ spaceId: string }>()
@@ -272,8 +273,7 @@ async function onDragEnd() {
 }
 .photos-back:hover { color: #fff; background: rgba(255,255,255,0.1); }
 .photos-header__title { flex: 1 1 auto; min-width: 0; }
-.photos-header__title h1 { font-size: 1.1rem; font-weight: 800; margin: 4px 0 4px; }
-.photos-header__title p { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin: 0; }
+.photos-header__title p { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin: 8px 0 0; }
 
 .photos-add-btn {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;

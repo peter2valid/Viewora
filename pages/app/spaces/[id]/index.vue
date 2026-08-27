@@ -65,7 +65,10 @@ function openDetails() {
 
 <style scoped>
 .mode-switch {
-  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 29;
+  /* TopBar.vue sits at top-5 (20px) + h-12 (48px) on desktop, so its own
+     bottom edge is at 68px — this bar's old top:64px overlapped it by 4px
+     instead of leaving a real gap. */
+  position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 29;
   display: flex; gap: 2px; padding: 3px; border-radius: 12px;
   background: rgba(20, 20, 24, 0.7); border: 1px solid rgba(255,255,255,0.08);
   backdrop-filter: blur(16px);
