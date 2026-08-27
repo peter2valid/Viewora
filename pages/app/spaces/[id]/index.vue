@@ -15,14 +15,12 @@
         :class="{ 'mode-switch__btn--active': mode === 'photos' }"
         @click="setMode('photos')"
       >Photos</button>
-      <!-- Not a pane like the two tabs above — opens EditorShell's Listing
-           Settings drawer (name, description, price, amenities…) on top of
-           whichever pane is currently showing, so it's reachable without
-           detouring through the 360°-labeled tab on a gallery-only listing. -->
       <button
-        type="button"
+        role="tab"
+        :aria-selected="mode === 'details'"
         class="mode-switch__btn"
-        @click="openDetails"
+        :class="{ 'mode-switch__btn--active': mode === 'details' }"
+        @click="setMode('details')"
       >Details</button>
     </div>
 
@@ -33,6 +31,7 @@
       <EditorShell ref="editorShellRef" :space-id="spaceId" />
     </div>
     <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
+    <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" />
 
     <ClaimBanner />
   </div>
@@ -43,6 +42,7 @@ import { ref } from 'vue'
 import { definePageMeta, useSeoMeta, useRoute, useRouter } from '#imports'
 import EditorShell from '~/features/editor/EditorShell.vue'
 import PhotosPanel from '~/features/editor/PhotosPanel.vue'
+import DetailsPanel from '~/features/editor/DetailsPanel.vue'
 
 definePageMeta({ layout: 'editor', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
@@ -51,15 +51,19 @@ const route = useRoute()
 const router = useRouter()
 const spaceId = route.params.id as string
 
-const mode = ref<'tour' | 'photos'>(route.query.tab === 'photos' ? 'photos' : 'tour')
-function setMode(next: 'tour' | 'photos') {
-  mode.value = next
-  router.replace({ query: { ...route.query, tab: next } })
-}
+type Mode = 'tour' | 'photos' | 'details'
+const mode = ref<Mode>(route.query.tab === 'photos' ? 'photos' : route.query.tab === 'details' ? 'details' : 'tour')
 
 const editorShellRef = ref<InstanceType<typeof EditorShell> | null>(null)
-function openDetails() {
-  editorShellRef.value?.openSettings()
+
+function setMode(next: Mode) {
+  // The Details form (title, etc.) and EditorShell's own space/title state
+  // are two independent fetches — leaving Details without this would show
+  // TopBar's pill with a stale title until a full reload.
+  const leavingDetails = mode.value === 'details' && next !== 'details'
+  mode.value = next
+  router.replace({ query: { ...route.query, tab: next } })
+  if (leavingDetails) editorShellRef.value?.fetchSpace(true)
 }
 </script>
 

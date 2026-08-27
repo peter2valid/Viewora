@@ -297,7 +297,9 @@ async function onDragEnd() {
 .photos-panel {
   width: 100vw; height: 100vh; overflow-y: auto;
   background: #0a0a0b; color: rgba(255,255,255,0.9);
-  padding-top: 112px;
+  /* mode-switch (pages/app/spaces/[id]/index.vue) sits at top:84px + ~36px
+     tall on desktop — clear its bottom edge (~120px) with a real gap. */
+  padding-top: 136px;
 }
 @media (max-width: 640px) { .photos-panel { padding-top: 104px; } }
 

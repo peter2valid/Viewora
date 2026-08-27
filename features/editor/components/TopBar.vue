@@ -41,9 +41,10 @@
           </button>
 
           <button
+            v-if="hasScene"
             @click="$emit('toggle-settings')"
             class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-white/[0.08] transition-colors"
-            title="Tour settings"
+            title="Viewer settings"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <line x1="4" y1="6" x2="20" y2="6"/>
@@ -97,14 +98,17 @@ import { ref, onMounted } from 'vue'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import SpacePill from '~/features/editor/components/SpacePill.vue'
 
-defineProps<{
+withDefaults(defineProps<{
   spaceName: string
   isPublished: boolean
   publishing: boolean
   hasProcessingScenes?: boolean
+  hasScene?: boolean
   spaceId?: string
   slug?: string
-}>()
+}>(), {
+  hasScene: true,
+})
 
 defineEmits<{
   (e: 'toggle-publish'): void

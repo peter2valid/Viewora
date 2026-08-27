@@ -61,6 +61,7 @@
       :is-published="Boolean(space?.is_published)"
       :publishing="publishing"
       :has-processing-scenes="hasProcessingScenes"
+      :has-scene="hasPanorama"
       :space-id="space?.id"
       :slug="space?.slug"
       @toggle-publish="handleTogglePublish"
@@ -207,14 +208,18 @@
         </div>
       </Transition>
 
-      <!-- ── Tour Settings Panel ─────────────────────────────────────────── -->
+      <!-- ── Viewer Settings Panel — hfov/yaw/pitch/auto-rotate only. Basic
+           Info/Listing Details/Lead Capture live on their own full-page
+           form now (DetailsPanel.vue, the "Details" tab) — this quick panel
+           stays scoped to the one thing worth adjusting while looking at
+           the live panorama, since you see the framing change immediately. -->
       <Transition name="ts-slide">
-        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Listing settings">
+        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Viewer settings">
           <div class="ts-panel">
 
             <!-- Header -->
             <div class="ts-header">
-              <span class="ts-header__title">Listing Settings</span>
+              <span class="ts-header__title">Viewer Settings</span>
               <button class="ts-close" @click="showSettingsPanel = false" aria-label="Close settings">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -223,259 +228,7 @@
             <!-- Scrollable body -->
             <div class="ts-body ts-scroll">
 
-              <!-- SECTION: Basic Info -->
               <div class="ts-section">
-                <div class="ts-section__label">Basic Info</div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Name</label>
-                  <input
-                    class="ts-input"
-                    v-model="settingsDraft.title"
-                    placeholder="Enter listing name"
-                    maxlength="120"
-                  />
-                </div>
-
-                <div class="ts-field">
-                  <div class="ts-field__label-row">
-                    <label class="ts-field__label">Description <span class="ts-field__opt">optional</span></label>
-                    <button
-                      type="button"
-                      class="ts-ai-btn"
-                      :disabled="generatingDescription"
-                      @click="generateDescription"
-                    >
-                      <span v-if="generatingDescription" class="ts-spin ts-spin--invert" />
-                      <span v-else>✨ Generate with AI</span>
-                    </button>
-                  </div>
-                  <textarea
-                    class="ts-textarea"
-                    v-model="settingsDraft.description"
-                    placeholder="Describe this listing…"
-                    rows="3"
-                  />
-                  <div class="ts-toggle-sub" style="margin-top: 5px;">Drafts a description from the price, facts, and amenities you've filled in below — review and edit before saving.</div>
-                </div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">WhatsApp Number <span class="ts-field__opt">optional</span></label>
-                  <input class="ts-input" v-model="settingsDraft.phone" placeholder="+27117537025 or +254712345678" type="tel" />
-                  <div class="ts-toggle-sub" style="margin-top: 5px;">Must include country code (e.g. +27 for SA, +254 for Kenya). Adds a green WhatsApp button so visitors can contact you directly from the viewer.</div>
-                </div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Email <span class="ts-field__opt">optional</span></label>
-                  <input class="ts-input" v-model="settingsDraft.email" placeholder="contact@example.com" type="email" />
-                </div>
-
-                <!-- Location with map -->
-                <div class="ts-field">
-                  <label class="ts-field__label">
-                    Location
-                    <span class="ts-field__opt">optional</span>
-                  </label>
-                  <div class="ts-location-wrap">
-                    <div class="ts-location-input-row">
-                      <input
-                        class="ts-input"
-                        :value="settingsDraft.locationText"
-                        placeholder="Search a location…"
-                        @input="onLocationInput(($event.target as HTMLInputElement).value)"
-                      />
-                      <div v-if="locationSearching" class="ts-location-spin" />
-                    </div>
-                    <div v-if="locationDropOpen && locationResults.length" class="ts-location-drop">
-                      <button
-                        v-for="r in locationResults"
-                        :key="r.lat + r.lon"
-                        class="ts-location-result"
-                        @click="selectLocation(r)"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ts-location-pin" aria-hidden="true">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                          <circle cx="12" cy="10" r="3"/>
-                        </svg>
-                        <span class="ts-location-text">{{ r.display_name }}</span>
-                      </button>
-                    </div>
-                    <iframe
-                      v-if="mapEmbedUrl"
-                      :src="mapEmbedUrl"
-                      class="ts-map"
-                      frameborder="0"
-                      scrolling="no"
-                      title="Location map"
-                    />
-                  </div>
-                </div>
-
-                <!-- Logo upload -->
-                <div class="ts-field">
-                  <label class="ts-field__label">Brand Logo <span class="ts-field__opt">shows in viewer</span></label>
-                  <input ref="logoFileInput" type="file" accept="image/*" class="ts-hidden-file" @change="handleLogoFileChange" />
-                  <div class="ts-logo-area" @click="logoFileInput?.click()">
-                    <template v-if="settingsDraft.logoUrl">
-                      <img :src="settingsDraft.logoUrl" class="ts-logo-preview" alt="Logo" />
-                      <button class="ts-logo-remove" @click.stop="clearLogo()" aria-label="Remove logo">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                      </button>
-                    </template>
-                    <template v-else>
-                      <div class="ts-logo-placeholder">
-                        <svg v-if="!logoUploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                        <span v-if="logoUploading" class="ts-spin" />
-                        <span class="ts-logo-hint">{{ logoUploading ? 'Uploading…' : 'Click to upload logo' }}</span>
-                      </div>
-                    </template>
-                  </div>
-                  <button
-                    v-if="settingsDraft.logoUrl"
-                    class="ts-bg-remove-btn"
-                    :class="{ 'ts-bg-remove-btn--done': bgRemoved }"
-                    :disabled="bgRemoving"
-                    @click.prevent="handleRemoveBg"
-                  >
-                    <span v-if="bgRemoving" class="ts-spin ts-spin--invert" />
-                    <template v-else-if="bgRemoved">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                      Background removed
-                    </template>
-                    <template v-else>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                      </svg>
-                      Remove background
-                    </template>
-                  </button>
-                </div>
-              </div>
-
-              <!-- SECTION: Listing Details — price/status/facts the buyer-facing
-                   detail screen reads directly (view/p/[slug].vue's keyFacts).
-                   Type-specific fields mirror that page's own branching so
-                   nothing collected here goes undisplayed, and nothing shown
-                   there lacks an editing path. -->
-              <div class="ts-section">
-                <div class="ts-section__label">Listing Details</div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Price (KES) <span class="ts-field__opt">optional</span></label>
-                  <input
-                    class="ts-input"
-                    v-model.number="settingsDraft.priceKes"
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 18500000"
-                  />
-                </div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Status</label>
-                  <div class="ts-seg">
-                    <button
-                      v-for="opt in listingStatusOptions"
-                      :key="opt.value"
-                      class="ts-seg__btn"
-                      :class="{ 'ts-seg__btn--active': settingsDraft.listingStatus === opt.value }"
-                      type="button"
-                      @click="settingsDraft.listingStatus = opt.value"
-                    >{{ opt.label }}</button>
-                  </div>
-                </div>
-
-                <template v-if="space?.space_type === 'residential'">
-                  <div class="ts-field ts-field--row">
-                    <div>
-                      <label class="ts-field__label">Bedrooms</label>
-                      <input class="ts-input" v-model.number="settingsDraft.bedrooms" type="number" min="0" placeholder="0" />
-                    </div>
-                    <div>
-                      <label class="ts-field__label">Bathrooms</label>
-                      <input class="ts-input" v-model.number="settingsDraft.bathrooms" type="number" min="0" placeholder="0" />
-                    </div>
-                  </div>
-                  <div class="ts-field">
-                    <label class="ts-field__label">Floor Area (m²)</label>
-                    <input class="ts-input" v-model.number="settingsDraft.areaSqm" type="number" min="0" placeholder="e.g. 220" />
-                  </div>
-                </template>
-
-                <template v-else-if="space?.space_type === 'automotive'">
-                  <div class="ts-field ts-field--row">
-                    <div>
-                      <label class="ts-field__label">Year</label>
-                      <input class="ts-input" v-model.number="settingsDraft.vehicleYear" type="number" min="1900" max="2100" placeholder="e.g. 2021" />
-                    </div>
-                    <div>
-                      <label class="ts-field__label">Mileage (km)</label>
-                      <input class="ts-input" v-model.number="settingsDraft.vehicleMileageKm" type="number" min="0" placeholder="e.g. 45000" />
-                    </div>
-                  </div>
-                  <div class="ts-field">
-                    <label class="ts-field__label">Transmission</label>
-                    <div class="ts-seg">
-                      <button
-                        v-for="opt in vehicleTransmissionOptions"
-                        :key="opt.value"
-                        class="ts-seg__btn"
-                        :class="{ 'ts-seg__btn--active': settingsDraft.vehicleTransmission === opt.value }"
-                        type="button"
-                        @click="settingsDraft.vehicleTransmission = opt.value"
-                      >{{ opt.label }}</button>
-                    </div>
-                  </div>
-                  <div class="ts-field">
-                    <label class="ts-field__label">Fuel Type</label>
-                    <div class="ts-seg">
-                      <button
-                        v-for="opt in vehicleFuelTypeOptions"
-                        :key="opt.value"
-                        class="ts-seg__btn"
-                        :class="{ 'ts-seg__btn--active': settingsDraft.vehicleFuelType === opt.value }"
-                        type="button"
-                        @click="settingsDraft.vehicleFuelType = opt.value"
-                      >{{ opt.label }}</button>
-                    </div>
-                  </div>
-                </template>
-
-                <template v-else>
-                  <div class="ts-field">
-                    <label class="ts-field__label">Floor Area (m²) <span class="ts-field__opt">optional</span></label>
-                    <input class="ts-input" v-model.number="settingsDraft.areaSqm" type="number" min="0" placeholder="e.g. 500" />
-                  </div>
-                </template>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Amenities <span class="ts-field__opt">optional</span></label>
-                  <div class="ts-tags">
-                    <span v-for="(a, i) in settingsDraft.amenities" :key="a" class="ts-tag">
-                      {{ a }}
-                      <button type="button" class="ts-tag__remove" :aria-label="`Remove ${a}`" @click="removeAmenity(i)">
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                      </button>
-                    </span>
-                  </div>
-                  <input
-                    class="ts-input"
-                    v-model="amenityDraft"
-                    placeholder="Type an amenity and press Enter — e.g. Parking"
-                    maxlength="60"
-                    @keydown.enter.prevent="addAmenity"
-                    @keydown="onAmenityKeydown"
-                  />
-                </div>
-              </div>
-
-              <!-- SECTION: Viewer — panorama-only (FOV/yaw/pitch/auto-rotate
-                   are meaningless for a gallery-only listing with no scenes). -->
-              <div v-if="scenes.length > 0" class="ts-section">
-                <div class="ts-section__label">Viewer</div>
-
                 <div class="ts-field">
                   <div class="ts-slider-header">
                     <label class="ts-field__label">Field of View</label>
@@ -515,60 +268,6 @@
                     <span class="ts-toggle-thumb" />
                   </button>
                 </div>
-              </div>
-
-              <!-- SECTION: Lead Capture -->
-              <div class="ts-section">
-                <div class="ts-section__label">Lead Capture</div>
-
-                <div class="ts-toggle-row">
-                  <div>
-                    <div class="ts-field__label">CTA Button</div>
-                    <div class="ts-toggle-sub">Show a call-to-action button on the tour</div>
-                  </div>
-                  <button
-                    class="ts-toggle"
-                    :class="{ 'ts-toggle--on': settingsDraft.ctaEnabled }"
-                    role="switch"
-                    :aria-checked="settingsDraft.ctaEnabled"
-                    @click="settingsDraft.ctaEnabled = !settingsDraft.ctaEnabled"
-                  >
-                    <span class="ts-toggle-thumb" />
-                  </button>
-                </div>
-
-                <template v-if="settingsDraft.ctaEnabled">
-                  <div class="ts-field">
-                    <label class="ts-field__label">Button Text</label>
-                    <input class="ts-input" v-model="settingsDraft.ctaButtonText" placeholder="Book a Viewing" maxlength="40" />
-                  </div>
-
-                  <div class="ts-field">
-                    <label class="ts-field__label">Action</label>
-                    <div class="ts-seg">
-                      <button
-                        v-for="opt in ctaActionOptions"
-                        :key="opt.value"
-                        class="ts-seg__btn"
-                        :class="{ 'ts-seg__btn--active': settingsDraft.ctaAction === opt.value }"
-                        type="button"
-                        @click="settingsDraft.ctaAction = opt.value"
-                      >{{ opt.label }}</button>
-                    </div>
-                  </div>
-
-                  <div class="ts-field">
-                    <label class="ts-field__label">
-                      {{ settingsDraft.ctaAction === 'link' ? 'URL' : settingsDraft.ctaAction === 'email' ? 'Email Address' : 'Phone Number' }}
-                    </label>
-                    <input
-                      class="ts-input"
-                      v-model="settingsDraft.ctaDestination"
-                      :placeholder="settingsDraft.ctaAction === 'link' ? 'https://...' : settingsDraft.ctaAction === 'email' ? 'agent@example.com' : '+1 (555) 000-0000'"
-                      :type="settingsDraft.ctaAction === 'link' ? 'url' : settingsDraft.ctaAction === 'email' ? 'email' : 'tel'"
-                    />
-                  </div>
-                </template>
               </div>
 
             </div><!-- end ts-body -->
@@ -1039,8 +738,6 @@ const {
   showShareModal,
   handleTogglePublish,
   saveSettings,
-  generatingDescription,
-  generateDescription,
 } = useEditorPublish(
   props.spaceId,
   apiFetch,
@@ -1141,229 +838,6 @@ const shareTabs = [
   { id: 'embed', label: 'Embed' },
   { id: 'qr', label: 'QR code' },
 ] as const
-
-const ctaActionOptions = [
-  { value: 'link', label: 'Link' },
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' },
-] as const
-
-// ── Settings panel: listing details ──────────────────────────────────────────
-const listingStatusOptions = [
-  { value: 'available', label: 'Available' },
-  { value: 'sold', label: 'Sold' },
-  { value: 'rented', label: 'Rented' },
-] as const
-
-const vehicleTransmissionOptions = [
-  { value: 'manual', label: 'Manual' },
-  { value: 'automatic', label: 'Automatic' },
-] as const
-
-const vehicleFuelTypeOptions = [
-  { value: 'petrol', label: 'Petrol' },
-  { value: 'diesel', label: 'Diesel' },
-  { value: 'electric', label: 'Electric' },
-  { value: 'hybrid', label: 'Hybrid' },
-] as const
-
-const amenityDraft = ref('')
-function addAmenity() {
-  const value = amenityDraft.value.trim()
-  if (!value) return
-  if (!settingsDraft.value.amenities.includes(value)) {
-    settingsDraft.value.amenities.push(value)
-  }
-  amenityDraft.value = ''
-}
-// Comma also commits the current amenity — matches the bot's own
-// "parking, security, wifi" comma-separated input convention.
-function onAmenityKeydown(e: KeyboardEvent) {
-  if (e.key === ',') {
-    e.preventDefault()
-    addAmenity()
-  }
-}
-function removeAmenity(index: number) {
-  settingsDraft.value.amenities.splice(index, 1)
-}
-
-// ── Settings panel: location geocoding ──────────────────────────────────────
-type NominatimResult = { display_name: string; lat: string; lon: string }
-const locationResults = ref<NominatimResult[]>([])
-const locationDropOpen = ref(false)
-const locationSearching = ref(false)
-let locationTimer: ReturnType<typeof setTimeout> | null = null
-
-function onLocationInput(val: string) {
-  settingsDraft.value.locationText = val
-  locationDropOpen.value = false
-  locationResults.value = []
-  if (locationTimer) clearTimeout(locationTimer)
-  if (!val.trim()) return
-  locationTimer = setTimeout(() => fetchLocationResults(val), 600)
-}
-
-async function fetchLocationResults(query: string) {
-  locationSearching.value = true
-  try {
-    const data: NominatimResult[] = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
-      { headers: { 'Accept-Language': 'en-US,en' } }
-    ).then(r => r.json())
-    locationResults.value = data
-    if (data.length) locationDropOpen.value = true
-  } catch { /* ignore */ } finally {
-    locationSearching.value = false
-  }
-}
-
-function selectLocation(result: NominatimResult) {
-  settingsDraft.value.locationText = result.display_name
-  settingsDraft.value.locationLat = parseFloat(result.lat)
-  settingsDraft.value.locationLng = parseFloat(result.lon)
-  locationDropOpen.value = false
-  locationResults.value = []
-}
-
-const mapEmbedUrl = computed(() => {
-  const lat = settingsDraft.value.locationLat
-  const lng = settingsDraft.value.locationLng
-  if (!lat || !lng) return null
-  const d = 0.015
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d},${lat - d},${lng + d},${lat + d}&layer=mapnik&marker=${lat},${lng}`
-})
-
-// ── Settings panel: logo upload ──────────────────────────────────────────────
-const logoFileInput = ref<HTMLInputElement | null>(null)
-const logoUploading = ref(false)
-const localLogoDataUrl = ref('')
-const bgRemoving = ref(false)
-const bgRemoved = ref(false)
-
-function clearLogo() {
-  settingsDraft.value.logoUrl = ''
-  localLogoDataUrl.value = ''
-  bgRemoved.value = false
-}
-
-async function handleLogoFileChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  if (!file.type.startsWith('image/')) { showToast('Select an image file', 'error'); return }
-  bgRemoved.value = false
-  // Read as DataURL for background removal (no CORS restriction)
-  const reader = new FileReader()
-  reader.onload = (e) => { localLogoDataUrl.value = (e.target?.result as string) || '' }
-  reader.readAsDataURL(file)
-  logoUploading.value = true
-  try {
-    const { uploadUrl, publicUrl } = (await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
-      method: 'POST',
-      body: { contentType: file.type, fileName: file.name },
-    })) as { uploadUrl: string; publicUrl: string }
-    await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
-    settingsDraft.value.logoUrl = publicUrl
-    showToast('Logo uploaded')
-  } catch (e: any) {
-    if (e?.status === 404 || e?.statusCode === 404) {
-      showToast('Logo upload requires backend update — coming soon', 'error')
-    } else {
-      showToast('Logo upload failed', 'error')
-    }
-  } finally {
-    logoUploading.value = false
-    if (logoFileInput.value) logoFileInput.value.value = ''
-  }
-}
-
-function removeImageBackground(dataUrl: string, tolerance = 40): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { reject(new Error('no 2d ctx')); return }
-      ctx.drawImage(img, 0, 0)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const pixels = imageData.data
-      const w = canvas.width
-      const h = canvas.height
-
-      const getPixelRgb = (x: number, y: number): [number, number, number] => {
-        const i = (y * w + x) * 4
-        return [pixels[i], pixels[i + 1], pixels[i + 2]]
-      }
-
-      const colorDist = (a: [number, number, number], b: [number, number, number]) =>
-        Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
-
-      // Sample the four corners to estimate the background colour
-      const samples = [getPixelRgb(0,0), getPixelRgb(w-1,0), getPixelRgb(0,h-1), getPixelRgb(w-1,h-1)]
-      const bg: [number, number, number] = [
-        Math.round(samples.reduce((s,c)=>s+c[0],0)/4),
-        Math.round(samples.reduce((s,c)=>s+c[1],0)/4),
-        Math.round(samples.reduce((s,c)=>s+c[2],0)/4),
-      ]
-
-      // BFS flood-fill from every edge pixel
-      const visited = new Uint8Array(w * h)
-      const qx: number[] = []
-      const qy: number[] = []
-
-      const tryEnqueue = (x: number, y: number) => {
-        if (x < 0 || y < 0 || x >= w || y >= h) return
-        const idx = y * w + x
-        if (visited[idx]) return
-        visited[idx] = 1
-        if (colorDist(getPixelRgb(x, y), bg) <= tolerance) { qx.push(x); qy.push(y) }
-      }
-
-      for (let x = 0; x < w; x++) { tryEnqueue(x, 0); tryEnqueue(x, h-1) }
-      for (let y = 0; y < h; y++) { tryEnqueue(0, y); tryEnqueue(w-1, y) }
-
-      for (let i = 0; i < qx.length; i++) {
-        const x = qx[i], y = qy[i]
-        pixels[(y * w + x) * 4 + 3] = 0
-        tryEnqueue(x-1, y); tryEnqueue(x+1, y); tryEnqueue(x, y-1); tryEnqueue(x, y+1)
-      }
-
-      ctx.putImageData(imageData, 0, 0)
-      resolve(canvas.toDataURL('image/png'))
-    }
-    img.onerror = () => reject(new Error('image load failed'))
-    if (dataUrl.startsWith('http')) img.crossOrigin = 'anonymous'
-    img.src = dataUrl
-  })
-}
-
-async function handleRemoveBg() {
-  if (bgRemoving.value) return
-  const source = localLogoDataUrl.value || settingsDraft.value.logoUrl
-  if (!source) return
-  bgRemoving.value = true
-  try {
-    const resultDataUrl = await removeImageBackground(source)
-    const res = await fetch(resultDataUrl)
-    const blob = await res.blob()
-    const file = new File([blob], 'logo.png', { type: 'image/png' })
-    const { uploadUrl, publicUrl } = (await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
-      method: 'POST',
-      body: { contentType: 'image/png', fileName: 'logo.png' },
-    })) as { uploadUrl: string; publicUrl: string }
-    await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/png' } })
-    settingsDraft.value.logoUrl = publicUrl
-    localLogoDataUrl.value = resultDataUrl
-    bgRemoved.value = true
-    showToast('Background removed')
-  } catch {
-    showToast('Background removal failed', 'error')
-  } finally {
-    bgRemoving.value = false
-  }
-}
 
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
@@ -1959,11 +1433,11 @@ defineExpose({
   showToast,
   statusLabel,
   statusBadgeClass,
-  // Lets a host page (e.g. the Details tab on gallery-only listings) open
-  // the Tour Settings drawer directly without switching to the 360° pane —
-  // the drawer itself is Teleport'd to <body>, so it renders fine even while
-  // .editor-shell's own wrapper is display:none via the host's v-show.
-  openSettings: () => { showSettingsPanel.value = true },
+  // Lets the host page (pages/app/spaces/[id]/index.vue) silently refresh
+  // this component's own space/title state after the Details tab saves
+  // changes elsewhere — otherwise TopBar's pill would show a stale title
+  // until a full reload.
+  fetchSpace,
 })
 </script>
 
@@ -2687,110 +2161,12 @@ defineExpose({
 .ts-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 .ts-section { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .ts-section:last-child { border-bottom: none; }
-.ts-section__label {
-  font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
-  text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 16px;
-}
 .ts-field { margin-bottom: 16px; }
 .ts-field:last-child { margin-bottom: 0; }
 .ts-field__label {
   display: block; font-size: 11px; font-weight: 600;
   color: rgba(255,255,255,0.55); margin-bottom: 7px; letter-spacing: 0.01em;
 }
-.ts-field__opt { font-weight: 400; color: rgba(255,255,255,0.22); margin-left: 4px; font-size: 10px; }
-.ts-field__label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
-.ts-field__label-row .ts-field__label { margin-bottom: 0; }
-.ts-ai-btn {
-  flex: 0 0 auto; height: 24px; padding: 0 9px; border-radius: 999px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.7); font-size: 10.5px; font-weight: 600;
-  cursor: pointer; transition: background 130ms, border-color 130ms; font-family: inherit;
-  display: flex; align-items: center; justify-content: center;
-}
-.ts-ai-btn:hover { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.2); }
-.ts-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.ts-input {
-  width: 100%; height: 38px; padding: 0 12px; border-radius: 7px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
-  color: rgba(255,255,255,0.88); font-size: 13px; font-weight: 500;
-  outline: none; transition: border-color 140ms, background 140ms;
-  box-sizing: border-box; font-family: inherit;
-}
-.ts-input:focus { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
-.ts-input::placeholder { color: rgba(255,255,255,0.2); }
-.ts-textarea {
-  width: 100%; padding: 10px 12px; border-radius: 7px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
-  color: rgba(255,255,255,0.88); font-size: 13px; font-weight: 500;
-  outline: none; resize: none; font-family: inherit; line-height: 1.5;
-  box-sizing: border-box; transition: border-color 140ms;
-}
-.ts-textarea:focus { border-color: rgba(255,255,255,0.22); }
-.ts-textarea::placeholder { color: rgba(255,255,255,0.2); }
-.ts-location-wrap { display: flex; flex-direction: column; gap: 8px; }
-.ts-location-input-row { position: relative; display: flex; align-items: center; }
-.ts-location-input-row .ts-input { padding-right: 36px; }
-.ts-location-spin {
-  position: absolute; right: 12px;
-  width: 12px; height: 12px;
-  border: 1.5px solid rgba(255,255,255,0.15); border-top-color: rgba(255,255,255,0.6);
-  border-radius: 50%; animation: ts-spin-anim 0.6s linear infinite; pointer-events: none;
-}
-.ts-location-drop { border-radius: 7px; background: #1a1a20; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
-.ts-location-result {
-  width: 100%; display: flex; align-items: flex-start; gap: 8px;
-  padding: 9px 12px; background: transparent; border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  cursor: pointer; text-align: left; transition: background 120ms;
-}
-.ts-location-result:last-child { border-bottom: none; }
-.ts-location-result:hover { background: rgba(255,255,255,0.05); }
-.ts-location-pin { color: rgba(255,255,255,0.3); flex-shrink: 0; margin-top: 1px; }
-.ts-location-text { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 500; line-height: 1.4; }
-.ts-map { width: 100%; height: 150px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08); display: block; }
-.ts-hidden-file { display: none; }
-.ts-logo-area {
-  position: relative; min-height: 80px; border-radius: 7px;
-  border: 1px dashed rgba(255,255,255,0.15); cursor: pointer;
-  transition: border-color 140ms, background 140ms; overflow: hidden;
-}
-.ts-logo-area:hover { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.03); }
-.ts-logo-placeholder {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 8px; padding: 20px;
-  color: rgba(255,255,255,0.3); min-height: 80px;
-}
-.ts-logo-hint { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
-.ts-logo-preview {
-  width: 100%; height: 80px; object-fit: contain; object-position: center; display: block;
-  background-color: rgba(255,255,255,0.03);
-  background-image:
-    linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(255,255,255,0.06) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.06) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.06) 75%);
-  background-size: 12px 12px;
-  background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
-}
-.ts-bg-remove-btn {
-  margin-top: 7px;
-  width: 100%; height: 30px; border-radius: 6px;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
-  color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 600;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-  transition: background 140ms, border-color 140ms, color 140ms; font-family: inherit;
-}
-.ts-bg-remove-btn:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.8); }
-.ts-bg-remove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.ts-bg-remove-btn--done { border-color: rgba(34,197,94,0.3); color: rgba(134,239,172,0.85); }
-.ts-spin--invert { border-color: rgba(255,255,255,0.18); border-top-color: rgba(255,255,255,0.75); }
-.ts-logo-remove {
-  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px;
-  border-radius: 5px; background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: background 120ms, color 120ms;
-}
-.ts-logo-remove:hover { background: rgba(220,38,38,0.7); color: #fff; border-color: transparent; }
 .ts-slider-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
 .ts-slider-val { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); font-family: ui-monospace, monospace; }
 .ts-range {
@@ -2922,56 +2298,6 @@ defineExpose({
     border-radius: 18px;
   }
 }
-
-/* Segmented control (CTA action picker) */
-.ts-seg {
-  display: flex;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.ts-seg__btn {
-  flex: 1;
-  height: 34px;
-  background: transparent;
-  border: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-.ts-seg__btn:last-child { border-right: none; }
-.ts-seg__btn--active {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.95);
-}
-.ts-seg__btn:hover:not(.ts-seg__btn--active) {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* Listing details — two-column field row (bedrooms/bathrooms, year/mileage) */
-.ts-field--row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.ts-field--row .ts-field__label { margin-bottom: 7px; }
-
-/* Amenity tags */
-.ts-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.ts-tags:empty { margin-bottom: 0; }
-.ts-tag {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 6px 5px 10px; border-radius: 999px;
-  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600;
-}
-.ts-tag__remove {
-  display: flex; align-items: center; justify-content: center;
-  width: 16px; height: 16px; border-radius: 50%; padding: 0;
-  background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.6);
-  cursor: pointer; transition: background 120ms, color 120ms;
-}
-.ts-tag__remove:hover { background: rgba(255,255,255,0.2); color: #fff; }
 
 /* ── AI Auto-link modal ─────────────────────────────────────── */
 .al-modal {
