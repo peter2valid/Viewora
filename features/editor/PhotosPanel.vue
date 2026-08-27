@@ -49,11 +49,12 @@
         </div>
 
         <div
-          v-for="p in photos"
+          v-for="(p, i) in photos"
           :key="p.id"
-          class="photo-card"
+          class="photo-card photo-card--clickable"
           :class="{ 'photo-card--cover': p.is_primary, 'photo-card--dragging': draggedId === p.id }"
           :draggable="!p.is_primary"
+          @click="openLightbox(i)"
           @dragstart="onDragStart(p, $event)"
           @dragover.prevent="onDragOver(p)"
           @dragend="onDragEnd"
@@ -77,24 +78,40 @@
             :disabled="settingCoverId === p.id"
             aria-label="Set as cover photo"
             title="Set as cover photo"
-            @click="handleSetCover(p)"
+            @click.stop="handleSetCover(p)"
           >
             <svg v-if="settingCoverId !== p.id" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"/></svg>
             <span v-else class="photos-spin photos-spin--sm" />
           </button>
-          <button class="photo-card__delete" :disabled="deletingId === p.id" aria-label="Delete photo" @click="handleDelete(p)">
+          <button class="photo-card__delete" :disabled="deletingId === p.id" aria-label="Delete photo" @click.stop="handleDelete(p)">
             <svg v-if="deletingId !== p.id" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
             <span v-else class="photos-spin photos-spin--sm" />
           </button>
         </div>
       </div>
       <p v-if="photos.length > 1" class="photos-hint">Drag a photo to reorder. The cover photo is always shown first — use the star to change it.</p>
+
+      <Teleport to="body">
+        <div v-if="lightboxIndex !== null" class="photo-lightbox" role="dialog" aria-modal="true" @click.self="closeLightbox">
+          <button class="photo-lightbox__close" aria-label="Close preview" @click="closeLightbox">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+          <button v-if="photos.length > 1" v-show="lightboxIndex > 0" class="photo-lightbox__nav photo-lightbox__nav--prev" aria-label="Previous photo" @click="goLightbox(lightboxIndex - 1)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button v-if="photos.length > 1" v-show="lightboxIndex < photos.length - 1" class="photo-lightbox__nav photo-lightbox__nav--next" aria-label="Next photo" @click="goLightbox(lightboxIndex + 1)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+          <img :src="photos[lightboxIndex]?.public_url" :alt="space?.title || 'Photo'" class="photo-lightbox__img" />
+          <div v-if="photos.length > 1" class="photo-lightbox__counter">{{ lightboxIndex + 1 }} / {{ photos.length }}</div>
+        </div>
+      </Teleport>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
@@ -133,6 +150,31 @@ async function loadSpace() {
   }
 }
 onMounted(loadSpace)
+
+// ── Lightbox preview ─────────────────────────────────────────────────────
+const lightboxIndex = ref<number | null>(null)
+function openLightbox(i: number) {
+  lightboxIndex.value = i
+}
+function closeLightbox() {
+  lightboxIndex.value = null
+}
+function goLightbox(i: number) {
+  if (i < 0 || i >= photos.value.length) return
+  lightboxIndex.value = i
+}
+function onLightboxKeydown(e: KeyboardEvent) {
+  if (lightboxIndex.value === null) return
+  if (e.key === 'Escape') closeLightbox()
+  else if (e.key === 'ArrowLeft') goLightbox(lightboxIndex.value - 1)
+  else if (e.key === 'ArrowRight') goLightbox(lightboxIndex.value + 1)
+}
+onMounted(() => window.addEventListener('keydown', onLightboxKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onLightboxKeydown)
+  document.body.style.overflow = ''
+})
+watch(lightboxIndex, (i) => { document.body.style.overflow = i === null ? '' : 'hidden' })
 
 function uploadStateLabel(state: string) {
   if (state === 'signing' || state === 'uploading') return 'Uploading…'
@@ -345,6 +387,7 @@ async function onDragEnd() {
 
 .photo-card--cover { outline: 2px solid #fff; outline-offset: -2px; }
 .photo-card--dragging { opacity: 0.4; }
+.photo-card--clickable { cursor: pointer; }
 .photo-card[draggable="true"] { cursor: grab; }
 .photo-card__cover-badge {
   position: absolute; left: 6px; bottom: 6px; z-index: 2;
@@ -369,4 +412,30 @@ async function onDragEnd() {
 }
 .photos-spin--sm { width: 12px; height: 12px; border-width: 1.5px; }
 @keyframes photos-spin-anim { to { transform: rotate(360deg); } }
+
+.photo-lightbox {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.92);
+}
+.photo-lightbox__img { max-width: min(92vw, 1400px); max-height: 88vh; object-fit: contain; display: block; }
+.photo-lightbox__close {
+  position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; z-index: 2;
+  width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.1); border: none; color: #fff; cursor: pointer;
+}
+.photo-lightbox__close:hover { background: rgba(255,255,255,0.18); }
+.photo-lightbox__nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.1); border: none; color: #fff; cursor: pointer;
+}
+.photo-lightbox__nav:hover { background: rgba(255,255,255,0.18); }
+.photo-lightbox__nav--prev { left: 16px; }
+.photo-lightbox__nav--next { right: 16px; }
+.photo-lightbox__counter {
+  position: absolute; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,0.1);
+  color: #fff; font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums;
+}
 </style>
