@@ -9,6 +9,11 @@
       <div class="details-header__title">
         <SpacePill :name="space?.title || 'MY TOUR'" mode="Details" />
         <p>Name, price, facts, and contact info for this listing.</p>
+        <div class="details-legend">
+          <span class="details-legend__item"><span class="df-field__req">required</span> — every listing needs one</span>
+          <span class="details-legend__item"><span class="df-field__rec">recommended</span> — buyers can't contact you without it</span>
+          <span class="details-legend__item"><span class="df-field__opt">optional</span> — fine to leave blank</span>
+        </div>
       </div>
     </header>
 
@@ -31,7 +36,7 @@
         </div>
 
         <div class="df-field">
-          <label class="df-field__label">Name</label>
+          <label class="df-field__label">Name <span class="df-field__req">required</span></label>
           <input class="df-input" v-model="draft.title" placeholder="Enter listing name" maxlength="120" />
         </div>
 
@@ -83,16 +88,16 @@
         <template v-if="space?.space_type === 'residential'">
           <div class="df-field-grid">
             <div class="df-field">
-              <label class="df-field__label">Bedrooms</label>
+              <label class="df-field__label">Bedrooms <span class="df-field__opt">optional</span></label>
               <input class="df-input" v-model.number="draft.bedrooms" type="number" min="0" placeholder="0" />
             </div>
             <div class="df-field">
-              <label class="df-field__label">Bathrooms</label>
+              <label class="df-field__label">Bathrooms <span class="df-field__opt">optional</span></label>
               <input class="df-input" v-model.number="draft.bathrooms" type="number" min="0" placeholder="0" />
             </div>
           </div>
           <div class="df-field">
-            <label class="df-field__label">Floor Area (m²)</label>
+            <label class="df-field__label">Floor Area (m²) <span class="df-field__opt">optional</span></label>
             <input class="df-input" v-model.number="draft.areaSqm" type="number" min="0" placeholder="e.g. 220" />
           </div>
         </template>
@@ -100,16 +105,16 @@
         <template v-else-if="space?.space_type === 'automotive'">
           <div class="df-field-grid">
             <div class="df-field">
-              <label class="df-field__label">Year</label>
+              <label class="df-field__label">Year <span class="df-field__opt">optional</span></label>
               <input class="df-input" v-model.number="draft.vehicleYear" type="number" min="1900" max="2100" placeholder="e.g. 2021" />
             </div>
             <div class="df-field">
-              <label class="df-field__label">Mileage (km)</label>
+              <label class="df-field__label">Mileage (km) <span class="df-field__opt">optional</span></label>
               <input class="df-input" v-model.number="draft.vehicleMileageKm" type="number" min="0" placeholder="e.g. 45000" />
             </div>
           </div>
           <div class="df-field">
-            <label class="df-field__label">Transmission</label>
+            <label class="df-field__label">Transmission <span class="df-field__opt">optional</span></label>
             <div class="df-seg">
               <button
                 v-for="opt in vehicleTransmissionOptions"
@@ -122,7 +127,7 @@
             </div>
           </div>
           <div class="df-field">
-            <label class="df-field__label">Fuel Type</label>
+            <label class="df-field__label">Fuel Type <span class="df-field__opt">optional</span></label>
             <div class="df-seg">
               <button
                 v-for="opt in vehicleFuelTypeOptions"
@@ -203,7 +208,7 @@
         </div>
 
         <div class="df-field">
-          <label class="df-field__label">WhatsApp Number <span class="df-field__opt">optional</span></label>
+          <label class="df-field__label">WhatsApp Number <span class="df-field__rec">recommended</span></label>
           <input class="df-input" v-model="draft.phone" placeholder="+27117537025 or +254712345678" type="tel" />
           <div class="df-hint">Include the country code (e.g. +27 for SA, +254 for Kenya). Without this, buyers have no way to contact you from the tour.</div>
         </div>
@@ -738,7 +743,14 @@ async function handleRemoveBg() {
 
 <style scoped>
 .details-panel {
-  width: 100vw; min-height: 100vh; overflow-y: auto;
+  /* height, not min-height — the editor layout (layouts/editor.vue) is a
+     fixed 100vh flex column with overflow:hidden, so a min-height box just
+     grows past 100vh and gets clipped by the parent with no way to reach
+     the rest. A fixed height means THIS element overflows internally,
+     which is what makes its own overflow-y:auto actually scroll — the bug
+     that made the whole page unscrollable. Matches PhotosPanel.vue, which
+     already had this right. */
+  width: 100vw; height: 100vh; overflow-y: auto;
   background: #0a0a0b; color: rgba(255,255,255,0.9);
   /* mode-switch (pages/app/spaces/[id]/index.vue) sits at top:84px + ~36px
      tall on desktop — clear its bottom edge (~120px) with a real gap. */
@@ -761,6 +773,8 @@ async function handleRemoveBg() {
 .details-back:hover { color: #fff; background: rgba(255,255,255,0.1); }
 .details-header__title { flex: 1 1 auto; min-width: 0; }
 .details-header__title p { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin: 8px 0 0; }
+.details-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 12px; }
+.details-legend__item { font-size: 11px; color: rgba(255,255,255,0.38); font-weight: 500; }
 
 @media (max-width: 640px) {
   .details-header { flex-wrap: wrap; row-gap: 12px; }
@@ -798,7 +812,15 @@ async function handleRemoveBg() {
   display: block; font-size: 12px; font-weight: 600;
   color: rgba(255,255,255,0.6); margin-bottom: 8px; letter-spacing: 0.01em;
 }
-.df-field__opt { font-weight: 400; color: rgba(255,255,255,0.25); margin-left: 4px; font-size: 10.5px; }
+/* One consistent required/recommended/optional system so no field's
+   status is ever left to guesswork — every field below carries one. */
+.df-field__opt, .df-field__req, .df-field__rec {
+  font-weight: 700; margin-left: 6px; font-size: 9.5px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.df-field__opt { color: rgba(255,255,255,0.28); }
+.df-field__req { color: #fbbf24; }
+.df-field__rec { color: #60a5fa; }
 .df-field__label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .df-field__label-row .df-field__label { margin-bottom: 0; }
 .df-hint { font-size: 11px; color: rgba(255,255,255,0.32); font-weight: 500; margin-top: 6px; line-height: 1.5; }

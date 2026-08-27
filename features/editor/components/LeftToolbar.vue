@@ -1,6 +1,6 @@
 <template>
   <Transition name="lt-slide">
-    <aside v-if="visible && hasScene" class="lt-bar">
+    <aside v-if="visible" class="lt-bar" :class="{ 'lt-bar--no-scene': !hasScene }">
 
       <!-- Info hotspot -->
       <div class="lt-item">
@@ -105,11 +105,15 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from '#imports'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 
-// Every button here (hotspot placement, AI scene-linking, viewer settings)
-// is meaningless before a scene exists, so the whole bar stays hidden until
-// hasScene is true — also sidesteps the empty-state upload card
-// (ViewerCanvas.vue), which is centered across the full viewport and would
-// otherwise collide with wherever this bar tried to sit.
+// Mobile-only: below 768px this bar becomes a horizontal bottom row that
+// competes with SceneDock for the same strip of screen (see the .lt-bar--
+// no-scene rule below) — hiding it there before a scene exists sidesteps
+// colliding with the empty-state upload card (ViewerCanvas.vue), which is
+// centered across the full viewport. Desktop's vertical left-edge bar never
+// had that collision (plenty of horizontal room beside the centered card),
+// so it stays visible there regardless of scene count — hiding it
+// unconditionally here once made "editing hotspots" look like it had
+// vanished entirely on desktop, which was never the intent.
 const props = withDefaults(defineProps<{
   activePlacementType?: 'info' | 'nav' | null
   settingsOpen?: boolean
@@ -287,6 +291,12 @@ onBeforeUnmount(() => {
     width: 1px;
     height: auto;
     margin: 4px 0;
+  }
+
+  /* See the hasScene prop comment above — mobile-only collision with the
+     centered empty-state upload card, desktop never had this problem. */
+  .lt-bar--no-scene {
+    display: none;
   }
 }
 
