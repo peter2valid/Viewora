@@ -70,5 +70,35 @@ export const useAnonymousAuth = () => {
     if (error) throw error
   }
 
-  return { isAnonymous, ensureSession, claimWithGoogle, signInWithGoogle, signOut, redeemClaimToken }
+  return { isAnonymous, ensureSession, claimWithGoogle, signInWithGoogle, signOut, redeemClaimToken, readAuthErrorFromHash }
+}
+
+// Supabase's OAuth flows (linkIdentity/signInWithOAuth) surface some
+// failures — most notably a Google identity that's already linked to a
+// DIFFERENT Viewora account (Supabase's identity-uniqueness rule: one
+// Google account can only ever be linked to one Supabase user) — only
+// after the full Google round-trip completes, appended to the redirect
+// URL's hash (#error=...&error_code=...&error_description=...) rather
+// than as a JS exception claimWithGoogle()/signInWithGoogle() above could
+// ever catch. Call this on mount wherever those are triggered from, so
+// this class of failure gets a plain-language message instead of leaving
+// a raw Supabase error sitting in the address bar.
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  identity_already_exists:
+    'This Google account is already linked to a different Viewora account. Sign in with it directly instead, or use a different Google account to claim this listing.',
+  manual_linking_disabled:
+    'Sign-in isn’t fully set up yet on this listing — please try again in a moment, or contact support if this keeps happening.',
+}
+
+function readAuthErrorFromHash(): string | null {
+  if (typeof window === 'undefined' || !window.location.hash.includes('error')) return null
+  const params = new URLSearchParams(window.location.hash.slice(1))
+  const code = params.get('error_code')
+  const description = params.get('error_description')
+  // One-time redirect artifact — clear it so reloading or re-sharing this
+  // URL doesn't keep re-surfacing a stale error.
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  if (!code && !description) return null
+  if (code && AUTH_ERROR_MESSAGES[code]) return AUTH_ERROR_MESSAGES[code]
+  return description ? decodeURIComponent(description.replace(/\+/g, ' ')) : 'Sign-in failed. Please try again.'
 }

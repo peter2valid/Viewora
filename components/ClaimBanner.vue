@@ -17,14 +17,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 
-const { isAnonymous, claimWithGoogle } = useAnonymousAuth()
+const { isAnonymous, claimWithGoogle, readAuthErrorFromHash } = useAnonymousAuth()
 
 const dismissed = ref(false)
 const claiming = ref(false)
 const errorMsg = ref<string | null>(null)
+
+// claimWithGoogle() redirects to Google and back — a failure Supabase only
+// detects after that round-trip (e.g. this Google account is already
+// linked to a different account) arrives as an error in the URL hash on
+// this remount, not as something the try/catch in handleClaim() below
+// could ever see.
+onMounted(() => {
+  const hashError = readAuthErrorFromHash()
+  if (hashError) errorMsg.value = hashError
+})
 
 const visible = computed(() => isAnonymous.value && !dismissed.value)
 

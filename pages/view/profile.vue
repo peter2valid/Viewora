@@ -99,7 +99,7 @@ const { init: initTheme } = useTheme()
 onMounted(initTheme)
 
 const supabaseUser = useSupabaseUser()
-const { isAnonymous, claimWithGoogle, signInWithGoogle, signOut } = useAnonymousAuth()
+const { isAnonymous, claimWithGoogle, signInWithGoogle, signOut, readAuthErrorFromHash } = useAnonymousAuth()
 const listings = ref<Listing[]>([])
 // Distinguishes "still figuring out if there's a session at all" from "we
 // checked, there genuinely isn't one" — an anonymous session that only
@@ -149,6 +149,16 @@ const accountInitial = computed(() => accountName.value.charAt(0).toUpperCase())
 const signingIn = ref(false)
 const signingOut = ref(false)
 const authError = ref<string | null>(null)
+
+// claimWithGoogle()/signInWithGoogle() redirect to Google and back — a
+// failure Supabase only detects after that round-trip (e.g. this Google
+// account is already linked to a different Viewora account) arrives as an
+// error in the URL hash on this remount, not as something handleSignIn()'s
+// try/catch below could ever see.
+onMounted(() => {
+  const hashError = readAuthErrorFromHash()
+  if (hashError) authError.value = hashError
+})
 
 async function handleSignIn() {
   if (signingIn.value) return
