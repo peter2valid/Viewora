@@ -23,8 +23,7 @@
           v-for="(p, i) in photos"
           :key="p.id"
           type="button"
-          class="grid__item"
-          :class="{ 'grid__item--wide': i === 0 }"
+          :class="['grid__item', `grid__item--${gridRoles[i]}`]"
           :data-index="i"
           @click="openLightbox(i)"
         >
@@ -53,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps<{
   photos: Array<{ id: string; name: string; thumbnail_url: string }>
@@ -75,6 +74,25 @@ const mode = ref<'grid' | 'lightbox'>('grid')
 const lightboxIndex = ref(0)
 const gridEl = ref<HTMLElement | null>(null)
 const lbTrackEl = ref<HTMLElement | null>(null)
+
+// Repeating 4-photo rhythm — full-width shot, then a tall "big" tile paired
+// with two stacked smaller ones beside it — matching the curated collage
+// look real-estate listings use (as opposed to a plain uniform grid).
+// Only applied to complete groups of 4; a leftover tail falls back to a
+// single full-width shot (tail of 1) or plain squares (tail of 2-3) so a
+// "big" tile is never left without both of its stacked partners.
+const gridRoles = computed(() => {
+  const total = props.photos.length
+  return props.photos.map((_p, i) => {
+    const cycle = i % 4
+    const blockStart = i - cycle
+    if (blockStart + 4 <= total) {
+      return (['wide', 'big', 'top', 'bottom'] as const)[cycle]
+    }
+    const tailLength = total - blockStart
+    return tailLength === 1 ? 'wide' : 'square'
+  })
+})
 
 function onClose() {
   if (mode.value === 'lightbox') mode.value = 'grid'
@@ -167,14 +185,18 @@ onBeforeUnmount(() => {
 .overlay__iconbtn--saved { color: var(--vo-text); }
 .overlay__iconbtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Grid — first photo full-width, rest paired two-up (dubizzle's layout). */
+/* Grid — repeating rhythm of a full-width shot then a tall tile paired with
+   two stacked ones beside it (see gridRoles), rather than a plain uniform
+   grid — matches the curated collage look real-estate listings use. */
 .overlay__grid {
   flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
+  display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: min-content;
+  align-content: start; gap: 3px;
   padding: 3px 3px calc(24px + env(safe-area-inset-bottom));
 }
 .grid__item { padding: 0; border: none; background: var(--vo-elevated); cursor: pointer; aspect-ratio: 1; overflow: hidden; }
 .grid__item--wide { grid-column: 1 / -1; aspect-ratio: 16 / 11; }
+.grid__item--big { grid-row: span 2; aspect-ratio: unset; }
 .grid__item img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* Lightbox */
@@ -208,8 +230,12 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+/* Same 2-up rhythm on desktop, just centered with more breathing room —
+   an edge-to-edge 2-column grid on a wide viewport makes each tile huge. */
 @media (min-width: 720px) {
-  .overlay__grid { grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; }
-  .grid__item--wide { grid-column: 1 / -1; }
+  .overlay__grid {
+    max-width: 760px; margin: 0 auto; width: 100%;
+    gap: 6px; padding: 6px 6px calc(28px + env(safe-area-inset-bottom));
+  }
 }
 </style>
