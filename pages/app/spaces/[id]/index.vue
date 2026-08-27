@@ -73,6 +73,7 @@ function openDetails() {
 .mode-switch__btn {
   height: 30px; padding: 0 14px; border-radius: 9px; border: none; background: transparent;
   color: rgba(255,255,255,0.45); font-size: 12px; font-weight: 700; cursor: pointer;
+  white-space: nowrap;
   transition: background 140ms, color 140ms;
 }
 .mode-switch__btn:hover { color: rgba(255,255,255,0.75); }
@@ -81,6 +82,7 @@ function openDetails() {
 .mode-pane { width: 100%; height: 100%; }
 
 @media (max-width: 640px) {
-  .mode-switch { top: 58px; }
+  .mode-switch { top: 58px; max-width: calc(100vw - 24px); }
+  .mode-switch__btn { padding: 0 10px; font-size: 11px; }
 }
 </style>

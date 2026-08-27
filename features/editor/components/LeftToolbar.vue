@@ -237,11 +237,17 @@ onBeforeUnmount(() => {
    can never match. The toolbar silently never switched to its mobile
    bottom-bar layout as a result, and stayed pinned over the main content
    on narrow phone widths instead. */
+/* SceneDock (bottom-px 20) renders in the same edit mode this toolbar does
+   — a populated strip with its nav-controls row can run ~180px tall from
+   the viewport bottom. Both used to sit at the same ~18-20px offset on
+   mobile, so this bar's row and the dock's scene strip/add button drew
+   directly on top of each other. Clearing 184px keeps this bar above the
+   dock's tallest realistic state instead of guessing per scene count. */
 @media (max-width: 768px) {
   .lt-bar {
     left: 50%;
     top: auto;
-    bottom: 18px;
+    bottom: 184px;
     transform: translateX(-50%);
     flex-direction: row;
     align-items: stretch;
