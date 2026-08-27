@@ -174,7 +174,7 @@
                 </template>
                 <p v-if="facts" class="sheet__facts">{{ facts }}</p>
               </div>
-              <a v-if="space.phone" class="btn btn--whatsapp" :href="whatsapp" target="_blank" rel="noopener" @click="logEngagement('whatsapp_click')">
+              <a v-if="space.phone" class="btn btn--whatsapp" :href="whatsapp" target="_blank" rel="noopener" @click="onWhatsappClick">
                 <WhatsappIcon />
                 Chat
               </a>
@@ -214,7 +214,8 @@
               :company-name="seller?.company_name ?? null"
               :phone="space.phone"
               :whatsapp-message="`Hi! I saw ${space.title} on Viewora and would like more details.`"
-              @whatsapp-click="logEngagement('whatsapp_click')"
+              @call-click="onCallClick"
+              @whatsapp-click="onWhatsappClick"
             />
 
             <NuxtLink :to="`/view/brochure/${slug}`" class="brochure-link">
@@ -557,12 +558,33 @@ async function toggleSave() {
 // zero API/frontend wiring until now (viewora-backend's POST/GET
 // /analytics/engagement). Fire-and-forget, same as the view-tracking call
 // above — never blocks or fails the buyer's actual action.
-function logEngagement(action: 'whatsapp_click' | 'save') {
+function logEngagement(action: 'whatsapp_click' | 'phone_reveal' | 'save') {
   if (!space.value?.id) return
   apiFetch('/analytics/engagement', {
     method: 'POST',
     body: { propertyId: space.value.id, action },
   }).catch(() => {})
+}
+
+// Records a WhatsApp/Call click as a lead too (not just an analytics event)
+// so it shows up in the seller's Lead CRM — previously only the 360-tour
+// viewer did this, so photo-only listings' inquiries went untracked there.
+function postLead(source: 'whatsapp' | 'call') {
+  if (!space.value?.id) return
+  apiFetch('/leads', {
+    method: 'POST',
+    body: { spaceId: space.value.id, source },
+  }).catch(() => {})
+}
+
+function onWhatsappClick() {
+  logEngagement('whatsapp_click')
+  postLead('whatsapp')
+}
+
+function onCallClick() {
+  logEngagement('phone_reveal')
+  postLead('call')
 }
 
 // ── Owner inline editing — price & status ────────────────────────────────
