@@ -274,6 +274,7 @@ import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtAp
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
+import { buildListingJsonLd } from '~/utils/listingJsonLd'
 import { amenityIcon } from '~/utils/amenityIcon'
 import type { IconName } from '~/types/icon'
 
@@ -337,6 +338,10 @@ const heroItems = computed(() => (isPanorama.value ? rooms.value : photos.value)
 // Only meaningful for the flat-photo fallback below — the real panorama
 // viewer renders its own canvas, it doesn't use a background image.
 const heroImage = computed(() => (isPanorama.value ? null : heroItems.value[activeIndex.value]?.thumbnail_url || null))
+// Unlike heroImage (null for panoramas, since that mode renders its own
+// canvas rather than a background image), SEO/JSON-LD always wants a real
+// image regardless of viewer mode.
+const seoImage = computed(() => heroImage.value || rooms.value[0]?.thumbnail_url || photos.value[0]?.thumbnail_url || null)
 
 const psvViewerRef = ref<any>(null)
 
@@ -792,6 +797,19 @@ useSeoMeta({
   twitterTitle: seoTitle,
   twitterDescription: seoDescription,
   twitterImage: heroImage,
+})
+
+// Structured data — this page previously had none at all (the older
+// app.viewora /p/[slug] page has a generic TouristAttraction block with no
+// price/facts; this one had nothing), so crawlers had zero machine-readable
+// signal for price, bed/bath, or sale-vs-rent on the page this whole
+// buyer-facing redesign has centered on.
+const seoCanonical = computed(() => `https://view.viewora.software/view/p/${slug}`)
+const listingJsonLd = computed(() => buildListingJsonLd(space.value, { url: seoCanonical.value, image: seoImage.value, description: seoDescription.value }))
+useHead({
+  script: computed(() => (listingJsonLd.value
+    ? [{ type: 'application/ld+json', children: JSON.stringify(listingJsonLd.value) }]
+    : [])),
 })
 </script>
 
