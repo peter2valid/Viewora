@@ -105,6 +105,7 @@
           <div class="df-field">
             <label class="df-field__label">Price (KES) <span class="df-field__opt">optional</span></label>
             <input class="df-input" v-model.number="draft.priceKes" type="number" min="0" placeholder="e.g. 18500000" />
+            <p v-if="dataWarnings.priceKes" class="df-warning">{{ dataWarnings.priceKes }}</p>
           </div>
           <div class="df-field">
             <label class="df-field__label">Status</label>
@@ -144,11 +145,13 @@
             <div class="df-field">
               <label class="df-field__label">Bathrooms <span class="df-field__opt">optional</span></label>
               <input class="df-input" v-model.number="draft.bathrooms" type="number" min="0" placeholder="0" />
+              <p v-if="dataWarnings.bathrooms" class="df-warning">{{ dataWarnings.bathrooms }}</p>
             </div>
           </div>
           <div class="df-field">
             <label class="df-field__label">Floor Area (m²) <span class="df-field__opt">optional</span></label>
             <input class="df-input" v-model.number="draft.areaSqm" type="number" min="0" placeholder="e.g. 220" />
+            <p v-if="dataWarnings.areaSqm" class="df-warning">{{ dataWarnings.areaSqm }}</p>
           </div>
         </template>
 
@@ -161,6 +164,7 @@
             <div class="df-field">
               <label class="df-field__label">Mileage (km) <span class="df-field__opt">optional</span></label>
               <input class="df-input" v-model.number="draft.vehicleMileageKm" type="number" min="0" placeholder="e.g. 45000" />
+              <p v-if="dataWarnings.vehicleMileageKm" class="df-warning">{{ dataWarnings.vehicleMileageKm }}</p>
             </div>
           </div>
           <div class="df-field">
@@ -449,6 +453,42 @@ const draft = ref({
   vehicleTransmission: '' as '' | 'manual' | 'automatic',
   vehicleFuelType: '' as '' | 'petrol' | 'diesel' | 'electric' | 'hybrid',
   amenities: [] as string[],
+})
+
+// ── Data sanity checks ───────────────────────────────────────────────────
+// Warns, never blocks — a seller might genuinely have an unusual listing,
+// and Save should never refuse a real one just because it looks odd. This
+// exists because a listing shipped with 27 m² next to "5 Bed · 7 Bath" (a
+// near-certain typo) with nothing catching it before it went live —
+// eroding trust in every OTHER listing a buyer sees after spotting one
+// obviously-wrong one. Thresholds are deliberately generous (few false
+// positives) rather than strict (catch everything) — a warning that fires
+// on normal listings trains sellers to ignore it.
+const dataWarnings = computed(() => {
+  const w: Partial<Record<'areaSqm' | 'bathrooms' | 'vehicleMileageKm' | 'priceKes', string>> = {}
+  const d = draft.value
+  const spaceType = space.value?.space_type
+
+  if (spaceType === 'residential' && d.bedrooms && d.areaSqm != null) {
+    const minPlausible = d.bedrooms * 12
+    if (d.areaSqm < minPlausible) {
+      w.areaSqm = `${d.areaSqm} m² is unusually small for ${d.bedrooms} bedroom${d.bedrooms === 1 ? '' : 's'} — worth double-checking.`
+    }
+  }
+  if (spaceType === 'residential' && d.bedrooms && d.bathrooms != null && d.bathrooms > d.bedrooms + 5) {
+    w.bathrooms = `${d.bathrooms} bathrooms is unusually high for ${d.bedrooms} bedroom${d.bedrooms === 1 ? '' : 's'} — worth double-checking.`
+  }
+  if (spaceType === 'automotive' && d.vehicleYear && d.vehicleMileageKm != null) {
+    const ageYears = Math.max(1, new Date().getFullYear() - d.vehicleYear + 1)
+    const maxPlausible = ageYears * 60_000 // generous — well above typical annual driving
+    if (d.vehicleMileageKm > maxPlausible) {
+      w.vehicleMileageKm = `${d.vehicleMileageKm.toLocaleString()} km is unusually high for a ${d.vehicleYear} vehicle — worth double-checking.`
+    }
+  }
+  if (d.priceKes != null && d.priceKes > 0 && d.priceKes < 1000) {
+    w.priceKes = `KES ${d.priceKes} looks unusually low — make sure this isn't a typo.`
+  }
+  return w
 })
 
 function draftFromSpace(s: any) {
@@ -967,6 +1007,7 @@ async function handleRemoveBg() {
 .df-field__label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .df-field__label-row .df-field__label { margin-bottom: 0; }
 .df-hint { font-size: 11px; color: rgba(255,255,255,0.32); font-weight: 500; margin-top: 6px; line-height: 1.5; }
+.df-warning { font-size: 11px; color: #f0ad4e; font-weight: 600; margin-top: 6px; line-height: 1.5; }
 
 .df-ai-btn {
   flex: 0 0 auto; height: 26px; padding: 0 10px; border-radius: 999px;
