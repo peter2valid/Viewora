@@ -113,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onDeactivated, watch } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
@@ -174,6 +174,15 @@ function onLightboxKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onLightboxKeydown))
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onLightboxKeydown)
+  document.body.style.overflow = ''
+})
+// This panel is now kept alive (see pages/app/spaces/[id]/index.vue) rather
+// than destroyed on tab switch, so onBeforeUnmount above won't fire just
+// from switching away — without this, a lightbox left open would keep its
+// keydown listener "live" (guarded, but still) and the body scroll lock on
+// while the user is looking at a different tab entirely.
+onDeactivated(() => {
+  lightboxIndex.value = null
   document.body.style.overflow = ''
 })
 watch(lightboxIndex, (i) => { document.body.style.overflow = i === null ? '' : 'hidden' })

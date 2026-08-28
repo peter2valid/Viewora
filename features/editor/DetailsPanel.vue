@@ -394,7 +394,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import SpacePill from '~/features/editor/components/SpacePill.vue'
@@ -531,6 +531,26 @@ async function loadSpace() {
   }
 }
 onMounted(loadSpace)
+
+// This panel is now kept alive across tab switches (see
+// pages/app/spaces/[id]/index.vue) instead of remounting, so it no longer
+// naturally picks up changes made on another tab — has_360/has_gallery in
+// particular gate the Publish button below, and adding photos on the
+// Photos tab is exactly the kind of thing that'd otherwise leave this
+// panel wrongly blocking Publish with stale flags. Refreshes just the raw
+// space record on reactivation — never touches `draft`, so in-progress
+// edits are never clobbered by switching tabs and back.
+let skipNextActivation = true
+onActivated(async () => {
+  if (skipNextActivation) { skipNextActivation = false; return }
+  try {
+    const fresh = await fetchSpaceRaw(props.spaceId)
+    if (fresh) space.value = fresh
+  } catch {
+    // Non-critical — worst case Publish's has_360/has_gallery check uses a
+    // slightly stale flag until the next reactivation or a manual refresh.
+  }
+})
 
 watch(draft, () => { isDirty.value = true }, { deep: true })
 

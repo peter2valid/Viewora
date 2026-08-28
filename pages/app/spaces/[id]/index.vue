@@ -30,8 +30,17 @@
     <div v-show="mode === 'tour'" class="mode-pane">
       <EditorShell ref="editorShellRef" :space-id="spaceId" />
     </div>
-    <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
-    <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" @published="editorShellRef?.fetchSpace(true)" />
+    <!-- KeepAlive — mounts (and fetches) once on first visit, then just
+         toggles visibility on every switch after. Without it, v-if alone
+         destroys and recreates the panel on every tab switch: a fresh
+         loading spinner + refetch each time, and (for Details specifically)
+         silently discarded unsaved form edits the instant you switched away. -->
+    <KeepAlive>
+      <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
+    </KeepAlive>
+    <KeepAlive>
+      <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" @published="editorShellRef?.fetchSpace(true)" />
+    </KeepAlive>
 
     <ClaimBanner />
   </div>
