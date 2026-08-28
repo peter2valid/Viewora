@@ -221,10 +221,16 @@
               @whatsapp-click="onWhatsappClick"
             />
 
-            <NuxtLink :to="`/view/brochure/${slug}`" class="brochure-link">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h1"/></svg>
-              Print-friendly brochure
-            </NuxtLink>
+            <div class="sheet__footer-links">
+              <NuxtLink :to="`/view/brochure/${slug}`" class="brochure-link">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h1"/></svg>
+                Print-friendly brochure
+              </NuxtLink>
+              <button v-if="!isOwner" type="button" class="brochure-link" @click="showReportModal = true">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                Report this listing
+              </button>
+            </div>
           </div>
         </div>
 
@@ -249,6 +255,12 @@
         @close="showGallery = false"
         @toggle-save="toggleSave"
         @share="shareListing"
+      />
+
+      <UiReportModal
+        :open="showReportModal"
+        :property-id="space?.id ?? null"
+        @close="showReportModal = false"
       />
     </template>
   </div>
@@ -433,6 +445,7 @@ function setActiveRoom(i: number) {
 // ── Full-screen photo gallery (grid + lightbox) — flat-photo listings only ──
 const showGallery = ref(false)
 const galleryStartIndex = ref(0)
+const showReportModal = ref(false)
 function openGallery(i: number) {
   galleryStartIndex.value = i
   showGallery.value = true
@@ -1048,10 +1061,12 @@ useSeoMeta({
 .amenity { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: var(--vo-radius-pill); background: var(--sheet-2); border: 1px solid var(--line); box-shadow: var(--vo-shadow-sm); font-size: 0.8rem; font-weight: 600; color: var(--ink); }
 .amenity :deep(svg) { color: var(--accent-strong); flex-shrink: 0; }
 .sheet__desc { font-size: 0.88rem; line-height: 1.6; color: var(--ink-soft); margin: 0; }
+.sheet__footer-links { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 14px; }
 .brochure-link {
   display: inline-flex; align-items: center; gap: 6px;
-  margin-top: 14px; font-size: 0.78rem; font-weight: 600;
+  font-size: 0.78rem; font-weight: 600;
   color: var(--ink-faint); text-decoration: none;
+  background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
 }
 
 /* ClaimBanner defaults to bottom:20px, which collides with the dock nav

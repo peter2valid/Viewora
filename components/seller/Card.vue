@@ -26,6 +26,7 @@
         WhatsApp
       </a>
     </div>
+    <p v-if="phone" class="seller-card__warning">Never send money before viewing in person.</p>
   </div>
 </template>
 
@@ -89,4 +90,5 @@ const whatsappHref = computed(() => `https://wa.me/${telDigits.value}?text=${enc
 }
 .seller-card__btn--whatsapp { background: var(--whatsapp, #25D366); color: var(--whatsapp-ink, #06210F); border-color: transparent; }
 .seller-card__btn:hover { filter: brightness(0.94); }
+.seller-card__warning { margin: 2px 0 0; font-size: 0.72rem; color: var(--vo-muted); text-align: center; }
 </style>
