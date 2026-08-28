@@ -234,13 +234,12 @@
           </div>
         </div>
 
-        <UiNavDock v-if="!fullscreen" />
         <!-- Only ever mounts for the listing's own (still-anonymous) creator
              — isOwner is a real ownership check, so no other visitor ever
              sees this. ClaimBanner itself further gates on isAnonymous, so
              an already-claimed owner viewing their own listing sees nothing
              either. -->
-        <ClaimBanner v-if="isOwner && !fullscreen" class="detail-claim-banner" />
+        <ClaimBanner v-if="isOwner && !fullscreen" />
       </div>
 
       <ViewerGalleryOverlay
@@ -1046,22 +1045,9 @@ useHead({
 .btn--whatsapp { background: var(--whatsapp); color: var(--whatsapp-ink); height: 46px; padding: 0 20px; font-size: 0.88rem; border: 1px solid var(--vo-border-strong); flex: 0 0 auto; transition: filter 180ms ease; }
 .btn--whatsapp:hover { filter: brightness(0.9); opacity: 1; }
 
-/* The floating nav dock (fixed, see UiNavDock) sits over the bottom ~85px
-   of this scrollable panel regardless of scroll position — the 120px
-   bottom padding above guarantees the LAST piece of real content (the
-   "Listed By" card) can scroll fully clear of it, but on first paint /
-   mid-scroll, whatever content currently occupies that zone would
-   otherwise look abruptly cut off behind the dock rather than "more
-   below, keep scrolling". A bottom mask fade (a standard pattern for
-   content under a floating bar) makes that read as intentional. Sized to
-   the dock's footprint, not the full 120px padding, so it fades real
-   content only while some is still hidden, not the safe blank padding
-   past it once actually scrolled to the end. */
 .sheet__scroll {
   flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: 20px 20px calc(120px + env(safe-area-inset-bottom));
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 100px), transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 100px), transparent 100%);
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
 }
 .sheet__section-label {
   font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
@@ -1087,9 +1073,4 @@ useHead({
   background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
 }
 
-/* ClaimBanner defaults to bottom:20px, which collides with the dock nav
-   pill sitting in that same lower strip on this page — raise it clear.
-   The class lands on ClaimBanner's own root element via attr fallthrough
-   (single-root component), so this is a plain selector, not :deep(). */
-.detail-claim-banner { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
 </style>
