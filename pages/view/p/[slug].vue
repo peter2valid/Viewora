@@ -121,20 +121,23 @@
         <div v-show="!fullscreen" ref="sheetEl" class="sheet">
           <div class="sheet__header">
             <div class="sheet__eyebrow-row">
-              <span v-if="!isOwner" class="sheet__tag">{{ statusLabel }}</span>
-              <div v-else class="owner-status">
-                <button class="sheet__tag sheet__tag--editable" :disabled="savingStatus" @click="showStatusPicker = !showStatusPicker">
-                  {{ statusLabel }}
-                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg>
-                </button>
-                <div v-if="showStatusPicker" class="owner-status__drop">
-                  <button
-                    v-for="opt in STATUS_PICKER_OPTIONS"
-                    :key="opt.value"
-                    class="owner-status__opt"
-                    :class="{ 'owner-status__opt--active': opt.value === space.listing_status }"
-                    @click="setStatus(opt.value)"
-                  >{{ opt.label }}</button>
+              <div class="sheet__tags">
+                <span v-if="transactionText" class="sheet__tag sheet__tag--transaction">{{ transactionText }}</span>
+                <span v-if="!isOwner" class="sheet__tag">{{ statusLabel }}</span>
+                <div v-else class="owner-status">
+                  <button class="sheet__tag sheet__tag--editable" :disabled="savingStatus" @click="showStatusPicker = !showStatusPicker">
+                    {{ statusLabel }}
+                    <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <div v-if="showStatusPicker" class="owner-status__drop">
+                    <button
+                      v-for="opt in STATUS_PICKER_OPTIONS"
+                      :key="opt.value"
+                      class="owner-status__opt"
+                      :class="{ 'owner-status__opt--active': opt.value === space.listing_status }"
+                      @click="setStatus(opt.value)"
+                    >{{ opt.label }}</button>
+                  </div>
                 </div>
               </div>
               <span v-if="space.location_text" class="sheet__location">
@@ -258,7 +261,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'v
 import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtApp, createError, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
-import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
+import { formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
 import { amenityIcon } from '~/utils/amenityIcon'
 import type { IconName } from '~/types/icon'
 
@@ -454,7 +457,8 @@ const ownerEditHref = computed(() => {
 
 const sellerName = computed(() => seller.value?.full_name || 'Property Owner')
 
-const priceText = computed(() => formatPrice(space.value?.price_kes))
+const priceText = computed(() => formatPrice(space.value?.price_kes, space.value?.price_period))
+const transactionText = computed(() => transactionLabel(space.value?.transaction_type))
 const facts = computed(() => (space.value ? factsLine(space.value) : ''))
 const whatsapp = computed(() => whatsappUrl(space.value?.phone, space.value?.title || 'this listing'))
 
@@ -955,11 +959,16 @@ useSeoMeta({
 }
 .sheet__header { flex: 0 0 auto; padding: 16px 20px 14px; border-bottom: 1px solid var(--line); }
 .sheet__eyebrow-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+.sheet__tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sheet__tag {
   display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.66rem;
   font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent-strong);
   background: var(--accent-tint); padding: 4px 9px; border-radius: var(--vo-radius-sm);
 }
+/* Distinct from the status tag (available/sold/rented) — this is the
+   for-sale/for-rent axis, not current state, so it needs its own color to
+   read as a separate fact rather than a second copy of the same badge. */
+.sheet__tag--transaction { color: #7c3aed; background: rgba(124, 58, 237, 0.12); }
 .sheet__location { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--ink-soft); font-weight: 600; text-align: right; }
 .sheet__pricerow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
 .sheet__price { font-family: var(--font-mono); font-weight: 500; font-size: 1.4rem; letter-spacing: -0.01em; line-height: 1.2; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }

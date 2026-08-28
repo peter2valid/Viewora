@@ -86,6 +86,21 @@
           <div class="df-hint">Buyers only see this as text under the title — search just helps you find accurate wording, the map itself isn't shown on the tour.</div>
         </div>
 
+        <div class="df-field">
+          <label class="df-field__label">Listing Type <span class="df-field__rec">recommended</span></label>
+          <div class="df-seg">
+            <button
+              v-for="opt in transactionTypeOptions"
+              :key="opt.value"
+              class="df-seg__btn"
+              :class="{ 'df-seg__btn--active': draft.transactionType === opt.value }"
+              type="button"
+              @click="draft.transactionType = opt.value"
+            >{{ opt.label }}</button>
+          </div>
+          <div class="df-hint">A price alone is ambiguous — KES 50,000 could be a sale price or monthly rent. This is what tells buyers which.</div>
+        </div>
+
         <div class="df-field-grid">
           <div class="df-field">
             <label class="df-field__label">Price (KES) <span class="df-field__opt">optional</span></label>
@@ -103,6 +118,20 @@
                 @click="draft.listingStatus = opt.value"
               >{{ opt.label }}</button>
             </div>
+          </div>
+        </div>
+
+        <div v-if="draft.transactionType === 'rent'" class="df-field">
+          <label class="df-field__label">Billing Period <span class="df-field__opt">optional</span></label>
+          <div class="df-seg">
+            <button
+              v-for="opt in pricePeriodOptions"
+              :key="opt.value"
+              class="df-seg__btn"
+              :class="{ 'df-seg__btn--active': draft.pricePeriod === opt.value }"
+              type="button"
+              @click="draft.pricePeriod = opt.value"
+            >{{ opt.label }}</button>
           </div>
         </div>
 
@@ -410,6 +439,8 @@ const draft = ref({
   ctaDestination: '',
   priceKes: null as number | null,
   listingStatus: 'available' as 'available' | 'sold' | 'rented',
+  transactionType: '' as '' | 'sale' | 'rent',
+  pricePeriod: '' as '' | 'day' | 'week' | 'month' | 'year',
   bedrooms: null as number | null,
   bathrooms: null as number | null,
   areaSqm: null as number | null,
@@ -436,6 +467,8 @@ function draftFromSpace(s: any) {
     ctaDestination: s?.cta_destination ?? '',
     priceKes: s?.price_kes ?? null,
     listingStatus: (s?.listing_status as 'available' | 'sold' | 'rented') ?? 'available',
+    transactionType: (s?.transaction_type as '' | 'sale' | 'rent') ?? '',
+    pricePeriod: (s?.price_period as '' | 'day' | 'week' | 'month' | 'year') ?? '',
     bedrooms: s?.bedrooms ?? null,
     bathrooms: s?.bathrooms ?? null,
     areaSqm: s?.area_sqm ?? null,
@@ -478,6 +511,10 @@ async function save() {
     cta_action: draft.value.ctaAction,
     cta_destination: draft.value.ctaDestination || null,
     listing_status: draft.value.listingStatus,
+    transaction_type: draft.value.transactionType || null,
+    // Only means anything for a rental — clear it if the seller switches
+    // back to Sale rather than leaving a stale period behind.
+    price_period: draft.value.transactionType === 'rent' ? (draft.value.pricePeriod || null) : null,
     amenities: draft.value.amenities,
   }
   if (draft.value.locationLat !== null) spacePatch.location_lat = draft.value.locationLat
@@ -574,6 +611,8 @@ async function generateDescription() {
         location_text: d.locationText || undefined,
         price_kes: positiveNumberOrUndefined(d.priceKes),
         listing_status: d.listingStatus || undefined,
+        transaction_type: d.transactionType || undefined,
+        price_period: d.transactionType === 'rent' ? (d.pricePeriod || undefined) : undefined,
         bedrooms: positiveNumberOrUndefined(d.bedrooms),
         bathrooms: positiveNumberOrUndefined(d.bathrooms),
         area_sqm: positiveNumberOrUndefined(d.areaSqm),
@@ -603,6 +642,18 @@ const listingStatusOptions = [
   { value: 'available', label: 'Available' },
   { value: 'sold', label: 'Sold' },
   { value: 'rented', label: 'Rented' },
+] as const
+
+const transactionTypeOptions = [
+  { value: 'sale', label: 'For Sale' },
+  { value: 'rent', label: 'For Rent' },
+] as const
+
+const pricePeriodOptions = [
+  { value: 'day', label: 'Per Day' },
+  { value: 'week', label: 'Per Week' },
+  { value: 'month', label: 'Per Month' },
+  { value: 'year', label: 'Per Year' },
 ] as const
 
 const vehicleTransmissionOptions = [

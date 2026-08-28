@@ -9,7 +9,7 @@
     </div>
 
     <div class="card__body">
-      <p class="card__price">{{ formatPrice(listing.price_kes) }}</p>
+      <p class="card__price">{{ formatPrice(listing.price_kes, listing.price_period) }}</p>
       <p v-if="factsLine(listing)" class="card__facts">{{ factsLine(listing) }}</p>
       <p v-if="listing.location_text" class="card__location">
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>
