@@ -94,6 +94,17 @@
           <p v-if="tour.space?.email" class="brand-card__line">{{ tour.space.email }}</p>
         </div>
       </div>
+
+      <NuxtLink
+        v-if="isOwner && !viewerChromeHidden"
+        :to="ownerEditHref"
+        class="owner-edit-fab"
+        aria-label="Edit this listing"
+        title="Edit this listing"
+      >
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        Edit
+      </NuxtLink>
     </template>
   </div>
 </template>
@@ -101,15 +112,17 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
-import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig } from '#imports'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig, useSupabaseUser } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { editorHref } from '~/utils/editorUrl'
 // PsvViewer is auto-imported as LazyPsvViewer by Nuxt when used in template
 
 const { public: { appUrl, marketingUrl, gaMeasurementId } } = useRuntimeConfig()
 const { apiFetch } = useApiFetch()
 const { $posthog } = useNuxtApp()
 const route = useRoute()
+const supabaseUser = useSupabaseUser()
 
 const watermarkUrl = computed(() => {
   const base = marketingUrl || 'https://viewora.software'
@@ -194,6 +207,29 @@ if (tourError.value) {
 }
 
 pending.value = false
+
+// Owner-only Edit button (see the watermark/branding overlay below) —
+// same is-owner check and pattern as pages/view/p/[slug].vue's topbar
+// Edit icon. This page had no edit affordance at all before; an owner
+// landing here from a shared/live link had no way back into the editor
+// short of navigating to the dashboard manually.
+const isOwner = ref(false)
+let checkedOwnerFor: string | null = null
+async function checkOwnership() {
+  try {
+    const result = await apiFetch<{ isOwner: boolean }>(`/p/${encodeURIComponent(slug)}/is-owner`)
+    isOwner.value = result.isOwner
+  } catch {
+    // Non-critical — the edit button just won't show.
+  }
+}
+watch(supabaseUser, async (u) => {
+  if (!u || !space.value?.id || checkedOwnerFor === space.value.id) return
+  checkedOwnerFor = space.value.id
+  await checkOwnership()
+}, { immediate: true })
+
+const ownerEditHref = computed(() => (space.value ? editorHref(space.value) : '/app/spaces'))
 
 let tourStartTime = 0
 
@@ -846,6 +882,29 @@ useHead(computed(() => {
   opacity: 0.8;
   transform: translateY(-1px);
 }
+
+.owner-edit-fab {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  text-decoration: none;
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.owner-edit-fab:hover { opacity: 0.85; transform: translateY(-1px); }
 
 .viewora-free-brand__logo {
   width: 76px;

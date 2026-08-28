@@ -92,10 +92,10 @@
           v-for="space in filteredSpaces"
           :key="space.id"
           :space="space"
-          @open="navigateTo(`/app/spaces/${space.id}`)"
+          @open="navigateTo(editorHref(space))"
         >
           <template #overlay>
-            <button class="w-10 h-10 flex items-center justify-center bg-surface border border-border rounded-lg text-main shadow-sm hover:bg-main hover:text-bg transition-colors" @click.stop="navigateTo(`/app/spaces/${space.id}`)" title="Edit">
+            <button class="w-10 h-10 flex items-center justify-center bg-surface border border-border rounded-lg text-main shadow-sm hover:bg-main hover:text-bg transition-colors" @click.stop="navigateTo(editorHref(space))" title="Edit">
               <UiIcon name="edit" :size="16" />
             </button>
             <!-- /view/p/, not the classic /p/ — that page is 360-scene-only
@@ -136,7 +136,7 @@
           v-for="space in filteredSpaces"
           :key="space.id"
           class="group px-4 py-3 flex items-center gap-6 bg-card border border-border dark:border-transparent hover:border-main/20 rounded-xl transition-colors cursor-pointer"
-          @click="navigateTo(`/app/spaces/${space.id}`)"
+          @click="navigateTo(editorHref(space))"
         >
           <div class="w-14 h-14 rounded-lg bg-surface-alt border border-border dark:border-transparent overflow-hidden flex-shrink-0">
             <NuxtImg
@@ -187,7 +187,7 @@
           </div>
 
           <div class="w-32 flex justify-end gap-1.5" @click.stop>
-            <button class="w-9 h-9 flex items-center justify-center bg-surface-alt hover:bg-main hover:text-bg border border-border dark:border-transparent rounded-lg transition-colors" @click="navigateTo(`/app/spaces/${space.id}`)" title="Edit">
+            <button class="w-9 h-9 flex items-center justify-center bg-surface-alt hover:bg-main hover:text-bg border border-border dark:border-transparent rounded-lg transition-colors" @click="navigateTo(editorHref(space))" title="Edit">
               <UiIcon name="edit" :size="14" />
             </button>
             <button class="w-9 h-9 flex items-center justify-center bg-surface-alt hover:bg-main hover:text-bg border border-border dark:border-transparent rounded-lg transition-colors" @click="openShare(space)" title="Share">
@@ -225,6 +225,7 @@ import { usePlanStore } from '~/stores/plan'
 import { navigateTo } from '#imports'
 import { toast } from 'vue-sonner'
 import type { Space } from '~/composables/useSpaces'
+import { editorHref } from '~/utils/editorUrl'
 useSeoMeta({ title: 'Spaces | Viewora' })
 
 const { spaces, pending, fetchSpaces, deleteSpace, publishSpace, updateSpace } = useSpaces()
