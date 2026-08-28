@@ -47,6 +47,17 @@ export default defineNuxtConfig({
       exclude: [],
       cookieRedirect: false,
     },
+    // Without an explicit domain, the auth cookie the module already sets
+    // (useSsrCookies defaults to true) is scoped to whichever single host
+    // set it — sign in on app.viewora.software and view.viewora.software
+    // never sees the session, appearing "signed out" there (isOwner checks,
+    // the Edit button, etc. all silently fail). A leading dot shares the
+    // cookie across every viewora.software subdomain. Guarded to production
+    // only — localhost/[::1] can't set a cookie for a domain it isn't a
+    // member of, so this would break local dev login if applied there.
+    cookieOptions: process.env.NODE_ENV === 'development'
+      ? { maxAge: 60 * 60 * 8, sameSite: 'lax', secure: false }
+      : { domain: '.viewora.software', maxAge: 60 * 60 * 8, sameSite: 'lax', secure: true },
   },
 
   googleFonts: {
