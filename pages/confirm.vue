@@ -80,13 +80,17 @@ onMounted(() => {
     }
   }
 
-  // Fallback: if the user is still null after 4 seconds and no hash error exists, link likely expired
+  // Fallback: if the user is still null after 10 seconds and no hash error exists,
+  // the session exchange failed or timed out.
   setTimeout(() => {
     if (!user.value && loading.value) {
       loading.value = false
-      errorMsg.value = 'Could not verify your email. The link may have expired — please try logging in.'
+      const isOAuth = route.query.code || route.hash.includes('access_token=')
+      errorMsg.value = isOAuth
+        ? 'Sign-in is taking longer than expected or failed to complete. Please try again.'
+        : 'Could not verify your email. The link may have expired — please try logging in.'
     }
-  }, 4000)
+  }, 10000)
 })
 
 useSeoMeta({
