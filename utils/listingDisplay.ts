@@ -14,9 +14,37 @@ export interface ListingLike {
   vehicle_fuel_type?: string | null
 }
 
-export function formatPrice(kes: number | null | undefined): string {
+// The card shape GET /listings, GET /saved, and the ids= collection view
+// all return (see viewora-backend/src/utils/listingMapper.ts) — shared here
+// so ListingCard.vue and every page that renders a grid of these use one
+// definition instead of three drifting copies.
+export interface Listing extends ListingLike {
+  id: string
+  slug: string | null
+  title: string
+  location_text: string | null
+  price_kes: number
+  listing_status: string
+  // Orthogonal to listing_status — sale vs rent, plus the billing period a
+  // rental price is quoted in. Both optional: existing rows predate these
+  // columns (migration-add-transaction-type.sql).
+  transaction_type?: string | null
+  price_period?: string | null
+  amenities: string[]
+  phone: string | null
+  has_360: boolean
+  hero_image: string | null
+  created_at: string
+}
+
+export function formatPrice(kes: number | null | undefined, period?: string | null): string {
   if (kes == null) return 'Contact for price'
-  return `KES ${kes.toLocaleString('en-KE')}`
+  const base = `KES ${kes.toLocaleString('en-KE')}`
+  return period ? `${base}/${period}` : base
+}
+
+export function transactionLabel(type: string | null | undefined): string {
+  return type === 'rent' ? 'For Rent' : type === 'sale' ? 'For Sale' : ''
 }
 
 // Type-aware, matching VIEWORA_2_PRODUCT_SPEC.md §6.2/§10 — bed/bath/area

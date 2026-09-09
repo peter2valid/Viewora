@@ -1,7 +1,12 @@
 <template>
   <div class="feed">
+   <div class="feed__frame">
     <header class="feed__topbar">
-      <span class="feed__brand">Viewora</span>
+      <div class="feed__row">
+        <NuxtLink to="/view" class="feed__brand" aria-label="Viewora home">
+          <span class="feed__logo-text">Viewora</span>
+        </NuxtLink>
+      </div>
       <div class="feed__controls">
         <div class="feed__chips" role="tablist" aria-label="Property type">
           <button
@@ -20,54 +25,38 @@
           <option value="price_desc">Price: High to Low</option>
         </select>
       </div>
+      <div v-if="hasActiveSearch" class="feed__activesearch">
+        <span>Filtered{{ route.query.q ? `: "${route.query.q}"` : '' }}</span>
+        <button class="feed__clear" @click="clearSearch">Clear</button>
+      </div>
     </header>
 
     <main class="feed__main">
-      <div v-if="pending && listings.length === 0" class="feed__state">
-        <p class="feed__state-text">Loading listings…</p>
+      <div v-if="pending && listings.length === 0" class="feed__grid" aria-label="Loading listings" aria-busy="true">
+        <div v-for="n in 8" :key="n" class="card card--skeleton">
+          <div class="card__media skeleton" />
+          <div class="card__body">
+            <div class="skeleton skeleton--price" />
+            <div class="skeleton skeleton--line" />
+            <div class="skeleton skeleton--line skeleton--short" />
+            <div class="skeleton skeleton--cta" />
+          </div>
+        </div>
       </div>
 
       <div v-else-if="error" class="feed__state">
         <p class="feed__state-text">Couldn't load listings right now. Try again shortly.</p>
+        <button class="feed__state-action" @click="reload">Try again</button>
       </div>
 
       <div v-else-if="listings.length === 0" class="feed__state">
         <p class="feed__state-text">No listings yet{{ type !== 'all' ? ' in this category' : '' }}.</p>
+        <button v-if="type !== 'all'" class="feed__state-action" @click="setType('all')">Show all listings</button>
+        <button v-else-if="hasActiveSearch" class="feed__state-action" @click="clearSearch">Clear search</button>
       </div>
 
       <div v-else class="feed__grid">
-        <article v-for="listing in listings" :key="listing.id" class="card">
-          <NuxtLink :to="`/view/p/${listing.slug || listing.id}`" class="card__media-link">
-            <div class="card__media">
-              <img v-if="listing.hero_image" :src="listing.hero_image" :alt="listing.title" loading="lazy" />
-              <div v-else class="card__media-placeholder" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
-              </div>
-              <span v-if="listing.hero_image" class="card__badge">360°</span>
-            </div>
-          </NuxtLink>
-
-          <div class="card__body">
-            <p class="card__price">{{ formatPrice(listing.price_kes) }}</p>
-            <p v-if="factsLine(listing)" class="card__facts">{{ factsLine(listing) }}</p>
-            <p v-if="listing.location_text" class="card__location">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>
-              {{ listing.location_text }}
-            </p>
-
-            <a
-              v-if="listing.phone"
-              class="card__cta"
-              :href="cardWhatsappUrl(listing)"
-              target="_blank"
-              rel="noopener"
-              @click.stop
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2m0 18.1a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.18 8.18 0 0 1-1.26-4.4c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.27-8.24 8.27m4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.4-.12-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.87.85-.87 2.07 0 1.22.89 2.4 1.02 2.57.12.17 1.75 2.67 4.24 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.28"/></svg>
-              Chat Owner
-            </a>
-          </div>
-        </article>
+        <UiListingCard v-for="listing in listings" :key="listing.id" :listing="listing" />
       </div>
 
       <div v-if="listings.length > 0 && hasMore" class="feed__loadmore">
@@ -76,46 +65,19 @@
         </button>
       </div>
     </main>
+   </div>
 
-    <nav class="dock" aria-label="Primary">
-      <div class="dock__inner">
-        <span class="tab tab--active"><HomeIcon /><span>Home</span></span>
-        <span class="tab tab--disabled" title="Coming soon"><SavedIcon /><span>Saved</span></span>
-        <span class="tab tab--disabled" title="Coming soon"><ChatIcon /><span>Chat</span></span>
-        <span class="tab tab--disabled" title="Coming soon"><ProfileIcon /><span>Profile</span></span>
-      </div>
-    </nav>
+    <UiNavDock active="home" />
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-import { ref, h, computed } from 'vue'
-import { useAsyncData, useHead, useSeoMeta } from '#imports'
+import { ref, computed, onMounted } from 'vue'
+import { useAsyncData, useHead, useSeoMeta, useRoute } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { formatPrice, factsLine, whatsappUrl } from '~/utils/listingDisplay'
-
-interface Listing {
-  id: string
-  slug: string | null
-  title: string
-  space_type: string
-  location_text: string | null
-  price_kes: number
-  listing_status: string
-  bedrooms: number | null
-  bathrooms: number | null
-  area_sqm: number | null
-  vehicle_year: number | null
-  vehicle_mileage_km: number | null
-  vehicle_transmission: string | null
-  vehicle_fuel_type: string | null
-  amenities: string[]
-  phone: string | null
-  hero_image: string | null
-  created_at: string
-}
+import type { Listing } from '~/utils/listingDisplay'
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -126,16 +88,38 @@ const TYPE_OPTIONS = [
 ]
 
 const { apiFetch } = useApiFetch()
+const route = useRoute()
+const { init: initTheme } = useTheme()
+onMounted(initTheme)
 
-const type = ref<'all' | 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'other'>('all')
+// Search tab (pages/view/search.vue) hands filters over as query params —
+// e.g. /view?q=Kilimani&beds_min=3&price_max=10000000 — and Home applies
+// them on load rather than owning a separate results view (per
+// VIEWORA_2_PRODUCT_SPEC.md §7.2: "Apply filters -> shows filtered results
+// in the Home tab").
+const initialType = route.query.type
+const type = ref<'all' | 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'other'>(
+  (typeof initialType === 'string' ? initialType : 'all') as any,
+)
 const sort = ref<'newest' | 'price_asc' | 'price_desc'>('newest')
 const page = ref(1)
 const LIMIT = 20
+
+const searchFilters = {
+  q: route.query.q,
+  price_min: route.query.price_min,
+  price_max: route.query.price_max,
+  beds_min: route.query.beds_min,
+  baths_min: route.query.baths_min,
+  area_min: route.query.area_min,
+}
 
 const listings = ref<Listing[]>([])
 const total = ref(0)
 const pending = ref(true)
 const error = ref(false)
+
+const hasActiveSearch = computed(() => Object.values(searchFilters).some((v) => typeof v === 'string' && v.length > 0))
 
 async function fetchPage(pageNum: number) {
   return apiFetch<{ data: Listing[]; total: number; page: number; limit: number }>('/listings', {
@@ -144,8 +128,15 @@ async function fetchPage(pageNum: number) {
       limit: LIMIT,
       type: type.value,
       sort: sort.value,
+      ...searchFilters,
     },
   })
+}
+
+// searchFilters is captured once from the initial route at page load, so
+// clearing it needs a full navigation rather than a reactive reset.
+function clearSearch() {
+  window.location.href = '/view'
 }
 
 const { data: firstPage } = await useAsyncData('view-feed', () => fetchPage(1), { server: true, lazy: false })
@@ -188,26 +179,6 @@ async function loadMore() {
   pending.value = false
 }
 
-function cardWhatsappUrl(l: Listing): string {
-  return whatsappUrl(l.phone, l.title)
-}
-
-// ── Inline nav icons — small enough not to warrant separate component files ──
-const HomeIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M3 11l9-8 9 8' }),
-  h('path', { d: 'M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10' }),
-])
-const SavedIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z' }),
-])
-const ChatIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('path', { d: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' }),
-])
-const ProfileIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('circle', { cx: '12', cy: '8', r: '4' }),
-  h('path', { d: 'M4 21c0-4 4-6 8-6s8 2 8 6' }),
-])
-
 // Fonts scoped to this page only — matches pages/demo/[slug].vue's precedent
 // rather than the dashboard's global Inter/Outfit (nuxt.config.ts).
 useHead({
@@ -228,30 +199,29 @@ useSeoMeta({
 
 <style scoped>
 .feed {
-  --ground: #EFF1F3;
-  --sheet: #FFFFFF;
-  --sheet-2: #F6F7F8;
-  --ink: #1C1D21;
-  --ink-soft: #6B6E76;
-  --ink-faint: #9598A0;
-  --line: #E3E5E9;
-  --accent: #C2410C;
-  --accent-strong: #9A3412;
-  --accent-tint: #FBEAE1;
-  --whatsapp: #1FA855;
+  --ground: var(--vo-page);
+  --sheet: var(--vo-surface);
+  --sheet-2: var(--vo-elevated);
+  --ink: var(--vo-text);
+  --ink-soft: var(--vo-secondary);
+  --ink-faint: var(--vo-muted);
+  --line: var(--vo-border);
+  --accent: var(--vo-text);
+  --accent-strong: var(--vo-text);
+  --accent-tint: var(--vo-elevated);
+  --whatsapp: #25D366;
   --whatsapp-ink: #06210F;
-  --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-display: 'Plus Jakarta Sans', Inter, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 
   min-height: 100vh;
   background: var(--ground);
   color: var(--ink);
   font-family: var(--font-display);
-  padding-bottom: 90px;
+  padding-bottom: 104px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .feed {
+ :global(.dark) .feed {
     --ground: #121316;
     --sheet: #1C1E22;
     --sheet-2: #16181B;
@@ -259,82 +229,196 @@ useSeoMeta({
     --ink-soft: #9A9DA6;
     --ink-faint: #6D6F76;
     --line: #2A2D32;
-    --accent: #FB923C;
-    --accent-strong: #FDBA74;
-    --accent-tint: #2E2013;
-  }
+    --accent: var(--vo-text);
+    --accent-strong: var(--vo-text);
+    --accent-tint: var(--vo-elevated);
 }
 
+/* Single shared frame the topbar and main content both live inside, so
+   they're guaranteed the same width instead of two independent formulas
+   that can drift out of alignment (which is what was happening before —
+   the topbar centered its content via a 100vw-based calc while the body
+   used a 100%-based width, and 100vw includes the scrollbar's width that
+   100% doesn't, on top of which every buyer page had a slightly different
+   number in that calc). Border only shows once there's room for visible
+   gutters beside it — matches the detail page's .stage frame: same
+   var(--line) token, same 1024px breakpoint. */
+.feed__frame {
+  width: min(100% - 40px, 1320px);
+  margin: 0 auto;
+}
+@media (min-width: 1024px) {
+  .feed__frame { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+}
 .feed__topbar {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--ground);
+  background: var(--vo-glass);
+  backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--line);
-  padding: 16px 16px 12px;
+  /* viewport-fit=cover (nuxt.config.ts) extends the page under the status
+     bar/notch on phones that have one — without this the topbar's content
+     would render underneath it instead of below. */
+  padding: max(18px, calc(env(safe-area-inset-top) + 8px)) 20px 14px;
 }
-.feed__brand {
-  font-weight: 800;
-  font-size: 1.1rem;
-  letter-spacing: -0.01em;
-}
-.feed__controls {
+.feed__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 10px;
+}
+.feed__brand {
+  display: inline-flex;
+  align-items: center;
+}
+/* No small-format mark exists yet — the only brand asset (globe-icon.png /
+   images/viewora-logo.png) is an intricate wireframe sphere that turns into
+   an illegible gray smudge below ~50px (checked by rendering it at 20/26/32/
+   44px). It's fine at the large sizes it's already used at (dashboard
+   sidebar logo, tour-loading overlay) but not as a compact header mark —
+   would need a simplified low-detail version to work here. Text-only
+   wordmark until one exists. */
+.feed__logo-text {
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.feed__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
   overflow-x: auto;
 }
+/* Wider chips (see .chip below) no longer all fit in one row on a phone —
+   confirmed by rendering it: "Other" was hard-clipped right at the frame
+   edge with zero indication it was scrollable, not just narrower. A right-
+   edge fade signals "more chips, scroll" instead, same pattern already
+   used on the detail page's .sheet__scroll for the same reason. */
 .feed__chips {
   display: flex;
   gap: 6px;
+  /* 1 1 auto (not the shrink-to-fit default) so this box always spans the
+     row's full available width — otherwise the fade mask below, which
+     fades the box's own last 28px, would dim the last chip even when
+     everything already fits and there's nothing to scroll to. */
   flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
 }
+.feed__chips::-webkit-scrollbar { display: none; }
 .chip {
   flex: 0 0 auto;
-  padding: 6px 13px;
-  border-radius: 999px;
+  padding: 7px 14px;
+  border-radius: var(--vo-radius-pill);
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: 0.79rem;
   font-weight: 600;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
 }
+.chip:hover { border-color: var(--vo-border-strong); }
 .chip--active {
-  background: var(--accent);
+  background: var(--ink);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--vo-inverse);
+  box-shadow: var(--vo-shadow-sm);
 }
+/* Native <select>, styled to sit next to the hand-styled pill chips without
+   looking like a bare OS control — same custom-chevron technique already
+   used for .spaces-sort elsewhere in this app (assets/css/main.css),
+   applied here for consistency. */
 .feed__sort {
   flex: 0 0 auto;
+  margin-left: auto;
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  padding: 6px 10px;
-  border-radius: 8px;
+  font-weight: 500;
+  height: 34px;
+  padding: 0 30px 0 12px;
+  border-radius: var(--vo-radius-pill);
   border: 1px solid var(--line);
-  background: var(--sheet);
+  background-color: var(--sheet);
   color: var(--ink);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238c8c87' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 160ms ease;
+}
+.feed__sort:hover { border-color: var(--vo-border-strong); }
+.feed__sort:focus-visible { outline: 2px solid var(--vo-border-strong); outline-offset: 1px; }
+@media (max-width: 639px) {
+  .feed__controls { flex-wrap: wrap; overflow: visible; }
+  .feed__sort { order: -1; margin-left: auto; }
+  .feed__chips { flex-basis: 100%; width: 100%; margin-left: 0; }
+}
+.feed__activesearch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border-radius: var(--vo-radius-md);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.feed__clear {
+  border: none;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
 }
 
 .feed__main {
-  padding: 16px;
+  padding: 32px 20px 0;
 }
 .feed__state {
   padding: 60px 16px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 .feed__state-text {
   color: var(--ink-soft);
   font-size: 0.9rem;
 }
+.feed__state-action {
+  padding: 9px 18px;
+  border-radius: var(--vo-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--sheet);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
 
 .feed__grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 24px;
 }
 @media (min-width: 640px) {
   .feed__grid { grid-template-columns: repeat(2, 1fr); }
@@ -342,72 +426,60 @@ useSeoMeta({
 @media (min-width: 1024px) {
   .feed__grid { grid-template-columns: repeat(3, 1fr); }
 }
+@media (min-width: 1440px) {
+  .feed__grid { grid-template-columns: repeat(4, 1fr); }
+}
 
 .card {
   background: var(--sheet);
-  border-radius: 16px;
+  border-radius: var(--vo-radius-lg);
   overflow: hidden;
   border: 1px solid var(--line);
+  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
 }
-.card__media-link { display: block; }
+.card:hover {
+  border-color: var(--vo-border-strong);
+  background: var(--vo-elevated);
+  transform: translateY(-2px);
+}
 .card__media {
   position: relative;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 4 / 3;
   background: var(--sheet-2);
 }
-.card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.card__media-placeholder {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--ink-faint);
-}
-.card__badge {
-  position: absolute; top: 10px; left: 10px;
-  background: rgba(20,18,16,0.55);
-  backdrop-filter: blur(8px);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
-  padding: 4px 8px;
-  border-radius: 999px;
-}
 .card__body { padding: 14px; }
-.card__price {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 1.05rem;
-  margin: 0 0 4px;
+
+/* Loading skeleton — neutral grayscale sweep, no color, matches the real
+   card's exact geometry (media aspect-ratio, body padding) so nothing
+   shifts when real listings replace it. Real cards render via
+   UiListingCard now; .card/.card__media/.card__body here only back this
+   skeleton, which is drawn inline rather than through that component. */
+.card--skeleton { pointer-events: none; }
+.card--skeleton:hover { transform: none; border-color: var(--line); background: var(--sheet); }
+.skeleton {
+  position: relative; overflow: hidden;
+  background: var(--sheet-2);
+  border-radius: 4px;
 }
-.card__facts {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-  margin: 0 0 4px;
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--vo-border-strong) 50%, transparent);
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
 }
-.card__location {
-  display: flex; align-items: center; gap: 4px;
-  font-size: 0.76rem;
-  color: var(--ink-faint);
-  margin: 0 0 12px;
-}
-.card__cta {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: var(--whatsapp);
-  color: var(--whatsapp-ink);
-  font-weight: 700;
-  font-size: 0.8rem;
-  padding: 9px 14px;
-  border-radius: 999px;
-  text-decoration: none;
-  width: 100%;
-  justify-content: center;
+.skeleton--price { height: 20px; width: 55%; margin: 0 0 11px; }
+.skeleton--line { height: 12px; width: 40%; margin: 0 0 8px; }
+.skeleton--short { width: 30%; margin: 0 0 16px; }
+.skeleton--cta { height: 38px; width: 100%; border-radius: var(--vo-radius-sm); }
+@keyframes skeleton-sweep { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
 }
 
 .feed__loadmore { display: flex; justify-content: center; padding: 24px 0; }
 .loadmore-btn {
   padding: 10px 22px;
-  border-radius: 999px;
+  border-radius: var(--vo-radius-sm);
   border: 1px solid var(--line);
   background: var(--sheet);
   color: var(--ink);
@@ -416,33 +488,4 @@ useSeoMeta({
   cursor: pointer;
 }
 .loadmore-btn:disabled { opacity: 0.6; cursor: default; }
-
-.dock {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-  display: flex; justify-content: center;
-  padding-bottom: max(14px, env(safe-area-inset-bottom));
-  pointer-events: none;
-}
-.dock__inner {
-  pointer-events: auto;
-  display: flex; align-items: center; gap: 2px;
-  padding: 6px; border-radius: 999px;
-  background: rgba(255,255,255,0.86);
-  backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid rgba(28,29,33,0.06);
-  box-shadow: 0 12px 32px rgba(15,13,10,0.28);
-}
-@media (prefers-color-scheme: dark) {
-  .dock__inner { background: rgba(28,30,34,0.78); border-color: rgba(255,255,255,0.08); }
-}
-.tab {
-  width: 72px;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 9px 0 8px;
-  color: var(--ink-faint);
-}
-.tab svg { width: 21px; height: 21px; }
-.tab span { font-size: 0.62rem; font-weight: 700; }
-.tab--active { color: var(--accent); }
-.tab--disabled { opacity: 0.45; }
 </style>

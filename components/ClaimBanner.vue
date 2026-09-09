@@ -17,14 +17,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 
-const { isAnonymous, claimWithGoogle } = useAnonymousAuth()
+const { isAnonymous, claimWithGoogle, readAuthErrorFromHash } = useAnonymousAuth()
 
 const dismissed = ref(false)
 const claiming = ref(false)
 const errorMsg = ref<string | null>(null)
+
+// claimWithGoogle() redirects to Google and back — a failure Supabase only
+// detects after that round-trip (e.g. this Google account is already
+// linked to a different account) arrives as an error in the URL hash on
+// this remount, not as something the try/catch in handleClaim() below
+// could ever see.
+onMounted(() => {
+  const hashError = readAuthErrorFromHash()
+  if (hashError) errorMsg.value = hashError
+})
 
 const visible = computed(() => isAnonymous.value && !dismissed.value)
 
@@ -49,6 +59,8 @@ const handleClaim = async () => {
   z-index: 200;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: 10px;
   gap: 16px;
   max-width: calc(100vw - 32px);
   padding: 14px 18px;
@@ -60,11 +72,20 @@ const handleClaim = async () => {
   color: #fff;
   font-family: 'Inter', -apple-system, sans-serif;
 }
+/* No min-width here previously meant this column had nothing stopping it
+   shrinking arbitrarily narrow once claim-banner__actions (flex-shrink: 0,
+   ~180px with the Google button + dismiss X) claimed its share of the
+   16px-gapped row inside the banner's max-width cap — on a phone that
+   squeezed the text into a one-or-two-word-per-line column. Giving it a
+   real minimum, combined with flex-wrap above, means the actions block
+   drops to its own row below instead once there isn't enough width left. */
 .claim-banner__text {
   display: flex;
   flex-direction: column;
   gap: 2px;
   font-size: 13px;
+  flex: 1 1 180px;
+  min-width: 180px;
 }
 .claim-banner__text strong { font-weight: 700; }
 .claim-banner__text span { color: rgba(255, 255, 255, 0.6); }

@@ -9,15 +9,20 @@ export interface LocalUploadItem {
   mediaType: string
   state: LocalUploadState
   error?: string
+  // blob: URL of the picked file, shown immediately so the user sees their
+  // actual photo instead of a bare spinner while sign/upload/register run
+  // in the background — same instant-feedback pattern as the 360 panorama
+  // pipeline's psvBlobUrl (useEditorUpload.ts).
+  previewUrl?: string
 }
 
 export function useSceneUpload(spaceId: string) {
   const { apiFetch } = useApiFetch()
   const localUploads = ref<LocalUploadItem[]>([])
 
-  function createLocalUpload(file: File, mediaType: string): string {
+  function createLocalUpload(file: File, mediaType: string, previewUrl?: string): string {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    localUploads.value.push({ id, mediaType, fileName: file.name, state: 'local_select' })
+    localUploads.value.push({ id, mediaType, fileName: file.name, state: 'local_select', previewUrl })
     return id
   }
 
@@ -27,6 +32,10 @@ export function useSceneUpload(spaceId: string) {
   }
 
   function removeLocalUpload(id: string) {
+    const item = localUploads.value.find((u) => u.id === id)
+    if (item?.previewUrl) {
+      try { URL.revokeObjectURL(item.previewUrl) } catch { /* best-effort */ }
+    }
     localUploads.value = localUploads.value.filter((u) => u.id !== id)
   }
 
@@ -46,11 +55,12 @@ export function useSceneUpload(spaceId: string) {
     file: File,
     type: string,
     options?: {
+      previewUrl?: string
       onRegister?: (record: any) => Promise<void>
       onError?: (err: Error, humanError: string) => void
     }
   ) {
-    const localId = createLocalUpload(file, type)
+    const localId = createLocalUpload(file, type, options?.previewUrl)
     
     try {
       updateLocalUpload(localId, { state: 'signing' })

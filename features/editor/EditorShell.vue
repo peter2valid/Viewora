@@ -61,6 +61,7 @@
       :is-published="Boolean(space?.is_published)"
       :publishing="publishing"
       :has-processing-scenes="hasProcessingScenes"
+      :has-scene="hasPanorama"
       :space-id="space?.id"
       :slug="space?.slug"
       @toggle-publish="handleTogglePublish"
@@ -87,6 +88,7 @@
 
     <LeftToolbar
       v-if="editorStore.mode !== 'preview'"
+      :has-scene="hasPanorama"
       :active-placement-type="activePlacementType"
       :settings-open="showSettingsPanel"
       @place-hotspot="handlePlaceHotspot"
@@ -206,14 +208,18 @@
         </div>
       </Transition>
 
-      <!-- ── Tour Settings Panel ─────────────────────────────────────────── -->
+      <!-- ── Viewer Settings Panel — hfov/yaw/pitch/auto-rotate only. Basic
+           Info/Listing Details/Lead Capture live on their own full-page
+           form now (DetailsPanel.vue, the "Details" tab) — this quick panel
+           stays scoped to the one thing worth adjusting while looking at
+           the live panorama, since you see the framing change immediately. -->
       <Transition name="ts-slide">
-        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Tour settings">
+        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Viewer settings">
           <div class="ts-panel">
 
             <!-- Header -->
             <div class="ts-header">
-              <span class="ts-header__title">Tour Settings</span>
+              <span class="ts-header__title">Viewer Settings</span>
               <button class="ts-close" @click="showSettingsPanel = false" aria-label="Close settings">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -222,129 +228,7 @@
             <!-- Scrollable body -->
             <div class="ts-body ts-scroll">
 
-              <!-- SECTION: Tour Info -->
               <div class="ts-section">
-                <div class="ts-section__label">Tour Info</div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Name</label>
-                  <input
-                    class="ts-input"
-                    v-model="settingsDraft.title"
-                    placeholder="Enter tour name"
-                    maxlength="120"
-                  />
-                </div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Description <span class="ts-field__opt">optional</span></label>
-                  <textarea
-                    class="ts-textarea"
-                    v-model="settingsDraft.description"
-                    placeholder="Describe this tour…"
-                    rows="3"
-                  />
-                </div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">WhatsApp Number <span class="ts-field__opt">optional</span></label>
-                  <input class="ts-input" v-model="settingsDraft.phone" placeholder="+27117537025 or +254712345678" type="tel" />
-                  <div class="ts-toggle-sub" style="margin-top: 5px;">Must include country code (e.g. +27 for SA, +254 for Kenya). Adds a green WhatsApp button so visitors can contact you directly from the viewer.</div>
-                </div>
-
-                <div class="ts-field">
-                  <label class="ts-field__label">Email <span class="ts-field__opt">optional</span></label>
-                  <input class="ts-input" v-model="settingsDraft.email" placeholder="contact@example.com" type="email" />
-                </div>
-
-                <!-- Location with map -->
-                <div class="ts-field">
-                  <label class="ts-field__label">
-                    Location
-                    <span class="ts-field__opt">optional</span>
-                  </label>
-                  <div class="ts-location-wrap">
-                    <div class="ts-location-input-row">
-                      <input
-                        class="ts-input"
-                        :value="settingsDraft.locationText"
-                        placeholder="Search a location…"
-                        @input="onLocationInput(($event.target as HTMLInputElement).value)"
-                      />
-                      <div v-if="locationSearching" class="ts-location-spin" />
-                    </div>
-                    <div v-if="locationDropOpen && locationResults.length" class="ts-location-drop">
-                      <button
-                        v-for="r in locationResults"
-                        :key="r.lat + r.lon"
-                        class="ts-location-result"
-                        @click="selectLocation(r)"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ts-location-pin" aria-hidden="true">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                          <circle cx="12" cy="10" r="3"/>
-                        </svg>
-                        <span class="ts-location-text">{{ r.display_name }}</span>
-                      </button>
-                    </div>
-                    <iframe
-                      v-if="mapEmbedUrl"
-                      :src="mapEmbedUrl"
-                      class="ts-map"
-                      frameborder="0"
-                      scrolling="no"
-                      title="Location map"
-                    />
-                  </div>
-                </div>
-
-                <!-- Logo upload -->
-                <div class="ts-field">
-                  <label class="ts-field__label">Brand Logo <span class="ts-field__opt">shows in viewer</span></label>
-                  <input ref="logoFileInput" type="file" accept="image/*" class="ts-hidden-file" @change="handleLogoFileChange" />
-                  <div class="ts-logo-area" @click="logoFileInput?.click()">
-                    <template v-if="settingsDraft.logoUrl">
-                      <img :src="settingsDraft.logoUrl" class="ts-logo-preview" alt="Logo" />
-                      <button class="ts-logo-remove" @click.stop="clearLogo()" aria-label="Remove logo">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                      </button>
-                    </template>
-                    <template v-else>
-                      <div class="ts-logo-placeholder">
-                        <svg v-if="!logoUploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                        <span v-if="logoUploading" class="ts-spin" />
-                        <span class="ts-logo-hint">{{ logoUploading ? 'Uploading…' : 'Click to upload logo' }}</span>
-                      </div>
-                    </template>
-                  </div>
-                  <button
-                    v-if="settingsDraft.logoUrl"
-                    class="ts-bg-remove-btn"
-                    :class="{ 'ts-bg-remove-btn--done': bgRemoved }"
-                    :disabled="bgRemoving"
-                    @click.prevent="handleRemoveBg"
-                  >
-                    <span v-if="bgRemoving" class="ts-spin ts-spin--invert" />
-                    <template v-else-if="bgRemoved">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                      Background removed
-                    </template>
-                    <template v-else>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                      </svg>
-                      Remove background
-                    </template>
-                  </button>
-                </div>
-              </div>
-
-              <!-- SECTION: Viewer -->
-              <div class="ts-section">
-                <div class="ts-section__label">Viewer</div>
-
                 <div class="ts-field">
                   <div class="ts-slider-header">
                     <label class="ts-field__label">Field of View</label>
@@ -386,60 +270,6 @@
                 </div>
               </div>
 
-              <!-- SECTION: Lead Capture -->
-              <div class="ts-section">
-                <div class="ts-section__label">Lead Capture</div>
-
-                <div class="ts-toggle-row">
-                  <div>
-                    <div class="ts-field__label">CTA Button</div>
-                    <div class="ts-toggle-sub">Show a call-to-action button on the tour</div>
-                  </div>
-                  <button
-                    class="ts-toggle"
-                    :class="{ 'ts-toggle--on': settingsDraft.ctaEnabled }"
-                    role="switch"
-                    :aria-checked="settingsDraft.ctaEnabled"
-                    @click="settingsDraft.ctaEnabled = !settingsDraft.ctaEnabled"
-                  >
-                    <span class="ts-toggle-thumb" />
-                  </button>
-                </div>
-
-                <template v-if="settingsDraft.ctaEnabled">
-                  <div class="ts-field">
-                    <label class="ts-field__label">Button Text</label>
-                    <input class="ts-input" v-model="settingsDraft.ctaButtonText" placeholder="Book a Viewing" maxlength="40" />
-                  </div>
-
-                  <div class="ts-field">
-                    <label class="ts-field__label">Action</label>
-                    <div class="ts-seg">
-                      <button
-                        v-for="opt in ctaActionOptions"
-                        :key="opt.value"
-                        class="ts-seg__btn"
-                        :class="{ 'ts-seg__btn--active': settingsDraft.ctaAction === opt.value }"
-                        type="button"
-                        @click="settingsDraft.ctaAction = opt.value"
-                      >{{ opt.label }}</button>
-                    </div>
-                  </div>
-
-                  <div class="ts-field">
-                    <label class="ts-field__label">
-                      {{ settingsDraft.ctaAction === 'link' ? 'URL' : settingsDraft.ctaAction === 'email' ? 'Email Address' : 'Phone Number' }}
-                    </label>
-                    <input
-                      class="ts-input"
-                      v-model="settingsDraft.ctaDestination"
-                      :placeholder="settingsDraft.ctaAction === 'link' ? 'https://...' : settingsDraft.ctaAction === 'email' ? 'agent@example.com' : '+1 (555) 000-0000'"
-                      :type="settingsDraft.ctaAction === 'link' ? 'url' : settingsDraft.ctaAction === 'email' ? 'email' : 'tel'"
-                    />
-                  </div>
-                </template>
-              </div>
-
             </div><!-- end ts-body -->
 
             <!-- Footer -->
@@ -454,144 +284,13 @@
           </div>
         </div>
       </Transition>
-
-      <Transition name="share-modal">
-        <div v-if="showShareModal" class="share-overlay" @click.self="showShareModal = false">
-          <div class="share-modal" role="dialog" aria-modal="true" aria-label="Share your tour">
-            <div class="share-modal__topbar">
-              <h2 class="share-modal__title">Share</h2>
-              <button class="share-modal__close" @click="showShareModal = false" aria-label="Close share dialog">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
-
-            <div class="share-modal__tabs" role="tablist" aria-label="Share options">
-              <button
-                v-for="tab in shareTabs"
-                :key="tab.id"
-                type="button"
-                class="share-modal__tab"
-                :class="{ 'share-modal__tab--active': activeShareTab === tab.id }"
-                :aria-selected="activeShareTab === tab.id"
-                role="tab"
-                @click="activeShareTab = tab.id"
-              >
-                {{ tab.label }}
-              </button>
-            </div>
-
-            <div class="share-modal__body">
-              <div v-if="activeShareTab === 'link'" class="share-modal__panel" role="tabpanel">
-                <p class="share-modal__eyebrow">Link to share</p>
-                <div class="share-modal__link-row">
-                  <span class="share-modal__link">{{ publicUrl }}</span>
-                  <button class="share-modal__copy" @click="copyPublicUrl">
-                    <template v-if="urlCopied">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                      Copied
-                    </template>
-                    <template v-else>
-                      Copy link
-                    </template>
-                  </button>
-                </div>
-
-                <div class="share-modal__share-row" aria-label="Share to apps">
-                  <a
-                    :href="shareWhatsappHref"
-                    target="_blank"
-                    rel="noopener"
-                    class="share-modal__share-item"
-                    @click="analytics.track('tour_shared', { method: 'whatsapp', space_id: space?.id })"
-                  >
-                    <span class="share-modal__share-icon share-modal__share-icon--whatsapp" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.49 2 2 6.48 2 12c0 1.89.52 3.66 1.42 5.18L2 22l4.98-1.39A9.96 9.96 0 0 0 12.04 22C17.56 22 22 17.52 22 12S17.56 2 12.04 2Zm5.8 14.16c-.24.68-1.44 1.32-1.98 1.39-.52.07-1.2.1-1.95-.12-.46-.14-1.05-.33-1.81-.66-3.18-1.38-5.24-4.6-5.39-4.81-.14-.21-1.3-1.73-1.3-3.3s.79-2.34 1.07-2.66c.28-.32.61-.4.82-.4h.58c.19 0 .45-.07.7.53.24.6.82 2.07.89 2.22.07.15.12.33.02.54-.1.21-.15.34-.3.52-.15.18-.31.4-.45.53-.15.16-.3.33-.13.63.16.31.71 1.17 1.52 1.9 1.04.92 1.9 1.21 2.22 1.37.31.16.49.14.67-.08.18-.22.77-.9.98-1.2.2-.31.4-.26.67-.16.28.1 1.74.82 2.04.97.3.14.5.22.58.34.08.12.08.74-.17 1.42Z"/></svg>
-                    </span>
-                    <span class="share-modal__share-label">WhatsApp</span>
-                  </a>
-                  <a
-                    :href="shareXHref"
-                    target="_blank"
-                    rel="noopener"
-                    class="share-modal__share-item"
-                    @click="analytics.track('tour_shared', { method: 'x', space_id: space?.id })"
-                  >
-                    <span class="share-modal__share-icon share-modal__share-icon--x" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-6.78 7.72L23.2 22h-6.4l-5-6.58L5.98 22H2.84l7.2-8.2L.8 2h6.55l4.53 5.98L18.9 2Zm-1.12 18h1.72L6.42 3.94H4.58L17.78 20Z"/></svg>
-                    </span>
-                    <span class="share-modal__share-label">X</span>
-                  </a>
-                  <a
-                    :href="shareGmailHref"
-                    class="share-modal__share-item"
-                    @click="analytics.track('tour_shared', { method: 'gmail', space_id: space?.id })"
-                  >
-                    <span class="share-modal__share-icon share-modal__share-icon--gmail" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5h16v11H4z" fill="currentColor" opacity="0.16"/><path d="M4 6.5 12 12 20 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.8 7.2 12 12.1 19.2 7.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    </span>
-                    <span class="share-modal__share-label">Gmail</span>
-                  </a>
-                </div>
-              </div>
-
-              <div v-else-if="activeShareTab === 'embed'" class="share-modal__panel" role="tabpanel">
-                <template v-if="canEmbed">
-                  <p class="share-modal__eyebrow">Embed</p>
-                  <div class="share-modal__link-row share-modal__link-row--code">
-                    <code class="share-modal__link share-modal__link--code">{{ shareEmbedCode }}</code>
-                    <button class="share-modal__copy" @click="copyEmbedCode">
-                      <template v-if="embedCopied">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                        Copied
-                      </template>
-                      <template v-else>
-                        Copy iframe
-                      </template>
-                    </button>
-                  </div>
-                  <div class="share-modal__preview-card">
-                    <iframe
-                      :src="embedUrl"
-                      class="share-modal__preview-frame"
-                      title="Tour embed preview"
-                      loading="lazy"
-                      referrerpolicy="no-referrer"
-                    />
-                  </div>
-                </template>
-                <template v-else>
-                  <div style="padding:24px;text-align:center">
-                    <div style="width:48px;height:48px;border-radius:12px;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;border:1px solid var(--border)">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    </div>
-                    <p style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--text-main)">Embeds are a paid feature</p>
-                    <p style="font-size:12px;color:var(--text-dim);margin-bottom:20px;line-height:1.5">Upgrade your plan to embed this tour on any website.</p>
-                    <NuxtLink to="/app/billing" style="display:inline-block;padding:10px 24px;background:var(--text-main);color:var(--bg);border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">Upgrade Plan</NuxtLink>
-                  </div>
-                </template>
-              </div>
-
-              <div v-else class="share-modal__panel share-modal__panel--qr" role="tabpanel">
-                <p class="share-modal__eyebrow">QR code</p>
-                <div class="share-modal__qr-card">
-                  <div class="share-modal__qr-wrap">
-                    <img v-if="!qrLoading && qrDataUrl" :src="qrDataUrl" alt="QR code for the tour link" class="share-modal__qr-image" />
-                    <div v-else class="share-modal__qr-placeholder">
-                      <span class="share-modal__qr-loading" />
-                    </div>
-                  </div>
-                  <p class="share-modal__qr-text">Scan to open the tour on any device.</p>
-                  <p class="share-modal__qr-url">{{ publicUrl }}</p>
-                  <button v-if="qrDataUrl" type="button" class="share-modal__copy" @click="downloadQrCode">
-                    Download PNG
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
     </Teleport>
+
+    <UiShareModal
+      :space="showShareModal ? (space as any) : null"
+      context="tour"
+      @close="showShareModal = false"
+    />
 
     <!-- ── AI Auto-link modal ── -->
     <Teleport to="body">
@@ -722,7 +421,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import QRCode from 'qrcode'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
@@ -997,201 +695,6 @@ const renameInputRef = ref<HTMLInputElement | null>(null)
 const sceneDeleteConfirm = ref<string | null>(null)
 const deletingScene = ref(false)
 
-const urlCopied = ref(false)
-const embedCopied = ref(false)
-const activeShareTab = ref<'link' | 'embed' | 'qr'>('link')
-const qrDataUrl = ref('')
-const qrLoading = ref(false)
-const canEmbed = computed(() => planStore.can('embeds_enabled'))
-const shareTabs = [
-  { id: 'link', label: 'Send a link' },
-  { id: 'embed', label: 'Embed' },
-  { id: 'qr', label: 'QR code' },
-] as const
-
-const ctaActionOptions = [
-  { value: 'link', label: 'Link' },
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' },
-] as const
-
-// ── Settings panel: location geocoding ──────────────────────────────────────
-type NominatimResult = { display_name: string; lat: string; lon: string }
-const locationResults = ref<NominatimResult[]>([])
-const locationDropOpen = ref(false)
-const locationSearching = ref(false)
-let locationTimer: ReturnType<typeof setTimeout> | null = null
-
-function onLocationInput(val: string) {
-  settingsDraft.value.locationText = val
-  locationDropOpen.value = false
-  locationResults.value = []
-  if (locationTimer) clearTimeout(locationTimer)
-  if (!val.trim()) return
-  locationTimer = setTimeout(() => fetchLocationResults(val), 600)
-}
-
-async function fetchLocationResults(query: string) {
-  locationSearching.value = true
-  try {
-    const data: NominatimResult[] = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
-      { headers: { 'Accept-Language': 'en-US,en' } }
-    ).then(r => r.json())
-    locationResults.value = data
-    if (data.length) locationDropOpen.value = true
-  } catch { /* ignore */ } finally {
-    locationSearching.value = false
-  }
-}
-
-function selectLocation(result: NominatimResult) {
-  settingsDraft.value.locationText = result.display_name
-  settingsDraft.value.locationLat = parseFloat(result.lat)
-  settingsDraft.value.locationLng = parseFloat(result.lon)
-  locationDropOpen.value = false
-  locationResults.value = []
-}
-
-const mapEmbedUrl = computed(() => {
-  const lat = settingsDraft.value.locationLat
-  const lng = settingsDraft.value.locationLng
-  if (!lat || !lng) return null
-  const d = 0.015
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d},${lat - d},${lng + d},${lat + d}&layer=mapnik&marker=${lat},${lng}`
-})
-
-// ── Settings panel: logo upload ──────────────────────────────────────────────
-const logoFileInput = ref<HTMLInputElement | null>(null)
-const logoUploading = ref(false)
-const localLogoDataUrl = ref('')
-const bgRemoving = ref(false)
-const bgRemoved = ref(false)
-
-function clearLogo() {
-  settingsDraft.value.logoUrl = ''
-  localLogoDataUrl.value = ''
-  bgRemoved.value = false
-}
-
-async function handleLogoFileChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  if (!file.type.startsWith('image/')) { showToast('Select an image file', 'error'); return }
-  bgRemoved.value = false
-  // Read as DataURL for background removal (no CORS restriction)
-  const reader = new FileReader()
-  reader.onload = (e) => { localLogoDataUrl.value = (e.target?.result as string) || '' }
-  reader.readAsDataURL(file)
-  logoUploading.value = true
-  try {
-    const { uploadUrl, publicUrl } = (await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
-      method: 'POST',
-      body: { contentType: file.type, fileName: file.name },
-    })) as { uploadUrl: string; publicUrl: string }
-    await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
-    settingsDraft.value.logoUrl = publicUrl
-    showToast('Logo uploaded')
-  } catch (e: any) {
-    if (e?.status === 404 || e?.statusCode === 404) {
-      showToast('Logo upload requires backend update — coming soon', 'error')
-    } else {
-      showToast('Logo upload failed', 'error')
-    }
-  } finally {
-    logoUploading.value = false
-    if (logoFileInput.value) logoFileInput.value.value = ''
-  }
-}
-
-function removeImageBackground(dataUrl: string, tolerance = 40): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { reject(new Error('no 2d ctx')); return }
-      ctx.drawImage(img, 0, 0)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const pixels = imageData.data
-      const w = canvas.width
-      const h = canvas.height
-
-      const getPixelRgb = (x: number, y: number): [number, number, number] => {
-        const i = (y * w + x) * 4
-        return [pixels[i], pixels[i + 1], pixels[i + 2]]
-      }
-
-      const colorDist = (a: [number, number, number], b: [number, number, number]) =>
-        Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
-
-      // Sample the four corners to estimate the background colour
-      const samples = [getPixelRgb(0,0), getPixelRgb(w-1,0), getPixelRgb(0,h-1), getPixelRgb(w-1,h-1)]
-      const bg: [number, number, number] = [
-        Math.round(samples.reduce((s,c)=>s+c[0],0)/4),
-        Math.round(samples.reduce((s,c)=>s+c[1],0)/4),
-        Math.round(samples.reduce((s,c)=>s+c[2],0)/4),
-      ]
-
-      // BFS flood-fill from every edge pixel
-      const visited = new Uint8Array(w * h)
-      const qx: number[] = []
-      const qy: number[] = []
-
-      const tryEnqueue = (x: number, y: number) => {
-        if (x < 0 || y < 0 || x >= w || y >= h) return
-        const idx = y * w + x
-        if (visited[idx]) return
-        visited[idx] = 1
-        if (colorDist(getPixelRgb(x, y), bg) <= tolerance) { qx.push(x); qy.push(y) }
-      }
-
-      for (let x = 0; x < w; x++) { tryEnqueue(x, 0); tryEnqueue(x, h-1) }
-      for (let y = 0; y < h; y++) { tryEnqueue(0, y); tryEnqueue(w-1, y) }
-
-      for (let i = 0; i < qx.length; i++) {
-        const x = qx[i], y = qy[i]
-        pixels[(y * w + x) * 4 + 3] = 0
-        tryEnqueue(x-1, y); tryEnqueue(x+1, y); tryEnqueue(x, y-1); tryEnqueue(x, y+1)
-      }
-
-      ctx.putImageData(imageData, 0, 0)
-      resolve(canvas.toDataURL('image/png'))
-    }
-    img.onerror = () => reject(new Error('image load failed'))
-    if (dataUrl.startsWith('http')) img.crossOrigin = 'anonymous'
-    img.src = dataUrl
-  })
-}
-
-async function handleRemoveBg() {
-  if (bgRemoving.value) return
-  const source = localLogoDataUrl.value || settingsDraft.value.logoUrl
-  if (!source) return
-  bgRemoving.value = true
-  try {
-    const resultDataUrl = await removeImageBackground(source)
-    const res = await fetch(resultDataUrl)
-    const blob = await res.blob()
-    const file = new File([blob], 'logo.png', { type: 'image/png' })
-    const { uploadUrl, publicUrl } = (await apiFetch(`/spaces/${props.spaceId}/logo-url`, {
-      method: 'POST',
-      body: { contentType: 'image/png', fileName: 'logo.png' },
-    })) as { uploadUrl: string; publicUrl: string }
-    await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/png' } })
-    settingsDraft.value.logoUrl = publicUrl
-    localLogoDataUrl.value = resultDataUrl
-    bgRemoved.value = true
-    showToast('Background removed')
-  } catch {
-    showToast('Background removal failed', 'error')
-  } finally {
-    bgRemoving.value = false
-  }
-}
-
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
 const glassDockItems = computed(() =>
@@ -1210,82 +713,6 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
   } else {
     toast.success(message)
   }
-}
-
-const shareText = computed(() => `Check out this immersive virtual tour created with Viewora: ${publicUrl.value}`)
-const shareWhatsappHref = computed(() => `https://wa.me/?text=${encodeURIComponent(shareText.value)}`)
-const shareXHref = computed(() => `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText.value)}`)
-const shareGmailHref = computed(() => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Viewora virtual tour')}&body=${encodeURIComponent(shareText.value)}`)
-const shareEmbedCode = computed(() => {
-  const brandingEnabled = space.value?.branding_enabled || false
-  const backlink = brandingEnabled
-    ? ''
-    : `\n<div style="text-align: center; margin-top: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: #64748b;">\n  Created with <a href="https://viewora.software/?utm_source=embed&utm_medium=virtual_tour&utm_campaign=platform_branding" target="_blank" rel="noopener" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Viewora Virtual Tour Software</a>\n</div>`
-  return `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen style="border-radius:8px; border:none;"></iframe>${backlink}`
-})
-
-async function copyPublicUrl() {
-  try {
-    await navigator.clipboard.writeText(publicUrl.value)
-    urlCopied.value = true
-    setTimeout(() => { urlCopied.value = false }, 2000)
-    analytics.track('tour_shared', { method: 'link', space_id: space.value?.id })
-  } catch {
-    showToast('Could not copy — please copy manually', 'error')
-  }
-}
-
-async function copyEmbedCode() {
-  try {
-    await navigator.clipboard.writeText(shareEmbedCode.value)
-    embedCopied.value = true
-    setTimeout(() => { embedCopied.value = false }, 2000)
-    analytics.track('tour_shared', { method: 'embed', space_id: space.value?.id })
-  } catch {
-    showToast('Could not copy — please copy manually', 'error')
-  }
-}
-
-const publicUrl = computed(() => {
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
-  return `${base}/p/${space.value?.slug || space.value?.id}`
-})
-const embedUrl = computed(() => {
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
-  return `${base}/embed/${space.value?.slug || space.value?.id}`
-})
-
-watch([showShareModal, publicUrl], async ([open, url]) => {
-  activeShareTab.value = 'link'
-  qrDataUrl.value = ''
-  qrLoading.value = false
-  if (!open || !url) return
-
-  qrLoading.value = true
-  try {
-    qrDataUrl.value = await QRCode.toDataURL(url, {
-      width: 512,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-      color: {
-        dark: '#111827',
-        light: '#ffffff',
-      },
-    })
-  } catch {
-    qrDataUrl.value = ''
-  } finally {
-    qrLoading.value = false
-  }
-}, { immediate: true })
-
-function downloadQrCode() {
-  if (!qrDataUrl.value) return
-  const slug = publicUrl.value.split('/').filter(Boolean).pop() || 'viewora-tour'
-  const link = document.createElement('a')
-  link.href = qrDataUrl.value
-  link.download = `${slug}-qr.png`
-  link.click()
 }
 
 const hasPanorama = computed(() => Boolean(scenes.value.length || Object.keys(pendingScenePreviewById.value).length))
@@ -1786,6 +1213,11 @@ defineExpose({
   showToast,
   statusLabel,
   statusBadgeClass,
+  // Lets the host page (pages/app/spaces/[id]/index.vue) silently refresh
+  // this component's own space/title state after the Details tab saves
+  // changes elsewhere — otherwise TopBar's pill would show a stale title
+  // until a full reload.
+  fetchSpace,
 })
 </script>
 
@@ -1817,236 +1249,6 @@ defineExpose({
   justify-content: center;
   padding: 18px;
 }
-.share-modal {
-  width: 100%;
-  max-width: 560px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 8px 24px rgba(60, 64, 67, 0.18);
-  color: #202124;
-  overflow: hidden;
-}
-.share-modal__topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 20px 12px;
-}
-.share-modal__title { font-size: 22px; font-weight: 400; color: #202124; line-height: 1.2; }
-.share-modal__close {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: transparent;
-  border: none;
-  color: #5f6368;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 120ms, color 120ms;
-}
-.share-modal__close:hover { background: rgba(60, 64, 67, 0.08); color: #202124; }
-.share-modal__tabs {
-  display: flex;
-  gap: 8px;
-  padding: 0 20px;
-  border-bottom: 1px solid #e8eaed;
-}
-.share-modal__tab {
-  position: relative;
-  padding: 12px 4px 11px;
-  border: none;
-  background: transparent;
-  color: #5f6368;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.share-modal__tab--active {
-  color: #1a73e8;
-}
-.share-modal__tab--active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: #1a73e8;
-}
-.share-modal__body {
-  padding: 16px 20px 20px;
-}
-.share-modal__panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.share-modal__eyebrow {
-  font-size: 13px;
-  font-weight: 500;
-  color: #5f6368;
-}
-.share-modal__link-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  border: 1px solid #dadce0;
-  border-radius: 10px;
-  padding: 0 12px;
-  background: #fff;
-}
-.share-modal__link-row--code {
-  align-items: center;
-  padding: 10px 12px;
-}
-.share-modal__link {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  color: #3c4043;
-  white-space: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-}
-.share-modal__link--scroll { scrollbar-width: thin; }
-.share-modal__link--code {
-  white-space: nowrap;
-  word-break: normal;
-}
-.share-modal__copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid #dadce0;
-  background: #f8f9fa;
-  color: #1a73e8;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 120ms, color 120ms, border-color 120ms;
-  flex-shrink: 0;
-}
-.share-modal__copy:hover { background: #eef3fd; border-color: #c6dafc; }
-.share-modal__share-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding-top: 6px;
-}
-.share-modal__share-item {
-  width: 76px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  border: none;
-  background: transparent;
-  color: #3c4043;
-  text-decoration: none;
-}
-.share-modal__share-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.share-modal__share-icon svg { width: 22px; height: 22px; }
-.share-modal__share-icon--whatsapp { color: #25d366; background: rgba(37, 211, 102, 0.12); }
-.share-modal__share-icon--x { color: #111827; background: #f3f4f6; }
-.share-modal__share-icon--gmail { color: #ea4335; background: rgba(234, 67, 53, 0.10); }
-.share-modal__share-label { font-size: 12px; font-weight: 500; color: #3c4043; }
-.share-modal__preview-card {
-  border: 1px solid #dadce0;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #f8f9fa;
-}
-.share-modal__preview-frame {
-  display: block;
-  width: 100%;
-  height: 300px;
-  border: 0;
-  background: #fff;
-}
-.share-modal__panel--qr {
-  align-items: center;
-}
-.share-modal__qr-card {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid #dadce0;
-  border-radius: 16px;
-  padding: 20px;
-  background: #fff;
-}
-.share-modal__qr-wrap {
-  width: 192px;
-  height: 192px;
-  border-radius: 14px;
-  border: 1px solid #e8eaed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-}
-.share-modal__qr-image {
-  width: 176px;
-  height: 176px;
-}
-.share-modal__qr-placeholder {
-  width: 176px;
-  height: 176px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.share-modal__qr-loading {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid #e8eaed;
-  border-top-color: #1a73e8;
-  animation: share-spin 0.8s linear infinite;
-}
-.share-modal__qr-text {
-  font-size: 13px;
-  color: #5f6368;
-  text-align: center;
-}
-.share-modal__qr-url {
-  font-size: 12px;
-  color: #80868b;
-  text-align: center;
-  word-break: break-all;
-}
-
-@keyframes share-spin { to { transform: rotate(360deg); } }
-
-.share-modal-enter-active, .share-modal-leave-active {
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.share-modal-enter-active .share-modal, .share-modal-leave-active .share-modal {
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.share-modal-enter-from { opacity: 0; }
-.share-modal-enter-from .share-modal { transform: scale(0.92) translateY(12px); }
-.share-modal-leave-to { opacity: 0; }
-.share-modal-leave-to .share-modal { transform: scale(0.95) translateY(6px); }
-
 /* ── Hotspot edit panel ──────────────────────────────────── */
 .hs-edit-panel {
   position: fixed;
@@ -2279,18 +1481,6 @@ defineExpose({
 }
 .rename-popover__cancel:hover { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.6); }
 
-/* ── Share modal embed section ──────────────────────────── */
-.share-modal__embed { margin-bottom: 16px; }
-.share-modal__embed-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.3);
-  margin-bottom: 8px;
-}
-.share-modal__embed-code { font-family: monospace; }
-
 /* ── Settings modal (legacy — replaced by ts-* below) ───── */
 .settings-modal {
   width: 100%;
@@ -2509,99 +1699,12 @@ defineExpose({
 .ts-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 .ts-section { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .ts-section:last-child { border-bottom: none; }
-.ts-section__label {
-  font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
-  text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 16px;
-}
 .ts-field { margin-bottom: 16px; }
 .ts-field:last-child { margin-bottom: 0; }
 .ts-field__label {
   display: block; font-size: 11px; font-weight: 600;
   color: rgba(255,255,255,0.55); margin-bottom: 7px; letter-spacing: 0.01em;
 }
-.ts-field__opt { font-weight: 400; color: rgba(255,255,255,0.22); margin-left: 4px; font-size: 10px; }
-.ts-input {
-  width: 100%; height: 38px; padding: 0 12px; border-radius: 7px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
-  color: rgba(255,255,255,0.88); font-size: 13px; font-weight: 500;
-  outline: none; transition: border-color 140ms, background 140ms;
-  box-sizing: border-box; font-family: inherit;
-}
-.ts-input:focus { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
-.ts-input::placeholder { color: rgba(255,255,255,0.2); }
-.ts-textarea {
-  width: 100%; padding: 10px 12px; border-radius: 7px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
-  color: rgba(255,255,255,0.88); font-size: 13px; font-weight: 500;
-  outline: none; resize: none; font-family: inherit; line-height: 1.5;
-  box-sizing: border-box; transition: border-color 140ms;
-}
-.ts-textarea:focus { border-color: rgba(255,255,255,0.22); }
-.ts-textarea::placeholder { color: rgba(255,255,255,0.2); }
-.ts-location-wrap { display: flex; flex-direction: column; gap: 8px; }
-.ts-location-input-row { position: relative; display: flex; align-items: center; }
-.ts-location-input-row .ts-input { padding-right: 36px; }
-.ts-location-spin {
-  position: absolute; right: 12px;
-  width: 12px; height: 12px;
-  border: 1.5px solid rgba(255,255,255,0.15); border-top-color: rgba(255,255,255,0.6);
-  border-radius: 50%; animation: ts-spin-anim 0.6s linear infinite; pointer-events: none;
-}
-.ts-location-drop { border-radius: 7px; background: #1a1a20; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
-.ts-location-result {
-  width: 100%; display: flex; align-items: flex-start; gap: 8px;
-  padding: 9px 12px; background: transparent; border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  cursor: pointer; text-align: left; transition: background 120ms;
-}
-.ts-location-result:last-child { border-bottom: none; }
-.ts-location-result:hover { background: rgba(255,255,255,0.05); }
-.ts-location-pin { color: rgba(255,255,255,0.3); flex-shrink: 0; margin-top: 1px; }
-.ts-location-text { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 500; line-height: 1.4; }
-.ts-map { width: 100%; height: 150px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08); display: block; }
-.ts-hidden-file { display: none; }
-.ts-logo-area {
-  position: relative; min-height: 80px; border-radius: 7px;
-  border: 1px dashed rgba(255,255,255,0.15); cursor: pointer;
-  transition: border-color 140ms, background 140ms; overflow: hidden;
-}
-.ts-logo-area:hover { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.03); }
-.ts-logo-placeholder {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 8px; padding: 20px;
-  color: rgba(255,255,255,0.3); min-height: 80px;
-}
-.ts-logo-hint { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
-.ts-logo-preview {
-  width: 100%; height: 80px; object-fit: contain; object-position: center; display: block;
-  background-color: rgba(255,255,255,0.03);
-  background-image:
-    linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(255,255,255,0.06) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.06) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.06) 75%);
-  background-size: 12px 12px;
-  background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
-}
-.ts-bg-remove-btn {
-  margin-top: 7px;
-  width: 100%; height: 30px; border-radius: 6px;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
-  color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 600;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-  transition: background 140ms, border-color 140ms, color 140ms; font-family: inherit;
-}
-.ts-bg-remove-btn:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.8); }
-.ts-bg-remove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.ts-bg-remove-btn--done { border-color: rgba(34,197,94,0.3); color: rgba(134,239,172,0.85); }
-.ts-spin--invert { border-color: rgba(255,255,255,0.18); border-top-color: rgba(255,255,255,0.75); }
-.ts-logo-remove {
-  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px;
-  border-radius: 5px; background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: background 120ms, color 120ms;
-}
-.ts-logo-remove:hover { background: rgba(220,38,38,0.7); color: #fff; border-color: transparent; }
 .ts-slider-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
 .ts-slider-val { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); font-family: ui-monospace, monospace; }
 .ts-range {
@@ -2732,35 +1835,6 @@ defineExpose({
   .ts-panel {
     border-radius: 18px;
   }
-}
-
-/* Segmented control (CTA action picker) */
-.ts-seg {
-  display: flex;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.ts-seg__btn {
-  flex: 1;
-  height: 34px;
-  background: transparent;
-  border: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-.ts-seg__btn:last-child { border-right: none; }
-.ts-seg__btn--active {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.95);
-}
-.ts-seg__btn:hover:not(.ts-seg__btn--active) {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
 }
 
 /* ── AI Auto-link modal ─────────────────────────────────────── */

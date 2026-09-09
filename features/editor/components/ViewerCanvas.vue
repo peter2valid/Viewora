@@ -130,6 +130,15 @@
               </svg>
               Book a Shoot
             </NuxtLink>
+
+            <!-- No 360 image ready yet? Move on rather than get stuck here —
+                 Photos supports regular flat photos, and Details/Publish
+                 work fine for a gallery-only listing with zero scenes. -->
+            <div class="flex items-center justify-center gap-3 mt-4 pt-3 border-t border-white/[0.06] w-full text-[11px] font-semibold">
+              <NuxtLink :to="{ query: { tab: 'photos' } }" class="text-gray-400 hover:text-gray-100 transition-colors">Next: Add Photos →</NuxtLink>
+              <span class="text-gray-700">·</span>
+              <NuxtLink :to="{ query: { tab: 'details' } }" class="text-gray-500 hover:text-gray-200 transition-colors">Skip to Details</NuxtLink>
+            </div>
           </template>
 
           <template v-else>

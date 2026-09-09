@@ -47,6 +47,17 @@ export default defineNuxtConfig({
       exclude: [],
       cookieRedirect: false,
     },
+    // Without an explicit domain, the auth cookie the module already sets
+    // (useSsrCookies defaults to true) is scoped to whichever single host
+    // set it — sign in on app.viewora.software and view.viewora.software
+    // never sees the session, appearing "signed out" there (isOwner checks,
+    // the Edit button, etc. all silently fail). A leading dot shares the
+    // cookie across every viewora.software subdomain. Guarded to production
+    // only — localhost/[::1] can't set a cookie for a domain it isn't a
+    // member of, so this would break local dev login if applied there.
+    cookieOptions: process.env.NODE_ENV === 'development'
+      ? { maxAge: 60 * 60 * 8, sameSite: 'lax', secure: false }
+      : { domain: '.viewora.software', maxAge: 60 * 60 * 8, sameSite: 'lax', secure: true },
   },
 
   googleFonts: {
@@ -77,7 +88,7 @@ export default defineNuxtConfig({
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://extension-cdn.getdirecto.com https://app.viewora.software",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://extension-cdn.getdirecto.com https://app.viewora.software",
         "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
         "frame-src 'self' https://www.youtube.com https://youtube.com",
         "worker-src 'self' blob:",
@@ -97,7 +108,7 @@ export default defineNuxtConfig({
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com",
         "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co",
         "frame-src 'self'",
         "worker-src 'self' blob:",
@@ -115,7 +126,7 @@ export default defineNuxtConfig({
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://app.viewora.software",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://app.viewora.software",
         "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
         "frame-src 'self'",
         "worker-src 'self' blob:",
@@ -131,7 +142,7 @@ export default defineNuxtConfig({
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://app.viewora.software",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://app.viewora.software",
         "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
         "frame-src 'self' https://www.youtube.com https://youtube.com",
         "worker-src 'self' blob:",
@@ -149,7 +160,7 @@ export default defineNuxtConfig({
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://extension-cdn.getdirecto.com https://app.viewora.software",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://extension-cdn.getdirecto.com https://app.viewora.software",
         "connect-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
         "frame-src 'self' https://www.youtube.com https://youtube.com",
         "worker-src 'self' blob:",

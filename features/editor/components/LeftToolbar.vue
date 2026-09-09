@@ -1,6 +1,6 @@
 <template>
   <Transition name="lt-slide">
-    <aside v-if="visible" class="lt-bar">
+    <aside v-if="visible" class="lt-bar" :class="{ 'lt-bar--no-scene': !hasScene }">
 
       <!-- Info hotspot -->
       <div class="lt-item">
@@ -105,10 +105,22 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from '#imports'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 
-const props = defineProps<{
+// Mobile-only: below 768px this bar becomes a horizontal bottom row that
+// competes with SceneDock for the same strip of screen (see the .lt-bar--
+// no-scene rule below) — hiding it there before a scene exists sidesteps
+// colliding with the empty-state upload card (ViewerCanvas.vue), which is
+// centered across the full viewport. Desktop's vertical left-edge bar never
+// had that collision (plenty of horizontal room beside the centered card),
+// so it stays visible there regardless of scene count — hiding it
+// unconditionally here once made "editing hotspots" look like it had
+// vanished entirely on desktop, which was never the intent.
+const props = withDefaults(defineProps<{
   activePlacementType?: 'info' | 'nav' | null
   settingsOpen?: boolean
-}>()
+  hasScene?: boolean
+}>(), {
+  hasScene: true,
+})
 
 const emit = defineEmits<{
   (e: 'place-hotspot', type: 'info' | 'nav'): void
@@ -218,12 +230,36 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  width: 52px;
+  height: 52px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: color 140ms, background 140ms;
+  padding: 0;
+}
 
+/* A missing closing brace on .lt-btn above used to swallow these two
+   @media blocks as nested rules inside it — under CSS nesting, a bare
+   ".lt-bar" selector nested that way means ".lt-btn .lt-bar" (a
+   descendant of the button), which .lt-bar (the button's own ancestor)
+   can never match. The toolbar silently never switched to its mobile
+   bottom-bar layout as a result, and stayed pinned over the main content
+   on narrow phone widths instead. */
+/* SceneDock (bottom-px 20) renders in the same edit mode this toolbar does
+   — a populated strip with its nav-controls row can run ~180px tall from
+   the viewport bottom. Both used to sit at the same ~18-20px offset on
+   mobile, so this bar's row and the dock's scene strip/add button drew
+   directly on top of each other. Clearing 184px keeps this bar above the
+   dock's tallest realistic state instead of guessing per scene count. */
 @media (max-width: 768px) {
   .lt-bar {
     left: 50%;
     top: auto;
-    bottom: 18px;
+    bottom: 184px;
     transform: translateX(-50%);
     flex-direction: row;
     align-items: stretch;
@@ -256,6 +292,12 @@ onBeforeUnmount(() => {
     height: auto;
     margin: 4px 0;
   }
+
+  /* See the hasScene prop comment above — mobile-only collision with the
+     centered empty-state upload card, desktop never had this problem. */
+  .lt-bar--no-scene {
+    display: none;
+  }
 }
 
 @media (max-width: 420px) {
@@ -267,17 +309,6 @@ onBeforeUnmount(() => {
   .lt-btn {
     height: 42px;
   }
-}
-  gap: 4px;
-  width: 52px;
-  height: 52px;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  transition: color 140ms, background 140ms;
-  padding: 0;
 }
 
 .lt-btn:hover {

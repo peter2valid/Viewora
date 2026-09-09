@@ -20,27 +20,17 @@ export function useEditorPublish(
   onSettingsApplied?: (settings: { hfov: number; yaw: number; pitch: number }) => void,
 ) {
   const publishing = ref(false)
+  // Viewer-only now — Basic Info/Listing Details/Lead Capture moved to their
+  // own full-page form (DetailsPanel.vue, the "Details" tab) rather than
+  // living in this floating quick-access panel. This panel only makes sense
+  // while looking at a live scene (you can see hfov/yaw/pitch changes
+  // applied to the panorama immediately), so it stays scoped to that.
   const showSettingsPanel = ref(false)
   const settingsDraft = ref({
-    // 360 viewer
     hfov: 90,
     yaw: 0,
     pitch: 0,
     autoRotate: false,
-    // space info
-    title: '',
-    description: '',
-    locationText: '',
-    locationLat: null as number | null,
-    locationLng: null as number | null,
-    logoUrl: '',
-    // contact & lead capture
-    phone: '',
-    email: '',
-    ctaEnabled: false,
-    ctaButtonText: 'Book a Viewing',
-    ctaAction: 'link' as 'link' | 'email' | 'phone',
-    ctaDestination: '',
   })
   const settingsSaving = ref(false)
   const showShareModal = ref(false)
@@ -55,18 +45,6 @@ export function useEditorPublish(
         yaw: s?.yaw_default ?? 0,
         pitch: s?.pitch_default ?? 0,
         autoRotate: s?.auto_rotate_enabled ?? false,
-        title: space.value?.title ?? '',
-        description: space.value?.description ?? '',
-        locationText: space.value?.location_text ?? '',
-        locationLat: space.value?.location_lat ?? null,
-        locationLng: space.value?.location_lng ?? null,
-        logoUrl: space.value?.logo_url ?? '',
-        phone: space.value?.phone ?? '',
-        email: space.value?.email ?? '',
-        ctaEnabled: space.value?.cta_enabled ?? false,
-        ctaButtonText: space.value?.cta_button_text ?? 'Book a Viewing',
-        ctaAction: (space.value?.cta_action as 'link' | 'email' | 'phone') ?? 'link',
-        ctaDestination: space.value?.cta_destination ?? '',
       }
       editorStore.openModal()
     } else {
@@ -78,7 +56,16 @@ export function useEditorPublish(
     const issues: { type: 'error' | 'warning'; message: string }[] = []
 
     if (scenes.value.length === 0) {
-      issues.push({ type: 'error', message: 'Your tour has no scenes. Add at least one scene first.' })
+      // Photo-only listings (PhotosPanel.vue) have nothing in scenes.value
+      // at all — that's correct, not unhealthy. Everything below this block
+      // is scene-graph-specific (hotspot links, reachability, dead ends) and
+      // doesn't apply when there's no scene graph to begin with.
+      const hasCompleteGalleryPhoto = (space.value?.property_media ?? []).some(
+        (m: any) => m.media_type === 'gallery_image' && m.processing_status === 'complete'
+      )
+      if (!hasCompleteGalleryPhoto) {
+        issues.push({ type: 'error', message: 'Add at least one 360° scene or photo before publishing.' })
+      }
       return issues
     }
 
@@ -189,38 +176,18 @@ export function useEditorPublish(
       auto_rotate_enabled: settingsDraft.value.autoRotate,
     }
 
-    const spacePatch: Record<string, any> = {
-      title: settingsDraft.value.title.trim() || space.value?.title,
-      description: settingsDraft.value.description || null,
-      location_text: settingsDraft.value.locationText || null,
-      logo_url: settingsDraft.value.logoUrl || null,
-      phone: settingsDraft.value.phone || null,
-      email: settingsDraft.value.email || null,
-      cta_enabled: settingsDraft.value.ctaEnabled,
-      cta_button_text: settingsDraft.value.ctaButtonText || 'Book a Viewing',
-      cta_action: settingsDraft.value.ctaAction,
-      cta_destination: settingsDraft.value.ctaDestination || null,
-    }
-    if (settingsDraft.value.locationLat !== null) spacePatch.location_lat = settingsDraft.value.locationLat
-    if (settingsDraft.value.locationLng !== null) spacePatch.location_lng = settingsDraft.value.locationLng
-
     const prevSettings = space.value?.property_360_settings?.[0]
-    const prevSpace = { ...space.value }
 
     if (space.value) {
       space.value = {
         ...space.value,
-        ...spacePatch,
         property_360_settings: [{ ...(prevSettings ?? {}), ...viewerPatch }],
       }
     }
     showSettingsPanel.value = false
 
     try {
-      await Promise.all([
-        apiFetch(`/spaces/${spaceId}/settings`, { method: 'PATCH', body: viewerPatch }),
-        apiFetch(`/spaces/${spaceId}`, { method: 'PATCH', body: spacePatch }),
-      ])
+      await apiFetch(`/spaces/${spaceId}/settings`, { method: 'PATCH', body: viewerPatch })
       showToast('Settings saved')
       // Apply to the live viewer immediately — no page reload needed
       onSettingsApplied?.({
@@ -229,7 +196,7 @@ export function useEditorPublish(
         pitch: settingsDraft.value.pitch,
       })
     } catch (e: any) {
-      if (space.value) space.value = prevSpace
+      if (space.value) space.value = { ...space.value, property_360_settings: prevSettings ? [prevSettings] : [] }
       showToast(e?.data?.statusMessage || 'Failed to save settings', 'error')
     } finally {
       settingsSaving.value = false

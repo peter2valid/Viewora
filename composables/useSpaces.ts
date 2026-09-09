@@ -23,6 +23,19 @@ export interface Space {
   branding_enabled: boolean
   created_at: string
   updated_at: string
+  // Listing facts (VIEWORA_2_PRODUCT_SPEC.md §3.1) — already returned by
+  // GET /spaces and GET /spaces/:id, just never typed here until now.
+  price_kes: number | null
+  listing_status: 'available' | 'sold' | 'rented'
+  bedrooms: number | null
+  bathrooms: number | null
+  area_sqm: number | null
+  vehicle_year: number | null
+  vehicle_mileage_km: number | null
+  vehicle_transmission: 'manual' | 'automatic' | null
+  vehicle_fuel_type: 'petrol' | 'diesel' | 'electric' | 'hybrid' | null
+  amenities: string[]
+  view_count: number
 }
 
 export const useSpaces = () => {
