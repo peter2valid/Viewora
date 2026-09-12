@@ -61,9 +61,11 @@
               :data-dock-id="item.id"
               :class="[
                 item.id === activeId ? 'glass-dock__item--active' : '',
+                item.badge === 'warn' ? 'glass-dock__item--warn' : '',
               ]"
               :aria-current="item.id === activeId ? 'true' : 'false'"
-              :aria-label="item.label"
+              :aria-label="item.tooltip ? `${item.label} — ${item.tooltip}` : item.label"
+              :title="item.tooltip || undefined"
               @click="emit('select', item.id)"
               @contextmenu.prevent="emit('context', item.id)"
             >
@@ -206,6 +208,7 @@ type DockItem = {
   imageUrl?: string | null
   ariaLabel?: string
   badge?: 'loading' | 'failed' | 'warn' | null
+  tooltip?: string | null
 }
 
 const props = withDefaults(defineProps<{
@@ -717,6 +720,10 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 
 .glass-dock__item--active .glass-dock__label {
   font-weight: 600;
+}
+
+.glass-dock__item--warn .glass-dock__thumb {
+  box-shadow: 0 0 0 2px #f59e0b;
 }
 
 .glass-dock__badge {

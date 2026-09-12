@@ -25,7 +25,7 @@ import { computed, onMounted, ref } from 'vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
 
 const props = withDefaults(defineProps<{
-  scenes: { id: string; label: string; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | 'warn' | null }[]
+  scenes: { id: string; label: string; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | 'warn' | null; warnReason?: string | null }[]
   activeSceneId: string
   addScenePending: boolean
   showAdd?: boolean
@@ -48,7 +48,10 @@ const dockItems = computed(() =>
     id: s.id,
     label: s.label,
     imageUrl: s.imageUrl,
-    badge: s.ready ? null : (s.badge ?? 'loading'),
+    // A ready scene can still carry a 'warn' badge (unreachable / dead-end) —
+    // only fall back to the 'loading' spinner when there's no explicit badge.
+    badge: s.badge ?? (s.ready ? null : 'loading'),
+    tooltip: s.badge === 'warn' ? s.warnReason : null,
   }))
 )
 </script>

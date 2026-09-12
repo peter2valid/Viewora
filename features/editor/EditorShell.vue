@@ -535,15 +535,32 @@ const sceneChips = computed(() => {
     }
   }
 
+  // Dead-end scenes: ready, but no scene-link hotspot to leave from — mirrors
+  // the "no way to leave" publish warning in useEditorPublish.ts.
+  const deadEndIds = new Set<string>()
+  if (readyIds.length >= 2) {
+    for (const id of readyIds) {
+      if (!(hotspotsByScene.value[id] ?? []).some(h => h.type === 'scene_link')) deadEndIds.add(id)
+    }
+  }
+
   return sorted.map((s, idx) => {
     const state: SceneUploadState = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
     let badge: 'loading' | 'failed' | 'warn' | null = state === 'failed' ? 'failed' : state === 'ready' ? null : 'loading'
-    if (isolatedIds.has(s.id)) badge = 'warn'
+    let warnReason: string | null = null
+    if (isolatedIds.has(s.id)) {
+      badge = 'warn'
+      warnReason = 'Unreachable from the start — add a link to this room'
+    } else if (deadEndIds.has(s.id)) {
+      badge = 'warn'
+      warnReason = 'No way to leave this room — add an arrow to another scene'
+    }
     return {
       id: s.id,
       label: s.name || `Scene ${idx + 1}`,
       ready: state === 'ready',
       badge,
+      warnReason,
       imageUrl: scenePreviewUrl(s),
     }
   })
