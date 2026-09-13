@@ -1,4 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
+import { navigateTo } from '#imports'
+import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
 
@@ -339,9 +341,20 @@ export function useEditorUpload(
                   }
                   $posthog?.capture('scene_uploaded', { space_id: spaceId, scene_count: scenes.value.length })
                 }
-              } catch {
-                setSceneUploadState(item.localSceneId, 'failed')
-                showToast(`${item.file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
+              } catch (err: any) {
+                if (err?.data?.code === 'SCENE_LIMIT_REACHED') {
+                  // No point leaving a "failed, retry?" scene chip — the upload
+                  // itself succeeded, it's the scene record that will never be
+                  // created until the user upgrades. Roll it back entirely.
+                  removeOptimisticLocalScene(item.localSceneId)
+                  toast.error(
+                    err.data?.statusMessage || `Scene limit reached (${err.data?.limit ?? ''} per tour). Upgrade to add more.`,
+                    { action: { label: 'Upgrade', onClick: () => navigateTo('/app/billing') } }
+                  )
+                } else {
+                  setSceneUploadState(item.localSceneId, 'failed')
+                  showToast(`${item.file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
+                }
               }
             },
             onError: (err: any, humanError: string) => {

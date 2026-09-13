@@ -119,7 +119,7 @@
       :scenes="sceneChips"
       :active-scene-id="selectedSceneId"
       :add-scene-pending="false"
-      :show-add="true"
+      :show-add="!atSceneLimit"
       @select-scene="selectScene"
       @add-scene="handleAddScene"
       @reorder-scenes="handleReorderScenes"
@@ -421,6 +421,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { navigateTo } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
@@ -733,6 +734,24 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
 }
 
 const hasPanorama = computed(() => Boolean(scenes.value.length || Object.keys(pendingScenePreviewById.value).length))
+
+// Mirrors the atSpaceLimit pattern used for tours (pages/app/spaces/index.vue,
+// pages/app/create/index.vue), scoped to the current tour's scene count.
+const atSceneLimit = computed(() => {
+  const max = planStore.plan?.max_scenes_per_tour ?? Infinity
+  return scenes.value.length >= max
+})
+
+// One-time upgrade nudge the moment the tour crosses into the scene limit
+// (the Add Scene control itself is hidden via SceneDock's show-add prop below).
+watch(atSceneLimit, (isAtLimit, wasAtLimit) => {
+  if (isAtLimit && !wasAtLimit) {
+    toast.error(
+      `Scene limit reached (${planStore.plan?.max_scenes_per_tour} on ${planStore.plan?.name || 'Free'} plan). Upgrade to add more scenes.`,
+      { action: { label: 'Upgrade', onClick: () => navigateTo('/app/billing') } }
+    )
+  }
+})
 
 const selectedScene = computed(() =>
   scenes.value.find((s) => s.id === selectedSceneId.value) || scenes.value[0] || null
@@ -1178,6 +1197,13 @@ function handleHotspotClick(id: string) {
 }
 
 async function handleAddScene() {
+  if (atSceneLimit.value) {
+    toast.error(
+      `Scene limit reached (${planStore.plan?.max_scenes_per_tour} on ${planStore.plan?.name || 'Free'} plan). Upgrade to add more scenes.`,
+      { action: { label: 'Upgrade', onClick: () => navigateTo('/app/billing') } }
+    )
+    return
+  }
   addSceneFileInput.value?.click()
 }
 

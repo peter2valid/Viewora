@@ -44,7 +44,7 @@
           </div>
         </div>
         <NuxtLink to="/app/billing" class="btn btn-primary w-full !py-5 shadow-2xl">
-          Upgrade to Viewora Plus
+          Upgrade Your Plan
         </NuxtLink>
       </div>
     </div>

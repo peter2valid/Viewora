@@ -150,6 +150,10 @@ export default defineNuxtConfig({
       ].join('; '),
     }},
     // App dashboard — client-side only (auth-protected, user-specific data)
+    // NOTE: connect-src below includes open.er-api.com for the display-only
+    // currency conversion on /app/billing (useCurrencyDisplay.ts) — it
+    // degrades gracefully to a static rate table if this is ever removed,
+    // but the live rate fetch would otherwise be silently CSP-blocked.
     '/app/**': { ssr: false, headers: {
       'Cache-Control': 'no-store',
       'X-Frame-Options': 'DENY',
@@ -161,7 +165,7 @@ export default defineNuxtConfig({
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://extension-cdn.getdirecto.com https://app.viewora.software",
-        "connect-src 'self' blob: https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
+        "connect-src 'self' blob: https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com https://open.er-api.com",
         "frame-src 'self' https://www.youtube.com https://youtube.com",
         "worker-src 'self' blob:",
         "upgrade-insecure-requests",

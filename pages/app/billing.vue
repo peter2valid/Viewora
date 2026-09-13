@@ -29,7 +29,7 @@
               <span class="px-2 py-0.5 rounded-full border border-border text-[10px] font-bold uppercase tracking-wider" :class="statusBadgeClass">{{ statusLabel }}</span>
             </div>
             <h2 class="text-3xl font-bold tracking-tight text-main tracking-tight">{{ plan?.name || 'Free' }}</h2>
-            <p class="text-sm text-dim mt-1">{{ planSubtitles[plan?.name] || 'Basic access' }}</p>
+            <p class="text-sm text-dim mt-1">{{ plan?.description || 'Basic access' }}</p>
             <p v-if="subscription?.current_period_end" class="text-xs text-dim mt-2 font-medium">
               Renews {{ formatDate(subscription.current_period_end) }}
             </p>
@@ -123,14 +123,17 @@
             <div class="absolute -top-4 left-4 flex gap-1.5 z-10">
               <span v-if="p.id === plan?.id" class="px-2.5 py-1 bg-main text-bg text-[10px] font-bold rounded-lg shadow-lg border border-border">Current Plan</span>
               <span v-if="p.id === recommendedPlan?.id && p.id !== plan?.id" class="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-lg shadow-lg border border-emerald-500">Recommended</span>
-              <span v-if="planHighlight[p.name]" class="px-2.5 py-1 bg-surface-alt text-main text-[10px] font-bold rounded-lg shadow-lg border border-border">{{ planHighlight[p.name] }}</span>
+              <span v-if="p.is_popular" class="px-2.5 py-1 bg-surface-alt text-main text-[10px] font-bold rounded-lg shadow-lg border border-border">Most Popular</span>
             </div>
 
             <div class="mb-4 mt-2">
-              <span class="text-[10px] font-bold text-dim uppercase tracking-wider block mb-0.5">{{ planSubtitles[p.name] || '' }}</span>
+              <span class="text-[10px] font-bold text-dim uppercase tracking-wider block mb-0.5 line-clamp-1">{{ p.description || '' }}</span>
               <h4 class="text-base font-bold text-main">{{ p.name }}</h4>
               <div class="mt-2 flex items-baseline gap-1">
-                <template v-if="p.price_monthly_kes === 0">
+                <template v-if="p.is_custom_pricing">
+                  <span class="text-xl font-bold text-main">Custom</span>
+                </template>
+                <template v-else-if="p.price_monthly_kes === 0">
                   <span class="text-xl font-bold text-main">Free</span>
                 </template>
                 <template v-else-if="billingCycle === 'yearly'">
@@ -142,15 +145,18 @@
                   <span class="text-xs text-dim">/mo</span>
                 </template>
               </div>
-              <div v-if="billingCycle === 'yearly' && p.price_monthly_kes > 0" class="text-[11px] text-dim mt-0.5">
+              <div v-if="!p.is_custom_pricing && billingCycle === 'yearly' && p.price_monthly_kes > 0" class="text-[11px] text-dim mt-0.5">
                 KES {{ p.price_yearly_kes.toLocaleString() }} billed annually
+              </div>
+              <div v-if="currencyLines[p.id]" class="text-[11px] text-dim mt-0.5">
+                {{ currencyLines[p.id] }}
               </div>
             </div>
 
             <ul class="space-y-2 mb-6 flex-1 text-[12px]">
               <li class="flex items-center gap-2 text-dim">
                 <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
-                <span class="font-bold text-main">{{ p.max_active_spaces }}</span> tours
+                <span class="font-bold text-main">{{ p.max_active_spaces ?? 'Custom' }}</span> tours
               </li>
               <li class="flex items-center gap-2 text-dim">
                 <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
@@ -164,15 +170,22 @@
                 <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
                 Branding
               </li>
-              <li v-if="SHOOT_ALLOWANCES[p.name] > 0" class="flex items-center gap-2 text-dim">
+              <li v-if="p.shoot_allowance > 0" class="flex items-center gap-2 text-dim">
                 <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>
-                <span class="font-bold text-main">{{ SHOOT_ALLOWANCES[p.name] }}</span> shoots
+                <span class="font-bold text-main">{{ p.shoot_allowance }}</span> shoots
               </li>
             </ul>
 
             <!-- CTA -->
+            <a
+              v-if="p.is_custom_pricing && p.id !== plan?.id"
+              :href="contactSalesUrl"
+              target="_blank"
+              rel="noopener"
+              class="btn btn-secondary w-full !py-4 text-center"
+            >Contact Sales</a>
             <button
-              v-if="p.price_monthly_kes > 0 && p.id !== plan?.id"
+              v-else-if="p.price_monthly_kes > 0 && p.id !== plan?.id"
               @click="subscribeTo(p.id)"
               :disabled="subscribing === p.id"
               class="btn btn-primary w-full !py-4"
@@ -212,10 +225,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { definePageMeta, useSeoMeta, useSupabaseUser } from '#imports'
+import { ref, computed, watch, onMounted } from 'vue'
+import { definePageMeta, useSeoMeta, useSupabaseUser, useRuntimeConfig } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useCurrencyDisplay } from '~/composables/useCurrencyDisplay'
 import { toast } from 'vue-sonner'
 import { unwrapApiData, toArrayPayload } from '~/shared/utils/api'
 
@@ -224,6 +238,13 @@ useSeoMeta({ title: 'Billing | Viewora' })
 
 const { apiFetch } = useApiFetch()
 const analytics = useAnalytics()
+const runtimeConfig = useRuntimeConfig()
+const { currency, formatPrice } = useCurrencyDisplay()
+
+// Enterprise ("is_custom_pricing") plans route to the marketing site's
+// contact page instead of Paystack checkout — the backend now rejects
+// initialize-paystack for these plans.
+const contactSalesUrl = computed(() => `${runtimeConfig.public.marketingUrl || 'https://viewora.software'}/contact`)
 
 // ── State ──────────────────────────────────────────────────────────────────
 const pending = ref(true)
@@ -243,22 +264,6 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   } else {
     toast.success(message)
   }
-}
-
-// ── Plan metadata ──────────────────────────────────────────────────────────
-const planSubtitles: Record<string, string> = {
-  Free:    'Getting started',
-  Starter: 'For solo agents',
-  Plus:    'Most popular',
-  Pro:     'For growing agencies',
-  Elite:   'Enterprise',
-}
-const planHighlight: Record<string, string> = {
-  Plus:  'Popular',
-  Elite: 'Best value',
-}
-const SHOOT_ALLOWANCES: Record<string, number> = {
-  Free: 0, Starter: 0, Plus: 1, Pro: 2, Elite: 4,
 }
 
 // ── Computed ───────────────────────────────────────────────────────────────
@@ -304,7 +309,7 @@ const storageDiffGB = computed(() =>
   Math.round(((recommendedPlan.value?.max_storage_bytes || 0) - (plan.value?.max_storage_bytes || 0)) / (1024 ** 3))
 )
 const shootsDiff = computed(() =>
-  (SHOOT_ALLOWANCES[recommendedPlan.value?.name] || 0) - (SHOOT_ALLOWANCES[plan.value?.name] || 0)
+  (recommendedPlan.value?.shoot_allowance || 0) - (plan.value?.shoot_allowance || 0)
 )
 const yearlySavingsPct = computed(() => {
   const p = recommendedPlan.value
@@ -333,13 +338,43 @@ async function fetchBillingData() {
     plan.value = statusData.plan
     subscription.value = statusData.subscription
     usage.value = statusData.usage
-    availablePlans.value = plansData.sort((a, b) => a.price_monthly_kes - b.price_monthly_kes)
+    // Sort by sort_order (as the API already returns them) rather than price —
+    // Enterprise has a null price_monthly_kes (custom pricing) which would
+    // otherwise sort incorrectly against price-based comparison.
+    availablePlans.value = plansData
+      .slice()
+      .sort((a, b) => (a.sort_order ?? a.price_monthly_kes ?? 0) - (b.sort_order ?? b.price_monthly_kes ?? 0))
+    refreshCurrencyLines()
   } catch {
     // pending handles UI
   } finally {
     pending.value = false
   }
 }
+
+// ── Currency display (KES → visitor local currency, display-only) ──────────
+const currencyLines = ref<Record<string, string | null>>({})
+
+function monthlyKesFor(p: any): number {
+  if (!p || p.is_custom_pricing || !p.price_monthly_kes) return 0
+  if (billingCycle.value === 'yearly' && p.price_yearly_kes) return Math.round(p.price_yearly_kes / 12)
+  return p.price_monthly_kes
+}
+
+async function refreshCurrencyLines() {
+  if (!currency || !availablePlans.value.length) return
+  const entries = await Promise.all(
+    availablePlans.value.map(async (p) => {
+      const kes = monthlyKesFor(p)
+      if (!kes) return [p.id, null] as const
+      const line = await formatPrice(kes, { suffix: '/mo' })
+      return [p.id, line] as const
+    })
+  )
+  currencyLines.value = Object.fromEntries(entries)
+}
+
+watch(billingCycle, refreshCurrencyLines)
 
 async function subscribeTo(planId: string) {
   subscribing.value = planId

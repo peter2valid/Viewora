@@ -18,10 +18,15 @@ import { ref, computed } from 'vue'
 export interface Plan {
   id: string
   name: string
+  slug?: string
+  description?: string
+  cta_label?: string
   price_monthly_kes: number
   price_yearly_kes: number
   max_active_spaces: number
   max_storage_bytes: number
+  max_scenes_per_tour?: number | null
+  shoot_allowance?: number
   qr_download_enabled: boolean
   qr_svg_enabled: boolean
   embeds_enabled: boolean
@@ -30,6 +35,13 @@ export interface Plan {
   advanced_analytics_enabled: boolean
   branding_customization_enabled: boolean
   max_team_members: number
+  sort_order?: number
+  is_active?: boolean
+  is_popular?: boolean
+  is_legacy?: boolean
+  is_custom_pricing?: boolean
+  paystack_plan_code?: string | null
+  features?: Record<string, boolean> | string[] | undefined
 }
 
 export interface Subscription {
@@ -134,10 +146,15 @@ function _freePlan(): Plan {
   return {
     id: 'free',
     name: 'Free',
+    slug: 'free',
+    description: 'For trying Viewora and creating your first virtual tours.',
+    cta_label: 'Start Free',
     price_monthly_kes: 0,
     price_yearly_kes: 0,
     max_active_spaces: 2,
     max_storage_bytes: 536870912,
+    max_scenes_per_tour: 5,
+    shoot_allowance: 0,
     qr_download_enabled: false,
     qr_svg_enabled: false,
     embeds_enabled: false,
@@ -146,5 +163,12 @@ function _freePlan(): Plan {
     advanced_analytics_enabled: false,
     branding_customization_enabled: false,
     max_team_members: 1,
+    sort_order: 0,
+    is_active: true,
+    is_popular: false,
+    is_legacy: false,
+    is_custom_pricing: false,
+    paystack_plan_code: null,
+    features: {},
   }
 }
