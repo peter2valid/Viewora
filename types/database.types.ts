@@ -190,6 +190,7 @@ export interface Database {
           visibility: SpaceVisibility
           lead_form_enabled: boolean
           branding_enabled: boolean
+          compact_embed_nav: boolean
           custom_logo_url: string | null
           theme_settings_json: Record<string, unknown>
           created_at: string
@@ -211,6 +212,7 @@ export interface Database {
           visibility?: SpaceVisibility
           lead_form_enabled?: boolean
           branding_enabled?: boolean
+          compact_embed_nav?: boolean
           custom_logo_url?: string | null
           theme_settings_json?: Record<string, unknown>
         }
@@ -228,6 +230,7 @@ export interface Database {
           visibility?: SpaceVisibility
           lead_form_enabled?: boolean
           branding_enabled?: boolean
+          compact_embed_nav?: boolean
           custom_logo_url?: string | null
           theme_settings_json?: Record<string, unknown>
           updated_at?: string

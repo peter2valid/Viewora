@@ -99,55 +99,60 @@
       <!-- Rail (hides when chrome hidden) -->
       <div class="viewer-rail" aria-label="Viewer controls">
 
-      <!-- VR Mode -->
-      <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
-          <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
-          <path d="M11 13h2" />
-        </svg>
-      </button>
+      <!-- Full button set — hidden in compact embed mode (small frame, opted-in
+           tour, not fullscreen) in favor of just the fullscreen button below
+           plus the scene dock for navigation. Reappears once fullscreen. -->
+      <template v-if="!compactNavActive">
+        <!-- VR Mode -->
+        <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
+            <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
+            <path d="M11 13h2" />
+          </svg>
+        </button>
 
-      <!-- Share -->
-      <button class="viewer-rail__btn" type="button" aria-label="Share tour" data-tooltip="Share" @click.stop="shareTour">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M16 8a3 3 0 1 0-2.83-4" />
-          <path d="M8 12l8-4" />
-          <path d="M8 12l8 4" />
-          <circle cx="6" cy="12" r="2.5" />
-          <circle cx="18" cy="6" r="2.5" />
-          <circle cx="18" cy="18" r="2.5" />
-        </svg>
-      </button>
+        <!-- Share -->
+        <button class="viewer-rail__btn" type="button" aria-label="Share tour" data-tooltip="Share" @click.stop="shareTour">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 8a3 3 0 1 0-2.83-4" />
+            <path d="M8 12l8-4" />
+            <path d="M8 12l8 4" />
+            <circle cx="6" cy="12" r="2.5" />
+            <circle cx="18" cy="6" r="2.5" />
+            <circle cx="18" cy="18" r="2.5" />
+          </svg>
+        </button>
 
-      <!-- Guided Tour (multi-scene only) -->
-      <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoplaying }" type="button" aria-label="Guided tour" :aria-pressed="autoplaying" data-tooltip="Guided Tour" @click.stop="toggleAutoplay">
-        <svg v-if="!autoplaying" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-        <svg v-else viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M6 6h4v12H6zM14 6h4v12h-4z" />
-        </svg>
-      </button>
+        <!-- Guided Tour (multi-scene only) -->
+        <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoplaying }" type="button" aria-label="Guided tour" :aria-pressed="autoplaying" data-tooltip="Guided Tour" @click.stop="toggleAutoplay">
+          <svg v-if="!autoplaying" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M6 6h4v12H6zM14 6h4v12h-4z" />
+          </svg>
+        </button>
 
-      <!-- Auto Rotate -->
-      <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" data-tooltip="Auto Rotate" @click.stop="toggleAutoRotate">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21.5 2v6h-6" />
-          <path d="M21.5 8A10 10 0 1 1 8 2.5" />
-        </svg>
-      </button>
+        <!-- Auto Rotate -->
+        <button class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoRotateActive }" type="button" aria-label="Toggle auto rotate" :aria-pressed="autoRotateActive" data-tooltip="Auto Rotate" @click.stop="toggleAutoRotate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21.5 2v6h-6" />
+            <path d="M21.5 8A10 10 0 1 1 8 2.5" />
+          </svg>
+        </button>
 
-      <!-- Gyroscope (shown only on touch/motion capable devices) -->
-      <button v-if="gyroscopeSupported" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Toggle gyroscope" :aria-pressed="gyroscopeActive" data-tooltip="Gyroscope" @click.stop="handleGyroscopeToggle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <ellipse cx="12" cy="12" rx="10" ry="4" />
-          <ellipse cx="12" cy="12" rx="4" ry="10" />
-          <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
-        </svg>
-      </button>
+        <!-- Gyroscope (shown only on touch/motion capable devices) -->
+        <button v-if="gyroscopeSupported" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Toggle gyroscope" :aria-pressed="gyroscopeActive" data-tooltip="Gyroscope" @click.stop="handleGyroscopeToggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <ellipse cx="12" cy="12" rx="10" ry="4" />
+            <ellipse cx="12" cy="12" rx="4" ry="10" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+      </template>
 
-      <!-- Fullscreen -->
+      <!-- Fullscreen — always visible, including in compact embed mode -->
       <button class="viewer-rail__btn" type="button" aria-label="Fullscreen" data-tooltip="Fullscreen" @click.stop="toggleFullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M8 3H3v5" />
@@ -372,7 +377,7 @@
         :class="{
           'vt-canvas--ready': vtReady,
           'vt-canvas--focused': vtFocusing,
-          'hide-nav-arrows': !dockCollapsed || props.hideNavArrows
+          'hide-nav-arrows': !dockCollapsed || props.hideNavArrows || compactNavActive
         }"
       />
 
@@ -495,6 +500,23 @@ const viewerRootEl = ref<HTMLElement | null>(null)
 const viewerShellRef = ref<InstanceType<typeof ViewerShell> | null>(null)
 const controlStackEl = ref<HTMLElement | null>(null)
 
+// ── Compact embed navigation (opt-in per tour via space.compact_embed_nav) ──
+// When the embed frame is small, swap the full desktop control rail for a
+// single fullscreen button and rely on the scene dock (already rendered in
+// every embed) instead of in-panorama arrow hotspots. Restores full chrome
+// once the viewer enters fullscreen, where there's room for it again.
+const COMPACT_WIDTH_PX = 480
+const COMPACT_HEIGHT_PX = 360
+const isCompactSize = ref(false)
+const isFullscreenActive = ref(false)
+let resizeObserver: ResizeObserver | null = null
+const compactNavActive = computed(() =>
+  !!props.isEmbed &&
+  !!props.tour?.space?.compact_embed_nav &&
+  isCompactSize.value &&
+  !isFullscreenActive.value
+)
+
 // ── VirtualTour state ──────────────────────────────────────────────────────
 const vtContainerEl = ref<HTMLElement | null>(null)
 const vtHandle = ref<PsvViewerHandle | null>(null)
@@ -505,8 +527,21 @@ const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
 const dockCollapsed = ref(true)
 
+// One-time nudge: the first time compact mode kicks in for this mounted
+// instance, expand the dock so there's an obvious way to change scenes now
+// that the in-panorama arrows are hidden. Only fires once — doesn't fight
+// the user if they deliberately collapse the dock again afterwards.
+let hasAutoExpandedDock = false
+watch(compactNavActive, (active) => {
+  if (active && !hasAutoExpandedDock) {
+    hasAutoExpandedDock = true
+    dockCollapsed.value = false
+  }
+})
+
 let _removeVisibility = () => {}
 let _removeInterruptAnimation = () => {}
+let _removeFullscreenListener = () => {}
 
 // ── Smart entry direction ──────────────────────────────────────────────────
 // When navigating via a hotspot, store the entry context so the camera can
@@ -1132,6 +1167,21 @@ function onRailTouchStart(e: TouchEvent) {
 }
 
 onMounted(() => {
+  if (typeof window !== 'undefined' && props.isEmbed && viewerRootEl.value && 'ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect
+      if (!box) return
+      isCompactSize.value = box.width < COMPACT_WIDTH_PX || box.height < COMPACT_HEIGHT_PX
+    })
+    resizeObserver.observe(viewerRootEl.value)
+  }
+  if (typeof document !== 'undefined') {
+    const onFullscreenChange = () => { isFullscreenActive.value = !!document.fullscreenElement }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    onFullscreenChange()
+    _removeFullscreenListener = () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }
+
   if (typeof window !== 'undefined') {
     // Detect input type: coarse = touch/stylus, fine = mouse
     isTouchInput.value = window.matchMedia('(pointer: coarse)').matches
@@ -1253,6 +1303,9 @@ onUnmounted(() => {
   teardownHintDismissListener()
   _removeVisibility()
   _removeInterruptAnimation()
+  _removeFullscreenListener()
+  resizeObserver?.disconnect()
+  resizeObserver = null
 })
 
 // Re-init VT if the tour data changes (e.g. navigating to a different tour)

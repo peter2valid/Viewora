@@ -378,6 +378,23 @@
             />
           </div>
         </template>
+
+        <div class="df-toggle-row">
+          <div>
+            <div class="df-field__label">Compact navigation for small embeds</div>
+            <div class="df-hint">When this tour is embedded in a small frame elsewhere, show just a fullscreen button instead of the full control rail, and use the scene list instead of the in-panorama arrows. Full controls return once the viewer goes fullscreen.</div>
+          </div>
+          <button
+            class="df-toggle"
+            type="button"
+            :class="{ 'df-toggle--on': draft.compactEmbedNav }"
+            role="switch"
+            :aria-checked="draft.compactEmbedNav"
+            @click="draft.compactEmbedNav = !draft.compactEmbedNav"
+          >
+            <span class="df-toggle-thumb" />
+          </button>
+        </div>
       </section>
 
       <div class="details-spacer" />
@@ -441,6 +458,7 @@ const draft = ref({
   ctaButtonText: 'Book a Viewing',
   ctaAction: 'link' as 'link' | 'email' | 'phone',
   ctaDestination: '',
+  compactEmbedNav: false,
   priceKes: null as number | null,
   listingStatus: 'available' as 'available' | 'sold' | 'rented',
   transactionType: '' as '' | 'sale' | 'rent',
@@ -505,6 +523,7 @@ function draftFromSpace(s: any) {
     ctaButtonText: s?.cta_button_text ?? 'Book a Viewing',
     ctaAction: (s?.cta_action as 'link' | 'email' | 'phone') ?? 'link',
     ctaDestination: s?.cta_destination ?? '',
+    compactEmbedNav: s?.compact_embed_nav ?? false,
     priceKes: s?.price_kes ?? null,
     listingStatus: (s?.listing_status as 'available' | 'sold' | 'rented') ?? 'available',
     transactionType: (s?.transaction_type as '' | 'sale' | 'rent') ?? '',
@@ -570,6 +589,7 @@ async function save() {
     cta_button_text: draft.value.ctaButtonText || 'Book a Viewing',
     cta_action: draft.value.ctaAction,
     cta_destination: draft.value.ctaDestination || null,
+    compact_embed_nav: draft.value.compactEmbedNav,
     listing_status: draft.value.listingStatus,
     transaction_type: draft.value.transactionType || null,
     // Only means anything for a rental — clear it if the seller switches
