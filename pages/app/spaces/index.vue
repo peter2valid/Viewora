@@ -84,7 +84,7 @@
     <template v-else>
       <!-- Empty State: No tours yet -->
       <div v-if="!filteredSpaces.length && !search" class="flex flex-col gap-8">
-        <AppWelcomeCard @create="handleCreateTour" />
+        <AppWelcomeCard :show-portfolio-link="false" @create="handleCreateTour" />
       </div>
 
       <!-- Empty State: search results -->

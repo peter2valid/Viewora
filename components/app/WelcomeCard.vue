@@ -25,7 +25,15 @@
             <UiIcon name="plus" :size="16" :stroke-width="2.5" />
             Start Creating
           </UiButton>
-          <UiButton to="/app/spaces" variant="secondary" class="flex-1">
+          <!-- Secondary variant is bg-surface on bg-card, which in dark mode
+               is a darker fill on a lighter card — nearly invisible. Lift it
+               to surface-alt here so it still reads as a button. -->
+          <UiButton
+            v-if="showPortfolioLink"
+            to="/app/spaces"
+            variant="secondary"
+            class="flex-1 !bg-surface-alt hover:!bg-surface-alt/70"
+          >
             <UiIcon name="spaces" :size="16" />
             My Portfolio
           </UiButton>
@@ -37,7 +45,10 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ showCaptureNudge?: boolean }>(), { showCaptureNudge: false })
+withDefaults(defineProps<{ showCaptureNudge?: boolean; showPortfolioLink?: boolean }>(), {
+  showCaptureNudge: false,
+  showPortfolioLink: true,
+})
 defineEmits<{ create: [] }>()
 
 const steps = ['Define', 'Upload', 'Share']
