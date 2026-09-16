@@ -40,6 +40,18 @@ export default defineNuxtConfig({
     url: process.env.SUPABASE_URL,
     key: process.env.SUPABASE_KEY,
     types: '~/types/database.types.ts',
+    // The module's own global "auth-redirect" middleware checks
+    // useSupabaseSession() synchronously with no fallback, and — because
+    // it's global — runs before our per-page `middleware: 'auth'`
+    // (middleware/auth.ts), which does the same check but falls back to
+    // an async getSession() read from cookies when the reactive state
+    // hasn't hydrated yet. Every /app/** page already declares
+    // `middleware: 'auth'`, so the module's redirect is redundant, and
+    // it was the one winning that race — sending logged-in users to
+    // /login on client-side navigation shortly after page load, before
+    // onAuthStateChange had fired. Disabling it here leaves auth.ts as
+    // the sole (and more reliable) guard.
+    redirect: false,
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
