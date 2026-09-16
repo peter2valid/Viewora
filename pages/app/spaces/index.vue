@@ -2,37 +2,50 @@
   <div class="h-full flex flex-col">
     <UiPageHeader title="Tours" subtitle="Manage and organize your virtual tours.">
       <template #actions>
-        <!-- View Toggle -->
-        <div v-if="spaces.length > 0 || search" class="relative flex items-center p-1 bg-surface-alt rounded-lg w-24 h-10 overflow-hidden flex-shrink-0">
-          <div
-            class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-main rounded-md shadow-sm transition-all duration-300 ease-out"
-            :style="{ transform: viewMode === 'grid' ? 'translateX(0)' : 'translateX(100%)' }"
-          ></div>
-          <button
-            @click="viewMode = 'grid'"
-            class="relative z-10 flex-1 flex items-center justify-center transition-colors duration-300"
-            :class="viewMode === 'grid' ? 'text-bg' : 'text-dim hover:text-main'"
-            title="Grid View"
-          >
-            <UiIcon name="grid" :size="16" :stroke-width="2.5" />
-          </button>
-          <button
-            @click="viewMode = 'list'"
-            class="relative z-10 flex-1 flex items-center justify-center transition-colors duration-300"
-            :class="viewMode === 'list' ? 'text-bg' : 'text-dim hover:text-main'"
-            title="List View"
-          >
-            <UiIcon name="list" :size="16" :stroke-width="2.5" />
-          </button>
-        </div>
+        <!-- Mobile: view toggle + Create Tour share one row (Book a Shoot moves to
+             the strip below); md+: original 3-in-a-row layout, untouched. -->
+        <div class="flex items-center gap-3 w-full md:w-auto md:contents">
+          <!-- View Toggle -->
+          <div v-if="spaces.length > 0 || search" class="relative flex items-center p-1 bg-surface-alt rounded-lg w-24 h-10 overflow-hidden flex-shrink-0">
+            <div
+              class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-main rounded-md shadow-sm transition-all duration-300 ease-out"
+              :style="{ transform: viewMode === 'grid' ? 'translateX(0)' : 'translateX(100%)' }"
+            ></div>
+            <button
+              @click="viewMode = 'grid'"
+              class="relative z-10 flex-1 flex items-center justify-center transition-colors duration-300"
+              :class="viewMode === 'grid' ? 'text-bg' : 'text-dim hover:text-main'"
+              title="Grid View"
+            >
+              <UiIcon name="grid" :size="16" :stroke-width="2.5" />
+            </button>
+            <button
+              @click="viewMode = 'list'"
+              class="relative z-10 flex-1 flex items-center justify-center transition-colors duration-300"
+              :class="viewMode === 'list' ? 'text-bg' : 'text-dim hover:text-main'"
+              title="List View"
+            >
+              <UiIcon name="list" :size="16" :stroke-width="2.5" />
+            </button>
+          </div>
 
-        <AppCaptureNudge variant="btn" />
-        <UiButton variant="primary" @click="handleCreateTour">
-          <UiIcon name="plus" :size="16" :stroke-width="2.5" />
-          Create Tour
-        </UiButton>
+          <AppCaptureNudge variant="btn" class="hidden md:inline-flex" />
+          <UiButton
+            variant="primary"
+            class="flex-1 md:flex-none"
+            :class="{ 'hidden md:inline-flex': !(spaces.length > 0 || search) }"
+            @click="handleCreateTour"
+          >
+            <UiIcon name="plus" :size="16" :stroke-width="2.5" />
+            Create Tour
+          </UiButton>
+        </div>
       </template>
     </UiPageHeader>
+
+    <!-- Mobile-only capture nudge, replaces the header's "Book a Shoot" button
+         with the compact banner variant so it doesn't cost its own full row. -->
+    <AppCaptureNudge variant="strip" class="md:hidden mb-6" />
 
     <!-- Toolbar (Only if we have spaces) -->
     <div v-if="spaces.length > 0 || search" class="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card border border-border dark:border-transparent rounded-xl p-2 mb-10 cursor-text" @click="searchInputRef?.focus()">

@@ -1,20 +1,20 @@
 <template>
-  <div class="mx-auto max-w-xl w-full mt-12 md:mt-20">
-    <div class="bg-card border border-border dark:border-transparent rounded-2xl p-8 sm:p-12 flex flex-col items-center text-center">
+  <div class="mx-auto max-w-xl w-full mt-6 sm:mt-12 md:mt-20">
+    <div class="bg-card border border-border dark:border-transparent rounded-2xl p-6 sm:p-12 flex flex-col items-center text-center">
       <div class="w-11 h-11 rounded-full bg-main/5 flex items-center justify-center text-main mb-5">
         <UiIcon name="sparkle" :size="20" />
       </div>
-      <h2 class="text-2xl font-bold text-main mb-2 tracking-tight">Welcome to Viewora</h2>
-      <p class="text-dim mb-8 text-sm max-w-sm">Capturing reality has never been this simple. Create your first immersive experience in minutes.</p>
+      <h2 class="text-xl sm:text-2xl font-bold text-main mb-2 tracking-tight">Welcome to Viewora</h2>
+      <p class="text-dim mb-7 sm:mb-8 text-sm max-w-sm">Capturing reality has never been this simple. Create your first immersive experience in minutes.</p>
 
-      <div class="flex items-center justify-center gap-3 sm:gap-6 mb-10 w-full">
+      <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 sm:gap-6 mb-8 sm:mb-10 w-full">
         <div v-for="(step, i) in steps" :key="step" class="flex items-center gap-2">
           <template v-if="i > 0">
-            <div class="w-4 md:w-8 h-px bg-border" />
+            <div class="w-3 sm:w-8 h-px bg-border" />
           </template>
-          <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-surface-alt border border-border flex items-center justify-center text-[11px] font-bold text-main flex-shrink-0">{{ i + 1 }}</div>
-            <p class="hidden sm:block text-[13px] font-semibold text-main">{{ step }}</p>
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-surface-alt border border-border flex items-center justify-center text-[10px] sm:text-[11px] font-bold text-main flex-shrink-0">{{ i + 1 }}</div>
+            <p class="text-[11px] sm:text-[13px] font-semibold text-main">{{ step }}</p>
           </div>
         </div>
       </div>
