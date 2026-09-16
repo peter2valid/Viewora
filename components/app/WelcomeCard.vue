@@ -20,8 +20,8 @@
       </div>
 
       <div class="flex flex-col gap-3 w-full max-w-sm">
-        <div class="flex flex-col sm:flex-row gap-3 w-full">
-          <UiButton variant="primary" class="flex-1" @click="$emit('create')">
+        <div class="flex flex-col sm:flex-row gap-3 w-full" :class="{ 'justify-center': !showPortfolioLink }">
+          <UiButton variant="primary" :class="showPortfolioLink ? 'flex-1' : '!px-8'" @click="$emit('create')">
             <UiIcon name="plus" :size="16" :stroke-width="2.5" />
             Start Creating
           </UiButton>
