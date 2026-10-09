@@ -17,6 +17,13 @@
       >Photos</button>
       <button
         role="tab"
+        :aria-selected="mode === 'aerial'"
+        class="mode-switch__btn"
+        :class="{ 'mode-switch__btn--active': mode === 'aerial' }"
+        @click="setMode('aerial')"
+      >Aerial Map</button>
+      <button
+        role="tab"
         :aria-selected="mode === 'details'"
         class="mode-switch__btn"
         :class="{ 'mode-switch__btn--active': mode === 'details' }"
@@ -39,6 +46,9 @@
       <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
+      <AerialPanel v-if="mode === 'aerial'" :space-id="spaceId" />
+    </KeepAlive>
+    <KeepAlive>
       <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" @published="editorShellRef?.fetchSpace(true)" />
     </KeepAlive>
 
@@ -52,6 +62,7 @@ import { definePageMeta, useSeoMeta, useRoute, useRouter } from '#imports'
 import EditorShell from '~/features/editor/EditorShell.vue'
 import PhotosPanel from '~/features/editor/PhotosPanel.vue'
 import DetailsPanel from '~/features/editor/DetailsPanel.vue'
+import AerialPanel from '~/features/editor/AerialPanel.vue'
 
 definePageMeta({ layout: 'editor', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
@@ -60,8 +71,11 @@ const route = useRoute()
 const router = useRouter()
 const spaceId = route.params.id as string
 
-type Mode = 'tour' | 'photos' | 'details'
-const mode = ref<Mode>(route.query.tab === 'photos' ? 'photos' : route.query.tab === 'details' ? 'details' : 'tour')
+type Mode = 'tour' | 'photos' | 'aerial' | 'details'
+function tabToMode(t: unknown): Mode {
+  return t === 'photos' || t === 'aerial' || t === 'details' ? t : 'tour'
+}
+const mode = ref<Mode>(tabToMode(route.query.tab))
 
 const editorShellRef = ref<InstanceType<typeof EditorShell> | null>(null)
 
@@ -79,7 +93,7 @@ function setMode(next: Mode) {
 // ?tab=...) drive the same tab switch as clicking the pills above, instead
 // of every panel needing setMode threaded down as a prop/emit.
 watch(() => route.query.tab, (t) => {
-  const next: Mode = t === 'photos' ? 'photos' : t === 'details' ? 'details' : 'tour'
+  const next = tabToMode(t)
   if (next !== mode.value) setMode(next)
 })
 </script>

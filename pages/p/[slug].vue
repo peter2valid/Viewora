@@ -203,7 +203,9 @@ if (tourError.value) {
     return Boolean(scene?.raw_image_url || scene?.thumbnail_url || scene?.tile_manifest_url)
   })
 
-  state.value = hasRenderableScene ? 'ready' : 'empty'
+  // A land listing may have only aerial plot maps (flat drone photos), no 360 scenes.
+  const hasAerialMap = Array.isArray(tourData?.aerial_maps) && tourData.aerial_maps.length > 0
+  state.value = hasRenderableScene || hasAerialMap ? 'ready' : 'empty'
 }
 
 pending.value = false

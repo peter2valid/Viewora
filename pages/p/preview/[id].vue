@@ -252,7 +252,7 @@ if (_tourError.value) {
   state.value = 'error'
 } else if (_tourPayload.value) {
   tour.value = _tourPayload.value.tour
-  state.value = _tourPayload.value.tour.scenes.some(s => s.raw_image_url) ? 'ready' : 'empty'
+  state.value = _tourPayload.value.tour.scenes.some(s => s.raw_image_url) || ((_tourPayload.value.tour as any).aerial_maps?.length ?? 0) > 0 ? 'ready' : 'empty'
 }
 
 // ── Computed ───────────────────────────────────────────────────

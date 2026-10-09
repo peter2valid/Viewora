@@ -8,6 +8,26 @@
       </div>
     </Transition>
 
+    <!-- Aerial plot map: flat drone photos with plots drawn on them -->
+    <button
+      v-if="aerialMaps.length && hasTourData && !chromeHidden && !showAerial"
+      type="button"
+      class="plot-map-btn"
+      :style="{ top: plotLegend.length ? '102px' : '58px' }"
+      @click.stop="showAerial = true"
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+      Plot map
+    </button>
+    <AerialMapViewer
+      v-if="showAerial || (!hasTourData && aerialMaps.length)"
+      :maps="aerialMaps"
+      :closable="hasTourData"
+      @close="showAerial = false"
+      @enquire="onAerialEnquire"
+      @click.stop
+    />
+
     <!-- Land: plot availability for the current view -->
     <Transition name="scene-toast">
       <div
@@ -451,6 +471,7 @@ import { useImage } from '#imports'
 import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
+import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import { toIntlPhoneDigits } from '~/utils/phone'
 import { PLOT_ENQUIRE_EVENT, PLOT_POLY_SUFFIX, PLOT_STATUS_META, type PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
@@ -710,6 +731,16 @@ const whatsappHref = computed(() => {
     : `Hi, I just viewed "${title}" on Viewora and I'm interested. Could you please share more details?`
   return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
 })
+
+// ── Aerial plot maps (own table, served alongside the tour) ──
+const aerialMaps = computed<any[]>(() => {
+  const list = (props.tour as any)?.aerial_maps
+  return Array.isArray(list) ? list.filter((m: any) => m?.image_url).map((m: any) => ({ ...m, shapes: Array.isArray(m.shapes) ? m.shapes : [] })) : []
+})
+const showAerial = ref(false)
+function onAerialEnquire(detail: PlotEnquiryDetail) {
+  onPlotEnquire(new CustomEvent(PLOT_ENQUIRE_EVENT, { detail }))
+}
 
 // Counts plots on the scene being viewed, e.g. "4 available · 1 reserved · 3 sold".
 const plotLegend = computed(() => {
@@ -2668,6 +2699,17 @@ watch(() => vtTransitioning.value, (loading) => {
 .vt-init-load-leave-to     { opacity: 0; }
 
 /* ── Scene name toast ─────────────────────────────────── */
+.plot-map-btn {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 56;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 16px;
+  border-radius: 999px; border: 1.5px solid rgba(255,255,255,0.9);
+  background: rgba(24, 36, 84, 0.92); color: #fff;
+  font-size: 13px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.plot-map-btn:hover { background: rgba(30, 46, 108, 0.98); }
+
 .plot-legend {
   position: absolute;
   top: 58px; left: 50%; transform: translateX(-50%);

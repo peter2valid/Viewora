@@ -26,7 +26,7 @@ const OUT_W = 5760
 const OUT_H = 2880
 const DEFAULT_HFOV_DEG = 70       // typical drone / phone main camera
 const STRIP_VFOV_DEG = 62         // phone panorama strips are shot in portrait
-const EDGE_FEATHER = 0.035        // fraction of the photo faded into the backdrop
+const EDGE_FEATHER = 0.075        // fraction of the photo faded into the backdrop (wider = softer seam)
 
 export function isEquirectangular(width: number, height: number): boolean {
   const r = width / height
@@ -150,6 +150,12 @@ export async function convertPhotoToPanorama(file: File): Promise<PanoramaConver
       ? cylindricalProjector(hfovDeg, sw, sh)
       : rectilinearProjector(hfovDeg, pitchDeg, sw, sh)
 
+    // Soft edge continuation: each border pixel of the photo is stretched
+    // outward (clamp-to-edge) at very low resolution and faded, so the sky
+    // keeps going above and the ground below instead of stopping at a hard
+    // border. At this resolution no detail survives — nothing is invented.
+    if (hfovDeg < 300) paintGlow(ctx, src, sw, sh, project)
+
     const box = boundingBox(project.bounds)
     const region = ctx.getImageData(box.x0, box.y0, box.w, box.h)
     const dst = region.data
@@ -217,9 +223,46 @@ function paintBackdrop(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
   ctx.fillRect(0, 0, OUT_W, OUT_H)
 }
 
+function paintGlow(ctx: CanvasRenderingContext2D, src: Uint8ClampedArray, sw: number, sh: number, project: Projector) {
+  const GW = 72, GH = 36 // tiny on purpose: edge streaks (fences, roads) blur away
+  const glow = makeCanvas(GW, GH)
+  const gctx = glow.getContext('2d')!
+  const img = gctx.createImageData(GW, GH)
+  const d = img.data
+  for (let j = 0; j < GH; j++) {
+    const lat = (0.5 - (j + 0.5) / GH) * Math.PI
+    const sinLat = Math.sin(lat), cosLat = Math.cos(lat)
+    for (let i = 0; i < GW; i++) {
+      const lon = ((i + 0.5) / GW - 0.5) * 2 * Math.PI
+      const hit = project.clamped(sinLat, cosLat, Math.sin(lon), Math.cos(lon), lat)
+      if (!hit) continue
+      const k = (j * GW + i) * 4
+      const sx = Math.min(sw - 1, Math.max(0, Math.round(hit.u)))
+      const sy = Math.min(sh - 1, Math.max(0, Math.round(hit.v)))
+      const s = (sy * sw + sx) * 4
+      d[k] = src[s]; d[k + 1] = src[s + 1]; d[k + 2] = src[s + 2]
+      // Strong next to the photo, fading out with distance from it.
+      d[k + 3] = Math.round(255 * (1 - smooth(Math.min(hit.outside / 0.9, 1))))
+    }
+  }
+  gctx.putImageData(img, 0, 0)
+  // Two-step upscale = cheap, cross-browser blur.
+  const mid = makeCanvas(288, 144)
+  const mctx = mid.getContext('2d')!
+  mctx.imageSmoothingQuality = 'high'
+  mctx.drawImage(glow, 0, 0, 288, 144)
+  ctx.save()
+  ctx.globalAlpha = 0.6
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(mid, 0, 0, OUT_W, OUT_H)
+  ctx.restore()
+}
+
 interface Hit { u: number; v: number; edge: number }
 interface Projector {
   sample: (sinLat: number, cosLat: number, sinLon: number, cosLon: number, lat: number) => Hit | null
+  /** Like sample, but outside the photo returns the nearest edge pixel and how far outside it is. */
+  clamped: (sinLat: number, cosLat: number, sinLon: number, cosLon: number, lat: number) => { u: number; v: number; outside: number } | null
   bounds: { lonMin: number; lonMax: number; latMin: number; latMax: number }
 }
 
@@ -240,6 +283,16 @@ function rectilinearProjector(hfovDeg: number, pitchDeg: number, sw: number, sh:
     if (px < -1 || px > 1 || py < -1 || py > 1) return null
     return { u: (px + 1) * 0.5 * (sw - 1), v: (1 - py) * 0.5 * (sh - 1), edge: Math.min(1 - Math.abs(px), 1 - Math.abs(py)) }
   }
+  const clamped: Projector['clamped'] = (sinLat, cosLat, sinLon, cosLon) => {
+    const dx = cosLat * sinLon, dy = sinLat, dz = cosLat * cosLon
+    const cz = dy * sinP + dz * cosP
+    if (cz <= 0.05) return null
+    const cy = dy * cosP - dz * sinP
+    const px = dx / cz / tanH, py = cy / cz / tanV
+    const outside = Math.max(Math.abs(px) - 1, Math.abs(py) - 1, 0)
+    const cpx = Math.max(-1, Math.min(1, px)), cpy = Math.max(-1, Math.min(1, py))
+    return { u: (cpx + 1) * 0.5 * (sw - 1), v: (1 - cpy) * 0.5 * (sh - 1), outside }
+  }
 
   // Bounds: trace the photo's border onto the sphere.
   let lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity
@@ -257,7 +310,7 @@ function rectilinearProjector(hfovDeg: number, pitchDeg: number, sw: number, sh:
   if (Math.abs(p) + Math.atan(tanV) >= Math.PI / 2 - 0.01) { lonMin = -Math.PI; lonMax = Math.PI }
   if (p - Math.atan(tanV) <= -Math.PI / 2 + 0.01) latMin = -Math.PI / 2
   if (p + Math.atan(tanV) >= Math.PI / 2 - 0.01) latMax = Math.PI / 2
-  return { sample, bounds: { lonMin, lonMax, latMin, latMax } }
+  return { sample, clamped, bounds: { lonMin, lonMax, latMin, latMax } }
 }
 
 function cylindricalProjector(hfovDeg: number, sw: number, sh: number): Projector {
@@ -273,8 +326,17 @@ function cylindricalProjector(hfovDeg: number, sw: number, sh: number): Projecto
     const edgeX = full ? 1 : 1 - Math.abs(x) * 2
     return { u: (x + 0.5) * (sw - 1), v: (1 - y) * 0.5 * (sh - 1), edge: Math.min(edgeX, 1 - Math.abs(y)) }
   }
+  const clamped: Projector['clamped'] = (sinLat, cosLat, sinLon, cosLon, lat) => {
+    const lon = Math.atan2(sinLon, cosLon)
+    const x = full ? lon / hfov : lon / hfov
+    const y = Math.tan(Math.max(-1.45, Math.min(1.45, lat))) / halfTanV
+    const outX = full ? 0 : Math.max(Math.abs(x) - 0.5, 0) * 2
+    const outside = Math.max(outX, Math.abs(y) - 1, 0)
+    const cx = Math.max(-0.5, Math.min(0.5, x)), cy = Math.max(-1, Math.min(1, y))
+    return { u: (cx + 0.5) * (sw - 1), v: (1 - cy) * 0.5 * (sh - 1), outside }
+  }
   const latMax = Math.atan(halfTanV)
-  return { sample, bounds: { lonMin: -hfov / 2, lonMax: hfov / 2, latMin: -latMax, latMax } }
+  return { sample, clamped, bounds: { lonMin: -hfov / 2, lonMax: hfov / 2, latMin: -latMax, latMax } }
 }
 
 function boundingBox(b: Projector['bounds']) {
