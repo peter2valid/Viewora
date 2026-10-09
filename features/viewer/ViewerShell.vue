@@ -11,6 +11,7 @@
           :is-tracing="isTracing"
           :trace-points="tracePoints"
           :trace-closable="traceClosable"
+          :trace-open="traceOpen"
           @loaded="emit('loaded')"
           @error="emit('error', $event)"
           @add-hotspot="emit('add-hotspot', $event)"
@@ -58,6 +59,7 @@ const props = defineProps<{
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
   traceClosable?: boolean
+  traceOpen?: boolean
 }>()
 
 const emit = defineEmits<{

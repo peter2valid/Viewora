@@ -19,9 +19,10 @@ import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
 import {
   buildLandMarkerEl,
-  buildPlotPolygonMarker,
+  buildArrowOutline,
+  buildShapeMarker,
+  sortShapes,
   isLandMarker,
-  isPlot,
   toHotspotId,
   PLOT_POLY_SUFFIX,
 } from './landMarkers'
@@ -131,6 +132,7 @@ function hotspotSignature(hs: Hotspot): string {
     hs.plotStatus ?? '',
     hs.plotPrice ?? '',
     hs.plotSize ?? '',
+    hs.arrowWidth ?? '',
   ].join('|')
 }
 
@@ -908,7 +910,8 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 
     if (isLandMarker(hotspot)) {
       // Polygon first so the label pill always draws on top of it.
-      if (isPlot(hotspot)) handle.markers.addMarker(buildPlotPolygonMarker(hotspot))
+      const shape = buildShapeMarker(hotspot)
+      if (shape) handle.markers.addMarker(shape)
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
@@ -1068,7 +1071,7 @@ const TRACE_SHAPE_ID = 'trace-poly'
 const traceMarkerIds = new WeakMap<PsvViewerHandle, Set<string>>()
 
 export function isTraceMarkerId(id: string): boolean {
-  return id === TRACE_SHAPE_ID || id.startsWith(TRACE_DOT_PREFIX)
+  return id.startsWith('trace-')
 }
 
 export function clearTrace(handle: PsvViewerHandle | null): void {
@@ -1087,7 +1090,7 @@ export function clearTrace(handle: PsvViewerHandle | null): void {
  * polygon from 3. Redrawn from scratch on every change — previously each update
  * re-added dots that already existed, which PSV rejects with a duplicate-id error.
  */
-export function renderTrace(handle: PsvViewerHandle | null, points: Array<{ yaw: number; pitch: number }>, closable = false): void {
+export function renderTrace(handle: PsvViewerHandle | null, points: Array<{ yaw: number; pitch: number }>, closable = false, open = false): void {
   if (!handle?.markers) return
   clearTrace(handle)
   if (!points.length) return
@@ -1098,17 +1101,28 @@ export function renderTrace(handle: PsvViewerHandle | null, points: Array<{ yaw:
     const shape: any = {
       id: TRACE_SHAPE_ID,
       svgStyle: {
-        fill: points.length >= 3 ? 'rgba(59, 130, 246, 0.22)' : 'none',
+        fill: points.length >= 3 && !open ? 'rgba(59, 130, 246, 0.22)' : 'none',
         stroke: 'rgba(96, 165, 250, 0.95)',
         strokeWidth: '2.5px',
         strokeDasharray: '7 5',
         strokeLinejoin: 'round',
       },
     }
-    if (points.length >= 3) shape.polygon = points
+    if (points.length >= 3 && !open) shape.polygon = points
     else shape.polyline = points
     handle.markers.addMarker(shape)
     ids.add(TRACE_SHAPE_ID)
+
+    // Road mode: live preview of the arrow that will be painted on the ground.
+    const arrow = open ? buildArrowOutline(points) : null
+    if (arrow) {
+      handle.markers.addMarker({
+        id: 'trace-arrow',
+        polygon: arrow,
+        svgStyle: { fill: 'rgba(17, 17, 22, 0.6)', stroke: 'rgba(255, 255, 255, 0.8)', strokeWidth: '2px', strokeLinejoin: 'round' },
+      })
+      ids.add('trace-arrow')
+    }
   }
 
   points.forEach((p, i) => {
@@ -1314,7 +1328,7 @@ function buildTourNodes(
     // scene_link → floor nav arrow, others → info card.
     const valid = hotspots.filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number')
     // Plot polygons go first so every pin/label renders above the shaded areas.
-    const plotPolygons = valid.filter(isPlot).map(buildPlotPolygonMarker)
+    const plotPolygons = sortShapes(valid.map(buildShapeMarker).filter(Boolean))
     const pinMarkers = valid
       .map(h => {
         if (isLandMarker(h)) {

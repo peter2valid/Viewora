@@ -43,6 +43,10 @@
                 <svg v-else-if="t.key === 'plot'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M4 7 L11 3 L20 6 L18 18 L7 20 Z"/>
                 </svg>
+                <!-- Estate -->
+                <svg v-else-if="t.key === 'zone'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6l6-3 12 4-2 13-15-2z"/>
+                </svg>
                 <!-- Beacon -->
                 <svg v-else-if="t.key === 'beacon'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 7h6l1.5 14h-9z"/><path d="M8 3h8v4H8z"/><path d="M8 14h8"/>
@@ -71,7 +75,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 
-type PickType = 'move' | 'info' | 'media' | 'link' | 'plot' | 'beacon' | 'road'
+type PickType = 'move' | 'info' | 'media' | 'link' | 'plot' | 'beacon' | 'road' | 'zone'
 
 const props = defineProps<{ visible: boolean; landTools?: boolean }>()
 const emit = defineEmits<{
@@ -91,7 +95,8 @@ const TYPES = [
 const LAND_TYPES = [
   { key: 'plot' as const,   label: 'Plot',   desc: 'Outline a plot boundary' },
   { key: 'beacon' as const, label: 'Beacon', desc: 'Mark a survey beacon' },
-  { key: 'road' as const,   label: 'Road',   desc: 'Access road & directions' },
+  { key: 'zone' as const,   label: 'Estate', desc: 'Outline the estate or a phase' },
+  { key: 'road' as const,   label: 'Road',   desc: 'Arrow painted on the road' },
 ]
 
 const visibleTypes = computed(() => props.landTools ? [...LAND_TYPES, ...TYPES] : TYPES)
@@ -211,6 +216,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .tp-icon-wrap--link  { background: rgba(16, 185, 129, 0.15); color: #34d399; }
 .tp-icon-wrap--plot   { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
 .tp-icon-wrap--beacon { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.tp-icon-wrap--zone   { background: rgba(255, 255, 255, 0.12); color: #f8fafc; }
 .tp-icon-wrap--road   { background: rgba(250, 204, 21, 0.15); color: #facc15; }
 
 .tp-type-name {

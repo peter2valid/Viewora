@@ -72,6 +72,24 @@
         <div class="lt-item">
           <button
             class="lt-btn"
+            :class="{ 'lt-btn--on': activePlacementType === 'zone' }"
+            aria-label="Outline the estate or a phase (E)"
+            @click="toggle('zone', 'Estate outline drawing mode')"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6l6-3 12 4-2 13-15-2z"/><path d="M9 3v16" stroke-dasharray="2 2.5" stroke-width="1.6"/><path d="M3 11h17" stroke-dasharray="2 2.5" stroke-width="1.6"/>
+            </svg>
+            <span class="lt-label">Estate</span>
+          </button>
+          <div class="lt-tip">
+            <span class="lt-tip__text">Estate / Phase Outline</span>
+            <kbd class="lt-tip__key">E</kbd>
+          </div>
+        </div>
+
+        <div class="lt-item">
+          <button
+            class="lt-btn"
             :class="{ 'lt-btn--on': activePlacementType === 'beacon' }"
             aria-label="Mark a survey beacon (B)"
             @click="toggle('beacon', 'Beacon placement mode')"
@@ -91,8 +109,8 @@
           <button
             class="lt-btn"
             :class="{ 'lt-btn--on': activePlacementType === 'road' }"
-            aria-label="Mark the access road (R)"
-            @click="toggle('road', 'Access road placement mode')"
+            aria-label="Draw a road arrow (R)"
+            @click="toggle('road', 'Road arrow drawing mode')"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
               <path d="M4 21 L9 3"/><path d="M20 21 L15 3"/><path d="M12 5v2M12 11v2M12 17v2"/>
@@ -100,7 +118,7 @@
             <span class="lt-label">Road</span>
           </button>
           <div class="lt-tip">
-            <span class="lt-tip__text">Access Road / Directions</span>
+            <span class="lt-tip__text">Road Arrow / Directions</span>
             <kbd class="lt-tip__key">R</kbd>
           </div>
         </div>
@@ -176,7 +194,7 @@ import { useEditorStore } from '~/features/editor/store/useEditorStore'
 // so it stays visible there regardless of scene count — hiding it
 // unconditionally here once made "editing hotspots" look like it had
 // vanished entirely on desktop, which was never the intent.
-type PlacementType = 'info' | 'nav' | 'plot' | 'beacon' | 'road'
+type PlacementType = 'info' | 'nav' | 'plot' | 'beacon' | 'road' | 'zone'
 
 const props = withDefaults(defineProps<{
   activePlacementType?: PlacementType | null
@@ -218,10 +236,10 @@ function handleNav() {
   }
 }
 
-function toggle(type: 'plot' | 'beacon' | 'road', message: string) {
+function toggle(type: 'plot' | 'beacon' | 'road' | 'zone', message: string) {
   if (props.activePlacementType === type) {
-    // Plot drawing is cancelled through the same event so the parent can clear the trace.
-    if (type === 'plot') emit('place-hotspot', 'plot')
+    // Drawing modes are cancelled through the same event so the parent can clear the trace.
+    if (type !== 'beacon') emit('place-hotspot', type)
     else emit('cancel-placement')
     return
   }
@@ -261,7 +279,8 @@ function onKeydown(e: KeyboardEvent) {
   const landKeys: Record<string, () => void> = {
     p: () => toggle('plot', 'Plot drawing mode'),
     b: () => toggle('beacon', 'Beacon placement mode'),
-    r: () => toggle('road', 'Access road placement mode'),
+    r: () => toggle('road', 'Road arrow drawing mode'),
+    e: () => toggle('zone', 'Estate outline drawing mode'),
   }
   const fn = keyMap[key] ?? (props.landTools ? landKeys[key] : undefined)
   if (!fn) return

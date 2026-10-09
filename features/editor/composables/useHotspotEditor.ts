@@ -2,7 +2,7 @@ import { ref, computed, watch, type Ref, type ComputedRef, type WritableComputed
 import { mapDbHotspot, type EditorHotspot } from '~/features/editor/mappers'
 import { isLocalSceneId } from '~/features/editor/composables/useEditorUpload'
 import type { LandKind, SphericalPoint } from '~/domain/hotspot'
-import { angularDistance, sphericalCentroid } from '~/shared/utils/viewerAdapters/landMarkers'
+import { angularDistance, isOnGround, pathAnchor, sphericalCentroid, subdivideBlock } from '~/shared/utils/viewerAdapters/landMarkers'
 import {
   HOTSPOT_LABEL_MAX,
   LAND_DEFAULT_LABEL,
@@ -27,7 +27,7 @@ type EditorStore = {
 
 // 'surface' = the original 4-corner video mapping; 'plot' = an open-ended land
 // boundary (3–64 points) that the user closes themselves.
-type TraceMode = 'surface' | 'plot'
+type TraceMode = 'surface' | 'plot' | 'zone' | 'road'
 
 const MAX_PLOT_POINTS = 64
 // Clicks this close (≈1.2°) to an existing plot corner snap onto it, so
@@ -143,9 +143,20 @@ export function useHotspotEditor(
     Object.values(hotspotsByScene.value).reduce((n, list) => n + list.filter(h => h.kind === 'plot').length, 0)
   )
 
-  /** True while drawing a plot with enough points to close it. */
+  const zoneCount = computed(() =>
+    Object.values(hotspotsByScene.value).reduce((n, list) => n + list.filter(h => h.kind === 'zone').length, 0)
+  )
+
+  const isShapeTrace = computed(() => traceMode.value === 'plot' || traceMode.value === 'zone')
+
+  /** True while drawing a closed shape (plot / estate) with enough points to close it. */
   const traceClosable = computed(() =>
-    isTracing.value && traceMode.value === 'plot' && tracePoints.value.length >= 3
+    isTracing.value && isShapeTrace.value && tracePoints.value.length >= 3
+  )
+
+  /** True when the current drawing can be finished (shapes: 3+, road paths: 2+). */
+  const traceCanFinish = computed(() =>
+    isTracing.value && (traceClosable.value || (traceMode.value === 'road' && tracePoints.value.length >= 2))
   )
 
   watch(inlineEditMode, (editing) => {
@@ -173,14 +184,17 @@ export function useHotspotEditor(
     showToast('Click 4 corners in the room to pin video', 'success')
   }
 
-  /** Start drawing a new plot boundary, or redraw an existing plot's boundary. */
-  function startPlotDrawing(redrawId: string | null = null) {
+  /**
+   * Start drawing a plot boundary, an estate/phase outline, or a road path
+   * (ground arrow) — or redraw an existing one when `redrawId` is given.
+   */
+  function startPlotDrawing(redrawId: string | null = null, kind: 'plot' | 'zone' | 'road' = 'plot') {
     if (!selectedSceneId.value) { showToast('Upload a drone or 360 photo first.', 'error'); return }
-    if (isLocalSceneId(selectedSceneId.value)) { showToast('Wait for the photo to finish uploading, then draw plots.', 'error'); return }
+    if (isLocalSceneId(selectedSceneId.value)) { showToast('Wait for the photo to finish uploading, then draw.', 'error'); return }
     showTypePicker.value = false
     quickEditHotspotId.value = null
     editorStore.setMode('view')
-    traceMode.value = 'plot'
+    traceMode.value = kind
     redrawPlotId.value = redrawId
     tracePoints.value = []
     isTracing.value = true
@@ -197,12 +211,12 @@ export function useHotspotEditor(
     tracePoints.value = tracePoints.value.slice(0, -1)
   }
 
-  /** Snap to an existing plot corner on this scene (excluding the plot being redrawn). */
+  /** Snap to an existing plot/estate corner on this scene (excluding the shape being redrawn). */
   function snapPoint(p: SphericalPoint): SphericalPoint {
     let best: SphericalPoint | null = null
     let bestDist = SNAP_RADIUS_RAD
     for (const h of activeSceneHotspots.value) {
-      if (h.kind !== 'plot' || h.id === redrawPlotId.value || !h.points) continue
+      if ((h.kind !== 'plot' && h.kind !== 'zone') || h.id === redrawPlotId.value || !h.points) continue
       for (const v of h.points) {
         const d = angularDistance(p, v)
         if (d < bestDist) { bestDist = d; best = v }
@@ -228,27 +242,40 @@ export function useHotspotEditor(
       return
     }
 
-    // Plot: clicking back on the first corner closes the shape.
+    if (traceMode.value === 'road') {
+      // The arrow is painted on the ground plane, which only exists below the horizon.
+      if (!isOnGround(point)) { showToast('Click on the road surface, below the horizon.', 'error'); return }
+      if (tracePoints.value.length >= MAX_PLOT_POINTS) return
+      tracePoints.value = [...tracePoints.value, point]
+      return
+    }
+
+    // Plot / estate: clicking back on the first corner closes the shape.
     if (tracePoints.value.length >= 3 && angularDistance(point, tracePoints.value[0]) < SNAP_RADIUS_RAD) {
       finishPlotDrawing()
       return
     }
     if (tracePoints.value.length >= MAX_PLOT_POINTS) {
-      showToast(`A plot can have up to ${MAX_PLOT_POINTS} corners.`, 'error')
+      showToast(`A shape can have up to ${MAX_PLOT_POINTS} corners.`, 'error')
       return
     }
     tracePoints.value = [...tracePoints.value, snapPoint(point)]
   }
 
   function finishPlotDrawing() {
-    if (traceMode.value !== 'plot' || !isTracing.value) return
+    if (!isTracing.value || traceMode.value === 'surface') return
+    const kind = traceMode.value as 'plot' | 'zone' | 'road'
     const points = [...tracePoints.value]
-    if (points.length < 3) { showToast('Click at least 3 corners to outline a plot.', 'error'); return }
+    const min = kind === 'road' ? 2 : 3
+    if (points.length < min) {
+      showToast(kind === 'road' ? 'Click at least 2 points along the road, ending where the arrow should point.' : 'Click at least 3 corners.', 'error')
+      return
+    }
     const redrawId = redrawPlotId.value
     cancelTracing()
 
     const sceneId = selectedSceneId.value
-    const anchor = sphericalCentroid(points)
+    const anchor = kind === 'road' ? pathAnchor(points) : sphericalCentroid(points)
 
     if (redrawId) {
       const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === redrawId)
@@ -256,20 +283,94 @@ export function useHotspotEditor(
       const next = { ...draftFromHotspot(hs), points }
       patchHotspotLocal(sceneId, redrawId, { points, yaw: anchor.yaw, pitch: anchor.pitch })
       if (editorStore.selectedHotspotId === redrawId) editDraft.value = { ...editDraft.value, points }
-      showToast('Boundary updated')
-      void sendPatch(sceneId, redrawId, { yaw: anchor.yaw, pitch: anchor.pitch, content: buildContent(next) }, 'Failed to update boundary')
+      showToast(kind === 'road' ? 'Arrow updated' : 'Boundary updated')
+      void sendPatch(sceneId, redrawId, { yaw: anchor.yaw, pitch: anchor.pitch, content: buildContent(next) }, 'Failed to update shape')
       return
     }
 
-    const draft: EditDraft = {
-      ...emptyDraft('info'),
-      label: `${LAND_DEFAULT_LABEL.plot} ${plotCount.value + 1}`,
-      kind: 'plot',
-      points,
-      plotStatus: 'available',
-    }
+    const base = { ...emptyDraft('info'), kind, points }
+    const draft: EditDraft =
+      kind === 'plot' ? { ...base, label: `${LAND_DEFAULT_LABEL.plot} ${plotCount.value + 1}`, plotStatus: 'available' }
+      : kind === 'zone' ? { ...base, label: `Phase ${zoneCount.value + 1}` }
+      : { ...base, label: LAND_DEFAULT_LABEL.road, arrowWidth: 1 }
     const tempId = createHotspot(sceneId, anchor, draft, { openPanel: true })
-    if (tempId) showToast('Plot added. Add its size and price.')
+    if (!tempId) return
+    if (kind === 'plot') showToast(points.length === 4 ? 'Plot added. Add size and price, or split it into a grid of plots.' : 'Plot added. Add its size and price.')
+    else if (kind === 'zone') showToast('Estate outline added. Give it a name.')
+    else showToast('Road arrow added. Name the road and adjust the arrow width.')
+  }
+
+  // ── Grid split ─────────────────────────────────────────────
+
+  /**
+   * Replaces a 4-corner plot with rows × cols plots in one batch request. The
+   * new plots inherit status/size/price and are numbered after the existing ones.
+   */
+  async function splitPlotIntoGrid(id: string, rows: number, cols: number) {
+    const sceneId = selectedSceneId.value
+    const parent = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
+    if (!parent || parent.kind !== 'plot' || parent.points?.length !== 4) return
+    rows = Math.max(1, Math.min(30, Math.floor(rows)))
+    cols = Math.max(1, Math.min(30, Math.floor(cols)))
+    if (rows * cols < 2) { showToast('Choose at least 2 plots.', 'error'); return }
+    if (rows * cols > 200) { showToast('Up to 200 plots at a time — split the block into smaller blocks.', 'error'); return }
+    const cells = subdivideBlock(parent.points, rows, cols)
+    if (!cells) { showToast('All 4 corners must be on the ground (below the horizon) to split into a grid.', 'error'); return }
+
+    // Number new plots after the current highest "Plot N" so labels stay unique.
+    const usedNumbers = Object.values(hotspotsByScene.value).flat()
+      .filter(h => h.kind === 'plot' && h.id !== id)
+      .map(h => Number(/(\d+)\s*$/.exec(h.label || '')?.[1] ?? 0))
+    const start = Math.max(0, ...usedNumbers) + 1
+    const shared = draftFromHotspot(parent)
+
+    const drafts = cells.map((points, i) => ({
+      ...shared,
+      label: `${LAND_DEFAULT_LABEL.plot} ${start + i}`,
+      points,
+      description: '',
+    }))
+    const temps: EditorHotspot[] = drafts.map((d, i) => {
+      const anchor = sphericalCentroid(d.points!)
+      return {
+        id: `temp_${Date.now()}_grid${i}`, yaw: anchor.yaw, pitch: anchor.pitch, type: 'info', kind: 'plot',
+        label: d.label, points: d.points, plotStatus: d.plotStatus, plotPrice: d.plotPrice, plotSize: d.plotSize, _pending: true,
+      }
+    })
+
+    // Optimistic: swap the block for its plots immediately.
+    editorStore.selectHotspot(null)
+    editorStore.setPanel('hotspots')
+    hotspotsByScene.value = {
+      ...hotspotsByScene.value,
+      [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== id), ...temps],
+    }
+    showToast(`Creating ${temps.length} plots…`)
+
+    try {
+      const res = await apiFetch(`/scenes/${sceneId}/hotspots/batch`, {
+        method: 'POST',
+        body: { hotspots: drafts.map((d, i) => buildHotspotPayload(d, temps[i])) },
+      })
+      const rowsOut: any[] = unwrap<any>(res)?.hotspots ?? res?.hotspots ?? []
+      const created = rowsOut.map(mapDbHotspot)
+      const tempIds = new Set(temps.map(t => t.id))
+      hotspotsByScene.value = {
+        ...hotspotsByScene.value,
+        [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []).filter(h => !tempIds.has(h.id)), ...created],
+      }
+      showToast(`${created.length} plots created`)
+      $posthog?.capture('plot_grid_created', { count: created.length, rows, cols, scene_id: sceneId })
+      // Only now remove the original block, so a failed batch never loses it.
+      deleteHotspot(id, { silent: true })
+    } catch (e: any) {
+      const tempIds = new Set(temps.map(t => t.id))
+      hotspotsByScene.value = {
+        ...hotspotsByScene.value,
+        [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []).filter(h => !tempIds.has(h.id)), parent],
+      }
+      showToast(e?.data?.statusMessage || e?.data?.fields?.[0]?.message || 'Could not create the plots. Try again.', 'error')
+    }
   }
 
   function unwrap<T = any>(value: any): T {
@@ -361,10 +462,10 @@ export function useHotspotEditor(
 
   function onOpenTypePicker() { showTypePicker.value = true }
 
-  function onTypePicked(userType: 'move' | 'info' | 'media' | 'link' | 'plot' | 'beacon' | 'road') {
+  function onTypePicked(userType: 'move' | 'info' | 'media' | 'link' | 'plot' | 'beacon' | 'road' | 'zone') {
     showTypePicker.value = false
-    if (userType === 'plot') { startPlotDrawing(); return }
-    if (userType === 'beacon' || userType === 'road') { placeLandMarker(userType); return }
+    if (userType === 'plot' || userType === 'zone' || userType === 'road') { startPlotDrawing(null, userType); return }
+    if (userType === 'beacon') { placeLandMarker(userType); return }
     const typeMap = { move: 'scene_link', info: 'info', media: 'video', link: 'url' } as const
     hotspotDraftType.value = typeMap[userType]
     hotspotDraftKind.value = null
@@ -465,14 +566,14 @@ export function useHotspotEditor(
     editorStore.setMode('view')
   }
 
-  function deleteHotspot(id: string) {
+  function deleteHotspot(id: string, opts: { silent?: boolean } = {}) {
     if (!id || deletingHotspot.value) return
     const sceneId = selectedSceneId.value
 
     replaceHotspot(sceneId, id, null)
-    editorStore.selectHotspot(null)
+    if (editorStore.selectedHotspotId === id) editorStore.selectHotspot(null)
     patchSeq.delete(id)
-    showToast('Hotspot deleted')
+    if (!opts.silent) showToast('Hotspot deleted')
 
     void resolveRealId(id).then(realId => {
       if (!realId) return // never reached the server
@@ -489,10 +590,10 @@ export function useHotspotEditor(
 
   function handleHotspotReposition(id: string) {
     const hs = activeSceneHotspots.value.find(h => h.id === id)
-    if (hs?.kind === 'plot') {
-      // A plot's position is its boundary — "reposition" means redraw it.
+    if (hs?.kind === 'plot' || hs?.kind === 'zone' || (hs?.kind === 'road' && (hs.points?.length ?? 0) >= 2)) {
+      // A shape's position is its outline/path — "reposition" means redraw it.
       selectHotspot(id)
-      startPlotDrawing(id)
+      startPlotDrawing(id, hs.kind)
       return
     }
     repositioningHotspotId.value = id
@@ -580,7 +681,9 @@ export function useHotspotEditor(
     traceMode,
     tracePoints,
     traceClosable,
+    traceCanFinish,
     redrawPlotId,
+    splitPlotIntoGrid,
     deleteCandidate,
     inlineEditMode,
     activeSceneHotspots,

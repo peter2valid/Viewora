@@ -516,9 +516,27 @@ header.nav {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.vhs-land__pill--road { background: rgba(250, 204, 21, 0.92); color: #111; border-color: rgba(0,0,0,0.25); }
-.vhs-land__pill--road svg { color: #111; }
-.vhs-land:hover .vhs-land__pill--road { background: #facc15; }
+.vhs-land__pill--compact { padding: 3px 8px 3px 6px; gap: 4px; font-size: 11px; }
+.vhs-land__pill--compact .vhs-land__dot { width: 7px; height: 7px; box-shadow: none; }
+.vhs-land__pill--zone {
+  padding: 7px 16px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #0b0d14;
+  border-color: rgba(0, 0, 0, 0.15);
+  font-size: 14px; font-weight: 900;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.vhs-land:hover .vhs-land__pill--zone { background: #fff; }
+.vhs-land__pill--road {
+  padding: 7px 14px 7px 11px;
+  background: rgba(24, 36, 84, 0.94);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 7px;
+  color: #fff;
+  font-size: 13px; font-weight: 800;
+}
+.vhs-land__pill--road svg { color: #facc15; }
+.vhs-land:hover .vhs-land__pill--road { background: rgba(30, 46, 108, 0.98); }
 
 .vhs-land__beacon {
   position: relative; z-index: 2;
@@ -562,7 +580,7 @@ header.nav {
   font-size: 12px; font-weight: 800; text-align: center; text-decoration: none;
   cursor: pointer;
 }
-.vhs-land--road .vhs-land__cta { background: #facc15; }
+.vhs-land--road .vhs-land__cta { background: #facc15; color: #0b0d14; }
 .vhs-land__cta:hover { filter: brightness(1.08); }
 .vhs-land__note {
   margin: 9px 0 0;

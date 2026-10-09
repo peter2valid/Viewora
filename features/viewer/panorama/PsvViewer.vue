@@ -82,6 +82,8 @@ const props = defineProps<{
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
   traceClosable?: boolean
+  /** Draw the trace as an open path (road arrows) instead of a closed shape. */
+  traceOpen?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -610,8 +612,8 @@ watch(() => props.isEditing, (isEditing) => {
 
 // Tracing visualization
 watch(
-  [() => props.isTracing, () => props.tracePoints, () => props.traceClosable],
-  ([isTracing, points, closable]) => {
+  [() => props.isTracing, () => props.tracePoints, () => props.traceClosable, () => props.traceOpen],
+  ([isTracing, points, closable, open]) => {
     if (!handle.value?.markers) return
     try {
       if (!isTracing || !points?.length) {
@@ -621,7 +623,7 @@ watch(
       const safePoints = (Array.isArray(points) ? points : []).filter(p =>
         p && typeof p === 'object' && typeof p.yaw === 'number' && typeof p.pitch === 'number'
       )
-      renderTrace(handle.value, safePoints, Boolean(closable))
+      renderTrace(handle.value, safePoints, Boolean(closable), Boolean(open))
     } catch (err) {
       errorLogger.logViewerError(err, {
         component: 'PsvViewer',

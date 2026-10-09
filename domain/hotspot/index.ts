@@ -1,4 +1,4 @@
-export type LandKind = 'plot' | 'beacon' | 'road'
+export type LandKind = 'plot' | 'beacon' | 'road' | 'zone'
 export type PlotStatus = 'available' | 'reserved' | 'sold'
 export type SphericalPoint = { yaw: number; pitch: number }
 
@@ -25,6 +25,8 @@ export interface Hotspot {
   plotStatus?: PlotStatus
   plotPrice?: string
   plotSize?: string
+  /** Road arrows: width multiplier for the ground-painted arrow. */
+  arrowWidth?: number
 }
 
 export interface HotspotCreatePayload {

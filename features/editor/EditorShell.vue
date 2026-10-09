@@ -44,6 +44,7 @@
       :trace-points="tracePoints"
       :trace-mode="traceMode"
       :trace-closable="traceClosable"
+      :trace-can-finish="traceCanFinish"
       :redrawing-plot="Boolean(redrawPlotId)"
       @error="showToast($event.message, 'error')"
       @add-hotspot="handleViewerAddHotspot"
@@ -90,7 +91,8 @@
       @save="saveHotspotEdit"
       @delete="confirmDeleteHotspot"
       @start-tracing="startTracing"
-      @redraw-plot="startPlotDrawing(editorStore.selectedHotspotId)"
+      @redraw-plot="startPlotDrawing(editorStore.selectedHotspotId, editDraft.kind === 'zone' || editDraft.kind === 'road' ? editDraft.kind : 'plot')"
+      @split-plot="(g) => editorStore.selectedHotspotId && splitPlotIntoGrid(editorStore.selectedHotspotId, g.rows, g.cols)"
     />
 
     <LeftToolbar
@@ -591,7 +593,9 @@ const {
   traceMode,
   tracePoints,
   traceClosable,
+  traceCanFinish,
   redrawPlotId,
+  splitPlotIntoGrid,
   hotspotDraftKind,
   deleteCandidate,
   activeSceneHotspots,
@@ -944,7 +948,7 @@ function handleKeydown(e: KeyboardEvent) {
     const t = e.target as HTMLElement
     const typing = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement
     if (e.key === 'Escape') { e.preventDefault(); cancelTracing(); return }
-    if (!typing && traceMode.value === 'plot') {
+    if (!typing && traceMode.value !== 'surface') {
       if (e.key === 'Enter') { e.preventDefault(); finishPlotDrawing(); return }
       if (e.key === 'Backspace' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z')) { e.preventDefault(); undoTracePoint(); return }
     }
@@ -962,21 +966,21 @@ function handleKeydown(e: KeyboardEvent) {
   if (editorStore.isModalOpen) return
 }
 
-function handlePlaceHotspot(type: 'info' | 'nav' | 'plot' | 'beacon' | 'road') {
-  if (type === 'plot') {
-    if (isTracing.value && traceMode.value === 'plot') cancelTracing()
-    else startPlotDrawing()
+function handlePlaceHotspot(type: 'info' | 'nav' | 'plot' | 'beacon' | 'road' | 'zone') {
+  if (type === 'plot' || type === 'zone' || type === 'road') {
+    if (isTracing.value && traceMode.value === type) cancelTracing()
+    else startPlotDrawing(null, type)
     return
   }
-  if (type === 'beacon' || type === 'road') { placeLandMarker(type); return }
+  if (type === 'beacon') { if (isTracing.value) cancelTracing(); placeLandMarker(type); return }
   if (isTracing.value) cancelTracing()
   placeHotspotDirect(type)
 }
 
 const isLandSpace = computed(() => space.value?.space_type === 'land')
 
-const activePlacementType = computed<'info' | 'nav' | 'plot' | 'beacon' | 'road' | null>(() => {
-  if (isTracing.value && traceMode.value === 'plot') return 'plot'
+const activePlacementType = computed<'info' | 'nav' | 'plot' | 'beacon' | 'road' | 'zone' | null>(() => {
+  if (isTracing.value && traceMode.value !== 'surface') return traceMode.value
   if (editorStore.mode !== 'hotspot') return null
   if (hotspotDraftKind.value) return hotspotDraftKind.value
   if (hotspotDraftType.value === 'scene_link') return 'nav'

@@ -28,6 +28,7 @@ export function mapDbHotspot(h: any): EditorHotspot {
     plotStatus: h?.content?.plot_status ?? undefined,
     plotPrice: h?.content?.plot_price ?? undefined,
     plotSize: h?.content?.plot_size ?? undefined,
+    arrowWidth: h?.content?.arrow_width ?? undefined,
   }
 }
 

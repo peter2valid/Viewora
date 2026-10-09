@@ -27,6 +27,7 @@ export type EditDraft = {
   plotStatus?: PlotStatus
   plotPrice?: string
   plotSize?: string
+  arrowWidth?: number
 }
 
 // Must match the backend limits in routes/hotspots.ts — longer values were
@@ -38,6 +39,7 @@ export const LAND_DEFAULT_LABEL: Record<LandKind, string> = {
   plot: 'Plot',
   beacon: 'Beacon',
   road: 'Access road',
+  zone: 'Phase 1',
 }
 
 export function emptyDraft(type: HotspotType = 'info'): EditDraft {
@@ -64,6 +66,7 @@ export function draftFromHotspot(h: EditorHotspot, targetSceneId = h.targetScene
     plotStatus: h.plotStatus,
     plotPrice: h.plotPrice || '',
     plotSize: h.plotSize || '',
+    arrowWidth: h.arrowWidth,
   }
 }
 
@@ -81,6 +84,11 @@ export function buildContent(d: EditDraft): Record<string, any> {
   if (d.kind) {
     content.kind = d.kind
     if (d.kind === 'road' && d.url.trim()) content.url = d.url.trim()
+    if (d.kind === 'road' && d.points && d.points.length >= 2) {
+      content.points = d.points
+      content.arrow_width = Math.round((d.arrowWidth ?? 1) * 100) / 100
+    }
+    if (d.kind === 'zone') content.points = d.points
     if (d.kind === 'plot') {
       content.points = d.points
       content.plot_status = d.plotStatus || 'available'

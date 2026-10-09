@@ -24,12 +24,24 @@ const emit = defineEmits<{
   (e: 'delete'): void
   (e: 'start-tracing'): void
   (e: 'redraw-plot'): void
+  (e: 'split-plot', grid: { rows: number; cols: number }): void
 }>()
+
+// Grid split (4-corner plots only): one block → rows × cols plots.
+const gridRows = ref(2)
+const gridCols = ref(5)
+const gridTotal = computed(() => Math.max(0, Math.floor(gridRows.value || 0)) * Math.max(0, Math.floor(gridCols.value || 0)))
+const canSplit = computed(() => props.draft.kind === 'plot' && props.draft.points?.length === 4 && !props.selectedId?.startsWith('temp_'))
+function splitPlot() {
+  if (!canSplit.value || gridTotal.value < 2) return
+  emit('split-plot', { rows: gridRows.value, cols: gridCols.value })
+}
 
 const LAND_LABELS: Record<string, { label: string; color: string }> = {
   plot:   { label: 'Plot',   color: 'tp-badge--plot' },
   beacon: { label: 'Beacon', color: 'tp-badge--beacon' },
   road:   { label: 'Road',   color: 'tp-badge--road' },
+  zone:   { label: 'Estate', color: 'tp-badge--zone' },
 }
 
 const PLOT_STATUSES = (Object.keys(PLOT_STATUS_META) as PlotStatus[]).map(key => ({ key, ...PLOT_STATUS_META[key] }))
@@ -192,7 +204,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
               <input
                 class="hs-input"
                 :value="draft.label"
-                :placeholder="draft.kind === 'plot' ? 'e.g. Plot 4' : draft.kind === 'beacon' ? 'e.g. Beacon PL/23' : draft.kind === 'road' ? 'e.g. Tarmac road · 300 m' : 'e.g. Living Room'"
+                :placeholder="draft.kind === 'plot' ? 'e.g. Plot 4' : draft.kind === 'beacon' ? 'e.g. Beacon PL/23' : draft.kind === 'road' ? 'e.g. Old Namanga Road' : draft.kind === 'zone' ? 'e.g. Phase 2' : 'e.g. Living Room'"
                 :maxlength="HOTSPOT_LABEL_MAX"
                 @input="updateDraft({ label: ($event.target as HTMLInputElement).value })"
               />
@@ -232,7 +244,57 @@ function updateDraft(patch: Partial<typeof props.draft>) {
                   <button class="hs-btn-trace" @click="$emit('redraw-plot')">Redraw boundary</button>
                 </div>
               </div>
+
+              <!-- Grid split: a 4-corner block becomes many plots in one go -->
+              <div v-if="draft.points?.length === 4" class="hs-field hs-grid-box">
+                <label class="hs-field-label">Split block into plots</label>
+                <div class="hs-grid-row">
+                  <label class="hs-grid-num">
+                    <input class="hs-input" type="number" min="1" max="30" v-model.number="gridRows" />
+                    <span>rows</span>
+                  </label>
+                  <span class="hs-grid-x">×</span>
+                  <label class="hs-grid-num">
+                    <input class="hs-input" type="number" min="1" max="30" v-model.number="gridCols" />
+                    <span>across</span>
+                  </label>
+                </div>
+                <button class="hs-btn-trace hs-btn-grid" :disabled="!canSplit || gridTotal < 2 || gridTotal > 200" @click="splitPlot">
+                  Create {{ gridTotal }} plots
+                </button>
+                <p class="hs-field-help">
+                  {{ canSplit ? 'Plots follow the ground perspective and copy this plot’s status, size and price. Rows run from your 1st corner to your 4th.' : 'Saving… try again in a moment.' }}
+                </p>
+              </div>
             </template>
+
+            <!-- Estate outline -->
+            <div v-if="draft.kind === 'zone'" class="hs-field">
+              <label class="hs-field-label">Outline</label>
+              <div class="hs-boundary">
+                <span>{{ draft.points?.length || 0 }} corners</span>
+                <button class="hs-btn-trace" @click="$emit('redraw-plot')">Redraw outline</button>
+              </div>
+            </div>
+
+            <!-- Road arrow -->
+            <div v-if="draft.kind === 'road' && (draft.points?.length || 0) >= 2" class="hs-field">
+              <div class="hs-slider-header">
+                <label class="hs-field-label">Arrow width</label>
+                <span class="hs-slider-val">{{ Math.round((draft.arrowWidth ?? 1) * 100) }}%</span>
+              </div>
+              <input
+                class="hs-range"
+                type="range"
+                :value="draft.arrowWidth ?? 1"
+                min="0.3" max="3" step="0.05"
+                @input="updateDraft({ arrowWidth: Number(($event.target as HTMLInputElement).value) })"
+              />
+              <div class="hs-boundary" style="margin-top: 8px">
+                <span>{{ draft.points?.length }} points</span>
+                <button class="hs-btn-trace" @click="$emit('redraw-plot')">Redraw arrow</button>
+              </div>
+            </div>
 
             <!-- Road: directions -->
             <div v-if="draft.kind === 'road'" class="hs-field">
@@ -525,6 +587,13 @@ function updateDraft(patch: Partial<typeof props.draft>) {
 .hs-field-error { margin-top: 5px; font-size: 10.5px; color: #f87171; }
 .tp-badge--plot   { background: rgba(34,197,94,0.15);  color: #4ade80; }
 .tp-badge--beacon { background: rgba(239,68,68,0.15);  color: #f87171; }
+.hs-grid-box { padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+.hs-grid-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.hs-grid-num { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 10px; color: rgba(255,255,255,0.45); }
+.hs-grid-x { color: rgba(255,255,255,0.4); font-weight: 700; }
+.hs-btn-grid { width: 100%; }
+.hs-btn-grid:disabled { opacity: 0.45; cursor: not-allowed; }
+.tp-badge--zone   { background: rgba(255,255,255,0.14); color: #f8fafc; }
 .tp-badge--road   { background: rgba(250,204,21,0.15); color: #facc15; }
 
 /* ── Shell ── */

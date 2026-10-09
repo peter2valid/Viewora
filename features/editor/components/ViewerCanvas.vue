@@ -26,6 +26,7 @@
       :is-tracing="isTracing"
       :trace-points="tracePoints"
       :trace-closable="traceClosable"
+      :trace-open="traceMode === 'road'"
       @loaded="$emit('loaded')"
       @error="$emit('error', $event)"
       @add-hotspot="$emit('add-hotspot', $event)"
@@ -41,7 +42,7 @@
     <!-- Tracing Overlay: 4-corner video surface -->
     <Transition name="badge-confirm">
       <div
-        v-if="isTracing && traceMode !== 'plot'"
+        v-if="isTracing && traceMode === 'surface'"
         class="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3 w-[calc(100%-40px)] max-w-sm pointer-events-none"
       >
         <div class="px-4 py-3 rounded-2xl bg-blue-600/90 backdrop-blur-xl border border-white/20 shadow-2xl flex items-center gap-4">
@@ -61,16 +62,16 @@
     <!-- Tracing Overlay: land plot boundary -->
     <Transition name="badge-confirm">
       <div
-        v-if="isTracing && traceMode === 'plot'"
+        v-if="isTracing && traceMode !== 'surface'"
         class="plot-bar"
         role="toolbar"
         aria-label="Plot boundary drawing"
       >
-        <div class="plot-bar__count" :class="{ 'plot-bar__count--ok': (tracePoints?.length || 0) >= 3 }">
+        <div class="plot-bar__count" :class="{ 'plot-bar__count--ok': traceCanFinish }">
           {{ tracePoints?.length || 0 }}
         </div>
         <div class="plot-bar__copy">
-          <p class="plot-bar__title">{{ redrawingPlot ? 'Redraw boundary' : 'Draw plot boundary' }}</p>
+          <p class="plot-bar__title">{{ traceTitle }}</p>
           <p class="plot-bar__hint">{{ traceHint }}</p>
         </div>
         <div class="plot-bar__actions">
@@ -81,7 +82,7 @@
           <button class="plot-bar__btn" title="Cancel (Esc)" @click="$emit('cancel-trace')">
             <span>Cancel</span>
           </button>
-          <button class="plot-bar__btn plot-bar__btn--primary" :disabled="!traceClosable" title="Finish (Enter)" @click="$emit('close-trace')">
+          <button class="plot-bar__btn plot-bar__btn--primary" :disabled="!traceCanFinish" title="Finish (Enter)" @click="$emit('close-trace')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span>Finish</span>
           </button>
@@ -208,8 +209,9 @@ const props = defineProps<{
   hotspots?: Hotspot[]
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
-  traceMode?: 'surface' | 'plot'
+  traceMode?: 'surface' | 'plot' | 'zone' | 'road'
   traceClosable?: boolean
+  traceCanFinish?: boolean
   redrawingPlot?: boolean
   hideNavArrows?: boolean
 }>()
@@ -234,8 +236,20 @@ const emit = defineEmits<{
 }>()
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+const traceTitle = computed(() => {
+  const redo = props.redrawingPlot
+  if (props.traceMode === 'road') return redo ? 'Redraw road arrow' : 'Draw road arrow'
+  if (props.traceMode === 'zone') return redo ? 'Redraw estate outline' : 'Draw estate / phase outline'
+  return redo ? 'Redraw boundary' : 'Draw plot boundary'
+})
+
 const traceHint = computed(() => {
   const n = props.tracePoints?.length || 0
+  if (props.traceMode === 'road') {
+    if (n === 0) return `${isTouch ? 'Tap' : 'Click'} along the road where the arrow starts`
+    if (n === 1) return `${isTouch ? 'Tap' : 'Click'} where the arrow should point (add bends on the way)`
+    return isTouch ? 'Add more points or tap Finish' : 'Add more points, press Enter, or Finish'
+  }
   if (n === 0) return isTouch ? 'Tap each corner of the plot, in order' : 'Click each corner of the plot, in order. Zoom in for accuracy.'
   if (n < 3) return `Add ${3 - n} more corner${3 - n === 1 ? '' : 's'}`
   return isTouch ? 'Tap the first corner or Finish to close' : 'Click the first corner, press Enter, or Finish'
