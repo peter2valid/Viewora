@@ -46,6 +46,7 @@
 </template>
 
 <script setup lang="ts">
+import { toIntlPhoneDigits } from '~/utils/phone'
 definePageMeta({ layout: false })
 
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
@@ -92,7 +93,7 @@ const panoScene = computed(() => rooms.value[1] || rooms.value[0])
 const panoImage = computed(() => panoScene.value?.thumbnail_url || heroImage.value)
 const panoLabel = computed(() => panoScene.value?.name || 'Tour Preview')
 
-const phoneDigits = computed(() => (tour.value?.space?.phone || '').replace(/[^0-9]/g, ''))
+const phoneDigits = computed(() => toIntlPhoneDigits(tour.value?.space?.phone))
 const phoneDisplay = computed(() => {
   const p = phoneDigits.value
   if (!p) return ''

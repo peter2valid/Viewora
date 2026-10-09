@@ -272,7 +272,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'v
 import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtApp, createError, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
-import { formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
+import { formatAcres, formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
 import { buildListingJsonLd } from '~/utils/listingJsonLd'
 import { amenityIcon } from '~/utils/amenityIcon'
 import type { IconName } from '~/types/icon'
@@ -498,6 +498,13 @@ const keyFacts = computed((): Array<{ value: string; label: string; icon: IconNa
     if (s.vehicle_mileage_km != null) out.push({ value: `${s.vehicle_mileage_km.toLocaleString('en-KE')} km`, label: 'Mileage', icon: 'gauge' })
     if (s.vehicle_transmission) out.push({ value: s.vehicle_transmission[0].toUpperCase() + s.vehicle_transmission.slice(1), label: 'Transmission', icon: 'manual-gearbox' })
     if (s.vehicle_fuel_type) out.push({ value: s.vehicle_fuel_type[0].toUpperCase() + s.vehicle_fuel_type.slice(1), label: 'Fuel', icon: 'gas-station' })
+    return out
+  }
+  if (s.space_type === 'land') {
+    const out: Array<{ value: string; label: string; icon: IconName }> = []
+    if (s.land_acres) out.push({ value: formatAcres(s.land_acres), label: 'Land Size', icon: 'ruler' })
+    if (s.land_type) out.push({ value: s.land_type[0].toUpperCase() + s.land_type.slice(1), label: 'Zoning', icon: 'trees' })
+    if (s.location_text) out.push({ value: s.location_text, label: 'Location', icon: 'map-pin' })
     return out
   }
   if (s.area_sqm) return [{ value: `${s.area_sqm} m²`, label: 'Floor Area', icon: 'ruler' }]
@@ -768,6 +775,7 @@ const seoTitle = computed(() => {
   let factsPrefix = ''
   if (s.space_type === 'residential' && s.bedrooms) factsPrefix = `${s.bedrooms} Bed `
   else if (s.space_type === 'automotive' && s.vehicle_year) factsPrefix = `${s.vehicle_year} `
+  else if (s.space_type === 'land' && s.land_acres) factsPrefix = `${formatAcres(s.land_acres)} `
   let title = `${factsPrefix}${s.title}`
   if (s.location_text) title += ` in ${s.location_text}`
   if (s.price_kes) title += ` | ${formatPrice(s.price_kes)}`

@@ -23,6 +23,11 @@ export function mapDbHotspot(h: any): EditorHotspot {
     strokeScale: h?.content?.strokeScale ?? undefined,
     corners: h?.content?.corners ?? undefined,
     imageUrl: h?.content?.image_url ?? undefined,
+    kind: h?.content?.kind ?? undefined,
+    points: h?.content?.points ?? undefined,
+    plotStatus: h?.content?.plot_status ?? undefined,
+    plotPrice: h?.content?.plot_price ?? undefined,
+    plotSize: h?.content?.plot_size ?? undefined,
   }
 }
 

@@ -42,6 +42,9 @@
       :hotspots="activeSceneHotspotsWithPreview"
       :is-tracing="isTracing"
       :trace-points="tracePoints"
+      :trace-mode="traceMode"
+      :trace-closable="traceClosable"
+      :redrawing-plot="Boolean(redrawPlotId)"
       @error="showToast($event.message, 'error')"
       @add-hotspot="handleViewerAddHotspot"
       @hotspot-click="handleHotspotClick"
@@ -51,6 +54,9 @@
       @hotspot-drag-drop="handleHotspotDragDrop"
       @request-upload="handleViewerCanvasUpload"
       @update-trace="handleUpdateTrace"
+      @close-trace="finishPlotDrawing"
+      @undo-trace="undoTracePoint"
+      @cancel-trace="cancelTracing"
       @cancel-placement="onCancelPlacement"
     />
 
@@ -84,6 +90,7 @@
       @save="saveHotspotEdit"
       @delete="confirmDeleteHotspot"
       @start-tracing="startTracing"
+      @redraw-plot="startPlotDrawing(editorStore.selectedHotspotId)"
     />
 
     <LeftToolbar
@@ -91,6 +98,7 @@
       :has-scene="hasPanorama"
       :active-placement-type="activePlacementType"
       :settings-open="showSettingsPanel"
+      :land-tools="isLandSpace"
       @place-hotspot="handlePlaceHotspot"
       @open-settings="showSettingsPanel = !showSettingsPanel"
       @cancel-placement="onCancelPlacement"
@@ -154,6 +162,7 @@
     <!-- Type picker + quick editor (floating, fixed-position) -->
     <HotspotTypePicker
       :visible="showTypePicker"
+      :land-tools="isLandSpace"
       @select="onTypePicked"
       @cancel="showTypePicker = false"
     />
@@ -425,6 +434,7 @@ import { navigateTo } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
+import { resolveStartView } from '~/domain/scene'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
@@ -578,15 +588,24 @@ const {
   hotspotDraftType,
   showTypePicker,
   isTracing,
+  traceMode,
   tracePoints,
+  traceClosable,
+  redrawPlotId,
+  hotspotDraftKind,
   deleteCandidate,
   activeSceneHotspots,
   hotspotCount,
   activeSceneHotspotsWithPreview,
   otherScenesForHotspot,
   startTracing,
+  startPlotDrawing,
+  cancelTracing,
+  undoTracePoint,
+  finishPlotDrawing,
   handleUpdateTrace,
   placeHotspotDirect,
+  placeLandMarker,
   onOpenTypePicker,
   onTypePicked,
   onCancelPlacement,
@@ -784,6 +803,7 @@ const activeViewerScene = computed(() => {
   const url = activePanoramaSrc.value
   if (!url || url === placeholderPanoramaUrl) return null
   const s = space.value?.property_360_settings?.[0]
+  const startView = resolveStartView(activeScene.value, s)
   return {
     id: activeScene.value?.id ?? 'editor-scene',
     imageUrl: url,
@@ -801,8 +821,8 @@ const activeViewerScene = computed(() => {
     hotspots: activeSceneHotspots.value ?? [],
     settings: {
       hfov_default: s?.hfov_default ?? 90,
-      pitch_default: s?.pitch_default ?? 0,
-      yaw_default: s?.yaw_default ?? 0,
+      pitch_default: startView.pitch,
+      yaw_default: startView.yaw,
       auto_rotate_enabled: s?.auto_rotate_enabled ?? false,
     },
   }
@@ -920,6 +940,15 @@ async function confirmDeleteScene(id: string) {
 }
 
 function handleKeydown(e: KeyboardEvent) {
+  if (isTracing.value) {
+    const t = e.target as HTMLElement
+    const typing = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement
+    if (e.key === 'Escape') { e.preventDefault(); cancelTracing(); return }
+    if (!typing && traceMode.value === 'plot') {
+      if (e.key === 'Enter') { e.preventDefault(); finishPlotDrawing(); return }
+      if (e.key === 'Backspace' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z')) { e.preventDefault(); undoTracePoint(); return }
+    }
+  }
   if (e.key === 'Escape') {
     if (deleteCandidate.value) { e.preventDefault(); deleteCandidate.value = null; return }
     if (renameCandidate.value) { e.preventDefault(); renameCandidate.value = null; return }
@@ -933,12 +962,23 @@ function handleKeydown(e: KeyboardEvent) {
   if (editorStore.isModalOpen) return
 }
 
-function handlePlaceHotspot(type: 'info' | 'nav') {
+function handlePlaceHotspot(type: 'info' | 'nav' | 'plot' | 'beacon' | 'road') {
+  if (type === 'plot') {
+    if (isTracing.value && traceMode.value === 'plot') cancelTracing()
+    else startPlotDrawing()
+    return
+  }
+  if (type === 'beacon' || type === 'road') { placeLandMarker(type); return }
+  if (isTracing.value) cancelTracing()
   placeHotspotDirect(type)
 }
 
-const activePlacementType = computed<'info' | 'nav' | null>(() => {
+const isLandSpace = computed(() => space.value?.space_type === 'land')
+
+const activePlacementType = computed<'info' | 'nav' | 'plot' | 'beacon' | 'road' | null>(() => {
+  if (isTracing.value && traceMode.value === 'plot') return 'plot'
   if (editorStore.mode !== 'hotspot') return null
+  if (hotspotDraftKind.value) return hotspotDraftKind.value
   if (hotspotDraftType.value === 'scene_link') return 'nav'
   return 'info'
 })

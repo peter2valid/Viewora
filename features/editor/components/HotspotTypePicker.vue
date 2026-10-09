@@ -19,7 +19,7 @@
           <p class="tp-hint">Pick a type — then click anywhere on the scene to place it</p>
           <div class="tp-grid">
             <button
-              v-for="t in TYPES"
+              v-for="t in visibleTypes"
               :key="t.key"
               class="tp-type"
               @click="$emit('select', t.key)"
@@ -39,6 +39,18 @@
                 <svg v-else-if="t.key === 'media'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
+                <!-- Plot -->
+                <svg v-else-if="t.key === 'plot'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 7 L11 3 L20 6 L18 18 L7 20 Z"/>
+                </svg>
+                <!-- Beacon -->
+                <svg v-else-if="t.key === 'beacon'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 7h6l1.5 14h-9z"/><path d="M8 3h8v4H8z"/><path d="M8 14h8"/>
+                </svg>
+                <!-- Road -->
+                <svg v-else-if="t.key === 'road'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M4 21 L9 3"/><path d="M20 21 L15 3"/><path d="M12 5v2M12 11v2M12 17v2"/>
+                </svg>
                 <!-- Link -->
                 <svg v-else-if="t.key === 'link'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -57,11 +69,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 
-defineProps<{ visible: boolean }>()
+type PickType = 'move' | 'info' | 'media' | 'link' | 'plot' | 'beacon' | 'road'
+
+const props = defineProps<{ visible: boolean; landTools?: boolean }>()
 const emit = defineEmits<{
-  (e: 'select', type: 'move' | 'info' | 'media' | 'link'): void
+  (e: 'select', type: PickType): void
   (e: 'cancel'): void
 }>()
 
@@ -73,6 +87,14 @@ const TYPES = [
   { key: 'media' as const, label: 'Media', desc: 'Embed a video or audio' },
   { key: 'link' as const,  label: 'Link',  desc: 'Open a website or form' },
 ]
+
+const LAND_TYPES = [
+  { key: 'plot' as const,   label: 'Plot',   desc: 'Outline a plot boundary' },
+  { key: 'beacon' as const, label: 'Beacon', desc: 'Mark a survey beacon' },
+  { key: 'road' as const,   label: 'Road',   desc: 'Access road & directions' },
+]
+
+const visibleTypes = computed(() => props.landTools ? [...LAND_TYPES, ...TYPES] : TYPES)
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('cancel')
@@ -187,6 +209,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .tp-icon-wrap--info  { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
 .tp-icon-wrap--media { background: rgba(239, 68, 68, 0.15);  color: #f87171; }
 .tp-icon-wrap--link  { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.tp-icon-wrap--plot   { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.tp-icon-wrap--beacon { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.tp-icon-wrap--road   { background: rgba(250, 204, 21, 0.15); color: #facc15; }
 
 .tp-type-name {
   font-size: 13px;

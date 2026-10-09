@@ -9,6 +9,7 @@
       :is-editing="isEditing"
       :is-tracing="isTracing"
       :trace-points="tracePoints"
+      :trace-closable="traceClosable"
       @loaded="emit('loaded')"
       @error="emit('error', $event)"
       @add-hotspot="emit('add-hotspot', $event)"
@@ -18,6 +19,7 @@
       @hotspot-reposition="emit('hotspot-reposition', $event)"
       @hotspot-drag-drop="emit('hotspot-drag-drop', $event)"
       @update-trace="emit('update-trace', $event)"
+      @close-trace="emit('close-trace')"
     />
   </div>
 </template>
@@ -37,6 +39,7 @@ defineProps<{
   isEditing?: boolean
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
+  traceClosable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -49,6 +52,7 @@ const emit = defineEmits<{
   (e: 'hotspot-reposition', id: string): void
   (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
+  (e: 'close-trace'): void
 }>()
 
 const viewerShellRef = ref<InstanceType<typeof ViewerShell> | null>(null)

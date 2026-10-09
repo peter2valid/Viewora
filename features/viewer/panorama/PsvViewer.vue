@@ -1,6 +1,6 @@
 <template>
   <div class="psv-root">
-    <div ref="containerEl" :class="['psv-canvas', { 'psv-canvas--ready': state === 'ready', 'psv-canvas--focused': isFocusing }]" />
+    <div ref="containerEl" :class="['psv-canvas', { 'psv-canvas--ready': state === 'ready', 'psv-canvas--focused': isFocusing, 'psv--tracing': isTracing }]" />
 
     <!-- Error -->
     <div v-if="state === 'error'" class="psv-overlay psv-overlay--error">
@@ -59,8 +59,9 @@ import {
   nudgeRender,
   syncHotspots,
   destroy,
-  addTracePoint,
-  updateTracePolygon,
+  renderTrace,
+  clearTrace,
+  isTraceMarkerId,
   getHotspotScreenPos,
   focusHotspot,
   toggleHotspotActive,
@@ -80,6 +81,7 @@ const props = defineProps<{
   isEditing?: boolean
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
+  traceClosable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -92,6 +94,7 @@ const emit = defineEmits<{
   (e: 'hotspot-reposition', id: string): void
   (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
+  (e: 'close-trace'): void
 }>()
 
 type State = 'loading' | 'ready' | 'error' | 'empty'
@@ -313,6 +316,13 @@ async function initWithScene(scene: TourScene) {
       },
       onMarkerClick: async (id) => {
         if (sceneLoadInProgress || !handle.value) return
+        if (props.isTracing) {
+          // Only the first boundary dot is clickable while drawing (CSS disables
+          // the rest) — clicking it closes the shape.
+          if (id === 'trace-dot-0' && props.traceClosable) emit('close-trace')
+          return
+        }
+        if (isTraceMarkerId(id)) return
         if (props.isEditing) {
           // Lock the radial menu on hotspot click in editor mode
           openMenu(id)
@@ -600,51 +610,18 @@ watch(() => props.isEditing, (isEditing) => {
 
 // Tracing visualization
 watch(
-  [() => props.isTracing, () => props.tracePoints],
-  ([isTracing, points]) => {
+  [() => props.isTracing, () => props.tracePoints, () => props.traceClosable],
+  ([isTracing, points, closable]) => {
     if (!handle.value?.markers) return
-    
     try {
-      // Clear old trace markers if tracing is off or starting over
       if (!isTracing || !points?.length) {
-        try { handle.value.markers.removeMarker('trace-poly') } catch { /* noop */ }
-        for (let i = 0; i < 4; i++) {
-          try { handle.value.markers.removeMarker(`trace-dot-${i}`) } catch { /* noop */ }
-        }
+        clearTrace(handle.value)
         return
       }
-
-      // Validate and draw points
-      const safePoints = (Array.isArray(points) ? points : []).filter(p => 
+      const safePoints = (Array.isArray(points) ? points : []).filter(p =>
         p && typeof p === 'object' && typeof p.yaw === 'number' && typeof p.pitch === 'number'
       )
-      
-      safePoints.forEach((p, i) => {
-        try {
-          addTracePoint(handle.value, `trace-dot-${i}`, p)
-        } catch (err) {
-          errorLogger.logViewerError(err, {
-            component: 'PsvViewer',
-            action: 'trace_point_add',
-            metadata: { pointIndex: i },
-          })
-          console.error(`Failed to add trace point ${i}:`, err)
-        }
-      })
-
-      // Draw polygon if enough points
-      if (safePoints.length >= 3) {
-        try {
-          updateTracePolygon(handle.value, safePoints)
-        } catch (err) {
-          errorLogger.logViewerError(err, {
-            component: 'PsvViewer',
-            action: 'trace_polygon_update',
-            metadata: { pointCount: safePoints.length },
-          })
-          console.error('Failed to update trace polygon:', err)
-        }
-      }
+      renderTrace(handle.value, safePoints, Boolean(closable))
     } catch (err) {
       errorLogger.logViewerError(err, {
         component: 'PsvViewer',

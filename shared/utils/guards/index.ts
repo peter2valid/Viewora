@@ -64,8 +64,18 @@ function normalizeHotspot(h: any): Hotspot {
     icon: h.icon ?? h.content?.icon ?? undefined,
     scale: h.scale ?? h.content?.scale ?? undefined,
     hoverScale: h.hoverScale ?? h.content?.hoverScale ?? undefined,
+    strokeScale: h.strokeScale ?? h.content?.strokeScale ?? undefined,
     corners: h.corners ?? h.content?.corners ?? undefined,
     imageUrl: h.imageUrl ?? h.content?.image_url ?? undefined,
+    // Previously dropped here, so label colour/weight set in the editor never
+    // reached the public viewer.
+    labelColor: h.labelColor ?? h.content?.label_color ?? undefined,
+    labelBold: h.labelBold ?? h.content?.label_bold ?? undefined,
+    kind: h.kind ?? h.content?.kind ?? undefined,
+    points: h.points ?? h.content?.points ?? undefined,
+    plotStatus: h.plotStatus ?? h.content?.plot_status ?? undefined,
+    plotPrice: h.plotPrice ?? h.content?.plot_price ?? undefined,
+    plotSize: h.plotSize ?? h.content?.plot_size ?? undefined,
   }
 }
 

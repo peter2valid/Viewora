@@ -3,7 +3,7 @@ export interface Space {
   title: string
   slug: string | null
   description: string | null
-  space_type: 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'other'
+  space_type: 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'land' | 'other'
   location_text: string | null
   cover_image_url: string | null
   has_360: boolean

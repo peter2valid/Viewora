@@ -2,7 +2,7 @@
   <main
     class="absolute inset-0 z-0 overflow-hidden bg-bg"
     :class="[
-      isHotspotMode && hasScene ? 'cursor-crosshair' : '',
+      (isHotspotMode || isTracing) && hasScene ? 'cursor-crosshair' : '',
       hideNavArrows ? 'hide-nav-arrows' : ''
     ]"
     @dragenter.prevent="onDragenter"
@@ -25,6 +25,7 @@
       :is-editing="isHotspotMode"
       :is-tracing="isTracing"
       :trace-points="tracePoints"
+      :trace-closable="traceClosable"
       @loaded="$emit('loaded')"
       @error="$emit('error', $event)"
       @add-hotspot="$emit('add-hotspot', $event)"
@@ -34,12 +35,13 @@
       @hotspot-reposition="$emit('hotspot-reposition', $event)"
       @hotspot-drag-drop="$emit('hotspot-drag-drop', $event)"
       @update-trace="$emit('update-trace', $event)"
+      @close-trace="$emit('close-trace')"
     />
 
-    <!-- Tracing Overlay -->
+    <!-- Tracing Overlay: 4-corner video surface -->
     <Transition name="badge-confirm">
       <div
-        v-if="isTracing"
+        v-if="isTracing && traceMode !== 'plot'"
         class="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3 w-[calc(100%-40px)] max-w-sm pointer-events-none"
       >
         <div class="px-4 py-3 rounded-2xl bg-blue-600/90 backdrop-blur-xl border border-white/20 shadow-2xl flex items-center gap-4">
@@ -52,6 +54,37 @@
               <p class="text-[10px] text-white/70">Click 4 corners in the room</p>
             </div>
           </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Tracing Overlay: land plot boundary -->
+    <Transition name="badge-confirm">
+      <div
+        v-if="isTracing && traceMode === 'plot'"
+        class="plot-bar"
+        role="toolbar"
+        aria-label="Plot boundary drawing"
+      >
+        <div class="plot-bar__count" :class="{ 'plot-bar__count--ok': (tracePoints?.length || 0) >= 3 }">
+          {{ tracePoints?.length || 0 }}
+        </div>
+        <div class="plot-bar__copy">
+          <p class="plot-bar__title">{{ redrawingPlot ? 'Redraw boundary' : 'Draw plot boundary' }}</p>
+          <p class="plot-bar__hint">{{ traceHint }}</p>
+        </div>
+        <div class="plot-bar__actions">
+          <button class="plot-bar__btn" :disabled="!tracePoints?.length" title="Undo last corner (Backspace)" @click="$emit('undo-trace')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+            <span>Undo</span>
+          </button>
+          <button class="plot-bar__btn" title="Cancel (Esc)" @click="$emit('cancel-trace')">
+            <span>Cancel</span>
+          </button>
+          <button class="plot-bar__btn plot-bar__btn--primary" :disabled="!traceClosable" title="Finish (Enter)" @click="$emit('close-trace')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Finish</span>
+          </button>
         </div>
       </div>
     </Transition>
@@ -175,6 +208,9 @@ const props = defineProps<{
   hotspots?: Hotspot[]
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
+  traceMode?: 'surface' | 'plot'
+  traceClosable?: boolean
+  redrawingPlot?: boolean
   hideNavArrows?: boolean
 }>()
 
@@ -192,7 +228,18 @@ const emit = defineEmits<{
   (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'request-upload', file?: File): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
+  (e: 'close-trace'): void
+  (e: 'undo-trace'): void
+  (e: 'cancel-trace'): void
 }>()
+
+const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+const traceHint = computed(() => {
+  const n = props.tracePoints?.length || 0
+  if (n === 0) return isTouch ? 'Tap each corner of the plot, in order' : 'Click each corner of the plot, in order. Zoom in for accuracy.'
+  if (n < 3) return `Add ${3 - n} more corner${3 - n === 1 ? '' : 's'}`
+  return isTouch ? 'Tap the first corner or Finish to close' : 'Click the first corner, press Enter, or Finish'
+})
 
 const hasScene = computed(() => Boolean(props.activeScene?.imageUrl))
 const isHotspotMode = computed(() => editorStore.mode === 'hotspot')
@@ -270,6 +317,62 @@ defineExpose({ refreshSettings })
 </script>
 
 <style scoped>
+.plot-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 12px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  border-radius: 18px;
+  background: rgba(10, 12, 20, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: #fff;
+}
+.plot-bar__count {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 900;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 0.2s;
+}
+.plot-bar__count--ok { background: #22c55e; color: #0b0d14; }
+.plot-bar__copy { min-width: 0; }
+.plot-bar__title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; }
+.plot-bar__hint { font-size: 11px; color: rgba(255, 255, 255, 0.62); margin-top: 2px; }
+.plot-bar__actions { display: flex; gap: 6px; flex-shrink: 0; }
+.plot-bar__btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 34px; padding: 0 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 12px; font-weight: 700;
+  transition: background 0.15s, opacity 0.15s;
+}
+.plot-bar__btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+.plot-bar__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.plot-bar__btn--primary { background: #22c55e; border-color: #22c55e; color: #0b0d14; }
+.plot-bar__btn--primary:hover:not(:disabled) { background: #4ade80; }
+@media (max-width: 640px) {
+  .plot-bar { flex-wrap: wrap; justify-content: center; top: 10px; }
+  .plot-bar__copy { flex: 1 1 calc(100% - 50px); }
+  .plot-bar__btn span { display: none; }
+  .plot-bar__btn { padding: 0 11px; }
+  .plot-bar__btn--primary span { display: inline; }
+}
+
 .badge-confirm-enter-active { animation: badge-confirm 200ms ease-out forwards; }
 .badge-confirm-leave-active { transition: opacity 150ms ease, transform 150ms ease; }
 .badge-confirm-leave-to     { opacity: 0; transform: translateY(-4px); }

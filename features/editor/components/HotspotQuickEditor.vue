@@ -9,10 +9,10 @@
       <!-- Header -->
       <div class="qe-header">
         <div class="qe-header-left">
-          <span class="qe-type-badge" :class="`qe-type-badge--${userType}`">
-            {{ TYPE_LABELS[userType] }}
+          <span class="qe-type-badge" :class="`qe-type-badge--${badgeKey}`">
+            {{ TYPE_LABELS[badgeKey] }}
           </span>
-          <span class="qe-header-hint">{{ TYPE_HINTS[userType] }}</span>
+          <span class="qe-header-hint">{{ TYPE_HINTS[badgeKey] }}</span>
         </div>
         <button class="qe-close" @click="$emit('cancel')" aria-label="Cancel">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -123,8 +123,8 @@
             <input
               class="qe-input"
               :value="draft.label"
-              placeholder="e.g. Living Room"
-              maxlength="80"
+              :placeholder="draft.kind === 'beacon' ? 'e.g. Beacon PL/23' : draft.kind === 'road' ? 'e.g. Tarmac road · 300 m' : 'e.g. Living Room'"
+              :maxlength="HOTSPOT_LABEL_MAX"
               @input="emit('update-draft', { label: ($event.target as HTMLInputElement).value })"
             />
           </div>
@@ -136,13 +136,14 @@
               class="qe-textarea"
               :value="draft.description"
               placeholder="Add a short description…"
+              :maxlength="HOTSPOT_TEXT_MAX"
               rows="2"
               @input="emit('update-draft', { description: ($event.target as HTMLTextAreaElement).value })"
             />
           </div>
 
           <!-- Optional link URL -->
-          <div class="qe-section">
+          <div v-if="!draft.kind" class="qe-section">
             <span class="qe-section-label">Link URL <span class="qe-optional">optional</span></span>
             <input
               class="qe-input"
@@ -156,7 +157,7 @@
           </div>
 
           <!-- Icon style — all icons in a scrollable grid -->
-          <div class="qe-section">
+          <div v-if="!draft.kind" class="qe-section">
             <span class="qe-section-label">Hotspot Icon Style</span>
             <div class="qe-icon-scroll">
               <!-- Default: blue dot (no custom icon — matches AI-placed hotspot look) -->
@@ -190,7 +191,7 @@
           </div>
 
           <!-- Size + Hover -->
-          <div class="qe-section">
+          <div v-if="!draft.kind" class="qe-section">
             <span class="qe-section-label">Size & Hover</span>
             <div class="qe-slider-row">
               <label class="qe-slider-label">Size</label>
@@ -205,6 +206,10 @@
             <input class="qe-range" type="range" :value="draft.hoverScale" min="1" max="2.5" step="0.1"
               @input="emit('update-draft', { hoverScale: Number(($event.target as HTMLInputElement).value) })" />
           </div>
+
+          <p v-if="draft.kind === 'road'" class="qe-land-hint">
+            After saving you can add a Google Maps directions link.
+          </p>
         </template>
 
 
@@ -231,24 +236,13 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { HOTSPOT_ICON_DEFS, ICON_GROUPS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
+import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/editor/hotspotPayload'
 
 const NAV_ICONS = HOTSPOT_ICON_DEFS.filter(d => d.group === 'nav')
 
 const props = defineProps<{
   visible: boolean
-  draft: {
-    label: string
-    description: string
-    url: string
-    targetSceneId: string
-    type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'
-    icon: string | null
-    scale: number
-    hoverScale: number
-    strokeScale: number
-    corners?: Array<{ yaw: number; pitch: number }>
-    imageUrl?: string
-  }
+  draft: EditDraft
   otherScenes: Array<{ id: string; label: string; imageUrl?: string | null }>
   screenX: number
   screenY: number
@@ -269,11 +263,13 @@ const showAdvanced = ref(false)
 const CARD_W = 330
 
 const TYPE_LABELS: Record<string, string> = {
-  nav: 'Navigate', info: 'Info',
+  nav: 'Navigate', info: 'Info', beacon: 'Beacon', road: 'Road',
 }
 const TYPE_HINTS: Record<string, string> = {
   nav: 'Navigate to another scene',
   info: 'Show info + optional link',
+  beacon: 'Survey beacon / boundary marker',
+  road: 'Where buyers enter from',
 }
 const LINK_SHORTCUTS = [
   { label: 'WhatsApp', prefix: 'https://wa.me/' },
@@ -285,6 +281,9 @@ const userType = computed(() => {
   if (props.draft.type === 'scene_link') return 'nav'
   return 'info'
 })
+
+// Header badge: land markers are `info` hotspots underneath but read as their own type.
+const badgeKey = computed(() => props.draft.kind === 'beacon' || props.draft.kind === 'road' ? props.draft.kind : userType.value)
 
 const effectiveIcon = computed(() =>
   props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info-3d-light'
@@ -381,6 +380,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 .qe-type-badge--nav  { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
 .qe-type-badge--info { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.qe-type-badge--beacon { background: rgba(239,68,68,0.15); color: #f87171; }
+.qe-type-badge--road { background: rgba(250,204,21,0.15); color: #facc15; }
+.qe-land-hint { margin: 2px 2px 0; font-size: 11px; color: rgba(255,255,255,0.45); }
 
 .qe-header-hint {
   font-size: 10px;

@@ -17,6 +17,14 @@ import '@photo-sphere-viewer/settings-plugin/index.css'
 
 import type { TourScene } from '~/domain/scene'
 import type { Hotspot } from '~/domain/hotspot'
+import {
+  buildLandMarkerEl,
+  buildPlotPolygonMarker,
+  isLandMarker,
+  isPlot,
+  toHotspotId,
+  PLOT_POLY_SUFFIX,
+} from './landMarkers'
 import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
 
 /** Master Handle: Unified state for a single viewer instance */
@@ -114,6 +122,15 @@ function hotspotSignature(hs: Hotspot): string {
     Number(hs.hoverScale || 1.3).toFixed(2),
     JSON.stringify(hs.corners || []),
     hs.imageUrl ?? '',
+    // Previously missing — changing label colour/weight in the editor didn't
+    // re-render the marker until something else about it changed.
+    hs.labelColor ?? '',
+    hs.labelBold ? '1' : '',
+    hs.kind ?? '',
+    JSON.stringify(hs.points || []),
+    hs.plotStatus ?? '',
+    hs.plotPrice ?? '',
+    hs.plotSize ?? '',
   ].join('|')
 }
 
@@ -825,7 +842,7 @@ export async function initViewer(
   viewer.addEventListener('click', handleClick)
   cleanupFns.push(() => viewer.removeEventListener('click', handleClick))
 
-  const handleMarkerSelect = (e: any) => onMarkerClick?.(e.marker.id)
+  const handleMarkerSelect = (e: any) => onMarkerClick?.(toHotspotId(String(e.marker.id)))
   markers.addEventListener('select-marker', handleMarkerSelect)
   cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
 
@@ -886,6 +903,19 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     // Validate hotspot data
     if (typeof hotspot.yaw !== 'number' || typeof hotspot.pitch !== 'number') {
       console.error('Invalid hotspot coordinates:', hotspot)
+      return
+    }
+
+    if (isLandMarker(hotspot)) {
+      // Polygon first so the label pill always draws on top of it.
+      if (isPlot(hotspot)) handle.markers.addMarker(buildPlotPolygonMarker(hotspot))
+      handle.markers.addMarker({
+        id: hotspot.id,
+        position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
+        element: buildLandMarkerEl(hotspot, handle.isEditing),
+        size: { width: 40, height: 40 },
+        anchor: 'center center',
+      })
       return
     }
 
@@ -982,6 +1012,7 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
 export function removeHotspot(handle: PsvViewerHandle | null, id: string): void {
   if (!handle?.markers) return
   try { handle.markers.removeMarker(id) } catch { /* noop */ }
+  try { handle.markers.removeMarker(`${id}${PLOT_POLY_SUFFIX}`) } catch { /* noop: not a plot */ }
   handle.markerSignatures?.delete(id)
 }
 
@@ -1032,24 +1063,67 @@ export function syncHotspots(handle: PsvViewerHandle | null, hotspots: Hotspot[]
   }
 }
 
-export function addTracePoint(handle: PsvViewerHandle | null, id: string, pos: { yaw: number; pitch: number }): void {
-  if (!handle?.markers) return
-  handle.markers.addMarker({
-    id,
-    position: pos,
-    html: '<div class="psv-hs-trace-dot"></div>',
-    anchor: 'center center',
-  })
+const TRACE_DOT_PREFIX = 'trace-dot-'
+const TRACE_SHAPE_ID = 'trace-poly'
+const traceMarkerIds = new WeakMap<PsvViewerHandle, Set<string>>()
+
+export function isTraceMarkerId(id: string): boolean {
+  return id === TRACE_SHAPE_ID || id.startsWith(TRACE_DOT_PREFIX)
 }
 
-export function updateTracePolygon(handle: PsvViewerHandle | null, points: Array<{ yaw: number; pitch: number }>): void {
+export function clearTrace(handle: PsvViewerHandle | null): void {
   if (!handle?.markers) return
-  try { handle.markers.removeMarker('trace-poly') } catch { /* noop */ }
-  if (points.length < 3) return
-  handle.markers.addMarker({
-    id: 'trace-poly',
-    polyline: points,
-    svgStyle: { fill: 'rgba(59, 130, 246, 0.3)', stroke: 'rgba(59, 130, 246, 0.8)', strokeWidth: '2px' },
+  const ids = traceMarkerIds.get(handle)
+  if (!ids) return
+  for (const id of ids) {
+    try { handle.markers.removeMarker(id) } catch { /* noop */ }
+  }
+  ids.clear()
+}
+
+/**
+ * Draws the in-progress boundary: a dot per point (the first one is larger and
+ * clickable to close the shape), an open line for 2 points and a filled
+ * polygon from 3. Redrawn from scratch on every change — previously each update
+ * re-added dots that already existed, which PSV rejects with a duplicate-id error.
+ */
+export function renderTrace(handle: PsvViewerHandle | null, points: Array<{ yaw: number; pitch: number }>, closable = false): void {
+  if (!handle?.markers) return
+  clearTrace(handle)
+  if (!points.length) return
+  let ids = traceMarkerIds.get(handle)
+  if (!ids) { ids = new Set(); traceMarkerIds.set(handle, ids) }
+
+  if (points.length >= 2) {
+    const shape: any = {
+      id: TRACE_SHAPE_ID,
+      svgStyle: {
+        fill: points.length >= 3 ? 'rgba(59, 130, 246, 0.22)' : 'none',
+        stroke: 'rgba(96, 165, 250, 0.95)',
+        strokeWidth: '2.5px',
+        strokeDasharray: '7 5',
+        strokeLinejoin: 'round',
+      },
+    }
+    if (points.length >= 3) shape.polygon = points
+    else shape.polyline = points
+    handle.markers.addMarker(shape)
+    ids.add(TRACE_SHAPE_ID)
+  }
+
+  points.forEach((p, i) => {
+    const id = `${TRACE_DOT_PREFIX}${i}`
+    const first = i === 0
+    handle.markers.addMarker({
+      id,
+      position: p,
+      html: `<div class="psv-hs-trace-dot${first ? ' psv-hs-trace-dot--first' : ''}${first && closable ? ' psv-hs-trace-dot--closable' : ''}"></div>`,
+      size: first ? { width: 22, height: 22 } : { width: 14, height: 14 },
+      className: first ? 'psv-marker--trace-first' : undefined,
+      anchor: 'center center',
+      tooltip: first && closable ? { content: 'Click to close the boundary', position: 'top center' } : undefined,
+    })
+    ids!.add(id)
   })
 }
 
@@ -1238,9 +1312,21 @@ function buildTourNodes(
 
     // Render ALL hotspots as MarkersPlugin markers using plain-DOM builders.
     // scene_link → floor nav arrow, others → info card.
-    const markers = hotspots
-      .filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number')
+    const valid = hotspots.filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number')
+    // Plot polygons go first so every pin/label renders above the shaded areas.
+    const plotPolygons = valid.filter(isPlot).map(buildPlotPolygonMarker)
+    const pinMarkers = valid
       .map(h => {
+        if (isLandMarker(h)) {
+          return {
+            id: h.id,
+            position: { yaw: h.yaw, pitch: h.pitch },
+            element: buildLandMarkerEl(h),
+            size: { width: 40, height: 40 },
+            anchor: 'center center',
+            data: { type: 'info', kind: h.kind, url: h.url },
+          }
+        }
         const isNav = h.type === 'scene_link'
         const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
         const hMarkerSize = isNav ? { width: 120, height: 80 } : { width: 40, height: 40 }
@@ -1261,7 +1347,7 @@ function buildTourNodes(
       name: scene.title,
       thumbnail: scene.imageUrl,
       links,
-      markers,
+      markers: [...plotPolygons, ...pinMarkers],
     }
   })
 
@@ -1441,7 +1527,8 @@ export async function initVirtualTourViewer(
     // Automatically point the camera at the first valid hotspot (nav or info)
     // so the user immediately sees interactive content.
     const firstNode = nodes[0]
-    const firstHotspots = firstNode?.markers || []
+    // Polygon markers (plots) have no single position — skip them here.
+    const firstHotspots = (firstNode?.markers || []).filter((m: any) => m.position)
     if (firstHotspots.length > 0) {
       const targetHs = firstHotspots.find((h: any) => h.data?.type === 'scene_link' || h.data?.type === 'info')
         || firstHotspots[0]
@@ -1579,7 +1666,7 @@ export async function initVirtualTourViewer(
     const el: HTMLElement | null = e.marker?.element?.querySelector?.('[data-vhs-type]') || null
     const type = el?.getAttribute('data-vhs-type') || e.marker?.config?.data?.type || 'info'
     const url = el?.getAttribute('data-vhs-url') || e.marker?.config?.data?.url || ''
-    onMarkerClick?.(e.marker.id, type, url)
+    onMarkerClick?.(toHotspotId(String(e.marker.id)), type, url)
   }
   markers.addEventListener('select-marker', handleMarkerSelect)
   cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
@@ -1707,8 +1794,9 @@ export function applyLiveSettings(
       handle.viewer.zoom(zoom)
     }
 
-    const targetYaw   = typeof yaw   === 'number' ? yaw   : undefined
-    const targetPitch = typeof pitch === 'number' ? pitch : undefined
+    // yaw/pitch arrive in DEGREES from the settings sliders; PSV reads numbers as radians.
+    const targetYaw   = typeof yaw   === 'number' ? (yaw * Math.PI) / 180   : undefined
+    const targetPitch = typeof pitch === 'number' ? (pitch * Math.PI) / 180 : undefined
 
     if (targetYaw !== undefined || targetPitch !== undefined) {
       const currentPos = handle.viewer.getPosition?.()

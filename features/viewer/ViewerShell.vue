@@ -6,10 +6,11 @@
         <PsvViewer
           ref="psvViewerRef"
           :scene="activeScene"
-          :hotspots="safeHotspots(hotspots ?? [])"
+          :hotspots="normalizedHotspots"
           :is-editing="isEditing"
           :is-tracing="isTracing"
           :trace-points="tracePoints"
+          :trace-closable="traceClosable"
           @loaded="emit('loaded')"
           @error="emit('error', $event)"
           @add-hotspot="emit('add-hotspot', $event)"
@@ -17,7 +18,9 @@
           @hotspot-edit="emit('hotspot-edit', $event)"
           @hotspot-delete="emit('hotspot-delete', $event)"
           @hotspot-reposition="emit('hotspot-reposition', $event)"
+          @hotspot-drag-drop="emit('hotspot-drag-drop', $event)"
           @update-trace="emit('update-trace', $event)"
+          @close-trace="emit('close-trace')"
         />
       </div>
 
@@ -54,6 +57,7 @@ const props = defineProps<{
   isEditing?: boolean
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
+  traceClosable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -64,8 +68,14 @@ const emit = defineEmits<{
   (e: 'hotspot-edit', id: string): void
   (e: 'hotspot-delete', id: string): void
   (e: 'hotspot-reposition', id: string): void
+  (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
+  (e: 'close-trace'): void
 }>()
+
+// Computed (not inline in the template) so PsvViewer's deep hotspot watcher
+// only fires when the hotspots actually change, not on every parent render.
+const normalizedHotspots = computed(() => safeHotspots(props.hotspots ?? []))
 
 // Route to the right viewer based on space type
 const viewerType = computed((): 'panorama' | 'car' | 'empty' => {

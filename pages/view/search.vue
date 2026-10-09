@@ -123,6 +123,7 @@ const TYPE_OPTIONS = [
   { value: 'residential', label: 'House' },
   { value: 'automotive', label: 'Car' },
   { value: 'commercial', label: 'Business' },
+  { value: 'land', label: 'Land' },
   { value: 'other', label: 'Other' },
 ]
 
@@ -143,7 +144,7 @@ const { init: initTheme } = useTheme()
 onMounted(initTheme)
 
 const q = ref('')
-const type = ref<'all' | 'residential' | 'automotive' | 'commercial' | 'other'>('all')
+const type = ref<'all' | 'residential' | 'automotive' | 'commercial' | 'land' | 'other'>('all')
 const priceMin = ref<string>('')
 const priceMax = ref<string>('')
 const bedsMin = ref<number | null>(null)

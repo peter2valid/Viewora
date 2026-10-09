@@ -1,3 +1,4 @@
+import { toIntlPhoneDigits } from '~/utils/phone'
 // Shared display formatting for the buyer-facing browse surface
 // (pages/view/index.vue and pages/view/p/[slug].vue) — kept in one place so
 // the Home feed cards and the detail screen never drift out of sync on how
@@ -5,6 +6,8 @@
 
 export interface ListingLike {
   space_type: string
+  land_acres?: number | null
+  land_type?: string | null
   bedrooms?: number | null
   bathrooms?: number | null
   area_sqm?: number | null
@@ -67,12 +70,37 @@ export function factsLine(l: ListingLike): string {
     if (l.vehicle_transmission) parts.push(l.vehicle_transmission[0].toUpperCase() + l.vehicle_transmission.slice(1))
     return parts.join(' · ')
   }
+  if (l.space_type === 'land') {
+    const parts: string[] = []
+    if (l.land_acres) parts.push(formatAcres(l.land_acres))
+    if (l.land_type) parts.push(capitalize(l.land_type))
+    return parts.join(' · ')
+  }
   if (l.area_sqm) return `${l.area_sqm} m²`
   return ''
 }
 
+export function formatAcres(acres: number): string {
+  const n = Number(acres)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  // 1/8 acre (≈50×100 ft) is the common plot size here — show it the way sellers say it.
+  if (n < 1) {
+    const eighths = Math.round(n * 8)
+    if (Math.abs(n * 8 - eighths) < 0.01 && eighths > 0) {
+      const fractions: Record<number, string> = { 1: '1/8', 2: '1/4', 4: '1/2', 6: '3/4' }
+      if (fractions[eighths]) return `${fractions[eighths]} acre`
+    }
+  }
+  const rounded = n % 1 === 0 ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+  return `${rounded} ${n === 1 ? 'acre' : 'acres'}`
+}
+
+function capitalize(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s
+}
+
 export function whatsappUrl(phone: string | null | undefined, title: string): string {
-  const digits = (phone || '').replace(/[^0-9]/g, '')
+  const digits = toIntlPhoneDigits(phone)
   const msg = `Hi! I saw ${title} on Viewora and would like more details.`
   return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
 }

@@ -44,6 +44,68 @@
         </div>
       </div>
 
+      <!-- Land tools: only for land listings -->
+      <template v-if="landTools">
+        <div class="lt-divider"/>
+
+        <div class="lt-item">
+          <button
+            class="lt-btn"
+            :class="{ 'lt-btn--on': activePlacementType === 'plot' }"
+            aria-label="Draw a plot boundary (P)"
+            @click="toggle('plot', 'Plot drawing mode')"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7 L11 3 L20 6 L18 18 L7 20 Z"/>
+              <circle cx="4" cy="7" r="1.6" fill="currentColor"/><circle cx="11" cy="3" r="1.6" fill="currentColor"/>
+              <circle cx="20" cy="6" r="1.6" fill="currentColor"/><circle cx="18" cy="18" r="1.6" fill="currentColor"/>
+              <circle cx="7" cy="20" r="1.6" fill="currentColor"/>
+            </svg>
+            <span class="lt-label">Plot</span>
+          </button>
+          <div class="lt-tip">
+            <span class="lt-tip__text">Draw Plot Boundary</span>
+            <kbd class="lt-tip__key">P</kbd>
+          </div>
+        </div>
+
+        <div class="lt-item">
+          <button
+            class="lt-btn"
+            :class="{ 'lt-btn--on': activePlacementType === 'beacon' }"
+            aria-label="Mark a survey beacon (B)"
+            @click="toggle('beacon', 'Beacon placement mode')"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 7h6l1.5 14h-9z"/><path d="M8 3h8v4H8z"/><path d="M8 14h8"/>
+            </svg>
+            <span class="lt-label">Beacon</span>
+          </button>
+          <div class="lt-tip">
+            <span class="lt-tip__text">Survey Beacon</span>
+            <kbd class="lt-tip__key">B</kbd>
+          </div>
+        </div>
+
+        <div class="lt-item">
+          <button
+            class="lt-btn"
+            :class="{ 'lt-btn--on': activePlacementType === 'road' }"
+            aria-label="Mark the access road (R)"
+            @click="toggle('road', 'Access road placement mode')"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 21 L9 3"/><path d="M20 21 L15 3"/><path d="M12 5v2M12 11v2M12 17v2"/>
+            </svg>
+            <span class="lt-label">Road</span>
+          </button>
+          <div class="lt-tip">
+            <span class="lt-tip__text">Access Road / Directions</span>
+            <kbd class="lt-tip__key">R</kbd>
+          </div>
+        </div>
+      </template>
+
       <div class="lt-divider"/>
 
       <!-- AI Auto-link -->
@@ -114,16 +176,20 @@ import { useEditorStore } from '~/features/editor/store/useEditorStore'
 // so it stays visible there regardless of scene count — hiding it
 // unconditionally here once made "editing hotspots" look like it had
 // vanished entirely on desktop, which was never the intent.
+type PlacementType = 'info' | 'nav' | 'plot' | 'beacon' | 'road'
+
 const props = withDefaults(defineProps<{
-  activePlacementType?: 'info' | 'nav' | null
+  activePlacementType?: PlacementType | null
   settingsOpen?: boolean
   hasScene?: boolean
+  landTools?: boolean
 }>(), {
   hasScene: true,
+  landTools: false,
 })
 
 const emit = defineEmits<{
-  (e: 'place-hotspot', type: 'info' | 'nav'): void
+  (e: 'place-hotspot', type: PlacementType): void
   (e: 'open-settings'): void
   (e: 'cancel-placement'): void
   (e: 'auto-link'): void
@@ -150,6 +216,17 @@ function handleNav() {
     emit('place-hotspot', 'nav')
     announcement.value = 'Navigation hotspot placement mode'
   }
+}
+
+function toggle(type: 'plot' | 'beacon' | 'road', message: string) {
+  if (props.activePlacementType === type) {
+    // Plot drawing is cancelled through the same event so the parent can clear the trace.
+    if (type === 'plot') emit('place-hotspot', 'plot')
+    else emit('cancel-placement')
+    return
+  }
+  emit('place-hotspot', type)
+  announcement.value = message
 }
 
 function handleSettings() {
@@ -180,7 +257,13 @@ function onKeydown(e: KeyboardEvent) {
     target.isContentEditable
   ) return
 
-  const fn = keyMap[e.key.toLowerCase()]
+  const key = e.key.toLowerCase()
+  const landKeys: Record<string, () => void> = {
+    p: () => toggle('plot', 'Plot drawing mode'),
+    b: () => toggle('beacon', 'Beacon placement mode'),
+    r: () => toggle('road', 'Access road placement mode'),
+  }
+  const fn = keyMap[key] ?? (props.landTools ? landKeys[key] : undefined)
   if (!fn) return
   e.preventDefault()
   fn()

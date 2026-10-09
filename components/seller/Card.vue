@@ -31,6 +31,7 @@
 </template>
 
 <script setup lang="ts">
+import { toIntlPhoneDigits } from '~/utils/phone'
 import { computed } from 'vue'
 
 const props = defineProps<{
@@ -45,7 +46,7 @@ const props = defineProps<{
 defineEmits<{ 'call-click': []; 'whatsapp-click': [] }>()
 
 const initial = computed(() => (props.sellerName || '?').charAt(0).toUpperCase())
-const telDigits = computed(() => (props.phone || '').replace(/[^0-9]/g, ''))
+const telDigits = computed(() => toIntlPhoneDigits(props.phone))
 const whatsappHref = computed(() => `https://wa.me/${telDigits.value}?text=${encodeURIComponent(props.whatsappMessage)}`)
 </script>
 

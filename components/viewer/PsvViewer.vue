@@ -8,6 +8,22 @@
       </div>
     </Transition>
 
+    <!-- Land: plot availability for the current view -->
+    <Transition name="scene-toast">
+      <div
+        v-if="plotLegend.length && vtReady && !chromeHidden"
+        class="plot-legend"
+        role="status"
+        :aria-label="plotLegend.map(l => `${l.count} ${l.label}`).join(', ')"
+      >
+        <span class="plot-legend__title">Plots</span>
+        <span v-for="l in plotLegend" :key="l.key" class="plot-legend__item">
+          <span class="plot-legend__dot" :style="{ background: l.color }" />
+          {{ l.count }} {{ l.label.toLowerCase() }}
+        </span>
+      </div>
+    </Transition>
+
     <!-- Scene name toast -->
     <Transition name="scene-toast">
       <div v-if="sceneToastVisible" class="scene-toast">
@@ -433,8 +449,10 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import QRCode from 'qrcode'
 import { useImage } from '#imports'
 import type { Hotspot } from '~/domain/hotspot'
-import type { TourScene } from '~/domain/scene'
+import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
+import { toIntlPhoneDigits } from '~/utils/phone'
+import { PLOT_ENQUIRE_EVENT, PLOT_POLY_SUFFIX, PLOT_STATUS_META, type PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import {
@@ -678,22 +696,12 @@ const ctaHref = computed(() => {
   return dest.startsWith('http') ? dest : `https://${dest}`
 })
 
+const whatsappNumber = computed<string | null>(() =>
+  toIntlPhoneDigits((props.tour?.space as any)?.phone as string | undefined) || null
+)
+
 const whatsappHref = computed(() => {
-  const raw = ((props.tour?.space as any)?.phone as string | undefined)?.trim()
-  if (!raw) return null
-
-  // Normalise to E.164-compatible digits:
-  // 1. Strip every character that isn't a digit, +, or leading whitespace
-  // 2. Replace international-dial prefix "00" with "+"
-  // 3. Strip all remaining non-digit chars except a leading "+"
-  let clean = raw.replace(/[\s\-().\/]/g, '')          // remove common separators
-  if (clean.startsWith('00')) clean = '+' + clean.slice(2) // 00XX → +XX
-  clean = clean.replace(/[^0-9+]/g, '')                // strip anything else
-  // Remove inline "+" (only a leading + is valid in E.164)
-  if (clean.includes('+')) {
-    clean = '+' + clean.replace(/\+/g, '')
-  }
-
+  const clean = whatsappNumber.value
   if (!clean) return null
   const title = ((props.tour?.space as any)?.title as string) || 'this property'
   const link = props.shareUrl || ''
@@ -702,6 +710,53 @@ const whatsappHref = computed(() => {
     : `Hi, I just viewed "${title}" on Viewora and I'm interested. Could you please share more details?`
   return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
 })
+
+// Counts plots on the scene being viewed, e.g. "4 available · 1 reserved · 3 sold".
+const plotLegend = computed(() => {
+  const sceneId = vtActiveNodeId.value
+  const scene = tourScenes.value.find((s: any) => s.id === sceneId)
+  if (!scene || !Array.isArray(scene.hotspots)) return []
+  const counts: Record<string, number> = { available: 0, reserved: 0, sold: 0 }
+  for (const h of scene.hotspots as any[]) {
+    if (h?.content?.kind !== 'plot') continue
+    const st = h.content.plot_status in counts ? h.content.plot_status : 'available'
+    counts[st]++
+  }
+  return (Object.keys(counts) as Array<keyof typeof PLOT_STATUS_META>)
+    .filter(k => counts[k] > 0)
+    .map(k => ({ key: k, count: counts[k], ...PLOT_STATUS_META[k] }))
+})
+
+// ── Land: "Enquire about this plot" (fired by the plot card in landMarkers.ts) ──
+function onPlotEnquire(e: Event) {
+  const d = (e as CustomEvent<PlotEnquiryDetail>).detail
+  if (!d) return
+  const space = props.tour?.space as any
+  const title = (space?.title as string) || 'this land'
+  const facts = [d.size, d.price].filter(Boolean).join(', ')
+  const link = props.shareUrl || publicUrl.value
+  const msg = `Hi, I'm interested in ${d.label}${facts ? ` (${facts})` : ''} at "${title}".`
+    + (link ? `\n\nTour link: ${link}` : '')
+    + `\n\nIs it still available?`
+
+  $posthog?.capture('plot_enquiry', { space_id: space?.id, plot: d.label, status: d.status })
+
+  if (whatsappNumber.value) {
+    if (space?.id) {
+      apiFetch('/leads', { method: 'POST', body: { spaceId: space.id, source: 'whatsapp' } }).catch(() => {})
+    }
+    window.open(`https://wa.me/${whatsappNumber.value}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
+    return
+  }
+  if (ctaEnabled.value) {
+    window.open(ctaHref.value, '_blank', 'noopener,noreferrer')
+    return
+  }
+  const email = space?.email as string | undefined
+  if (email) {
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(`${d.label} – ${title}`)}&body=${encodeURIComponent(msg)}`
+  }
+}
 
 function onWhatsappClick() {
   const spaceId = (props.tour?.space as any)?.id
@@ -815,8 +870,8 @@ function mapRawScene(s: any): TourScene {
     hotspots: [],
     settings: {
       hfov_default: settings360?.hfov_default ?? 90,
-      pitch_default: s.initial_pitch ?? settings360?.pitch_default ?? 0,
-      yaw_default: s.initial_yaw ?? settings360?.yaw_default ?? 0,
+      pitch_default: resolveStartView(s, settings360).pitch,
+      yaw_default: resolveStartView(s, settings360).yaw,
       auto_rotate_enabled: settings360?.auto_rotate_enabled ?? false,
     },
   }
@@ -1167,6 +1222,7 @@ function onRailTouchStart(e: TouchEvent) {
 }
 
 onMounted(() => {
+  window.addEventListener(PLOT_ENQUIRE_EVENT, onPlotEnquire)
   if (typeof window !== 'undefined' && props.isEmbed && viewerRootEl.value && 'ResizeObserver' in window) {
     resizeObserver = new ResizeObserver((entries) => {
       const box = entries[0]?.contentRect
@@ -1293,6 +1349,7 @@ watch(vtReady, (ready) => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener(PLOT_ENQUIRE_EVENT, onPlotEnquire)
   vtInitVersion++
   if (vtHandle.value) { destroy(vtHandle.value); vtHandle.value = null }
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
@@ -1320,7 +1377,11 @@ watch(
 )
 
 // Close info card on background click; restore chrome if hidden
-function onViewerClick() {
+function onViewerClick(e?: MouseEvent) {
+  // A tap on a plot's shaded area opens its card via PSV's select-marker; the
+  // native click then bubbles here and must not immediately dismiss it.
+  // (HTML pins stop propagation themselves; SVG polygons can't.)
+  if ((e?.target as Element | null)?.closest?.(`[id$="${PLOT_POLY_SUFFIX}"]`)) return
   if (chromeHidden.value) {
     toggleChrome()
     return
@@ -2607,6 +2668,34 @@ watch(() => vtTransitioning.value, (loading) => {
 .vt-init-load-leave-to     { opacity: 0; }
 
 /* ── Scene name toast ─────────────────────────────────── */
+.plot-legend {
+  position: absolute;
+  top: 58px; left: 50%; transform: translateX(-50%);
+  z-index: 55;
+  display: flex; align-items: center; gap: 12px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(10, 11, 16, 0.82);
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: rgba(255,255,255,0.9);
+  font-size: 12px; font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+.plot-legend__title {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+.plot-legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.plot-legend__dot { width: 8px; height: 8px; border-radius: 50%; }
+@media (max-width: 480px) {
+  .plot-legend { gap: 9px; padding: 6px 11px; font-size: 11px; }
+  .plot-legend__title { display: none; }
+}
+
 .scene-toast {
   position: absolute;
   top: 18px; left: 50%; transform: translateX(-50%);

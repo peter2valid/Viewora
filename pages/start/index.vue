@@ -128,6 +128,7 @@ const typeOptions = [
   { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels', emoji: '🏠' },
   { id: 'automotive', title: 'Car / Vehicle', description: 'Show interior and exterior views', emoji: '🚗' },
   { id: 'commercial', title: 'Business / Institution', description: 'Schools, offices, facilities', emoji: '🏢' },
+  { id: 'land', title: 'Land / Plots', description: 'Drone views, plot boundaries, beacons', emoji: '🌍' },
   { id: 'other', title: 'Multiple Items', description: 'Show multiple tours in one link', emoji: '📦' },
 ]
 

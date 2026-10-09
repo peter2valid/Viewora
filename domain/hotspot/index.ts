@@ -1,3 +1,7 @@
+export type LandKind = 'plot' | 'beacon' | 'road'
+export type PlotStatus = 'available' | 'reserved' | 'sold'
+export type SphericalPoint = { yaw: number; pitch: number }
+
 export interface Hotspot {
   id: string
   yaw: number
@@ -15,6 +19,12 @@ export interface Hotspot {
   strokeScale?: number
   corners?: Array<{ yaw: number; pitch: number }>
   imageUrl?: string
+  // Land listings — stored on `info` hotspots under content.kind
+  kind?: LandKind
+  points?: SphericalPoint[]
+  plotStatus?: PlotStatus
+  plotPrice?: string
+  plotSize?: string
 }
 
 export interface HotspotCreatePayload {

@@ -155,6 +155,36 @@
           </div>
         </template>
 
+        <template v-else-if="space?.space_type === 'land'">
+          <div class="df-field">
+            <label class="df-field__label">Land Size (acres) <span class="df-field__opt">optional</span></label>
+            <input class="df-input" v-model.number="draft.landAcres" type="number" min="0" step="0.125" placeholder="e.g. 0.125 for a 50×100 plot" />
+            <div class="df-seg" style="margin-top: 8px">
+              <button
+                v-for="opt in landSizePresets"
+                :key="opt.value"
+                class="df-seg__btn"
+                :class="{ 'df-seg__btn--active': draft.landAcres === opt.value }"
+                type="button"
+                @click="draft.landAcres = opt.value"
+              >{{ opt.label }}</button>
+            </div>
+          </div>
+          <div class="df-field">
+            <label class="df-field__label">Land Use <span class="df-field__opt">optional</span></label>
+            <div class="df-seg">
+              <button
+                v-for="opt in landTypeOptions"
+                :key="opt.value"
+                class="df-seg__btn"
+                :class="{ 'df-seg__btn--active': draft.landType === opt.value }"
+                type="button"
+                @click="draft.landType = draft.landType === opt.value ? '' : opt.value"
+              >{{ opt.label }}</button>
+            </div>
+          </div>
+        </template>
+
         <template v-else-if="space?.space_type === 'automotive'">
           <div class="df-field-grid">
             <div class="df-field">
@@ -470,6 +500,8 @@ const draft = ref({
   vehicleMileageKm: null as number | null,
   vehicleTransmission: '' as '' | 'manual' | 'automatic',
   vehicleFuelType: '' as '' | 'petrol' | 'diesel' | 'electric' | 'hybrid',
+  landAcres: null as number | null,
+  landType: '' as '' | 'agricultural' | 'commercial' | 'residential',
   amenities: [] as string[],
 })
 
@@ -535,6 +567,8 @@ function draftFromSpace(s: any) {
     vehicleMileageKm: s?.vehicle_mileage_km ?? null,
     vehicleTransmission: (s?.vehicle_transmission as '' | 'manual' | 'automatic') ?? '',
     vehicleFuelType: (s?.vehicle_fuel_type as '' | 'petrol' | 'diesel' | 'electric' | 'hybrid') ?? '',
+    landAcres: s?.land_acres ?? null,
+    landType: (s?.land_type as '' | 'agricultural' | 'commercial' | 'residential') ?? '',
     amenities: [...(s?.amenities ?? [])],
   }
 }
@@ -613,6 +647,11 @@ async function save() {
   if (vehicleMileageKm !== undefined) spacePatch.vehicle_mileage_km = vehicleMileageKm
   if (draft.value.vehicleTransmission) spacePatch.vehicle_transmission = draft.value.vehicleTransmission
   if (draft.value.vehicleFuelType) spacePatch.vehicle_fuel_type = draft.value.vehicleFuelType
+  if (space.value?.space_type === 'land') {
+    // Clearing these is a real edit for land (e.g. plot re-zoned), so send null rather than omitting.
+    spacePatch.land_acres = positiveNumberOrUndefined(draft.value.landAcres) ?? null
+    spacePatch.land_type = draft.value.landType || null
+  }
 
   try {
     const updated = await apiFetch(`/spaces/${props.spaceId}`, { method: 'PATCH', body: spacePatch })
@@ -700,6 +739,8 @@ async function generateDescription() {
         vehicle_mileage_km: positiveNumberOrUndefined(d.vehicleMileageKm),
         vehicle_transmission: d.vehicleTransmission || undefined,
         vehicle_fuel_type: d.vehicleFuelType || undefined,
+        land_acres: positiveNumberOrUndefined(d.landAcres),
+        land_type: d.landType || undefined,
         amenities: d.amenities.length ? d.amenities : undefined,
       },
     })
@@ -739,6 +780,20 @@ const pricePeriodOptions = [
 const vehicleTransmissionOptions = [
   { value: 'manual', label: 'Manual' },
   { value: 'automatic', label: 'Automatic' },
+] as const
+
+const landTypeOptions = [
+  { value: 'residential', label: 'Residential' },
+  { value: 'commercial', label: 'Commercial' },
+  { value: 'agricultural', label: 'Agricultural' },
+] as const
+
+// Common Kenyan plot sizes: 50×100 ft ≈ 1/8 acre, 100×100 ≈ 1/4.
+const landSizePresets = [
+  { value: 0.125, label: '1/8' },
+  { value: 0.25, label: '1/4' },
+  { value: 0.5, label: '1/2' },
+  { value: 1, label: '1 acre' },
 ] as const
 
 const vehicleFuelTypeOptions = [

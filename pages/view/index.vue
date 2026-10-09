@@ -84,6 +84,7 @@ const TYPE_OPTIONS = [
   { value: 'residential', label: 'House' },
   { value: 'automotive', label: 'Car' },
   { value: 'commercial', label: 'Business' },
+  { value: 'land', label: 'Land' },
   { value: 'other', label: 'Other' },
 ]
 
@@ -98,7 +99,7 @@ onMounted(initTheme)
 // VIEWORA_2_PRODUCT_SPEC.md §7.2: "Apply filters -> shows filtered results
 // in the Home tab").
 const initialType = route.query.type
-const type = ref<'all' | 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'other'>(
+const type = ref<'all' | 'residential' | 'commercial' | 'hospitality' | 'education' | 'automotive' | 'land' | 'other'>(
   (typeof initialType === 'string' ? initialType : 'all') as any,
 )
 const sort = ref<'newest' | 'price_asc' | 'price_desc'>('newest')

@@ -76,7 +76,7 @@ definePageMeta({ layout: false })
 import { computed } from 'vue'
 import { useAsyncData, useRoute, useRequestURL, useSeoMeta, createError } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { formatPrice, factsLine } from '~/utils/listingDisplay'
+import { formatAcres, formatPrice, factsLine } from '~/utils/listingDisplay'
 
 const { apiFetch } = useApiFetch()
 const route = useRoute()
@@ -130,6 +130,12 @@ const keyFacts = computed(() => {
     if (s.vehicle_mileage_km != null) out.push({ value: `${s.vehicle_mileage_km.toLocaleString('en-KE')} km`, label: 'Mileage' })
     if (s.vehicle_transmission) out.push({ value: s.vehicle_transmission[0].toUpperCase() + s.vehicle_transmission.slice(1), label: 'Transmission' })
     if (s.vehicle_fuel_type) out.push({ value: s.vehicle_fuel_type[0].toUpperCase() + s.vehicle_fuel_type.slice(1), label: 'Fuel' })
+    return out
+  }
+  if (s.space_type === 'land') {
+    const out = []
+    if (s.land_acres) out.push({ value: formatAcres(s.land_acres), label: 'Land Size' })
+    if (s.land_type) out.push({ value: s.land_type[0].toUpperCase() + s.land_type.slice(1), label: 'Zoning' })
     return out
   }
   if (s.area_sqm) return [{ value: `${s.area_sqm} m²`, label: 'Floor Area' }]

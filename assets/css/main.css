@@ -476,6 +476,116 @@ header.nav {
 }
 .vhs-info__link:hover { text-decoration: underline; }
 
+/* ── LAND: plots, beacons, access roads (shared/utils/viewerAdapters/landMarkers.ts) ── */
+.vhs-land__pill {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 9px;
+  border-radius: 999px;
+  background: rgba(8, 10, 18, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font: 700 12px/1 -apple-system, 'Inter', sans-serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: transform 0.18s ease, background 0.18s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.vhs-land:hover .vhs-land__pill,
+.vhs-info--active .vhs-land__pill { transform: translate(-50%, -50%) scale(1.08); background: rgba(8, 10, 18, 0.92); }
+.vhs-land__dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--vhs-color, #22c55e);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vhs-color, #22c55e) 30%, transparent);
+}
+.vhs-land__pill-status {
+  margin-left: 2px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--vhs-color, #22c55e);
+  color: #0b0d14;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.vhs-land__pill--road { background: rgba(250, 204, 21, 0.92); color: #111; border-color: rgba(0,0,0,0.25); }
+.vhs-land__pill--road svg { color: #111; }
+.vhs-land:hover .vhs-land__pill--road { background: #facc15; }
+
+.vhs-land__beacon {
+  position: relative; z-index: 2;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6));
+  transition: transform 0.18s ease;
+}
+.vhs-land:hover .vhs-land__beacon { transform: scale(1.15); }
+.vhs-land__beacon-label { font-weight: 700; }
+
+.vhs-land__card { width: 236px; }
+.vhs-land__status {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-bottom: 6px;
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--vhs-color, #22c55e);
+}
+.vhs-land__status::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--vhs-color, #22c55e);
+}
+.vhs-land__facts {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin: 4px 0 10px; padding: 0;
+}
+.vhs-land__facts div {
+  padding: 7px 9px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.vhs-land__facts dt {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.45);
+}
+.vhs-land__facts dd { margin: 2px 0 0; font-size: 13px; font-weight: 700; color: #fff; }
+.vhs-land__cta {
+  display: block; width: 100%;
+  margin-top: 4px; padding: 9px 12px;
+  border: 0; border-radius: 10px;
+  background: var(--vhs-color, #22c55e);
+  color: #0b0d14;
+  font-size: 12px; font-weight: 800; text-align: center; text-decoration: none;
+  cursor: pointer;
+}
+.vhs-land--road .vhs-land__cta { background: #facc15; }
+.vhs-land__cta:hover { filter: brightness(1.08); }
+.vhs-land__note {
+  margin: 9px 0 0;
+  font-size: 9.5px; line-height: 1.45;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+/* Boundary drawing (editor) */
+.psv-hs-trace-dot--first {
+  width: 18px !important; height: 18px !important;
+  background: #fff !important;
+  border: 3px solid #3b82f6 !important;
+}
+.psv-hs-trace-dot--closable { cursor: pointer; animation: vhs-trace-pulse 1.4s ease-in-out infinite; }
+@keyframes vhs-trace-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+  50%      { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+}
+/* While drawing, existing markers must not swallow clicks — otherwise a corner
+   can't be placed on top of (or shared with) a neighbouring plot. */
+.psv--tracing .psv-marker:not(.psv-marker--trace-first),
+.psv--tracing .psv-markers svg * { pointer-events: none !important; }
+
 /* Hide scene link markers when the dock is open */
 .hide-nav-arrows .psv-virtual-tour-arrow {
   display: none !important;

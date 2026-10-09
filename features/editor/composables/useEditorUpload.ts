@@ -3,6 +3,8 @@ import { navigateTo } from '#imports'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
+import { hotspotToPayload } from '~/features/editor/hotspotPayload'
+import { convertPhotoToPanorama, isEquirectangular, readImageSize } from '~/shared/utils/photoToPanorama'
 
 export type SceneUploadState = 'queued' | 'signing' | 'uploading' | 'registering' | 'processing' | 'ready' | 'failed'
 
@@ -206,15 +208,8 @@ export function useEditorUpload(
     const pending = (hotspotsByScene.value[sceneId] ?? []).filter((h) => h._pending)
     if (!pending.length) return
     for (const hs of pending) {
-      const payload: any = {
-        type: hs.type,
-        yaw: hs.yaw,
-        pitch: hs.pitch,
-        label: hs.label || (hs.type === 'scene_link' ? 'Go to next room' : 'Info hotspot'),
-      }
-      if (hs.type === 'url') payload.content = { url: hs.url || '', button_label: 'Open link' }
-      if (hs.type === 'info') payload.content = { text: hs.description || 'Point of interest' }
-      if (hs.type === 'scene_link' && hs.targetSceneId) payload.target_scene_id = hs.targetSceneId
+      // Same builder as the live editor, so icon/colours/land data survive.
+      const payload = hotspotToPayload(hs)
       try {
         const response = await apiFetch<any>(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload })
         const created = (response as any)?.hotspot
@@ -245,7 +240,7 @@ export function useEditorUpload(
     return base.replace(/\s+/g, ' ').slice(0, 64)
   }
 
-  async function createSceneWithPanorama(rawImageUrl: string, name?: string, localSceneId?: string) {
+  async function createSceneWithPanorama(rawImageUrl: string, name?: string, localSceneId?: string, initialPitchDeg = 0) {
     const sceneNumber = (scenes.value?.length || 0) + 1
     const response = await apiFetch<any>(`/spaces/${spaceId}/scenes`, {
       method: 'POST',
@@ -253,7 +248,7 @@ export function useEditorUpload(
         name: name || `Scene ${sceneNumber}`,
         raw_image_url: rawImageUrl,
         initial_yaw: 0,
-        initial_pitch: 0,
+        initial_pitch: Math.max(-90, Math.min(90, Math.round(initialPitchDeg))),
       },
     })
     const createdScene = (response as any)?.scene || response
@@ -295,10 +290,41 @@ export function useEditorUpload(
 
   // ── Enqueue upload flow ───────────────────────────────────────
 
-  async function enqueuePanoramaFiles(files: File[]) {
-    if (!files.length) return
+  /**
+   * Normal (non-360) photos are reprojected into a 2:1 panorama in the browser
+   * before upload — previously they were uploaded as-is and the viewer
+   * stretched a 4:3 photo around the whole sphere. See shared/utils/photoToPanorama.ts.
+   * Returns the file to upload plus the pitch the scene should open at.
+   */
+  async function prepareForPanorama(file: File): Promise<{ file: File; initialPitchDeg: number }> {
+    const size = await readImageSize(file)
+    if (!size || isEquirectangular(size.width, size.height)) return { file, initialPitchDeg: 0 }
+    const toastId = toast.loading(`Turning ${file.name} into a 360° view…`)
+    try {
+      const result = await convertPhotoToPanorama(file)
+      toast.success(
+        result.sourceKind === 'strip'
+          ? `${file.name}: panorama wrapped into 360°`
+          : `${file.name}: normal photo placed in 360° (≈${result.horizontalFovDeg}° wide${result.initialPitchDeg ? `, camera tilt ${result.initialPitchDeg}°` : ''})`,
+        { id: toastId },
+      )
+      $posthog?.capture('photo_converted_to_360', { source_kind: result.sourceKind, fov: result.horizontalFovDeg, pitch: result.initialPitchDeg })
+      return { file: result.file, initialPitchDeg: result.initialPitchDeg }
+    } catch (err) {
+      toast.error(`Couldn't convert ${file.name} — uploading it unchanged.`, { id: toastId })
+      return { file, initialPitchDeg: 0 }
+    }
+  }
+
+  async function enqueuePanoramaFiles(rawFiles: File[]) {
+    if (!rawFiles.length) return
     const sceneCountBeforeUpload = scenes.value.length
     const shouldSelectFirst = !selectedSceneId.value && scenes.value.length === 0
+
+    // Sequential: conversion is CPU/memory heavy, and phones can't hold several at once.
+    const prepared: Array<{ file: File; initialPitchDeg: number }> = []
+    for (const f of rawFiles) prepared.push(await prepareForPanorama(f))
+    const files = prepared.map(p => p.file)
 
     const queued = await Promise.all(files.map(async (file, idx) => {
       const previewUrl = URL.createObjectURL(file)
@@ -330,7 +356,7 @@ export function useEditorUpload(
               setSceneUploadState(item.localSceneId, 'registering')
               const sceneName = deriveSceneName(item.file.name, sceneCountBeforeUpload + idx + 1)
               try {
-                const createdScene = await createSceneWithPanorama(record.public_url, sceneName, item.localSceneId)
+                const createdScene = await createSceneWithPanorama(record.public_url, sceneName, item.localSceneId, prepared[idx]?.initialPitchDeg ?? 0)
                 if (createdScene) {
                   setSceneUploadState(createdScene.id, 'ready')
                   inlineEditMode.value = true

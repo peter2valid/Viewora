@@ -2,25 +2,15 @@
 import { ref, computed, watch } from 'vue'
 import type { EditorHotspot } from '../mappers'
 import { HOTSPOT_ICON_DEFS, HOTSPOT_ICONS_BY_KEY, ICON_GROUPS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
+import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/editor/hotspotPayload'
+import { PLOT_STATUS_META, directionsUrl } from '~/shared/utils/viewerAdapters/landMarkers'
+import type { PlotStatus } from '~/domain/hotspot'
 
 const props = defineProps<{
   visible: boolean
   hotspots: EditorHotspot[]
   selectedId: string | null
-  draft: {
-    label: string
-    description: string
-    url: string
-    targetSceneId: string
-    type: 'info' | 'url' | 'scene_link' | 'video' | 'youtube'
-    icon: string | null
-    labelColor: string
-    labelBold: boolean
-    scale: number
-    hoverScale: number
-    corners?: Array<{ yaw: number; pitch: number }>
-    imageUrl?: string
-  }
+  draft: EditDraft
   otherScenes: Array<{ id: string; label: string }>
   saving: boolean
   deleting: boolean
@@ -33,7 +23,45 @@ const emit = defineEmits<{
   (e: 'save'): void
   (e: 'delete'): void
   (e: 'start-tracing'): void
+  (e: 'redraw-plot'): void
 }>()
+
+const LAND_LABELS: Record<string, { label: string; color: string }> = {
+  plot:   { label: 'Plot',   color: 'tp-badge--plot' },
+  beacon: { label: 'Beacon', color: 'tp-badge--beacon' },
+  road:   { label: 'Road',   color: 'tp-badge--road' },
+}
+
+const PLOT_STATUSES = (Object.keys(PLOT_STATUS_META) as PlotStatus[]).map(key => ({ key, ...PLOT_STATUS_META[key] }))
+
+function typeMeta(h: { type: string; kind?: string }) {
+  return (h.kind && LAND_LABELS[h.kind]) || USER_TYPES[h.type] || { label: h.type, color: '' }
+}
+
+const isLand = computed(() => Boolean(props.draft.kind))
+
+// Accepts a pasted Google Maps link, or "lat, lng" (e.g. copied from Google
+// Maps by long-pressing the entrance) and turns the latter into a directions link.
+const directionsInput = ref('')
+const directionsError = ref('')
+watch(() => props.selectedId, () => { directionsInput.value = props.draft.url || ''; directionsError.value = '' }, { immediate: true })
+function applyDirections() {
+  const raw = directionsInput.value.trim()
+  directionsError.value = ''
+  if (!raw) { updateDraft({ url: '' }); return }
+  const m = raw.match(/^(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/)
+  if (m) {
+    const lat = Number(m[1]), lng = Number(m[2])
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      const url = directionsUrl(lat, lng)
+      directionsInput.value = url
+      updateDraft({ url })
+      return
+    }
+  }
+  if (/^https?:\/\//i.test(raw)) { updateDraft({ url: raw }); return }
+  directionsError.value = 'Paste a Google Maps link, or coordinates like -1.2921, 36.8219'
+}
 
 // User-facing type info
 const USER_TYPES: Record<string, { label: string; color: string }> = {
@@ -118,7 +146,10 @@ function updateDraft(patch: Partial<typeof props.draft>) {
           </div>
           <div class="hs-item-body">
             <p class="hs-item-label">{{ hs.label || 'Unnamed hotspot' }}</p>
-            <p class="hs-item-type">{{ USER_TYPES[hs.type]?.label ?? hs.type }}</p>
+            <p class="hs-item-type">
+              {{ typeMeta(hs).label }}
+              <template v-if="hs.kind === 'plot'"> · <span :style="{ color: PLOT_STATUS_META[hs.plotStatus || 'available'].color }">{{ PLOT_STATUS_META[hs.plotStatus || 'available'].label }}</span></template>
+            </p>
           </div>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="hs-item-arrow">
             <path d="M9 18l6-6-6-6"/>
@@ -144,8 +175,8 @@ function updateDraft(patch: Partial<typeof props.draft>) {
           <!-- ── TYPE (read-only) ── -->
           <div class="hs-section">
             <span class="hs-section-title">Type</span>
-            <span class="hs-type-badge" :class="USER_TYPES[draft.type]?.color">
-              {{ USER_TYPES[draft.type]?.label ?? draft.type }}
+            <span class="hs-type-badge" :class="typeMeta(draft).color">
+              {{ typeMeta(draft).label }}
             </span>
           </div>
 
@@ -161,26 +192,77 @@ function updateDraft(patch: Partial<typeof props.draft>) {
               <input
                 class="hs-input"
                 :value="draft.label"
-                placeholder="e.g. Living Room"
-                maxlength="80"
+                :placeholder="draft.kind === 'plot' ? 'e.g. Plot 4' : draft.kind === 'beacon' ? 'e.g. Beacon PL/23' : draft.kind === 'road' ? 'e.g. Tarmac road · 300 m' : 'e.g. Living Room'"
+                :maxlength="HOTSPOT_LABEL_MAX"
                 @input="updateDraft({ label: ($event.target as HTMLInputElement).value })"
               />
             </div>
 
+            <!-- Plot: status / size / price / boundary -->
+            <template v-if="draft.kind === 'plot'">
+              <div class="hs-field">
+                <label class="hs-field-label">Status</label>
+                <div class="hs-status-row">
+                  <button
+                    v-for="st in PLOT_STATUSES"
+                    :key="st.key"
+                    class="hs-status-btn"
+                    :class="{ 'hs-status-btn--on': (draft.plotStatus || 'available') === st.key }"
+                    :style="{ '--st-color': st.color }"
+                    @click="updateDraft({ plotStatus: st.key })"
+                  >{{ st.label }}</button>
+                </div>
+              </div>
+              <div class="hs-field-row">
+                <div class="hs-field">
+                  <label class="hs-field-label">Size</label>
+                  <input class="hs-input" :value="draft.plotSize" maxlength="40" placeholder="50×100 ft"
+                    @input="updateDraft({ plotSize: ($event.target as HTMLInputElement).value })" />
+                </div>
+                <div class="hs-field">
+                  <label class="hs-field-label">Price</label>
+                  <input class="hs-input" :value="draft.plotPrice" maxlength="40" placeholder="KES 1.2M"
+                    @input="updateDraft({ plotPrice: ($event.target as HTMLInputElement).value })" />
+                </div>
+              </div>
+              <div class="hs-field">
+                <label class="hs-field-label">Boundary</label>
+                <div class="hs-boundary">
+                  <span>{{ draft.points?.length || 0 }} corners</span>
+                  <button class="hs-btn-trace" @click="$emit('redraw-plot')">Redraw boundary</button>
+                </div>
+              </div>
+            </template>
+
+            <!-- Road: directions -->
+            <div v-if="draft.kind === 'road'" class="hs-field">
+              <label class="hs-field-label">Directions <span class="hs-optional">optional</span></label>
+              <input
+                class="hs-input"
+                v-model="directionsInput"
+                placeholder="Google Maps link or -1.2921, 36.8219"
+                @blur="applyDirections"
+                @keydown.enter="applyDirections"
+              />
+              <p v-if="directionsError" class="hs-field-error">{{ directionsError }}</p>
+              <p v-else class="hs-field-help">Buyers get a "Get directions" button that opens Google Maps.</p>
+            </div>
+
             <!-- Info: description -->
             <div v-if="draft.type === 'info'" class="hs-field">
-              <label class="hs-field-label">Description</label>
+              <label class="hs-field-label">{{ draft.kind === 'plot' ? 'Notes for buyers' : 'Description' }}</label>
               <textarea
                 class="hs-input hs-input--textarea"
                 :value="draft.description"
-                placeholder="Add a description…"
+                :placeholder="draft.kind === 'plot' ? 'e.g. Corner plot, ready title, water & power on site' : 'Add a description…'"
+                :maxlength="HOTSPOT_TEXT_MAX"
                 rows="4"
                 @input="updateDraft({ description: ($event.target as HTMLTextAreaElement).value })"
               />
             </div>
 
             <!-- Info: cover image -->
-            <div v-if="draft.type === 'info'" class="hs-field">
+            <div v-if="draft.type === 'info' && !isLand" class="hs-field">
               <label class="hs-field-label">Cover Image URL <span class="hs-optional">optional</span></label>
               <div v-if="draft.imageUrl" class="hs-image-preview" :style="`background-image: url('${draft.imageUrl}')`" />
               <input
@@ -240,6 +322,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
             </div>
           </div>
 
+          <template v-if="!isLand">
           <div class="hs-divider" />
 
           <!-- ── APPEARANCE ── -->
@@ -383,6 +466,8 @@ function updateDraft(patch: Partial<typeof props.draft>) {
             </div>
           </Transition>
 
+          </template>
+
           <!-- Bottom padding -->
           <div class="h-4" />
         </div>
@@ -415,6 +500,33 @@ function updateDraft(patch: Partial<typeof props.draft>) {
 </template>
 
 <style scoped>
+/* ── Land fields ── */
+.hs-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hs-status-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.hs-status-btn {
+  height: 32px; border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.6);
+  font-size: 11.5px; font-weight: 700;
+  transition: background 140ms, color 140ms, border-color 140ms;
+}
+.hs-status-btn:hover { background: rgba(255,255,255,0.08); }
+.hs-status-btn--on {
+  background: color-mix(in srgb, var(--st-color) 22%, transparent);
+  border-color: var(--st-color);
+  color: #fff;
+}
+.hs-boundary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; color: rgba(255,255,255,0.6);
+}
+.hs-field-help { margin-top: 5px; font-size: 10.5px; color: rgba(255,255,255,0.4); }
+.hs-field-error { margin-top: 5px; font-size: 10.5px; color: #f87171; }
+.tp-badge--plot   { background: rgba(34,197,94,0.15);  color: #4ade80; }
+.tp-badge--beacon { background: rgba(239,68,68,0.15);  color: #f87171; }
+.tp-badge--road   { background: rgba(250,204,21,0.15); color: #facc15; }
+
 /* ── Shell ── */
 .hs-panel {
   display: flex;
