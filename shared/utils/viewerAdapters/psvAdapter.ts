@@ -1500,17 +1500,16 @@ export async function initVirtualTourViewer(
     nodes,
     startNodeId,
     preload: usePreload,
-    transitionOptions: {
-      showLoader: true,
-      speed: '2rpm',
+    // Room-to-room moves crossfade with no loader spinner: the current room
+    // stays on screen while the next loads (vtWalkToNode adds the "step
+    // forward" motion for our own arrows and the scene dock). rotation:false —
+    // PSV's own rotation dived toward the floor arrow before fading.
+    transitionOptions: () => ({
+      showLoader: false,
+      speed: 550,
       effect: 'fade',
-      // rotation: false — do NOT pan the camera to the floor arrow before transitioning.
-      // With rotation:true, PSV rotated down to pitch=-0.8 (the link position) before the
-      // fade, making it look like the camera dove at the floor. The smart entry direction
-      // feature already handles the correct orientation after arrival.
       rotation: false,
-      transition: { speed: 600, effect: 'fade', rotation: false },
-    },
+    }),
     // Show scene thumbnail card when the user hovers a floor arrow
     showLinkTooltip: true,
     getLinkTooltip: (_content: string, link: any) => {
@@ -1760,6 +1759,72 @@ export async function vtGoToNode(handle: PsvViewerHandle | null, nodeId: string)
     if (!vt) return false
     return await vt.setCurrentNode(nodeId)
   } catch { return false }
+}
+
+/**
+ * Walk into another room, so moving through a tour feels like walking rather
+ * than loading pages:
+ *  1. the camera turns toward the doorway and moves forward (zooms in) while
+ *     the next room's preview downloads in parallel;
+ *  2. crossfade into the next room — no loader spinner — arriving slightly
+ *     zoomed in and facing `arrive` (forward into the room);
+ *  3. settle back to the normal view, like taking in the room.
+ * Respects prefers-reduced-motion (plain crossfade).
+ */
+export async function vtWalkToNode(
+  handle: PsvViewerHandle | null,
+  nodeId: string,
+  opts: { towardYaw?: number; arrive?: { yaw: number; pitch: number } | null; previewUrl?: string | null } = {},
+): Promise<boolean> {
+  if (!handle?.viewer) return false
+  const viewer = handle.viewer
+  const vt = viewer.getPlugin(VirtualTourPlugin)
+  if (!vt) return false
+  const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const startZoom: number = viewer.getZoomLevel?.() ?? 50
+  const pos = viewer.getPosition?.() ?? { yaw: 0, pitch: 0 }
+
+  // Next room's preview, decoded so the crossfade can start the moment we arrive.
+  const preload = opts.previewUrl
+    ? new Promise<void>(resolve => {
+        const im = new Image()
+        im.crossOrigin = 'anonymous'
+        im.onload = () => { (im.decode?.() ?? Promise.resolve()).catch(() => {}).finally(() => resolve()) }
+        im.onerror = () => resolve()
+        im.src = opts.previewUrl!
+      })
+    : Promise.resolve()
+
+  try {
+    if (!reduce) {
+      const step = Promise.resolve(viewer.animate({
+        yaw: opts.towardYaw ?? pos.yaw,
+        // Look roughly ahead, not at the floor arrow that was clicked.
+        pitch: Math.max(-0.2, Math.min(0.1, pos.pitch)),
+        zoom: Math.min(100, startZoom + 28),
+        speed: 650,
+      })).catch(() => {})
+      // Never stall more than ~2s on a slow connection — the fade waits for the image anyway.
+      await Promise.race([Promise.all([step, preload]), new Promise(r => setTimeout(r, 2000))])
+    } else {
+      await Promise.race([preload, new Promise(r => setTimeout(r, 1500))])
+    }
+
+    const ok = await vt.setCurrentNode(nodeId, {
+      showLoader: false,
+      effect: 'fade',
+      speed: reduce ? 300 : 550,
+      rotation: false,
+      ...(opts.arrive ? { rotateTo: { yaw: opts.arrive.yaw, pitch: opts.arrive.pitch } } : {}),
+      zoomTo: reduce ? startZoom : Math.min(100, startZoom + 16),
+    })
+    if (ok && !reduce) {
+      Promise.resolve(viewer.animate({ zoom: startZoom, speed: 900 })).catch(() => {})
+    }
+    return !!ok
+  } catch {
+    return false
+  }
 }
 
 /** Get the currently displayed VirtualTour node id */

@@ -483,6 +483,7 @@ import GlassDock from '~/components/ui/GlassDock.vue'
 import {
   initVirtualTourViewer,
   vtGoToNode,
+  vtWalkToNode,
   vtToggleMarkerActive,
   focusHotspot,
   destroy,
@@ -595,6 +596,30 @@ type EntryContext = {
   targetSceneId: string  // scene we're heading to
 }
 let pendingEntry: EntryContext | null = null
+// Set when vtWalkToNode already chose the arrival view, so onNodeChanged
+// doesn't rotate the camera a second time.
+let walkedInto: string | null = null
+
+/**
+ * Where to look when arriving in `targetId` from `fromId`: forward into the
+ * room, i.e. directly away from the doorway that leads back (the way you'd be
+ * facing after walking through it). Falls back to the scene's start view.
+ */
+function arrivalView(targetId: string, fromId: string | null): { yaw: number; pitch: number } {
+  const back = fromId ? (buildAllHotspots()[targetId] ?? []).find(h => h.type === 'scene_link' && h.targetSceneId === fromId) : null
+  if (back) {
+    let yaw = back.yaw + Math.PI
+    if (yaw > Math.PI * 2) yaw -= Math.PI * 2
+    return { yaw, pitch: 0 }
+  }
+  const raw = tourScenes.value.find((x: any) => x.id === targetId)
+  return resolveStartView(raw, props.tour?.space?.property_360_settings?.[0])
+}
+
+function previewFor(targetId: string): string | null {
+  const raw = tourScenes.value.find((x: any) => x.id === targetId)
+  return raw ? sceneImageUrl(raw) : null
+}
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
 const gyroscopeActive = ref(false)
@@ -1050,6 +1075,9 @@ async function initVT() {
             for (const h of hotspots) vtToggleMarkerActive(handle, h.id, false)
           }
 
+          // Arrival view already applied by vtWalkToNode — don't rotate again.
+          if (walkedInto === nodeId) { walkedInto = null; pendingEntry = null; return }
+
           // ── Smart entry direction ──────────────────────────────────────
           // Orient the camera so the viewer faces the door they just walked
           // through, not the scene default. This makes navigation feel natural
@@ -1235,17 +1263,17 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
           return null
         })()
 
-        if (clickedHotspot) {
-          pendingEntry = {
-            fromSceneId:   vtActiveNodeId.value,
-            clickedYaw:    clickedHotspot.yaw,
-            targetSceneId,
-          }
-        }
-
+        // Walk through the door: step toward the clicked arrow, crossfade,
+        // arrive facing into the next room.
         vtTransitioning.value = true
-        const success = await vtGoToNode(handle, targetSceneId)
-        if (!success) { vtTransitioning.value = false; pendingEntry = null }
+        pendingEntry = null
+        walkedInto = targetSceneId
+        const success = await vtWalkToNode(handle, targetSceneId, {
+          towardYaw: clickedHotspot?.yaw,
+          arrive: arrivalView(targetSceneId, vtActiveNodeId.value),
+          previewUrl: previewFor(targetSceneId),
+        })
+        if (!success) { vtTransitioning.value = false; walkedInto = null }
       }
     } catch {
       vtTransitioning.value = false
@@ -1268,10 +1296,16 @@ async function handleDockSelect(sceneId: string, via: string = 'dock') {
       via,
     })
     try {
-      const success = await vtGoToNode(vtHandle.value, sceneId)
-      if (!success) vtTransitioning.value = false
+      // Scene strip / guided tour: walk straight ahead, arrive on the scene's start view.
+      walkedInto = sceneId
+      const success = await vtWalkToNode(vtHandle.value, sceneId, {
+        arrive: arrivalView(sceneId, null),
+        previewUrl: previewFor(sceneId),
+      })
+      if (!success) { vtTransitioning.value = false; walkedInto = null }
     } catch {
       vtTransitioning.value = false
+      walkedInto = null
     }
   }
 }
