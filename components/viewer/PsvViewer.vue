@@ -888,9 +888,15 @@ function sceneImageUrl(scene: any): string {
   const rawUrl = scene.thumbnail_url || scene.raw_image_url || scene.tile_manifest_url || ''
   if (!rawUrl || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) return rawUrl
   
-  // Use Nuxt Image to get a 2048px WebP version for the baseUrl texture
+  // Resized preview shown the instant the scene opens; the 4096px tiles add
+  // detail right after. Phones get 1024px (~45 KB) instead of the 2048px q85
+  // request (~220 KB) that kept the sphere black on mobile data. Only widths
+  // in image.screens are valid for the Vercel optimizer.
+  const small = typeof window !== 'undefined' && (
+    window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 900
+  )
   try {
-    return img(rawUrl, { width: 2048, format: 'webp', quality: 85 })
+    return img(rawUrl, { width: small ? 1024 : 1536, format: 'webp', quality: small ? 70 : 75 })
   } catch {
     return rawUrl
   }
@@ -1389,17 +1395,17 @@ onMounted(() => {
   if (typeof requestIdleCallback !== 'undefined') {
     requestIdleCallback(() => {
       const nextScenes = tourScenes.value.slice(1, 3)
-      const isLite = viewerPerformanceMode.value === 'lite'
+      const conn = (navigator as any).connection
+      if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '')) return
       for (const s of nextScenes) {
-        // Always warm the thumbnail (fast, tiny)
-        const thumb = s.thumbnail_url || s.raw_image_url
-        if (thumb) { const img = new Image(); img.src = thumb }
+        // Warm the same resized preview the viewer will request (was the raw
+        // 600 KB thumbnail.jpg, a different URL that never got reused).
+        const preview = sceneImageUrl(s)
+        if (preview) { const im = new Image(); im.decoding = 'async'; im.src = preview }
 
-        // Warm the first tile (col 0, row 0) of the appropriate tile set
-        if (isLite && s.tile_medium_manifest_url) {
+        // Warm one tile of the set that's actually displayed (medium).
+        if (s.tile_medium_manifest_url) {
           fetch(`${s.tile_medium_manifest_url}/0_0.webp`, { priority: 'low' } as any).catch(() => {})
-        } else if (!isLite && s.tile_manifest_url) {
-          fetch(`${s.tile_manifest_url}/0_0.webp`, { priority: 'low' } as any).catch(() => {})
         }
       }
     }, { timeout: 3000 })

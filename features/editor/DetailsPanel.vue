@@ -695,10 +695,8 @@ async function togglePublish() {
     space.value = { ...space.value, ...(updated as any) }
     showToast(isLive ? 'Tour unpublished' : 'Tour published! Buyers can now find it.')
     emit('published')
-    // Take them straight to the live tour — always the view.viewora.software
-    // side of the split (see utils/publicTourUrl.ts), since publishing from
-    // Details is exactly the "this listing as a whole" context that page is
-    // for, not just the panorama.
+    // Take them straight to the live listing: app.viewora.software/p/<slug>
+    // (see utils/publicTourUrl.ts).
     if (!isLive && typeof window !== 'undefined') {
       window.open(resolvePublicTourUrl(space.value, 'details'), '_blank')
     }

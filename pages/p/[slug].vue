@@ -206,6 +206,13 @@ if (tourError.value) {
   // A land listing may have only aerial plot maps (flat drone photos), no 360 scenes.
   const hasAerialMap = Array.isArray(tourData?.aerial_maps) && tourData.aerial_maps.length > 0
   state.value = hasRenderableScene || hasAerialMap ? 'ready' : 'empty'
+
+  // Photo-only listing: this page is built around the 360/aerial viewer and
+  // would dead-end on "No Scenes Yet" — forward to the gallery listing page
+  // on the same domain, so /p/<slug> is the one link that works for everything.
+  if (state.value === 'empty' && Array.isArray(tourData?.gallery) && tourData.gallery.length > 0) {
+    await navigateTo(`/view/p/${encodeURIComponent(slug)}`, { redirectCode: 302, replace: true })
+  }
 }
 
 pending.value = false

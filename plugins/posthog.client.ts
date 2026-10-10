@@ -23,6 +23,10 @@ export default defineNuxtPlugin(async () => {
     capture_pageview: false,
     capture_pageleave: true,
     disable_session_recording: isPublicViewer,
+    // Buyers' phones: don't download extra PostHog bundles (~125 KB) while
+    // the tour is loading. Pageviews/events are unaffected.
+    disable_surveys: isPublicViewer,
+    capture_dead_clicks: !isPublicViewer,
     session_recording: {
       maskAllInputs: true,
     },

@@ -103,10 +103,8 @@ const canEmbed = computed(() => planStore.can('embeds_enabled'))
 
 const props = withDefaults(defineProps<{
   space: Space | null
-  /** Which editor tab this share/publish action originated from — only
-   * matters for a listing with both 360 scenes and gallery photos, where
-   * it decides app.viewora.software vs view.viewora.software. See
-   * utils/publicTourUrl.ts for the full rule. */
+  /** Which editor tab this share/publish action originated from (kept for
+   * analytics/compat — the link is always app.viewora.software/p/<slug>). */
   context?: 'tour' | 'details'
 }>(), {
   context: 'details',

@@ -159,12 +159,20 @@ let _prefetchController: AbortController | null = null
 export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | 'full'): void {
   if (typeof window === 'undefined') return
   if (!scene.tilesReady) return
+  void performanceMode
+  // Data-saver / very slow connections: don't spend their bandwidth on rooms
+  // they may never open.
+  const conn = (navigator as any).connection
+  if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '')) return
 
-  const useMedium = performanceMode === 'lite' && canUseMediumTiles(scene)
-  const manifest  = useMedium ? scene.tileMediumManifestUrl : scene.tileManifestUrl
-  const cols      = useMedium ? scene.tileMediumCols! : scene.tileCols!
-  const rows      = useMedium ? scene.tileMediumRows! : scene.tileRows!
-  if (!manifest || !cols || !rows) return
+  // Only the tile set the viewer actually draws. buildPanorama() always uses
+  // the medium set when it exists; this used to prefetch the full-resolution
+  // set (512 tiles a scene) on most devices — never displayed, and it took
+  // the download slots from the tiles on screen (the black squares).
+  if (!canUseMediumTiles(scene)) return
+  const manifest = scene.tileMediumManifestUrl!
+  const cols = scene.tileMediumCols!
+  const rows = scene.tileMediumRows!
 
   // Cancel any in-flight prefetch so we don't pile up requests
   _prefetchController?.abort()

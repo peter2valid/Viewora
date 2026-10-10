@@ -811,7 +811,8 @@ useSeoMeta({
 // price/facts; this one had nothing), so crawlers had zero machine-readable
 // signal for price, bed/bath, or sale-vs-rent on the page this whole
 // buyer-facing redesign has centered on.
-const seoCanonical = computed(() => `https://view.viewora.software/view/p/${slug}`)
+// Canonical = the one public link every share button hands out.
+const seoCanonical = computed(() => `https://app.viewora.software/p/${slug}`)
 const listingJsonLd = computed(() => buildListingJsonLd(space.value, { url: seoCanonical.value, image: seoImage.value, description: seoDescription.value }))
 useHead({
   script: computed(() => (listingJsonLd.value

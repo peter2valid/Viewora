@@ -4,7 +4,7 @@
       v-if="current"
       ref="canvasRef"
       :key="current.id"
-      :image-url="current.image_url"
+      :image-url="displayUrl"
       :width="current.width"
       :height="current.height"
       :shapes="current.shapes"
@@ -83,6 +83,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useImage } from '#imports'
 import AerialCanvas from '~/features/aerial/AerialCanvas.vue'
 import { AERIAL_STATUS, type AerialMap, type AerialPlotStatus } from '~/shared/utils/aerialGeometry'
 import type { PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
@@ -143,6 +144,36 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { if (hintTimer) clearTimeout(hintTimer) })
 watch(currentId, () => startIntro())
+
+// Fast first paint: a resized 1536px copy (~100–200 KB) shows at once, then
+// the full-detail photo (1–3 MB) swaps in when it has downloaded — same aspect,
+// so the view doesn't move. Data-saver / 2G visitors keep the light copy.
+const nuxtImg = useImage()
+const fullLoaded = ref<Record<string, boolean>>({})
+const displayUrl = computed(() => {
+  const m = current.value
+  if (!m) return ''
+  if (fullLoaded.value[m.id]) return m.image_url
+  try { return nuxtImg(m.image_url, { width: 1536, quality: 75, format: 'webp' }) || m.image_url } catch { return m.image_url }
+})
+function loadFull() {
+  const m = current.value
+  if (!m || fullLoaded.value[m.id] || typeof window === 'undefined') return
+  const conn = (navigator as any).connection
+  if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '')) return
+  const id = m.id
+  const im = new Image()
+  im.decoding = 'async'
+  im.onload = () => {
+    // decode() first so the swap is instant (no blank frame on iOS).
+    ;(im.decode?.() ?? Promise.resolve()).catch(() => {}).finally(() => {
+      fullLoaded.value = { ...fullLoaded.value, [id]: true }
+    })
+  }
+  im.src = m.image_url
+}
+onMounted(() => setTimeout(loadFull, 1200))
+watch(currentId, () => setTimeout(loadFull, 600))
 
 function select(id: string) { selectedId.value = id }
 function switchTo(id: string) { currentId.value = id; selectedId.value = null }

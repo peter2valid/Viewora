@@ -18,6 +18,18 @@ export default defineNuxtConfig({
     domains: ['r2.dev', '*.r2.dev', 'media.viewora.software'],
     // Raise the default IPX size limit — panorama thumbnails are 2048×1024
     ipx: { maxAge: 3600 },
+    // Allowed output widths. On Vercel this list is the optimizer's whitelist
+    // (any other width → 400) and the provider rounds requests up to it, so
+    // small images (logo 80px, dock 108px) get small files instead of 640px.
+    screens: {
+      thumb: 160,
+      xs: 320,
+      sm: 640,
+      md: 768,
+      lg: 1024,
+      xl: 1280,
+      '2xl': 1536,
+    },
   },
 
   runtimeConfig: {
