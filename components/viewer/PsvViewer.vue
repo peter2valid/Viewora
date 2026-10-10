@@ -53,12 +53,38 @@
     </Transition>
 
     <!-- Initial tour loading overlay — covers the black vt-canvas until first panorama is ready -->
-    <Transition name="vt-init-load">
-      <div v-if="hasTourData && !vtReady && !vtError" class="vt-init-overlay">
-        <div class="vt-init-overlay__logo-wrap">
-          <img :src="optimizedLoadingLogo" class="vt-init-overlay__logo" alt="" />
+    <!-- Opening screen: a big, heavily blurred photo of the first room (server-
+         rendered, so it's there the instant the link opens — never a blank
+         screen), the listing's name and key facts, and a progress ring. When
+         the 360 is ready the blur dissolves into the live view of that room. -->
+    <Transition name="vt-intro">
+      <div v-if="hasTourData && !vtReady && !vtError" class="vt-intro" aria-live="polite" :aria-label="`Loading ${introTitle}`">
+        <img v-if="introLo" :src="introLo" class="vt-intro__bg" alt="" aria-hidden="true" fetchpriority="high" decoding="async" />
+        <img v-if="introHi" :src="introHi" class="vt-intro__bg vt-intro__bg--hi" :class="{ 'vt-intro__bg--shown': introHiReady }" alt="" aria-hidden="true" decoding="async" @load="introHiReady = true" />
+        <div class="vt-intro__shade" />
+
+        <div class="vt-intro__content">
+          <span class="vt-intro__badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></svg>
+            360° Virtual Tour
+          </span>
+          <p class="vt-intro__title">{{ introTitle }}</p>
+          <p v-if="introLocation" class="vt-intro__loc">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+            {{ introLocation }}
+          </p>
+          <div v-if="introChips.length" class="vt-intro__chips">
+            <span v-for="c in introChips" :key="c" class="vt-intro__chip">{{ c }}</span>
+          </div>
+
+          <div class="vt-intro__progress">
+            <svg class="vt-intro__ring" viewBox="0 0 44 44" aria-hidden="true">
+              <circle cx="22" cy="22" r="19" class="vt-intro__ring-track" />
+              <circle cx="22" cy="22" r="19" class="vt-intro__ring-fill" :style="{ strokeDashoffset: `${119.4 * (1 - Math.min(100, Math.max(6, loadProgressValue)) / 100)}` }" />
+            </svg>
+            <span class="vt-intro__status">Preparing your tour<span class="vt-intro__dots"><i>.</i><i>.</i><i>.</i></span></span>
+          </div>
         </div>
-        <p class="vt-init-overlay__label">Loading Tour</p>
       </div>
     </Transition>
 
@@ -467,7 +493,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import QRCode from 'qrcode'
-import { useImage } from '#imports'
+import { useImage, useHead } from '#imports'
+import { factsLine, formatPrice } from '~/utils/listingDisplay'
 import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
@@ -805,6 +832,35 @@ const showAerial = ref(
 function onAerialEnquire(detail: PlotEnquiryDetail) {
   onPlotEnquire(new CustomEvent(PLOT_ENQUIRE_EVENT, { detail }))
 }
+
+// ── Opening screen data ──
+// First room's photo, tiny (≈4 KB, instant) and medium (≈15–40 KB) — both
+// rendered blurred, so the low resolution never shows. Server-rendered with
+// the page; a preload hint starts the tiny one before any JS runs.
+const introScene = computed(() => tourScenes.value[0] ?? null)
+const introSrc = computed(() => introScene.value?.thumbnail_url || props.tour?.space?.cover_image_url || '')
+const introLo = computed(() => {
+  if (!introSrc.value) return ''
+  try { return img(introSrc.value, { width: 320, quality: 55, format: 'webp' }) } catch { return introSrc.value }
+})
+const introHi = computed(() => {
+  if (!introSrc.value) return ''
+  try { return img(introSrc.value, { width: 1024, quality: 60, format: 'webp' }) } catch { return '' }
+})
+const introHiReady = ref(false)
+const introTitle = computed(() => (props.tour?.space?.title as string) || 'Virtual tour')
+const introLocation = computed(() => (props.tour?.space?.location_text as string) || '')
+const introChips = computed(() => {
+  const sp: any = props.tour?.space ?? {}
+  const chips: string[] = []
+  if (sp.price_kes) chips.push(formatPrice(sp.price_kes, sp.price_period))
+  const facts = factsLine(sp)
+  if (facts) chips.push(facts)
+  const n = tourScenes.value.length
+  if (n > 1) chips.push(`${n} ${sp.space_type === 'land' ? 'views' : 'rooms'}`)
+  return chips
+})
+useHead(() => introLo.value ? { link: [{ rel: 'preload', as: 'image', href: introLo.value, fetchpriority: 'high' } as any] } : {})
 
 // Counts plots on the scene being viewed, e.g. "4 available · 1 reserved · 3 sold".
 const plotLegend = computed(() => {
@@ -2728,6 +2784,75 @@ watch(() => vtTransitioning.value, (loading) => {
 .viewer-progress-enter-from, .viewer-progress-leave-to { opacity: 0; }
 
 /* ── Initial tour loading overlay ────────────────────── */
+/* ── Opening screen ── */
+.vt-intro {
+  position: absolute; inset: 0; z-index: 25; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: #0b0d12; pointer-events: none;
+}
+.vt-intro__bg {
+  position: absolute; inset: -6%; width: 112%; height: 112%; object-fit: cover;
+  filter: blur(26px) saturate(1.25) brightness(0.72);
+  transform: scale(1.08);
+  animation: vt-intro-drift 14s ease-in-out infinite alternate;
+  transition: filter 0.9s ease, transform 0.9s ease, opacity 0.6s ease;
+}
+.vt-intro__bg--hi { opacity: 0; filter: blur(14px) saturate(1.2) brightness(0.72); }
+.vt-intro__bg--shown { opacity: 1; }
+@keyframes vt-intro-drift { from { transform: scale(1.08) translate3d(-1.5%, -1%, 0); } to { transform: scale(1.16) translate3d(1.5%, 1%, 0); } }
+.vt-intro__shade {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 75%),
+    linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.35) 100%);
+}
+.vt-intro__content {
+  position: relative; z-index: 1; max-width: min(640px, calc(100% - 40px));
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+  color: #fff; animation: vt-intro-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes vt-intro-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.vt-intro__badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.vt-intro__title {
+  margin: 4px 0 0; font-size: clamp(26px, 5.2vw, 48px); font-weight: 900; line-height: 1.08; letter-spacing: -0.02em;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.45);
+}
+.vt-intro__loc { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.85); }
+.vt-intro__chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+.vt-intro__chip {
+  padding: 6px 12px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  background: rgba(10, 12, 20, 0.45); border: 1px solid rgba(255,255,255,0.16);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.vt-intro__progress { margin-top: 18px; display: flex; align-items: center; gap: 10px; }
+.vt-intro__ring { width: 30px; height: 30px; transform: rotate(-90deg); }
+.vt-intro__ring-track { fill: none; stroke: rgba(255,255,255,0.18); stroke-width: 3; }
+.vt-intro__ring-fill { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 119.4; transition: stroke-dashoffset 0.3s ease; }
+.vt-intro__status { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.8); }
+.vt-intro__dots i { font-style: normal; animation: vt-intro-dot 1.2s infinite; opacity: 0; }
+.vt-intro__dots i:nth-child(2) { animation-delay: 0.2s; }
+.vt-intro__dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes vt-intro-dot { 0%, 100% { opacity: 0; } 40% { opacity: 1; } }
+
+/* Ready: the blur dissolves into the live 360 of the same room. */
+.vt-intro-leave-active { transition: opacity 0.9s ease 0.15s; }
+.vt-intro-leave-active .vt-intro__bg { filter: blur(0) saturate(1) brightness(1); transform: scale(1); animation: none; }
+.vt-intro-leave-active .vt-intro__content { transition: opacity 0.35s ease, transform 0.35s ease; opacity: 0; transform: translateY(-10px); }
+.vt-intro-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .vt-intro__bg { animation: none; }
+  .vt-intro__content { animation: none; }
+}
+@media (max-width: 480px) {
+  .vt-intro__loc { font-size: 13px; }
+  .vt-intro__chip { font-size: 12px; padding: 5px 10px; }
+}
+
 .vt-init-overlay {
   position: absolute;
   inset: 0;
