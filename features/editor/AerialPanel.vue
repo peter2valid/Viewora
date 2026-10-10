@@ -11,7 +11,7 @@
       <button class="ap-btn" @click="load">Try again</button>
     </div>
 
-    <div v-else-if="!maps.length && !uploading" class="ap-center ap-empty">
+    <div v-else-if="!maps.length" class="ap-center ap-empty">
       <div class="ap-empty__icon">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
       </div>
@@ -29,7 +29,7 @@
         <AerialCanvas
           v-if="current"
           ref="canvasRef"
-          :key="current.id"
+          :key="(current as any)._key || current.id"
           :image-url="current.image_url"
           :width="current.width"
           :height="current.height"
@@ -45,7 +45,6 @@
           @close-draft="finishDraft"
           @remove-draft-point="removePoint"
         />
-        <div v-else-if="uploading" class="ap-center"><span class="ap-spin" /><p class="ap-muted">Uploading photo…</p></div>
       </div>
 
       <!-- Tools -->
@@ -85,7 +84,8 @@
 
       <!-- Save status -->
       <div class="ap-save" :class="`ap-save--${saveState}`" aria-live="polite">
-        <template v-if="saveState === 'saving'">Saving…</template>
+        <template v-if="uploadingCount">Uploading photo… you can keep drawing</template>
+        <template v-else-if="saveState === 'saving'">Saving…</template>
         <template v-else-if="saveState === 'error'">Not saved · <button @click="saveNow">Retry</button></template>
         <template v-else-if="saveState === 'saved'">Saved</template>
       </div>
@@ -93,17 +93,20 @@
       <!-- Photo strip -->
       <div class="ap-strip">
         <button
-          v-for="m in maps" :key="m.id"
-          class="ap-thumb" :class="{ 'ap-thumb--on': m.id === currentId }"
+          v-for="m in maps" :key="(m as any)._key || m.id"
+          class="ap-thumb" :class="{ 'ap-thumb--on': m.id === currentId, 'ap-thumb--failed': (m as any)._upload === 'failed' }"
           :style="{ backgroundImage: `url('${m.image_url}')` }"
           :title="m.title"
           @click="switchMap(m.id)"
         >
           <span class="ap-thumb__count">{{ m.shapes.filter(s => s.kind === 'plot').length }} plots</span>
+          <span v-if="(m as any)._upload === 'preparing' || (m as any)._upload === 'uploading'" class="ap-thumb__state" :title="(m as any)._upload === 'preparing' ? 'Preparing…' : 'Uploading…'">
+            <span class="ap-spin ap-spin--sm" />
+          </span>
+          <span v-else-if="(m as any)._upload === 'failed'" class="ap-thumb__state ap-thumb__state--failed" @click.stop="retryUpload(m as any)">Retry</span>
         </button>
-        <button class="ap-thumb ap-thumb--add" :disabled="uploading" @click="fileInput?.click()">
-          <span v-if="uploading" class="ap-spin ap-spin--sm" />
-          <template v-else>+<small>Photo</small></template>
+        <button class="ap-thumb ap-thumb--add" @click="fileInput?.click()">
+          +<small>Photo</small>
         </button>
       </div>
 
@@ -235,7 +238,6 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const canvasRef = ref<InstanceType<typeof AerialCanvas> | null>(null)
 const loading = ref(true)
 const setupError = ref('')
-const uploading = ref(false)
 const maps = ref<AerialMap[]>([])
 const currentId = ref<string | null>(null)
 const selectedId = ref<string | null>(null)
@@ -297,41 +299,99 @@ function normalize(m: any): AerialMap {
   return { ...m, shapes: Array.isArray(m.shapes) ? m.shapes : [] }
 }
 
-// ── Upload ──────────────────────────────────────────────────
+// ── Upload: optimistic, like the 360/Photos tabs ────────────
+// The photo appears the instant it's picked and can be drawn on straight
+// away; shrinking + upload + registration run in the background with a small
+// ring on its thumbnail. Previously a full-screen spinner blocked everything
+// until all three finished.
+type UploadState = 'preparing' | 'uploading' | 'failed'
+type LocalExtras = { _key?: string; _upload?: UploadState; _file?: File; _title?: string }
+const isLocal = (id: string | null | undefined) => !!id && id.startsWith('local_')
+const uploadingCount = computed(() => (maps.value as Array<AerialMap & LocalExtras>).filter(m => m._upload && m._upload !== 'failed').length)
+
+function readSize(url: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    img.onerror = () => reject(new Error('Could not read this image'))
+    img.src = url
+  })
+}
+
 async function onFiles(e: Event) {
   const input = e.target as HTMLInputElement
-  const files = Array.from(input.files || [])
+  const files = Array.from(input.files || []).filter(f => f.type.startsWith('image/'))
   input.value = ''
-  if (!files.length) return
-  uploading.value = true
-  try {
-    for (const raw of files) {
-      try {
-        const prepared = await prepareAerialPhoto(raw)
-        const record: any = await uploadFile(prepared.file, 'floor_plan')
-        if (!record?.public_url) throw new Error('Upload failed')
-        const res: any = await apiFetch(`/spaces/${props.spaceId}/aerial-maps`, {
-          method: 'POST',
-          body: {
-            title: raw.name.replace(/\.[^.]+$/, '').slice(0, 80) || 'Aerial view',
-            image_url: record.public_url,
-            media_id: record.id ?? null,
-            width: prepared.width,
-            height: prepared.height,
-          },
-        })
-        const created = normalize(res?.aerial_map ?? res?.data?.aerial_map)
-        maps.value = [...maps.value, created]
-        currentId.value = created.id
-        selectedId.value = null
-        toast.success('Photo added. Draw plots with the Plot tool.')
-      } catch (err: any) {
-        toast.error(err?.data?.statusMessage || err?.message || `Could not add ${raw.name}`)
-      }
+  for (const raw of files) {
+    // 1) Show it now. Display size = original aspect; every later image swap
+    //    keeps these dimensions, so the view never jumps.
+    const blobUrl = URL.createObjectURL(raw)
+    let size: { width: number; height: number }
+    try { size = await readSize(blobUrl) } catch { URL.revokeObjectURL(blobUrl); toast.error(`${raw.name} isn't a readable image`); continue }
+    const local: AerialMap & LocalExtras = {
+      id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      _key: `k_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      _upload: 'preparing',
+      _title: raw.name.replace(/\.[^.]+$/, '').slice(0, 80) || 'Aerial view',
+      title: raw.name.replace(/\.[^.]+$/, '').slice(0, 80) || 'Aerial view',
+      image_url: blobUrl,
+      width: size.width,
+      height: size.height,
+      order_index: maps.value.length,
+      shapes: [],
     }
-  } finally {
-    uploading.value = false
+    maps.value = [...maps.value, local]
+    // Mutate through the reactive proxy so thumbnail/progress/id updates render.
+    const tracked = maps.value[maps.value.length - 1] as AerialMap & LocalExtras
+    currentId.value = tracked.id
+    selectedId.value = null
+    void uploadInBackground(tracked, raw)
   }
+}
+
+async function uploadInBackground(m: AerialMap & LocalExtras, raw?: File) {
+  try {
+    // 2) Shrink (≤ 4096px long side: fast to upload, safe to open on phones).
+    if (!m._file) {
+      m._upload = 'preparing'
+      const prepared = await prepareAerialPhoto(raw!, 4096)
+      m._file = prepared.file
+      // Swap the heavy original for the light version (same aspect → no jump).
+      // Decode first so the swap is invisible.
+      const light = URL.createObjectURL(prepared.file)
+      try { const pre = new Image(); pre.src = light; await pre.decode() } catch { /* swap anyway */ }
+      const old = m.image_url
+      m.image_url = light
+      if (old.startsWith('blob:')) URL.revokeObjectURL(old)
+    }
+    // 3) Upload + register.
+    m._upload = 'uploading'
+    const record: any = await uploadFile(m._file, 'floor_plan')
+    if (!record?.public_url) throw new Error('Upload failed')
+    const res: any = await apiFetch(`/spaces/${props.spaceId}/aerial-maps`, {
+      method: 'POST',
+      body: { title: m._title ?? m.title, image_url: record.public_url, media_id: record.id ?? null, width: m.width, height: m.height },
+    })
+    const created = res?.aerial_map ?? res?.data?.aerial_map
+    if (!created?.id) throw new Error('Could not save the photo')
+    const wasCurrent = currentId.value === m.id
+    // Keep showing the local copy (already decoded) — no reload flash.
+    m.id = created.id
+    m.media_id = created.media_id ?? record.id ?? null
+    m._upload = undefined
+    m._file = undefined
+    if (wasCurrent) currentId.value = created.id
+    // Plots drawn while it was uploading get saved now.
+    if (m.title !== (m._title ?? m.title)) void apiFetch(`/aerial-maps/${created.id}`, { method: 'PATCH', body: { title: m.title } }).catch(() => {})
+    if (m.shapes.length) markDirty(created.id)
+  } catch (err: any) {
+    m._upload = 'failed'
+    toast.error(err?.data?.statusMessage || err?.message || 'Upload failed — tap the photo’s Retry to try again.')
+  }
+}
+
+function retryUpload(m: AerialMap & LocalExtras) {
+  if (m._upload === 'failed') void uploadInBackground(m)
 }
 
 // ── Saving: whole shape list in one PATCH, debounced ────────
@@ -342,6 +402,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null
 let saving: Promise<void> | null = null
 
 function markDirty(mapId: string) {
+  if (isLocal(mapId)) return // saved right after its upload registers
   dirtyMaps.add(mapId)
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => void saveNow(), 700)
@@ -557,6 +618,7 @@ async function renameMap(title: string) {
   const t = title.trim().slice(0, 80)
   if (!m || !t || t === m.title) return
   m.title = t
+  if (isLocal(m.id)) return // sent with/after creation
   try { await apiFetch(`/aerial-maps/${m.id}`, { method: 'PATCH', body: { title: t } }) }
   catch { toast.error('Could not rename the photo') }
 }
@@ -565,6 +627,13 @@ async function deleteMap() {
   const m = current.value
   if (!m) return
   if (!window.confirm(`Delete "${m.title}" and its ${m.shapes.length} shapes?`)) return
+  if (isLocal(m.id)) {
+    // Not on the server yet (or failed) — just drop it locally.
+    if (m.image_url.startsWith('blob:')) URL.revokeObjectURL(m.image_url)
+    maps.value = maps.value.filter(x => x.id !== m.id)
+    currentId.value = maps.value[0]?.id ?? null
+    return
+  }
   try {
     dirtyMaps.delete(m.id)
     await apiFetch(`/aerial-maps/${m.id}`, { method: 'DELETE' })
@@ -595,7 +664,7 @@ function onKey(e: KeyboardEvent) {
 }
 
 function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (dirtyMaps.size || saving) { void saveNow(); e.preventDefault(); e.returnValue = '' }
+  if (dirtyMaps.size || saving || uploadingCount.value) { void saveNow(); e.preventDefault(); e.returnValue = '' }
 }
 
 onMounted(() => {
@@ -679,6 +748,9 @@ onBeforeUnmount(() => {
 .ap-thumb { position: relative; flex-shrink: 0; width: 96px; height: 64px; border-radius: 10px; border: 2px solid transparent; background: #1f2430 center/cover no-repeat; cursor: pointer; }
 .ap-thumb--on { border-color: #fff; }
 .ap-thumb__count { position: absolute; left: 4px; bottom: 4px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,0.7); font-size: 9.5px; font-weight: 700; }
+.ap-thumb__state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(0,0,0,0.45); }
+.ap-thumb__state--failed { background: rgba(127,29,29,0.7); color: #fff; font-size: 11px; font-weight: 800; }
+.ap-thumb--failed { border-color: #ef4444; }
 .ap-thumb--add { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1.5px dashed rgba(255,255,255,0.25); background: rgba(255,255,255,0.03); color: #fff; font-size: 20px; }
 .ap-thumb--add small { font-size: 10px; color: rgba(255,255,255,0.6); }
 

@@ -183,12 +183,15 @@ function labelStyle(p: AerialPoint) {
   }
 }
 
+let fitted = false
 function onImgLoad(e: Event) {
   const img = e.target as HTMLImageElement
   natW.value = img.naturalWidth
   natH.value = img.naturalHeight
   loaded.value = true
-  requestAnimationFrame(() => fit())
+  // Only fit on first load: swapping to a lighter copy of the same photo
+  // (background upload) must not reset the user's zoom/pan.
+  if (!fitted) { fitted = true; requestAnimationFrame(() => fit()) }
   emit('ready', { width: img.naturalWidth, height: img.naturalHeight })
 }
 
@@ -329,7 +332,8 @@ onMounted(() => {
   if (rootEl.value) ro.observe(rootEl.value)
 })
 onBeforeUnmount(() => ro?.disconnect())
-watch(() => props.imageUrl, () => { loaded.value = false })
+// Same photo, new URL (local preview → lighter copy): keep showing it, no spinner.
+watch(() => props.imageUrl, () => { if (!fitted) loaded.value = false })
 </script>
 
 <style scoped>
