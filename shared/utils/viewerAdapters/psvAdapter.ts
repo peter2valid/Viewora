@@ -734,6 +734,37 @@ function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'ful
   }
 }
 
+/**
+ * PSV listens for keys on the whole window. Cancel its handling when the keys
+ * clearly aren't meant for the 360:
+ *  - typing in a field (arrows must move the caret in the lead form, labels…);
+ *  - the viewer is hidden (editor on the Aerial Map / Details tab keeps it
+ *    mounted with display:none);
+ *  - something covers the viewer (share dialog, lead form, aerial plot map) —
+ *    checked by hit-testing the viewer's centre.
+ * Returns a cleanup function.
+ */
+function installKeyboardGuard(viewer: any, container: HTMLElement): () => void {
+  const onKeyPress = (e: any) => {
+    const ae = document.activeElement as HTMLElement | null
+    const typing = !!ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))
+    if (typing) { e.preventDefault(); return }
+    const r = container.getBoundingClientRect()
+    if (!r.width || !r.height || container.offsetParent === null) { e.preventDefault(); return }
+    const cx = Math.min(window.innerWidth - 1, Math.max(0, r.left + r.width / 2))
+    const cy = Math.min(window.innerHeight - 1, Math.max(0, r.top + r.height / 2))
+    const top = document.elementFromPoint(cx, cy)
+    if (top && !container.contains(top)) {
+      // Our own floating chrome over the centre (dock, hint, hotspot card) is fine;
+      // a dialog/overlay is not.
+      const overlay = top.closest('[role="dialog"], .amv, .share-modal, .lead-modal, .post-tour')
+      if (overlay) e.preventDefault()
+    }
+  }
+  viewer.addEventListener('key-press', onKeyPress)
+  return () => { try { viewer.removeEventListener('key-press', onKeyPress) } catch { /* noop */ } }
+}
+
 // PSV_FIX_1524: canvas pixel-read stall on Firefox strict mode — covered by PSV v5.11.5.
 // Viewora does not read canvas pixels in the loading pipeline; captureScreenshot() calls
 // canvas.toDataURL() only on explicit user action, not during viewer init or tile loading.
@@ -799,6 +830,10 @@ export async function initViewer(
     loadingTxt: 'Loading...',
     loadingImg,
     navbar: false,
+    // Arrow keys rotate, +/- and PageUp/Down zoom — PSV's default only enables
+    // them in its own fullscreen mode, which our UI never uses, so the keyboard
+    // did nothing. installKeyboardGuard() keeps them out of text fields etc.
+    keyboard: 'always',
     touchmoveTwoFingers: false,
     fisheye: false,
     plugins,
@@ -870,6 +905,7 @@ export async function initViewer(
 
   const arrowTracker = installArrowDirectionTracker(container, viewer)
   cleanupFns.push(() => arrowTracker.disconnect())
+  cleanupFns.push(installKeyboardGuard(viewer, container))
 
   return {
     viewer,
@@ -1507,6 +1543,10 @@ export async function initVirtualTourViewer(
     loadingTxt: 'Loading...',
     loadingImg,
     navbar: false,
+    // Arrow keys rotate, +/- and PageUp/Down zoom — PSV's default only enables
+    // them in its own fullscreen mode, which our UI never uses, so the keyboard
+    // did nothing. installKeyboardGuard() keeps them out of text fields etc.
+    keyboard: 'always',
     touchmoveTwoFingers: twoFingerTouch,
     fisheye: false,
     // 1.5× speed makes a full 360° orbit achievable in ~2.5 finger-swipes on mobile.
@@ -1586,6 +1626,7 @@ export async function initVirtualTourViewer(
 
   const arrowTracker = installArrowDirectionTracker(container, viewer)
   cleanupFns.push(() => arrowTracker.disconnect())
+  cleanupFns.push(installKeyboardGuard(viewer, container))
 
   const autorotatePl = viewer.getPlugin(AutorotatePlugin)
   if (autorotatePl) {

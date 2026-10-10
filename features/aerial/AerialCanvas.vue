@@ -591,8 +591,37 @@ function onFsChange() { isFullscreen.value = !!document.fullscreenElement }
 // Two-finger touch inside an embed must not scroll/zoom the host page.
 function onTouchMove(e: TouchEvent) { if (coopActive.value && e.touches.length >= 2) e.preventDefault() }
 
+// ── Keyboard: arrows pan (Shift = faster), +/- zoom, 0 = whole photo ──
+// Window-level like the 360 viewer, but only when this map is visible, the
+// visitor isn't typing, and no other dialog sits on top of it.
+function onKeyDown(e: KeyboardEvent) {
+  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
+  const el = rootEl.value
+  if (!el || !loaded.value || el.offsetParent === null) return
+  const ae = document.activeElement as HTMLElement | null
+  if (ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return
+  const r = el.getBoundingClientRect()
+  const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+  const dlg = top?.closest('[role="dialog"]')
+  if (dlg && !dlg.contains(el)) return
+  const step = e.shiftKey ? 240 : 80
+  let handled = true
+  switch (e.key) {
+    case 'ArrowLeft': tx.value += step; clamp(); break
+    case 'ArrowRight': tx.value -= step; clamp(); break
+    case 'ArrowUp': ty.value += step; clamp(); break
+    case 'ArrowDown': ty.value -= step; clamp(); break
+    case '+': case '=': zoomBy(1.25); break
+    case '-': case '_': zoomBy(1 / 1.25); break
+    case '0': fit(); break
+    default: handled = false
+  }
+  if (handled) { e.preventDefault(); userTook() }
+}
+
 let ro: ResizeObserver | null = null
 onMounted(() => {
+  window.addEventListener('keydown', onKeyDown)
   try { embedded.value = window.self !== window.top } catch { embedded.value = true }
   // The app blocks overscroll globally (stops Android pull-to-refresh), which
   // inside an iframe also stops scrolls reaching the host page — relax it.
@@ -607,6 +636,7 @@ onMounted(() => {
   if (rootEl.value) ro.observe(rootEl.value)
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown)
   ro?.disconnect()
   document.removeEventListener('fullscreenchange', onFsChange)
   rootEl.value?.removeEventListener('touchmove', onTouchMove)
