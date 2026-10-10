@@ -39,6 +39,7 @@
           :draft="draft"
           :closable="draftClosable"
           :insets="{ top: 128, right: 330, bottom: 104, left: 88 }"
+          fit-mode="contain"
           @ready="onCanvasReady"
           @canvas-click="onCanvasClick"
           @shape-click="selectShape"

@@ -190,6 +190,12 @@ html {
   overscroll-behavior: none;
 }
 
+/* Inside an iframe on someone's website: let unhandled scrolls chain out to
+   the host page (set by AerialCanvas when embedded). */
+html.vw-embedded,
+html.vw-embedded body,
+html.vw-embedded .public-viewer { overscroll-behavior: auto !important; }
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg);

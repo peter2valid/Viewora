@@ -2,8 +2,8 @@
   <div
     ref="rootEl"
     class="ac-root"
-    :class="{ 'ac-root--crosshair': crosshair, 'ac-root--dragging': dragging }"
-    @wheel.prevent="onWheel"
+    :class="{ 'ac-root--crosshair': crosshair, 'ac-root--dragging': dragging, 'ac-root--coop': coopActive }"
+    @wheel="onWheel"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -11,6 +11,17 @@
     @dblclick.prevent="onDblClick"
   >
     <div v-if="!loaded" class="ac-loading"><span class="ac-spin" /></div>
+
+    <!-- Soft blurred copy of the photo behind it: when the photo's shape doesn't
+         match the screen (wide drone shot on a tall phone) the gaps show this
+         instead of black. -->
+    <img v-if="imageUrl" :src="imageUrl" class="ac-backdrop" alt="" aria-hidden="true" draggable="false" />
+
+    <!-- Embedded on a website: tell visitors how to move the map without
+         hijacking the page's own scroll. -->
+    <Transition name="ac-notice">
+      <div v-if="coopNotice" class="ac-coop" aria-live="polite">{{ coopNotice }}</div>
+    </Transition>
 
     <div class="ac-stage" :style="stageStyle">
       <img
@@ -126,6 +137,8 @@ const props = defineProps<{
   closable?: boolean
   /** Screen space covered by floating UI; the photo fits inside what's left. */
   insets?: { top?: number; right?: number; bottom?: number; left?: number }
+  /** 'auto' (public): fill the screen when shapes match, else whole photo. 'contain' (editor): always whole photo. */
+  fitMode?: 'auto' | 'contain'
 }>()
 
 const emit = defineEmits<{
@@ -160,7 +173,7 @@ const vw = ref(typeof window !== 'undefined' ? window.innerWidth : 1280)
 const zoomStyle = computed(() => {
   const i = props.insets ?? {}
   const narrow = vw.value < 768
-  return { right: `${(narrow ? 0 : (i.right ?? 0)) + 14}px`, bottom: `${(i.bottom ?? 0) + 14}px` }
+  return { right: `${(narrow ? 0 : (i.right ?? 0)) + 14}px`, bottom: `calc(${(i.bottom ?? 0) + 14}px + env(safe-area-inset-bottom, 0px))` }
 })
 
 const zones = computed(() => props.shapes.filter(x => x.kind === 'zone' && x.points.length >= 3))
@@ -214,7 +227,17 @@ function onImgLoad(e: Event | { target: HTMLImageElement }) {
   emit('ready', { width: img.naturalWidth, height: img.naturalHeight })
 }
 
-/** The usable part of the screen (minus floating panels) and the "whole photo" scale. */
+/**
+ * The usable part of the screen (minus floating panels) and the base scale.
+ *
+ * Base scale is picked from the photo's shape vs the screen's shape:
+ *  - shapes close (≤ ~20% would be cropped, e.g. 16:9 photo on a 16:10 laptop,
+ *    4:3 on an iPad) → "cover": the photo fills the screen edge to edge;
+ *  - shapes very different (16:9 drone shot on a 9:16 phone, a portrait shot
+ *    on a desktop) → "contain": the whole photo is visible and the spare space
+ *    shows the blurred backdrop, never black.
+ * The editor always uses contain so every corner can be drawn on.
+ */
 function viewport() {
   const el = rootEl.value
   if (!el || !W.value || !H.value) return null
@@ -223,17 +246,62 @@ function viewport() {
   const l = narrow ? 0 : (i.left ?? 0), r = narrow ? 0 : (i.right ?? 0)
   const t = i.top ?? 0, b = i.bottom ?? 0
   const cw = Math.max(100, el.clientWidth - l - r), ch = Math.max(100, el.clientHeight - t - b)
-  return { l, t, cw, ch, fitS: Math.min(cw / W.value, ch / H.value) }
+  const contain = Math.min(cw / W.value, ch / H.value)
+  const cover = Math.max(cw / W.value, ch / H.value)
+  const useCover = props.fitMode !== 'contain' && contain / cover >= 0.8
+  return { l, t, cw, ch, fitS: useCover ? cover : contain }
 }
+
+/**
+ * Keep the photo on screen. Per axis:
+ *  - bigger than the whole canvas → edges pinned to the canvas (no strip of
+ *    backdrop even behind translucent bars);
+ *  - bigger than the usable area only → edges pinned to the usable area;
+ *  - smaller → centred in the usable area (gaps show the blurred backdrop).
+ */
+function clamp() {
+  const v = viewport()
+  const el = rootEl.value
+  if (!v || !el) return
+  const axis = (pos: number, size: number, start: number, len: number, full: number) => {
+    if (size >= full) return Math.min(0, Math.max(full - size, pos))
+    if (size >= len) return Math.min(start, Math.max(start + len - size, pos))
+    return start + (len - size) / 2
+  }
+  tx.value = axis(tx.value, W.value * s.value, v.l, v.cw, el.clientWidth)
+  ty.value = axis(ty.value, H.value * s.value, v.t, v.ch, el.clientHeight)
+}
+
+let lastVp: ReturnType<typeof viewport> = null
 
 function fit() {
   const v = viewport()
   if (!v) return
-  minS = v.fitS * 0.6
+  minS = v.fitS // never zoom out past the fit — that's where black edges came from
   maxS = Math.max(v.fitS * 10, 2)
   s.value = v.fitS
   tx.value = v.l + (v.cw - W.value * v.fitS) / 2
   ty.value = v.t + (v.ch - H.value * v.fitS) / 2
+  lastVp = v
+}
+
+/**
+ * Container resized (phone rotation, mobile address bar sliding, window
+ * resize): keep what the visitor was looking at instead of re-fitting, which
+ * used to throw away their zoom every time the URL bar moved on iPhone.
+ */
+function onResize() {
+  const old = lastVp
+  const v = viewport()
+  if (!v) return
+  if (!old) { fit(); return }
+  const cx = (old.l + old.cw / 2 - tx.value) / s.value / W.value
+  const cy = (old.t + old.ch / 2 - ty.value) / s.value / H.value
+  const zoom = s.value / old.fitS
+  minS = v.fitS
+  maxS = Math.max(v.fitS * 10, 2)
+  lastVp = v
+  applyView({ cx, cy, zoom })
 }
 
 // ── Camera views: { cx, cy } = photo point at screen centre, zoom × "whole photo" ──
@@ -257,6 +325,7 @@ function applyView(view: CameraView) {
   s.value = sc
   tx.value = v.l + v.cw / 2 - view.cx * W.value * sc
   ty.value = v.t + v.ch / 2 - view.cy * H.value * sc
+  clamp()
 }
 
 /** View framing all plots (or every shape), so buyers land on the properties. */
@@ -339,6 +408,7 @@ function zoomAt(factor: number, cx: number, cy: number) {
   tx.value = cx - (cx - tx.value) * k
   ty.value = cy - (cy - ty.value) * k
   s.value = next
+  clamp()
 }
 
 function zoomBy(factor: number) {
@@ -359,6 +429,7 @@ function focusShape(id: string) {
   s.value = Math.max(target, s.value)
   tx.value = el.clientWidth / 2 - cx * s.value
   ty.value = el.clientHeight / 2 - cy * s.value
+  clamp()
 }
 
 defineExpose({ fit, focusShape, getView, goToView, playIntro, stopMotion })
@@ -375,9 +446,16 @@ function userTook() {
 }
 
 function onWheel(e: WheelEvent) {
+  if (coopActive.value && !e.ctrlKey && !e.metaKey) {
+    // Embedded on someone's page: let the page scroll; explain how to zoom.
+    showCoop(navigator.platform?.toLowerCase().includes('mac') ? 'Use ⌘ + scroll to zoom the map' : 'Use Ctrl + scroll to zoom the map')
+    return
+  }
+  e.preventDefault()
   userTook()
   const p = rel(e)
-  zoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y)
+  // Trackpad pinch arrives as ctrl+wheel with small deltas — same formula works.
+  zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), p.x, p.y)
 }
 
 function onDblClick(e: MouseEvent) {
@@ -391,19 +469,32 @@ const pointers = new Map<number, { x: number; y: number }>()
 let downAt = { x: 0, y: 0, t: 0 }
 let moved = false
 let pinchDist = 0
+let pinchMid: { x: number; y: number } | null = null
+let lastTap = { t: 0, x: 0, y: 0 }
 const dragging = ref(false)
 
 function onPointerDown(e: PointerEvent) {
+  if ((e.target as HTMLElement).closest('.ac-zoom')) { userTook(); return }
+  // Embedded + one finger: that's the visitor scrolling the page, not the map.
+  if (coopActive.value && e.pointerType === 'touch' && pointers.size === 0) {
+    pointers.set(e.pointerId, rel(e))
+    downAt = { ...rel(e), t: performance.now() }
+    moved = false
+    return
+  }
   userTook()
-  if ((e.target as HTMLElement).closest('.ac-zoom')) return
-  rootEl.value?.setPointerCapture(e.pointerId)
+  // Capture can throw (pointer already gone, synthetic events) — never let it
+  // abort the gesture.
+  try { rootEl.value?.setPointerCapture(e.pointerId) } catch { /* noop */ }
   pointers.set(e.pointerId, rel(e))
   if (pointers.size === 1) {
     downAt = { ...rel(e), t: performance.now() }
     moved = false
   } else if (pointers.size === 2) {
+    userTook()
     const [a, b] = [...pointers.values()]
     pinchDist = Math.hypot(a.x - b.x, a.y - b.y)
+    pinchMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
     moved = true // a pinch is never a click
   }
 }
@@ -414,26 +505,53 @@ function onPointerMove(e: PointerEvent) {
   const cur = rel(e)
   pointers.set(e.pointerId, cur)
   if (pointers.size === 1) {
-    if (!moved && Math.hypot(cur.x - downAt.x, cur.y - downAt.y) > 6) moved = true
-    if (moved) {
+    if (!moved && Math.hypot(cur.x - downAt.x, cur.y - downAt.y) > 6) {
+      moved = true
+      if (coopActive.value && e.pointerType === 'touch') showCoop('Use two fingers to move the map')
+    }
+    if (moved && !(coopActive.value && e.pointerType === 'touch')) {
       dragging.value = true
       tx.value += cur.x - prev.x
       ty.value += cur.y - prev.y
+      clamp()
     }
   } else if (pointers.size === 2) {
     const [a, b] = [...pointers.values()]
     const d = Math.hypot(a.x - b.x, a.y - b.y)
-    if (pinchDist > 0) zoomAt(d / pinchDist, (a.x + b.x) / 2, (a.y + b.y) / 2)
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    // Two fingers both pan (midpoint moves) and zoom (distance changes).
+    if (pinchMid) { tx.value += mid.x - pinchMid.x; ty.value += mid.y - pinchMid.y }
+    if (pinchDist > 0) zoomAt(d / pinchDist, mid.x, mid.y)
+    else clamp()
     pinchDist = d
+    pinchMid = mid
   }
 }
 
 function onPointerUp(e: PointerEvent) {
   if (!pointers.has(e.pointerId)) return
   pointers.delete(e.pointerId)
+  if (pointers.size === 1) {
+    // Lifted one finger of a pinch: continue as a one-finger pan from here.
+    pinchMid = null; pinchDist = 0
+    return
+  }
   if (pointers.size > 0) return
+  pinchMid = null; pinchDist = 0
   dragging.value = false
   if (moved || e.type === 'pointercancel') return
+
+  // Double-tap to zoom on touch (iOS doesn't reliably send dblclick).
+  if (e.pointerType === 'touch' && !props.crosshair) {
+    const p0 = rel(e), now = performance.now()
+    if (now - lastTap.t < 300 && Math.hypot(p0.x - lastTap.x, p0.y - lastTap.y) < 30) {
+      lastTap = { t: 0, x: 0, y: 0 }
+      userTook()
+      if (s.value > minS * 2.5) fit(); else zoomAt(2, p0.x, p0.y)
+      return
+    }
+    lastTap = { t: now, x: p0.x, y: p0.y }
+  }
 
   // Pointer capture retargets events to the root, so hit-test the real element.
   const target = (document.elementFromPoint(e.clientX, e.clientY) ?? e.target) as HTMLElement
@@ -456,15 +574,44 @@ function onPointerUp(e: PointerEvent) {
   emit('canvas-click', { x, y })
 }
 
+// ── Embedded on another website (iframe): cooperative gestures ──
+// One-finger drag / plain scroll belong to the host page; two fingers or
+// Ctrl/⌘+scroll move the map. Not in the editor, and not in fullscreen.
+const embedded = ref(false)
+const isFullscreen = ref(false)
+const coopActive = computed(() => embedded.value && !isFullscreen.value && props.fitMode !== 'contain')
+const coopNotice = ref('')
+let coopTimer: ReturnType<typeof setTimeout> | null = null
+function showCoop(msg: string) {
+  coopNotice.value = msg
+  if (coopTimer) clearTimeout(coopTimer)
+  coopTimer = setTimeout(() => { coopNotice.value = '' }, 1600)
+}
+function onFsChange() { isFullscreen.value = !!document.fullscreenElement }
+// Two-finger touch inside an embed must not scroll/zoom the host page.
+function onTouchMove(e: TouchEvent) { if (coopActive.value && e.touches.length >= 2) e.preventDefault() }
+
 let ro: ResizeObserver | null = null
 onMounted(() => {
+  try { embedded.value = window.self !== window.top } catch { embedded.value = true }
+  // The app blocks overscroll globally (stops Android pull-to-refresh), which
+  // inside an iframe also stops scrolls reaching the host page — relax it.
+  if (embedded.value && props.fitMode !== 'contain') document.documentElement.classList.add('vw-embedded')
+  onFsChange()
+  document.addEventListener('fullscreenchange', onFsChange)
+  rootEl.value?.addEventListener('touchmove', onTouchMove, { passive: false })
   // Server-rendered page: the photo can finish loading before hydration, so
   // its load event never reaches us — handle an already-complete image here.
   if (imgEl.value?.complete && imgEl.value.naturalWidth) onImgLoad({ target: imgEl.value })
-  ro = new ResizeObserver(() => { vw.value = rootEl.value?.clientWidth ?? vw.value; if (loaded.value) fit() })
+  ro = new ResizeObserver(() => { vw.value = rootEl.value?.clientWidth ?? vw.value; if (loaded.value) onResize() })
   if (rootEl.value) ro.observe(rootEl.value)
 })
-onBeforeUnmount(() => ro?.disconnect())
+onBeforeUnmount(() => {
+  ro?.disconnect()
+  document.removeEventListener('fullscreenchange', onFsChange)
+  rootEl.value?.removeEventListener('touchmove', onTouchMove)
+  if (coopTimer) clearTimeout(coopTimer)
+})
 // Same photo, new URL (local preview → lighter copy): keep showing it, no spinner.
 watch(() => props.imageUrl, () => { if (!fitted) loaded.value = false })
 </script>
@@ -481,6 +628,20 @@ watch(() => props.imageUrl, () => { if (!fitted) loaded.value = false })
   cursor: grab;
 }
 .ac-root--dragging { cursor: grabbing; }
+/* Embedded: let one finger scroll the host page vertically/horizontally. */
+.ac-root--coop { touch-action: pan-x pan-y; }
+.ac-backdrop {
+  position: absolute; inset: -8%; width: 116%; height: 116%; object-fit: cover;
+  filter: blur(28px) brightness(0.55) saturate(1.1);
+  pointer-events: none; user-select: none;
+}
+.ac-coop {
+  position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45); color: #fff; font: 700 15px/1.3 -apple-system, 'Inter', sans-serif;
+  text-align: center; padding: 20px; pointer-events: none;
+}
+.ac-notice-enter-active, .ac-notice-leave-active { transition: opacity 0.25s; }
+.ac-notice-enter-from, .ac-notice-leave-to { opacity: 0; }
 .ac-root--crosshair { cursor: crosshair; }
 .ac-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 .ac-img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -538,7 +699,7 @@ watch(() => props.imageUrl, () => { if (!fitted) loaded.value = false })
 @keyframes ac-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); } }
 
 .ac-zoom {
-  position: absolute; right: 14px; bottom: 14px; z-index: 5;
+  position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 5;
   display: flex; flex-direction: column; gap: 4px;
 }
 .ac-zoom button {
@@ -548,6 +709,12 @@ watch(() => props.imageUrl, () => { if (!fitted) loaded.value = false })
   color: #fff; font-size: 18px; font-weight: 700; cursor: pointer;
 }
 .ac-zoom button:hover { background: rgba(10, 12, 20, 0.95); }
+/* Touch screens: pinch / double-tap replace +/−; keep only "fit" so the
+   buttons don't sit under the plot card on phones. */
+@media (pointer: coarse) {
+  .ac-zoom button[aria-label="Zoom in"],
+  .ac-zoom button[aria-label="Zoom out"] { display: none; }
+}
 
 .ac-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; }
 .ac-spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.15); border-top-color: #fff; animation: ac-rot 0.8s linear infinite; }

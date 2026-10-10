@@ -156,20 +156,20 @@ function enquire() {
 
 <style scoped>
 .amv { position: absolute; inset: 0; z-index: 70; background: #0b0d12; }
-.amv-top { position: absolute; top: 14px; left: 14px; right: 14px; z-index: 5; display: flex; align-items: center; gap: 10px; pointer-events: none; }
+.amv-top { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: calc(14px + env(safe-area-inset-left, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); z-index: 5; display: flex; align-items: center; gap: 10px; pointer-events: none; }
 .amv-top > * { pointer-events: auto; }
 .amv-close { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px 0 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); background: rgba(10,12,20,0.82); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; backdrop-filter: blur(12px); }
 .amv-legend { margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 999px; background: rgba(10,11,16,0.82); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; white-space: nowrap; backdrop-filter: blur(12px); pointer-events: none; }
 .amv-legend__title { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
 .amv-legend i, .amv-status i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-.amv-switch { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: calc(100% - 100px); }
+.amv-switch { position: absolute; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: calc(100% - 100px); }
 .amv-tabs--groups button { font-weight: 800; }
 .amv-tabs small { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: rgba(255,255,255,0.14); font-size: 10px; }
 .amv-tabs { display: flex; gap: 4px; padding: 4px; max-width: 100%; overflow-x: auto; border-radius: 12px; background: rgba(10,12,20,0.82); border: 1px solid rgba(255,255,255,0.1); }
 .amv-tabs button { flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: 9px; border: 0; background: transparent; color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 700; cursor: pointer; }
 .amv-tabs .amv-tab--on { background: rgba(255,255,255,0.14); color: #fff; }
 
-.amv-card { position: absolute; left: 16px; bottom: 18px; z-index: 6; width: 280px; max-width: calc(100% - 32px); padding: 16px; border-radius: 18px; background: rgba(6,8,16,0.96); border: 1px solid rgba(255,255,255,0.11); box-shadow: 0 24px 64px rgba(0,0,0,0.6); color: #fff; }
+.amv-card { position: absolute; left: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 6; width: 280px; max-width: calc(100% - 32px); padding: 16px; border-radius: 18px; background: rgba(6,8,16,0.96); border: 1px solid rgba(255,255,255,0.11); box-shadow: 0 24px 64px rgba(0,0,0,0.6); color: #fff; }
 .amv-card__x { position: absolute; top: 8px; right: 10px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.08); color: #fff; font-size: 18px; cursor: pointer; }
 .amv-status { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
 .amv-card__title { margin: 6px 0 8px; font-size: 16px; font-weight: 800; }
@@ -199,7 +199,7 @@ function enquire() {
 .amv-card-enter-from, .amv-card-leave-to { opacity: 0; transform: translateY(10px); }
 
 @media (max-width: 640px) {
-  .amv-card { left: 12px; right: 12px; width: auto; bottom: 64px; }
+  .amv-card { left: 12px; right: 12px; width: auto; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
   .amv-legend { gap: 8px; padding: 6px 11px; font-size: 11px; }
   .amv-legend__title { display: none; }
   .amv-close span { display: none; }
