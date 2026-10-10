@@ -132,7 +132,7 @@ const shareText = computed(() => `Check out this immersive virtual tour created 
 const shareWhatsappHref = computed(() => `https://wa.me/?text=${encodeURIComponent(shareText.value)}`)
 const shareXHref = computed(() => `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText.value)}`)
 const shareGmailHref = computed(() => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Viewora virtual tour')}&body=${encodeURIComponent(shareText.value)}`)
-const shareEmbedCode = computed(() => `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen style="border-radius:8px; border:none;"></iframe>`)
+const shareEmbedCode = computed(() => `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen allow="fullscreen; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none;"></iframe>`)
 
 async function copyShareUrl() {
   try {

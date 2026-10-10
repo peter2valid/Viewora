@@ -1,10 +1,13 @@
 import * as THREE from 'three'
 import { Viewer, Cache } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
-import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin'
 import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
 import { SettingsPlugin } from '@photo-sphere-viewer/settings-plugin'
-import { StereoPlugin } from '@photo-sphere-viewer/stereo-plugin'
+import {
+  VieworaGyroscopePlugin as GyroscopePlugin,
+  VieworaStereoPlugin as StereoPlugin,
+  type MotionError,
+} from './motionControls'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import {
@@ -786,9 +789,6 @@ export async function initViewer(
   } = options
 
   installTileFetchThrottle()
-  const isTouchDevice =
-    typeof window !== 'undefined' &&
-    ('ontouchstart' in window || navigator.maxTouchPoints > 0)
 
   const hasTiles =
     canUseTiledPanorama(scene)
@@ -809,7 +809,8 @@ export async function initViewer(
   ]
 
   plugins.push([SettingsPlugin, {}])
-  plugins.push([GyroscopePlugin, { touchmove: isTouchDevice, absolutePosition: true }])
+  // Relative heading (starts from the current view); drags re-aim while on.
+  plugins.push([GyroscopePlugin, { touchmove: true }])
   plugins.push([AutorotatePlugin, {
     autorotateSpeed: '0.5rpm',
     autorotatePitch: scene.settings.pitch_default ?? 0,
@@ -817,8 +818,6 @@ export async function initViewer(
     autostartOnIdle: true,
   }])
   plugins.push([StereoPlugin, {}])
-
-  patchGyroscopeSmoothing()
 
   const viewer: any = new Viewer({
     container,
@@ -830,6 +829,11 @@ export async function initViewer(
     loadingTxt: 'Loading...',
     loadingImg,
     navbar: false,
+    lang: {
+      stereoNotification: 'Look at a doorway to walk through it · tap to exit VR',
+      pleaseRotate: 'Turn your phone sideways',
+      tapToContinue: 'Tap to continue',
+    } as any,
     // Arrow keys rotate, +/- and PageUp/Down zoom — PSV's default only enables
     // them in its own fullscreen mode, which our UI never uses, so the keyboard
     // did nothing. installKeyboardGuard() keeps them out of text fields etc.
@@ -1227,117 +1231,6 @@ export function destroy(handle: PsvViewerHandle | null): void {
   try { handle.viewer.destroy() } catch { /* noop */ }
 }
 
-// ── Gyroscope smoothing ───────────────────────────────────────────────────────
-// PSV's GyroscopePlugin feeds raw DeviceOrientationEvent alpha/beta/gamma values
-// directly into the camera, causing the view to "dance" from sensor noise even
-// when the phone is stationary.
-//
-// Fix: intercept window.addEventListener calls for 'deviceorientation' and wrap
-// each registered handler with an EMA low-pass filter + dead zone. PSV then
-// receives pre-smoothed values and the view stays stable.
-//
-// Params:
-//   GYRO_EMA  — EMA weight for each new reading (0 = frozen, 1 = raw).
-//               0.12 keeps ~88% of the previous smoothed value each sample.
-//   GYRO_DEAD — movement below this many degrees is suppressed entirely.
-
-const GYRO_EMA  = 0.12   // exponential moving average factor
-const GYRO_DEAD = 0.20   // degrees — dead zone below which events are dropped
-let _gyroPatched = false
-const _wrappedHandlers = new WeakMap<object | Function, EventListenerOrEventListenerObject>()
-
-function _smoothedGyroHandler(
-  original: EventListenerOrEventListenerObject,
-): EventListenerOrEventListenerObject {
-  let smooth = { alpha: 0, beta: 0, gamma: 0 }
-  let prev   = { alpha: 0, beta: 0, gamma: 0 }
-  let seeded = false
-
-  return (e: Event) => {
-    const ev = e as DeviceOrientationEvent
-    const { alpha, beta, gamma } = ev
-    if (alpha === null || beta === null || gamma === null) {
-      typeof original === 'function' ? original(e) : original.handleEvent(e)
-      return
-    }
-
-    if (!seeded) {
-      smooth = { alpha: alpha!, beta: beta!, gamma: gamma! }
-      prev   = { ...smooth }
-      seeded = true
-      return  // seed only — skip first sample
-    }
-
-    // Alpha wraps at 0/360 — handle the discontinuity
-    let da = alpha! - smooth.alpha
-    if (da >  180) da -= 360
-    if (da < -180) da += 360
-
-    smooth.alpha = smooth.alpha + da                       * GYRO_EMA
-    smooth.beta  = smooth.beta  + (beta!  - smooth.beta)  * GYRO_EMA
-    smooth.gamma = smooth.gamma + (gamma! - smooth.gamma) * GYRO_EMA
-
-    // Dead zone — suppress jitter below threshold
-    if (
-      Math.abs(smooth.alpha - prev.alpha) < GYRO_DEAD &&
-      Math.abs(smooth.beta  - prev.beta)  < GYRO_DEAD &&
-      Math.abs(smooth.gamma - prev.gamma) < GYRO_DEAD
-    ) return
-
-    prev = { ...smooth }
-
-    // Dispatch a synthetic event carrying the smoothed values
-    try {
-      const filtered = new DeviceOrientationEvent(ev.type, {
-        alpha:    smooth.alpha,
-        beta:     smooth.beta,
-        gamma:    smooth.gamma,
-        absolute: ev.absolute,
-      })
-      typeof original === 'function' ? original(filtered) : original.handleEvent(filtered)
-    } catch {
-      // Synthetic event not supported — fall back to raw
-      typeof original === 'function' ? original(e) : original.handleEvent(e)
-    }
-  }
-}
-
-/**
- * Monkey-patches window.addEventListener/removeEventListener so that every
- * future 'deviceorientation' subscriber (including PSV's GyroscopePlugin)
- * automatically receives EMA-smoothed + dead-zone-filtered values.
- * Safe to call multiple times — the patch is applied exactly once.
- */
-function patchGyroscopeSmoothing() {
-  if (_gyroPatched || typeof window === 'undefined') return
-  _gyroPatched = true
-
-  const origAdd    = window.addEventListener.bind(window)
-  const origRemove = window.removeEventListener.bind(window)
-
-  ;(window as any).addEventListener = function (
-    type: string, listener: any, options?: any,
-  ) {
-    if (type === 'deviceorientation' && listener != null) {
-      if (!_wrappedHandlers.has(listener)) {
-        _wrappedHandlers.set(listener, _smoothedGyroHandler(listener))
-      }
-      return origAdd(type, _wrappedHandlers.get(listener)!, options)
-    }
-    return origAdd(type, listener, options)
-  }
-
-  ;(window as any).removeEventListener = function (
-    type: string, listener: any, options?: any,
-  ) {
-    if (type === 'deviceorientation' && listener != null) {
-      const wrapped = _wrappedHandlers.get(listener)
-      if (wrapped) return origRemove(type, wrapped, options)
-    }
-    return origRemove(type, listener, options)
-  }
-}
-
 // ── VirtualTourPlugin integration ─────────────────────────────────────────────
 // Used by the public viewer to get stable native multi-scene navigation.
 // The editor keeps the MarkersPlugin-only approach for per-hotspot editing.
@@ -1476,10 +1369,10 @@ export async function initVirtualTourViewer(
     autostartOnIdle: true,
   }])
 
-  // GyroscopePlugin MUST be registered for StereoPlugin (VR mode) to work,
-  // even on devices without a physical gyroscope (like desktops).
-  // We keep it disabled by default; the UI controls whether it starts.
-  plugins.push([GyroscopePlugin, { touchmove: false }])
+  // Motion control (see motionControls.ts). Required by StereoPlugin (VR).
+  // Off until the buyer taps the button; a drag while it's on re-aims the
+  // heading instead of switching it off.
+  plugins.push([GyroscopePlugin, { touchmove: true }])
   plugins.push([StereoPlugin])
 
   // Small tours (≤6 scenes) benefit from preload:true — panorama configs are pre-built
@@ -1528,10 +1421,6 @@ export async function initVirtualTourViewer(
     },
   }])
 
-  // Apply gyroscope smoothing patch before the viewer registers its
-  // DeviceOrientationEvent listener so PSV receives filtered values.
-  patchGyroscopeSmoothing()
-
   const adapterClass = ktx2Available ? KtxEquirectangularTilesAdapter : EquirectangularTilesAdapter
   const viewer: any = new Viewer({
     container,
@@ -1542,6 +1431,11 @@ export async function initVirtualTourViewer(
     loadingTxt: 'Loading...',
     loadingImg,
     navbar: false,
+    lang: {
+      stereoNotification: 'Look at a doorway to walk through it · tap to exit VR',
+      pleaseRotate: 'Turn your phone sideways',
+      tapToContinue: 'Tap to continue',
+    } as any,
     // Arrow keys rotate, +/- and PageUp/Down zoom — PSV's default only enables
     // them in its own fullscreen mode, which our UI never uses, so the keyboard
     // did nothing. installKeyboardGuard() keeps them out of text fields etc.
@@ -1810,12 +1704,17 @@ export async function vtWalkToNode(
       await Promise.race([preload, new Promise(r => setTimeout(r, 1500))])
     }
 
+    // With phone motion on, the tilt belongs to the phone: turn the heading
+    // into the room during the crossfade instead of jumping the camera.
+    const gyro = viewer.getPlugin(GyroscopePlugin) as GyroscopePlugin | undefined
+    const motion = !!gyro?.isEnabled()
+    if (motion && opts.arrive) gyro!.alignYaw(opts.arrive.yaw, reduce ? 300 : 700)
     const ok = await vt.setCurrentNode(nodeId, {
       showLoader: false,
       effect: 'fade',
       speed: reduce ? 300 : 550,
       rotation: false,
-      ...(opts.arrive ? { rotateTo: { yaw: opts.arrive.yaw, pitch: opts.arrive.pitch } } : {}),
+      ...(opts.arrive && !motion ? { rotateTo: { yaw: opts.arrive.yaw, pitch: opts.arrive.pitch } } : {}),
       zoomTo: reduce ? startZoom : Math.min(100, startZoom + 16),
     })
     if (ok && !reduce) {
@@ -1949,6 +1848,65 @@ export function applyLiveSettings(
 export function toggleGyroscope(handle: PsvViewerHandle | null): void {
   if (!handle?.viewer) return
   try { handle.viewer.getPlugin(GyroscopePlugin)?.toggle() } catch { /* noop */ }
+}
+
+/**
+ * Turn phone-motion control on. Call straight from the tap handler, with no
+ * await before it (iOS only shows its permission prompt inside the tap).
+ * Resolves null on success, or why it couldn't start.
+ */
+export function startGyroscope(handle: PsvViewerHandle | null): Promise<MotionError | null> {
+  const g = handle?.viewer?.getPlugin(GyroscopePlugin) as GyroscopePlugin | undefined
+  if (!g) return Promise.resolve('unavailable')
+  return g.start().then(() => null, () => g.lastError ?? 'unavailable')
+}
+
+export function stopGyroscope(handle: PsvViewerHandle | null): void {
+  try { (handle?.viewer?.getPlugin(GyroscopePlugin) as GyroscopePlugin | undefined)?.stop() } catch { /* noop */ }
+}
+
+/** VR split-screen. Same tap rule as startGyroscope. */
+export function startStereo(handle: PsvViewerHandle | null): Promise<MotionError | null> {
+  const st = handle?.viewer?.getPlugin(StereoPlugin) as StereoPlugin | undefined
+  const g = handle?.viewer?.getPlugin(GyroscopePlugin) as GyroscopePlugin | undefined
+  if (!st || !g) return Promise.resolve('unavailable')
+  return st.start().then(() => null, () => g.lastError ?? 'unavailable')
+}
+
+export function stopStereo(handle: PsvViewerHandle | null): void {
+  try { (handle?.viewer?.getPlugin(StereoPlugin) as StereoPlugin | undefined)?.stop() } catch { /* noop */ }
+}
+
+/**
+ * VR setup: `onTap` decides what a tap does (return true when used, e.g. to
+ * walk through the door being looked at; otherwise the tap exits VR), and
+ * `fullscreenTarget` is the element to fullscreen (so overlays stay visible).
+ */
+export function configureStereo(
+  handle: PsvViewerHandle | null,
+  opts: { onTap?: (() => boolean) | null; fullscreenTarget?: HTMLElement | null },
+): void {
+  const st = handle?.viewer?.getPlugin(StereoPlugin) as StereoPlugin | undefined
+  if (!st) return
+  if (opts.onTap !== undefined) st.onTap = opts.onTap
+  if (opts.fullscreenTarget !== undefined) st.fullscreenTarget = opts.fullscreenTarget
+}
+
+/** Keeps UI state in sync however motion/VR turn on or off. Returns an unsubscribe. */
+export function onMotionStateChange(
+  handle: PsvViewerHandle | null,
+  cb: (s: { gyroscope: boolean; stereo: boolean }) => void,
+): () => void {
+  const g = handle?.viewer?.getPlugin(GyroscopePlugin) as any
+  const st = handle?.viewer?.getPlugin(StereoPlugin) as any
+  if (!g || !st) return () => {}
+  const fire = () => cb({ gyroscope: !!g.isEnabled(), stereo: !!st.isEnabled() })
+  g.addEventListener('gyroscope-updated', fire)
+  st.addEventListener('stereo-updated', fire)
+  return () => {
+    try { g.removeEventListener('gyroscope-updated', fire) } catch { /* noop */ }
+    try { st.removeEventListener('stereo-updated', fire) } catch { /* noop */ }
+  }
 }
 
 export function isGyroscopeEnabled(handle: PsvViewerHandle | null): boolean {

@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden }" @click="onViewerClick">
+  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive }" @click="onViewerClick">
 
     <!-- Loading progress bar -->
     <Transition name="viewer-progress">
@@ -43,6 +43,24 @@
         </span>
       </div>
     </Transition>
+
+    <!-- VR: one reticle per eye; doorways glow when near the centre of view,
+         and looking at one for a moment (or tapping) walks through it. -->
+    <div v-if="stereoActive" class="vr-layer" aria-hidden="true">
+      <div v-for="eye in 2" :key="eye" class="vr-eye" :class="eye === 1 ? 'vr-eye--l' : 'vr-eye--r'">
+        <span
+          v-for="d in vrDoors"
+          :key="d.id"
+          class="vr-door"
+          :class="{ 'vr-door--aim': d.id === vrAimId }"
+          :style="{ left: `${d.x}%`, top: `${d.y}%` }"
+        ><i /><b v-if="d.label">{{ d.label }}</b></span>
+        <svg class="vr-reticle" :class="{ 'vr-reticle--aim': !!vrAimId }" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="3" class="vr-reticle__dot" />
+          <circle cx="20" cy="20" r="14" class="vr-reticle__ring" :style="{ strokeDashoffset: `${88 * (1 - vrProgress)}` }" />
+        </svg>
+      </div>
+    </div>
 
     <!-- Scene name toast -->
     <Transition name="scene-toast">
@@ -166,7 +184,7 @@
            plus the scene dock for navigation. Reappears once fullscreen. -->
       <template v-if="!compactNavActive">
         <!-- VR Mode -->
-        <button class="viewer-rail__btn" type="button" aria-label="VR mode" data-tooltip="VR Mode" @click.stop="toggleStereoView">
+        <button v-if="gyroscopeSupported" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': stereoActive }" type="button" aria-label="VR mode" :aria-pressed="stereoActive" data-tooltip="VR Mode" @click.stop="toggleStereoView">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M4.5 8.5h4a2.5 2.5 0 0 1 2.5 2.5v2a2.5 2.5 0 0 1-2.5 2.5h-4V8.5Z" />
             <path d="M19.5 8.5h-4a2.5 2.5 0 0 0-2.5 2.5v2a2.5 2.5 0 0 0 2.5 2.5h4V8.5Z" />
@@ -205,7 +223,7 @@
         </button>
 
         <!-- Gyroscope (shown only on touch/motion capable devices) -->
-        <button v-if="gyroscopeSupported" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Toggle gyroscope" :aria-pressed="gyroscopeActive" data-tooltip="Gyroscope" @click.stop="handleGyroscopeToggle">
+        <button v-if="gyroscopeSupported" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': gyroscopeActive }" type="button" aria-label="Look around by moving your phone" :aria-pressed="gyroscopeActive" :data-tooltip="gyroscopeActive ? 'Motion on' : 'Move to look'" @click.stop="handleGyroscopeToggle">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <ellipse cx="12" cy="12" rx="10" ry="4" />
             <ellipse cx="12" cy="12" rx="4" ry="10" />
@@ -504,6 +522,7 @@ import {
   type GroupableScene,
 } from '~/shared/utils/sceneGroups'
 import { toIntlPhoneDigits } from '~/utils/phone'
+import { motionLikelySupported, type MotionError } from '~/shared/utils/viewerAdapters/motionControls'
 import { PLOT_ENQUIRE_EVENT, PLOT_POLY_SUFFIX, PLOT_STATUS_META, type PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
@@ -515,11 +534,14 @@ import {
   focusHotspot,
   destroy,
   detectViewerPerformanceMode,
-  toggleStereo,
   toggleAutorotate,
   isAutorotateEnabled,
-  toggleGyroscope,
-  isGyroscopeEnabled,
+  startGyroscope,
+  stopGyroscope,
+  startStereo,
+  stopStereo,
+  configureStereo,
+  onMotionStateChange,
   loadScene,
   type PsvViewerHandle,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
@@ -650,6 +672,9 @@ function previewFor(targetId: string): string | null {
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
 const gyroscopeActive = ref(false)
+const stereoActive = ref(false)
+let _removeMotionSync = () => {}
+let vrFullscreenSeen = false
 const autoplaying = ref(false)
 const showPostTourModal = ref(false)
 const sceneToastText = ref('')
@@ -958,7 +983,7 @@ const shareEmbedCode = computed(() => {
   const backlink = brandingEnabled
     ? ''
     : `\n<div style="text-align: center; margin-top: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: #64748b;">\n  Created with <a href="https://viewora.software/?utm_source=embed&utm_medium=virtual_tour&utm_campaign=platform_branding" target="_blank" rel="noopener" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Viewora Virtual Tour Software</a>\n</div>`
-  return `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen style="border-radius:8px; border:none;"></iframe>${backlink}`
+  return `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen allow="fullscreen; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none;"></iframe>${backlink}`
 })
 
 function sceneImageUrl(scene: any): string {
@@ -1052,6 +1077,10 @@ async function initVT() {
 
   // Tear down previous instance
   if (vtHandle.value) {
+    _removeMotionSync()
+    _removeMotionSync = () => {}
+    gyroscopeActive.value = false
+    stereoActive.value = false
     destroy(vtHandle.value)
     vtHandle.value = null
   }
@@ -1208,6 +1237,13 @@ async function initVT() {
     )
     if (version !== vtInitVersion) { destroy(handle); return }
     vtHandle.value = handle
+    // Buttons follow the real state, however motion/VR turned on or off.
+    _removeMotionSync()
+    _removeMotionSync = onMotionStateChange(handle, (st) => {
+      gyroscopeActive.value = st.gyroscope
+      stereoActive.value = st.stereo
+    })
+    configureStereo(handle, { onTap: vrTapSelect, fullscreenTarget: viewerRootEl.value })
   } catch (err: any) {
     if (version !== vtInitVersion) return
     vtError.value = err?.message || 'Viewer initialisation failed'
@@ -1398,7 +1434,12 @@ onMounted(() => {
     resizeObserver.observe(viewerRootEl.value)
   }
   if (typeof document !== 'undefined') {
-    const onFullscreenChange = () => { isFullscreenActive.value = !!document.fullscreenElement }
+    const onFullscreenChange = () => {
+      isFullscreenActive.value = !!document.fullscreenElement
+      // Leaving fullscreen during VR (Android back gesture, Esc) leaves VR too.
+      if (document.fullscreenElement) vrFullscreenSeen = stereoActive.value
+      else if (stereoActive.value && vrFullscreenSeen) { vrFullscreenSeen = false; stopStereo(vtHandle.value) }
+    }
     document.addEventListener('fullscreenchange', onFullscreenChange)
     onFullscreenChange()
     _removeFullscreenListener = () => document.removeEventListener('fullscreenchange', onFullscreenChange)
@@ -1408,9 +1449,9 @@ onMounted(() => {
     // Detect input type: coarse = touch/stylus, fine = mouse
     isTouchInput.value = window.matchMedia('(pointer: coarse)').matches
 
-    // Check for motion sensor support — reliably indicated by touch support
-    // (Laptops with touch/gyro will show it, standard desktops will not)
-    gyroscopeSupported.value = navigator.maxTouchPoints > 0
+    // Phones and tablets (iOS asks permission on first use; elsewhere a
+    // missing sensor is reported when the buyer taps the button).
+    gyroscopeSupported.value = motionLikelySupported()
 
     try {
       const savedMode = window.sessionStorage.getItem('viewora-viewer-performance-mode')
@@ -1517,6 +1558,8 @@ watch(vtReady, (ready) => {
 onUnmounted(() => {
   window.removeEventListener(PLOT_ENQUIRE_EVENT, onPlotEnquire)
   vtInitVersion++
+  _removeMotionSync()
+  stopVrLoop()
   if (vtHandle.value) { destroy(vtHandle.value); vtHandle.value = null }
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   if (progressTimer) clearInterval(progressTimer)
@@ -1578,23 +1621,30 @@ function toggleAutoRotate() {
   }
 }
 
-async function handleGyroscopeToggle() {
+// ── Phone motion & VR ───────────────────────────────────────────────────────
+// No await before start*(): iOS only shows its motion prompt inside the tap.
+function motionErrorText(err: MotionError): string {
+  if (err === 'denied') return 'Motion access is blocked — reload the page and tap “Allow” when asked'
+  if (err === 'insecure') return 'Motion control needs a secure (https) link'
+  return 'No motion sensor found on this device — drag to look around'
+}
+
+function flashToast(text: string, ms = 3200) {
+  sceneToastText.value = text
+  sceneToastVisible.value = true
+  if (sceneToastTimer) clearTimeout(sceneToastTimer)
+  sceneToastTimer = setTimeout(() => { sceneToastVisible.value = false }, ms)
+}
+
+function handleGyroscopeToggle() {
   if (!vtHandle.value) return
-  // iOS 13+ requires explicit permission before DeviceOrientationEvent fires.
-  // Requesting it inside a user-gesture handler (button click) satisfies the requirement.
-  if (
-    typeof DeviceOrientationEvent !== 'undefined' &&
-    typeof (DeviceOrientationEvent as any).requestPermission === 'function'
-  ) {
-    try {
-      const permission = await (DeviceOrientationEvent as any).requestPermission()
-      if (permission !== 'granted') return
-    } catch {
-      return
-    }
+  if (gyroscopeActive.value) {
+    stopGyroscope(vtHandle.value)
+    return
   }
-  toggleGyroscope(vtHandle.value)
-  gyroscopeActive.value = isGyroscopeEnabled(vtHandle.value)
+  startGyroscope(vtHandle.value).then((err) => {
+    flashToast(err ? motionErrorText(err) : 'Move your phone to look around', err ? 4200 : 2400)
+  })
 }
 
 function shareTour() {
@@ -1619,12 +1669,109 @@ async function toggleFullscreen() {
 }
 
 function toggleStereoView() {
-  if (hasTourData.value) {
-    if (vtHandle.value) toggleStereo(vtHandle.value)
+  if (!hasTourData.value) {
+    viewerShellRef.value?.toggleStereo?.()
     return
   }
-  viewerShellRef.value?.toggleStereo?.()
+  if (!vtHandle.value) return
+  if (stereoActive.value) {
+    stopStereo(vtHandle.value)
+    return
+  }
+  startStereo(vtHandle.value).then((err) => {
+    if (err) flashToast(motionErrorText(err), 4200)
+  })
 }
+
+// VR gaze: doorways (scene links) of the current room, projected into each
+// eye. Looking at one for VR_DWELL_MS — or tapping while aimed — walks through.
+const VR_AIM_RAD = 0.16      // ≈9° from the centre of view
+const VR_DWELL_MS = 1600
+const vrDoors = ref<Array<{ id: string; x: number; y: number; label: string }>>([])
+const vrAimId = ref('')
+const vrProgress = ref(0)
+let vrRaf = 0
+let vrAimSince = 0
+let vrLast = 0
+
+const vrDoorSource = computed(() => {
+  const list = (buildAllHotspots()[vtActiveNodeId.value] ?? [])
+    .filter(h => h.type === 'scene_link' && h.targetSceneId && Number.isFinite(h.yaw) && Number.isFinite(h.pitch))
+  return list.map(h => ({
+    id: h.id,
+    yaw: h.yaw as number,
+    pitch: h.pitch as number,
+    label: tourScenes.value.find((x: any) => x.id === h.targetSceneId)?.name || '',
+  }))
+})
+
+/** Great-circle angle between two view directions. */
+function angularDistance(a: { yaw: number; pitch: number }, b: { yaw: number; pitch: number }): number {
+  const c = Math.sin(a.pitch) * Math.sin(b.pitch) + Math.cos(a.pitch) * Math.cos(b.pitch) * Math.cos(a.yaw - b.yaw)
+  return Math.acos(Math.max(-1, Math.min(1, c)))
+}
+
+function vrTick(now: number) {
+  vrRaf = 0
+  const h = vtHandle.value
+  if (!stereoActive.value || !h?.viewer) return
+  vrRaf = requestAnimationFrame(vrTick)
+  if (now - vrLast < 30) return // ~30 fps is plenty for the overlay
+  vrLast = now
+  const v: any = h.viewer
+  const pos = v.getPosition()
+  const size = v.getSize?.() ?? { width: 1, height: 1 }
+  const doors: Array<{ id: string; x: number; y: number; label: string }> = []
+  let aim = ''
+  let best = VR_AIM_RAD
+  for (const d of vrDoorSource.value) {
+    const dist = angularDistance(pos, d)
+    if (dist > 1.1) continue // behind / far outside the eye's view
+    try {
+      const p = v.dataHelper.sphericalCoordsToViewerCoords({ yaw: d.yaw, pitch: d.pitch })
+      // Mono screen x → position inside one eye (each eye is half as wide with
+      // the same vertical field of view, so horizontal offsets double).
+      const x = ((p.x - size.width / 4) / (size.width / 2)) * 100
+      const y = (p.y / size.height) * 100
+      if (x > -10 && x < 110 && y > -10 && y < 110) doors.push({ id: d.id, x, y, label: d.label })
+    } catch { /* noop */ }
+    if (dist < best && !vtTransitioning.value) { best = dist; aim = d.id }
+  }
+  vrDoors.value = doors
+  if (aim !== vrAimId.value) { vrAimId.value = aim; vrAimSince = now }
+  vrProgress.value = aim ? Math.min(1, (now - vrAimSince) / VR_DWELL_MS) : 0
+  if (aim && vrProgress.value >= 1) vrWalk(aim)
+}
+
+function vrWalk(markerId: string) {
+  vrAimId.value = ''
+  vrProgress.value = 0
+  if (vtHandle.value && !vtTransitioning.value) void handleMarkerClick(vtHandle.value, markerId, 'scene_link')
+}
+
+/** A tap in VR walks through the doorway being looked at; otherwise it exits VR. */
+function vrTapSelect(): boolean {
+  if (!vrAimId.value) return false
+  vrWalk(vrAimId.value)
+  return true
+}
+
+function stopVrLoop() {
+  if (vrRaf) cancelAnimationFrame(vrRaf)
+  vrRaf = 0
+  vrDoors.value = []
+  vrAimId.value = ''
+  vrProgress.value = 0
+}
+
+watch(stereoActive, (on) => {
+  stopVrLoop()
+  if (!on) vrFullscreenSeen = false
+  if (on && typeof window !== 'undefined') {
+    sceneToastVisible.value = false
+    vrRaf = requestAnimationFrame(vrTick)
+  }
+})
 
 function scheduleNextAutoplayScene() {
   if (autoplayTimer) clearTimeout(autoplayTimer)
@@ -1751,6 +1898,57 @@ watch(() => vtTransitioning.value, (loading) => {
   overflow: hidden;
   overscroll-behavior: none;
 }
+
+/* ── VR ── covers the whole screen even where element fullscreen doesn't
+   exist (iPhone), and hides all of our UI except the VR layer. */
+.public-viewer--vr {
+  position: fixed !important;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 2147483000;
+  touch-action: none;
+}
+.public-viewer--vr > :not(.vt-canvas):not(.vr-layer) {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+/* PSV's DOM overlays (floor arrows, link tooltips, our land labels) can't
+   render per-eye; the VR layer's doorway markers replace them. */
+.public-viewer--vr :deep(.psv-virtual-tour-arrows),
+.public-viewer--vr :deep(.psv-virtual-tour-link),
+.public-viewer--vr :deep(.psv-virtual-tour-tooltip),
+.public-viewer--vr :deep(.psv-markers) { display: none !important; }
+.vr-layer { position: absolute; inset: 0; z-index: 40; pointer-events: none; display: flex; }
+.vr-eye { position: relative; width: 50%; height: 100%; overflow: hidden; }
+.vr-eye--l { border-right: 1px solid rgba(0,0,0,0.85); }
+.vr-reticle {
+  position: absolute; left: 50%; top: 50%; width: 36px; height: 36px;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
+}
+.vr-reticle__dot { fill: #fff; }
+.vr-reticle__ring {
+  fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round;
+  stroke-dasharray: 88; opacity: 0; transition: opacity 0.2s ease;
+}
+.vr-reticle--aim .vr-reticle__ring { opacity: 1; }
+.vr-door {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.vr-door i {
+  display: block; width: 26px; height: 26px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.9); background: rgba(255,255,255,0.18);
+  box-shadow: 0 0 14px rgba(255,255,255,0.35);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.vr-door b {
+  font-size: 12px; font-weight: 800; color: #fff; white-space: nowrap;
+  padding: 3px 8px; border-radius: 8px; background: rgba(0,0,0,0.55);
+}
+.vr-door--aim i { transform: scale(1.35); background: rgba(255,255,255,0.5); }
 
 /* Stack: holds the always-visible toggle + the hideable rail */
 .viewer-control-stack {
