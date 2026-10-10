@@ -769,7 +769,14 @@ const aerialMaps = computed<any[]>(() => {
   const list = (props.tour as any)?.aerial_maps
   return Array.isArray(list) ? list.filter((m: any) => m?.image_url).map((m: any) => ({ ...m, shapes: Array.isArray(m.shapes) ? m.shapes : [] })) : []
 })
-const showAerial = ref(false)
+// Land listings open on the aerial plot map: a land buyer's first questions
+// are "where is it, which plot, what's sold" — the map answers all three at a
+// glance; "360° tour" then lets them stand on the land. Houses and every other
+// type open in the 360 walkthrough, with "Plot map" one tap away.
+const showAerial = ref(
+  (props.tour as any)?.space?.space_type === 'land'
+  && ((props.tour as any)?.aerial_maps ?? []).some((m: any) => Array.isArray(m?.shapes) && m.shapes.some((s: any) => s?.kind === 'plot'))
+)
 function onAerialEnquire(detail: PlotEnquiryDetail) {
   onPlotEnquire(new CustomEvent(PLOT_ENQUIRE_EVENT, { detail }))
 }

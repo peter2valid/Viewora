@@ -675,10 +675,9 @@ async function save() {
 async function togglePublish() {
   if (publishing.value || !space.value) return
   const isLive = space.value.is_published
-  if (!isLive && !space.value.has_360 && !space.value.has_gallery) {
-    showToast('Add at least one 360° scene or photo before publishing.', 'error')
-    return
-  }
+  // No client-side content gate here: has_360/has_gallery don't know about
+  // aerial plot maps, so land listings with only drone photos were blocked.
+  // The server checks for real content and returns a clear message.
   publishing.value = true
   try {
     const updated = await apiFetch(`/spaces/${props.spaceId}/publish`, {

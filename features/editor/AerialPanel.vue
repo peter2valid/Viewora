@@ -197,6 +197,25 @@
               <option v-for="c in aerialCategoryOptions" :key="c" :value="c" />
             </datalist>
           </label>
+
+          <!-- Buyer intro: where the camera starts and glides to -->
+          <div class="ap-intro">
+            <span class="ap-grid__title">Buyer's first view</span>
+            <p class="ap-muted">
+              {{ current.intro?.start || current.intro?.end
+                ? 'Buyers glide from your start view to your end view.'
+                : 'Automatic: whole photo, then a glide onto your plots.' }}
+            </p>
+            <div class="ap-row">
+              <button class="ap-btn" :class="{ 'ap-btn--set': current.intro?.start }" @click="setIntro('start')">{{ current.intro?.start ? '✓ Start set' : 'Set start' }}</button>
+              <button class="ap-btn" :class="{ 'ap-btn--set': current.intro?.end }" @click="setIntro('end')">{{ current.intro?.end ? '✓ End set' : 'Set end' }}</button>
+            </div>
+            <div class="ap-row">
+              <button class="ap-btn" @click="previewIntro">▶ Preview</button>
+              <button class="ap-btn" :disabled="!current.intro" @click="resetIntro">Automatic</button>
+            </div>
+            <small class="ap-muted">Zoom and move the photo to the framing you want, then press Set start or Set end.</small>
+          </div>
           <div class="ap-stats">
             <span v-for="(m, k) in AERIAL_STATUS" :key="k"><i :style="{ background: m.color }" />{{ counts[k] }} {{ m.label.toLowerCase() }}</span>
           </div>
@@ -653,6 +672,37 @@ async function setMapGroup(value: string) {
   }
 }
 
+// ── Buyer intro (start → end glide) ─────────────────────────
+async function saveIntro(intro: AerialMap['intro']) {
+  const m = current.value
+  if (!m) return
+  const prev = m.intro ?? null
+  m.intro = intro
+  if (isLocal(m.id)) return
+  try {
+    await apiFetch(`/aerial-maps/${m.id}`, { method: 'PATCH', body: { intro } })
+  } catch {
+    m.intro = prev
+    toast.error('Could not save the view. If this is new, run VIEWORA_AERIAL_INTRO_MIGRATION.sql in Supabase.')
+  }
+}
+
+function setIntro(which: 'start' | 'end') {
+  const view = canvasRef.value?.getView()
+  if (!view || !current.value) return
+  void saveIntro({ ...(current.value.intro ?? {}), [which]: view })
+  toast.success(which === 'start' ? 'Start view saved' : 'End view saved')
+}
+
+function previewIntro() {
+  canvasRef.value?.playIntro(current.value?.intro ?? null)
+}
+
+function resetIntro() {
+  void saveIntro(null)
+  toast.success('Back to automatic')
+}
+
 async function deleteMap() {
   const m = current.value
   if (!m) return
@@ -804,6 +854,9 @@ onBeforeUnmount(() => {
 .ap-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .ap-seg button { height: 32px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.6); font-size: 11.5px; font-weight: 700; text-transform: none; letter-spacing: 0; cursor: pointer; }
 .ap-seg--on { background: color-mix(in srgb, var(--c) 22%, transparent) !important; border-color: var(--c) !important; color: #fff !important; }
+.ap-intro { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+.ap-intro .ap-row .ap-btn { width: 100%; }
+.ap-btn--set { border-color: rgba(34,197,94,0.6); color: #86efac; }
 .ap-grid { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
 .ap-grid__title { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.6); }
 .ap-actions { display: flex; gap: 8px; margin-top: auto; }

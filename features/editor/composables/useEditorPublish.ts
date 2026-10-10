@@ -60,13 +60,9 @@ export function useEditorPublish(
       // at all — that's correct, not unhealthy. Everything below this block
       // is scene-graph-specific (hotspot links, reachability, dead ends) and
       // doesn't apply when there's no scene graph to begin with.
-      const hasCompleteGalleryPhoto = (space.value?.property_media ?? []).some(
-        // floor_plan = aerial plot-map photos (Aerial Map tab)
-        (m: any) => (m.media_type === 'gallery_image' || m.media_type === 'floor_plan') && m.processing_status === 'complete'
-      )
-      if (!hasCompleteGalleryPhoto) {
-        issues.push({ type: 'error', message: 'Add at least one 360° scene or photo before publishing.' })
-      }
+      // Gallery photos and aerial plot maps live in other tabs, so this copy
+      // of the space can be stale (e.g. an aerial photo added a minute ago).
+      // Let the server decide — it checks the real content and explains.
       return issues
     }
 

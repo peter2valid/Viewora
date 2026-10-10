@@ -30,6 +30,8 @@ export interface AerialMap {
   media_id?: string | null
   /** Category, e.g. "Phase 1" — photos sharing one are grouped for buyers. */
   group_name?: string | null
+  /** Buyer intro glide (editor "Set start / Set end"); null = automatic. */
+  intro?: AerialIntro | null
 }
 
 export function newShapeId(): string {
@@ -190,3 +192,7 @@ export async function prepareAerialPhoto(file: File, maxSide = 6000): Promise<{ 
     URL.revokeObjectURL(url)
   }
 }
+
+/** Camera framing for an aerial photo: photo point at screen centre + zoom × "whole photo fits". */
+export type CameraView = { cx: number; cy: number; zoom: number }
+export type AerialIntro = { start?: CameraView; end?: CameraView }

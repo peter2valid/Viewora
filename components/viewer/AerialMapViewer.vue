@@ -12,7 +12,21 @@
       :insets="{ top: 64, bottom: maps.length > 1 ? (groups.length > 1 && visibleMaps.length > 1 ? 104 : 60) : 12 }"
       @shape-click="select"
       @canvas-click="selectedId = null"
+      @interact="hintVisible = false"
     />
+
+    <!-- How-to-move hint: shown while the intro plays, gone at the first touch -->
+    <Transition name="amv-hint">
+      <div v-if="hintVisible" class="amv-hint" aria-hidden="true">
+        <span class="amv-hint__hand">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.5 4.5a1.5 1.5 0 0 1 3 0v6"/><path d="M12.5 7a1.5 1.5 0 0 1 3 0v3.5"/><path d="M6.5 9a1.5 1.5 0 0 1 3 0v1.5"/>
+            <path d="M6.5 10.5v2a5.5 5.5 0 0 0 5.5 5.5h.5a5.5 5.5 0 0 0 5.5-5.5V10"/>
+          </svg>
+        </span>
+        <span>{{ isTouch ? 'Drag to explore · Pinch to zoom · Tap a plot' : 'Drag to explore · Scroll to zoom · Click a plot' }}</span>
+      </div>
+    </Transition>
 
     <!-- Header -->
     <div class="amv-top">
@@ -68,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import AerialCanvas from '~/features/aerial/AerialCanvas.vue'
 import { AERIAL_STATUS, type AerialMap, type AerialPlotStatus } from '~/shared/utils/aerialGeometry'
 import type { PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
@@ -114,6 +128,22 @@ function openGroupTab(key: string) {
   if (first) switchTo(first.id)
 }
 
+// Intro glide on open and on every photo switch (the canvas is re-created per photo).
+const hintVisible = ref(true)
+// Set after mount so server-rendered and browser HTML match.
+const isTouch = ref(false)
+let hintTimer: ReturnType<typeof setTimeout> | null = null
+function startIntro() {
+  void nextTick(() => canvasRef.value?.playIntro(current.value?.intro ?? null))
+}
+onMounted(() => {
+  isTouch.value = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  startIntro()
+  hintTimer = setTimeout(() => { hintVisible.value = false }, 14000)
+})
+onBeforeUnmount(() => { if (hintTimer) clearTimeout(hintTimer) })
+watch(currentId, () => startIntro())
+
 function select(id: string) { selectedId.value = id }
 function switchTo(id: string) { currentId.value = id; selectedId.value = null }
 
@@ -151,6 +181,20 @@ function enquire() {
 .amv-cta { display: block; width: 100%; padding: 10px; border: 0; border-radius: 11px; color: #0b0d14; font-size: 13px; font-weight: 800; text-align: center; text-decoration: none; cursor: pointer; }
 .amv-cta--road { background: #facc15; }
 .amv-note { margin: 10px 0 0; font-size: 10px; line-height: 1.45; color: rgba(255,255,255,0.38); }
+.amv-hint {
+  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 4;
+  display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 999px;
+  background: rgba(8, 10, 18, 0.72); border: 1px solid rgba(255,255,255,0.16);
+  color: #fff; font-size: 13px; font-weight: 700; white-space: nowrap;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+.amv-hint__hand { display: flex; animation: amv-swipe 1.8s ease-in-out infinite; }
+@keyframes amv-swipe { 0%, 100% { transform: translateX(-6px); } 50% { transform: translateX(6px); } }
+.amv-hint-enter-active, .amv-hint-leave-active { transition: opacity 0.35s; }
+.amv-hint-enter-from, .amv-hint-leave-to { opacity: 0; }
+@media (max-width: 640px) { .amv-hint { font-size: 11.5px; padding: 10px 14px; white-space: normal; max-width: calc(100% - 40px); text-align: center; } }
+
 .amv-card-enter-active, .amv-card-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .amv-card-enter-from, .amv-card-leave-to { opacity: 0; transform: translateY(10px); }
 
