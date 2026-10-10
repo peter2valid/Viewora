@@ -97,6 +97,7 @@ const emit = defineEmits<{
   (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
   (e: 'close-trace'): void
+  (e: 'remove-trace-point', index: number): void
 }>()
 
 type State = 'loading' | 'ready' | 'error' | 'empty'
@@ -319,9 +320,14 @@ async function initWithScene(scene: TourScene) {
       onMarkerClick: async (id) => {
         if (sceneLoadInProgress || !handle.value) return
         if (props.isTracing) {
-          // Only the first boundary dot is clickable while drawing (CSS disables
-          // the rest) — clicking it closes the shape.
-          if (id === 'trace-dot-0' && props.traceClosable) emit('close-trace')
+          // While drawing only the trace dots are clickable (CSS disables the
+          // rest). The first dot closes the shape once it can be closed; any
+          // other dot — or the first before that — removes that corner.
+          const m = /^trace-dot-(\d+)$/.exec(id)
+          if (!m) return
+          const index = Number(m[1])
+          if (index === 0 && props.traceClosable) emit('close-trace')
+          else emit('remove-trace-point', index)
           return
         }
         if (isTraceMarkerId(id)) return
@@ -994,8 +1000,11 @@ defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, to
 
 /* ── Tracing styles ──────────────────────────────── */
 :global(.psv-hs-trace-dot) {
-  width: 12px;
-  height: 12px;
+  /* Fills its marker box (20px, 24px for the first corner) so it is centred
+     on the clicked point and is a comfortable tap target for removal. */
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   background: #3b82f6;
   border: 2px solid #fff;
   border-radius: 50%;

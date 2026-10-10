@@ -22,6 +22,7 @@
           @hotspot-drag-drop="emit('hotspot-drag-drop', $event)"
           @update-trace="emit('update-trace', $event)"
           @close-trace="emit('close-trace')"
+          @remove-trace-point="emit('remove-trace-point', $event)"
         />
       </div>
 
@@ -73,6 +74,7 @@ const emit = defineEmits<{
   (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
   (e: 'close-trace'): void
+  (e: 'remove-trace-point', index: number): void
 }>()
 
 // Computed (not inline in the template) so PsvViewer's deep hotspot watcher

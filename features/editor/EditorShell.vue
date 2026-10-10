@@ -56,6 +56,7 @@
       @request-upload="handleViewerCanvasUpload"
       @update-trace="handleUpdateTrace"
       @close-trace="finishPlotDrawing"
+      @remove-trace-point="removeTracePoint"
       @undo-trace="undoTracePoint"
       @cancel-trace="cancelTracing"
       @cancel-placement="onCancelPlacement"
@@ -606,6 +607,7 @@ const {
   startPlotDrawing,
   cancelTracing,
   undoTracePoint,
+  removeTracePoint,
   finishPlotDrawing,
   handleUpdateTrace,
   placeHotspotDirect,

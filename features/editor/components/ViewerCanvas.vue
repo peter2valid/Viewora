@@ -37,13 +37,14 @@
       @hotspot-drag-drop="$emit('hotspot-drag-drop', $event)"
       @update-trace="$emit('update-trace', $event)"
       @close-trace="$emit('close-trace')"
+      @remove-trace-point="$emit('remove-trace-point', $event)"
     />
 
     <!-- Tracing Overlay: 4-corner video surface -->
     <Transition name="badge-confirm">
       <div
         v-if="isTracing && traceMode === 'surface'"
-        class="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3 w-[calc(100%-40px)] max-w-sm pointer-events-none"
+        class="trace-surface-bar absolute left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3 w-[calc(100%-40px)] max-w-sm pointer-events-none"
       >
         <div class="px-4 py-3 rounded-2xl bg-blue-600/90 backdrop-blur-xl border border-white/20 shadow-2xl flex items-center gap-4">
           <div class="flex items-center gap-3">
@@ -79,7 +80,8 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
             <span>Undo</span>
           </button>
-          <button class="plot-bar__btn" title="Cancel (Esc)" @click="$emit('cancel-trace')">
+          <button class="plot-bar__btn plot-bar__btn--cancel" title="Cancel drawing (Esc)" aria-label="Cancel drawing" @click="$emit('cancel-trace')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
             <span>Cancel</span>
           </button>
           <button class="plot-bar__btn plot-bar__btn--primary" :disabled="!traceCanFinish" title="Finish (Enter)" @click="$emit('close-trace')">
@@ -233,6 +235,7 @@ const emit = defineEmits<{
   (e: 'close-trace'): void
   (e: 'undo-trace'): void
   (e: 'cancel-trace'): void
+  (e: 'remove-trace-point', index: number): void
 }>()
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
@@ -251,7 +254,7 @@ const traceHint = computed(() => {
     return isTouch ? 'Add more points or tap Finish' : 'Add more points, press Enter, or Finish'
   }
   if (n === 0) return isTouch ? 'Tap each corner of the plot, in order' : 'Click each corner of the plot, in order. Zoom in for accuracy.'
-  if (n < 3) return `Add ${3 - n} more corner${3 - n === 1 ? '' : 's'}`
+  if (n < 3) return `Add ${3 - n} more corner${3 - n === 1 ? '' : 's'} · tap a dot to remove it`
   return isTouch ? 'Tap the first corner or Finish to close' : 'Click the first corner, press Enter, or Finish'
 })
 
@@ -331,9 +334,13 @@ defineExpose({ refreshSettings })
 </script>
 
 <style scoped>
+.trace-surface-bar { top: 132px; }
+/* Sits below the TopBar (ends ~68px) and the 360/Photos/Details tabs (ends
+   ~120px). It used to sit at 16px — underneath the header, which is in a
+   higher stacking context, so Undo/Cancel/Finish were unreachable. */
 .plot-bar {
   position: absolute;
-  top: 16px;
+  top: 132px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
@@ -377,10 +384,12 @@ defineExpose({ refreshSettings })
 }
 .plot-bar__btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
 .plot-bar__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.plot-bar__btn--cancel { color: #fca5a5; }
 .plot-bar__btn--primary { background: #22c55e; border-color: #22c55e; color: #0b0d14; }
 .plot-bar__btn--primary:hover:not(:disabled) { background: #4ade80; }
 @media (max-width: 640px) {
-  .plot-bar { flex-wrap: wrap; justify-content: center; top: 10px; }
+  .trace-surface-bar { top: 100px; }
+  .plot-bar { flex-wrap: wrap; justify-content: center; top: 100px; }
   .plot-bar__copy { flex: 1 1 calc(100% - 50px); }
   .plot-bar__btn span { display: none; }
   .plot-bar__btn { padding: 0 11px; }

@@ -590,9 +590,14 @@ header.nav {
 
 /* Boundary drawing (editor) */
 .psv-hs-trace-dot--first {
-  width: 18px !important; height: 18px !important;
   background: #fff !important;
   border: 3px solid #3b82f6 !important;
+}
+.psv-marker--trace-dot { cursor: pointer; }
+.psv-marker--trace-dot:not(.psv-marker--trace-first):hover .psv-hs-trace-dot,
+.psv-marker--trace-first:hover .psv-hs-trace-dot:not(.psv-hs-trace-dot--closable) {
+  background: #ef4444 !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.35) !important;
 }
 .psv-hs-trace-dot--closable { cursor: pointer; animation: vhs-trace-pulse 1.4s ease-in-out infinite; }
 @keyframes vhs-trace-pulse {
@@ -601,7 +606,7 @@ header.nav {
 }
 /* While drawing, existing markers must not swallow clicks — otherwise a corner
    can't be placed on top of (or shared with) a neighbouring plot. */
-.psv--tracing .psv-marker:not(.psv-marker--trace-first),
+.psv--tracing .psv-marker:not(.psv-marker--trace-dot),
 .psv--tracing .psv-markers svg * { pointer-events: none !important; }
 
 /* Hide scene link markers when the dock is open */

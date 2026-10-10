@@ -21,6 +21,7 @@
       @hotspot-drag-drop="emit('hotspot-drag-drop', $event)"
       @update-trace="emit('update-trace', $event)"
       @close-trace="emit('close-trace')"
+      @remove-trace-point="emit('remove-trace-point', $event)"
     />
   </div>
 </template>
@@ -55,6 +56,7 @@ const emit = defineEmits<{
   (e: 'hotspot-drag-drop', payload: { id: string; yaw: number; pitch: number }): void
   (e: 'update-trace', payload: { yaw: number; pitch: number }): void
   (e: 'close-trace'): void
+  (e: 'remove-trace-point', index: number): void
 }>()
 
 const viewerShellRef = ref<InstanceType<typeof ViewerShell> | null>(null)

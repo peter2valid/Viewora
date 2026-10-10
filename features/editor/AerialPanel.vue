@@ -43,6 +43,7 @@
           @canvas-click="onCanvasClick"
           @shape-click="selectShape"
           @close-draft="finishDraft"
+          @remove-draft-point="removePoint"
         />
         <div v-else-if="uploading" class="ap-center"><span class="ap-spin" /><p class="ap-muted">Uploading photo…</p></div>
       </div>
@@ -70,7 +71,7 @@
         </div>
         <div class="ap-drawbar__actions">
           <button class="ap-dbtn" :disabled="!draft?.points.length" @click="undoPoint">Undo</button>
-          <button class="ap-dbtn" @click="cancelTool">Cancel</button>
+          <button class="ap-dbtn ap-dbtn--cancel" aria-label="Cancel drawing" @click="cancelTool">✕ Cancel</button>
           <button class="ap-dbtn ap-dbtn--primary" :disabled="!canFinish" @click="finishDraft">Finish</button>
         </div>
       </div>
@@ -271,7 +272,7 @@ const drawTitle = computed(() => {
 const drawHint = computed(() => {
   const n = draftPoints.value.length
   if (tool.value === 'road') return n === 0 ? 'Click where the arrow starts' : n === 1 ? 'Click where it should point (add bends on the way)' : 'Add points or press Enter'
-  if (n < 3) return n === 0 ? 'Click each corner in order. Tip: outline a whole block, then split it.' : `Add ${3 - n} more corner${3 - n === 1 ? '' : 's'}`
+  if (n < 3) return n === 0 ? 'Click each corner in order. Tip: outline a whole block, then split it.' : `Add ${3 - n} more corner${3 - n === 1 ? '' : 's'} · tap a dot to remove it`
   return 'Click the first corner, press Enter, or Finish'
 })
 
@@ -417,6 +418,10 @@ function cancelTool() {
   tool.value = null
   draftPoints.value = []
   redrawId.value = null
+}
+
+function removePoint(index: number) {
+  draftPoints.value = draftPoints.value.filter((_, i) => i !== index)
 }
 
 function undoPoint() {
@@ -659,6 +664,7 @@ onBeforeUnmount(() => {
 .ap-drawbar__actions { display: flex; gap: 6px; }
 .ap-dbtn { height: 34px; padding: 0 12px; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
 .ap-dbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ap-dbtn--cancel { color: #fca5a5; }
 .ap-dbtn--primary { background: #22c55e; border-color: #22c55e; color: #0b0d14; }
 
 .ap-save { position: fixed; top: 130px; right: 340px; z-index: 22; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.55); }

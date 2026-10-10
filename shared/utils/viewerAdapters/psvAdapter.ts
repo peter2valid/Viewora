@@ -1132,10 +1132,10 @@ export function renderTrace(handle: PsvViewerHandle | null, points: Array<{ yaw:
       id,
       position: p,
       html: `<div class="psv-hs-trace-dot${first ? ' psv-hs-trace-dot--first' : ''}${first && closable ? ' psv-hs-trace-dot--closable' : ''}"></div>`,
-      size: first ? { width: 22, height: 22 } : { width: 14, height: 14 },
-      className: first ? 'psv-marker--trace-first' : undefined,
+      size: first ? { width: 24, height: 24 } : { width: 20, height: 20 },
+      className: first ? 'psv-marker--trace-dot psv-marker--trace-first' : 'psv-marker--trace-dot',
       anchor: 'center center',
-      tooltip: first && closable ? { content: 'Click to close the boundary', position: 'top center' } : undefined,
+      tooltip: { content: first && closable ? 'Click to close the shape' : 'Click to remove this corner', position: 'top center' },
     })
     ids!.add(id)
   })

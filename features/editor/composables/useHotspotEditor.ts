@@ -206,6 +206,12 @@ export function useHotspotEditor(
     redrawPlotId.value = null
   }
 
+  /** Remove one specific corner (tapped in the viewer) while drawing. */
+  function removeTracePoint(index: number) {
+    if (!isTracing.value || index < 0 || index >= tracePoints.value.length) return
+    tracePoints.value = tracePoints.value.filter((_, i) => i !== index)
+  }
+
   function undoTracePoint() {
     if (!isTracing.value || !tracePoints.value.length) return
     tracePoints.value = tracePoints.value.slice(0, -1)
@@ -694,6 +700,7 @@ export function useHotspotEditor(
     startPlotDrawing,
     cancelTracing,
     undoTracePoint,
+    removeTracePoint,
     finishPlotDrawing,
     handleUpdateTrace,
     placeHotspotDirect,

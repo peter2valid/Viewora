@@ -89,7 +89,8 @@
         <span
           v-for="(p, i) in draft?.points || []" :key="`d${i}`"
           class="ac-vertex" :class="{ 'ac-vertex--first': i === 0, 'ac-vertex--closable': i === 0 && closable }"
-          :data-draft-first="i === 0 ? '1' : undefined"
+          :data-draft-index="i"
+          :title="i === 0 && closable ? 'Click to close the shape' : 'Click to remove this corner'"
           :style="labelStyle(p)"
         />
       </template>
@@ -130,6 +131,7 @@ const emit = defineEmits<{
   (e: 'canvas-click', p: AerialPoint): void
   (e: 'shape-click', id: string): void
   (e: 'close-draft'): void
+  (e: 'remove-draft-point', index: number): void
   (e: 'ready', size: { width: number; height: number }): void
 }>()
 
@@ -302,8 +304,15 @@ function onPointerUp(e: PointerEvent) {
 
   // Pointer capture retargets events to the root, so hit-test the real element.
   const target = (document.elementFromPoint(e.clientX, e.clientY) ?? e.target) as HTMLElement
-  // Closing a shape by clicking its first corner.
-  if (props.closable && target.closest?.('[data-draft-first]')) { emit('close-draft'); return }
+  // Draft corners: the first one closes the shape (once closable), any other
+  // — or the first before that — is removed, to fix a misplaced click.
+  const vertex = target.closest?.('[data-draft-index]') as HTMLElement | null
+  if (vertex) {
+    const index = Number(vertex.dataset.draftIndex)
+    if (index === 0 && props.closable) emit('close-draft')
+    else emit('remove-draft-point', index)
+    return
+  }
   const shapeEl = target.closest?.('[data-shape-id]') as HTMLElement | null
   if (shapeEl && !props.crosshair) { emit('shape-click', shapeEl.dataset.shapeId!); return }
 
@@ -383,11 +392,12 @@ watch(() => props.imageUrl, () => { loaded.value = false })
 .ac-label__under { font-size: 10.5px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
 
 .ac-vertex {
-  position: absolute; width: 12px; height: 12px; border-radius: 50%;
-  background: #3b82f6; border: 2px solid #fff; pointer-events: none;
+  position: absolute; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box;
+  background: #3b82f6; border: 2.5px solid #fff; cursor: pointer;
 }
-.ac-vertex--first { width: 18px; height: 18px; background: #fff; border: 3px solid #3b82f6; }
-.ac-vertex--closable { pointer-events: auto; cursor: pointer; animation: ac-pulse 1.4s ease-in-out infinite; }
+.ac-vertex:not(.ac-vertex--closable):hover { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.35); }
+.ac-vertex--first { width: 22px; height: 22px; background: #fff; border: 3px solid #3b82f6; }
+.ac-vertex--closable { animation: ac-pulse 1.4s ease-in-out infinite; }
 @keyframes ac-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); } }
 
 .ac-zoom {
