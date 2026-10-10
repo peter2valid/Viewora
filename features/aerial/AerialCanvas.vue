@@ -23,24 +23,34 @@
       <div v-if="coopNotice" class="ac-coop" aria-live="polite">{{ coopNotice }}</div>
     </Transition>
 
-    <div class="ac-stage" :style="stageStyle">
-      <img
-        ref="imgEl"
-        :src="imageUrl"
-        class="ac-img"
-        alt=""
-        draggable="false"
-        decoding="async"
-        @load="onImgLoad"
-      />
+    <!-- The photo itself carries the pan/zoom transform: a lone <img> layer is
+         composited as a texture straight from the decoded image, so it stays
+         sharp and never re-rasterises while zooming. -->
+    <img
+      ref="imgEl"
+      :src="imageUrl"
+      class="ac-stage ac-img"
+      :style="stageStyle"
+      alt=""
+      draggable="false"
+      decoding="async"
+      @load="onImgLoad"
+    />
 
-      <svg v-if="W && H" class="ac-svg" :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none">
+    <!-- Shapes, labels and drawing corners are drawn in SCREEN space, not
+         inside the scaled photo layer. Scaling one photo-sized layer (4096px
+         wide, ×10 zoom) blew past the GPU's layer limits, so the browser
+         re-rasterised it in tiles while zooming — boxes vanished and came
+         back. Only the photo is scaled now (a plain texture); the overlay is
+         recomputed per frame at screen resolution, always sharp. -->
+    <div class="ac-overlay">
+      <svg v-if="W && H" class="ac-svg">
         <!-- Paint order: estate outlines, plots, road arrows -->
         <polygon
           v-for="s in zones" :key="s.id"
           :points="pts(s.points)"
           class="ac-zone" :class="{ 'ac-sel': s.id === selectedId }"
-          vector-effect="non-scaling-stroke"
+         
         />
         <polygon
           v-for="s in plots" :key="s.id"
@@ -48,14 +58,14 @@
           :data-shape-id="s.id"
           class="ac-plot" :class="{ 'ac-sel': s.id === selectedId }"
           :style="{ fill: AERIAL_STATUS[s.status || 'available'].fill }"
-          vector-effect="non-scaling-stroke"
+         
         />
         <polygon
           v-for="s in roads" :key="s.id"
           :points="pts(arrowOutline(s.points, W, H, s.arrow_width ?? 1) || [])"
           :data-shape-id="s.id"
           class="ac-road" :class="{ 'ac-sel': s.id === selectedId }"
-          vector-effect="non-scaling-stroke"
+         
         />
 
         <!-- In-progress drawing -->
@@ -63,13 +73,13 @@
           <polygon
             v-if="draft.kind === 'road' && draft.points.length >= 2"
             :points="pts(arrowOutline(draft.points, W, H, 1) || [])"
-            class="ac-draft-arrow" vector-effect="non-scaling-stroke"
+            class="ac-draft-arrow"
           />
           <polygon
             v-else-if="draft.kind !== 'road' && draft.points.length >= 3"
-            :points="pts(draft.points)" class="ac-draft" vector-effect="non-scaling-stroke"
+            :points="pts(draft.points)" class="ac-draft"
           />
-          <polyline v-else :points="pts(draft.points)" class="ac-draft ac-draft--line" vector-effect="non-scaling-stroke" />
+          <polyline v-else :points="pts(draft.points)" class="ac-draft ac-draft--line" />
         </template>
       </svg>
 
@@ -196,15 +206,19 @@ const labels = computed(() => props.shapes
     }
   }))
 
+// Image-normalised → screen pixels (the overlay isn't scaled).
+function sx(x: number) { return x * W.value * s.value + tx.value }
+function sy(y: number) { return y * H.value * s.value + ty.value }
+
 function pts(list: AerialPoint[]): string {
-  return list.map(p => `${(p.x * W.value).toFixed(1)},${(p.y * H.value).toFixed(1)}`).join(' ')
+  return list.map(p => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ')
 }
 
 function labelStyle(p: AerialPoint) {
   return {
-    left: `${p.x * W.value}px`,
-    top: `${p.y * H.value}px`,
-    transform: `translate(-50%, -50%) scale(${1 / s.value})`,
+    left: `${sx(p.x)}px`,
+    top: `${sy(p.y)}px`,
+    transform: 'translate(-50%, -50%)',
   }
 }
 
@@ -674,8 +688,11 @@ watch(() => props.imageUrl, () => { if (!fitted) loaded.value = false })
 .ac-notice-enter-from, .ac-notice-leave-to { opacity: 0; }
 .ac-root--crosshair { cursor: crosshair; }
 .ac-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
-.ac-img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.ac-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ac-img { pointer-events: none; user-select: none; max-width: none; }
+.ac-overlay { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.ac-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ac-svg .ac-plot, .ac-svg .ac-road { pointer-events: visiblePainted; }
+.ac-overlay .ac-label, .ac-overlay .ac-vertex { pointer-events: auto; }
 
 .ac-plot { stroke: rgba(255, 255, 255, 0.96); stroke-width: 2.5px; stroke-linejoin: round; cursor: pointer; transition: fill 0.15s; }
 .ac-plot:hover { filter: brightness(1.25); }
