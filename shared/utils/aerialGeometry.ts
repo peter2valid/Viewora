@@ -28,6 +28,8 @@ export interface AerialMap {
   order_index: number
   shapes: AerialShape[]
   media_id?: string | null
+  /** Category, e.g. "Phase 1" — photos sharing one are grouped for buyers. */
+  group_name?: string | null
 }
 
 export function newShapeId(): string {

@@ -9,7 +9,7 @@
       :height="current.height"
       :shapes="current.shapes"
       :selected-id="selectedId"
-      :insets="{ top: 64, bottom: maps.length > 1 ? 60 : 12 }"
+      :insets="{ top: 64, bottom: maps.length > 1 ? (groups.length > 1 && visibleMaps.length > 1 ? 104 : 60) : 12 }"
       @shape-click="select"
       @canvas-click="selectedId = null"
     />
@@ -26,9 +26,18 @@
       </div>
     </div>
 
-    <!-- Photo switcher -->
-    <div v-if="maps.length > 1" class="amv-tabs">
-      <button v-for="m in maps" :key="m.id" :class="{ 'amv-tab--on': m.id === currentId }" @click="switchTo(m.id)">{{ m.title }}</button>
+    <!-- Photo switcher: categories (if used) → the photos inside the open one -->
+    <div v-if="maps.length > 1" class="amv-switch">
+      <div v-if="groups.length > 1" class="amv-tabs amv-tabs--groups">
+        <button
+          v-for="g in groups" :key="g.key"
+          :class="{ 'amv-tab--on': g.key === activeGroupKey }"
+          @click="openGroupTab(g.key)"
+        >{{ g.label }}<small v-if="g.maps.length > 1">{{ g.maps.length }}</small></button>
+      </div>
+      <div v-if="visibleMaps.length > 1" class="amv-tabs">
+        <button v-for="m in visibleMaps" :key="m.id" :class="{ 'amv-tab--on': m.id === currentId }" @click="switchTo(m.id)">{{ m.title }}</button>
+      </div>
     </div>
 
     <!-- Selected shape card -->
@@ -84,6 +93,27 @@ const legend = computed(() => {
   return (Object.keys(c) as AerialPlotStatus[]).filter(k => c[k]).map(k => ({ key: k, count: c[k], ...AERIAL_STATUS[k] }))
 })
 
+// Categories: photos with the same group_name are shown together; photos
+// without one fall under "Other" (or the only tab when none are categorised).
+const groups = computed(() => {
+  const out: Array<{ key: string; label: string; maps: AerialMap[] }> = []
+  for (const m of props.maps) {
+    const key = (m.group_name ?? '').trim()
+    let g = out.find(x => x.key === key)
+    if (!g) { g = { key, label: key || 'Other', maps: [] }; out.push(g) }
+    g.maps.push(m)
+  }
+  return out
+})
+const activeGroupKey = computed(() => (current.value?.group_name ?? '').trim())
+const visibleMaps = computed(() => groups.value.length > 1
+  ? (groups.value.find(g => g.key === activeGroupKey.value)?.maps ?? [])
+  : props.maps)
+function openGroupTab(key: string) {
+  const first = groups.value.find(g => g.key === key)?.maps[0]
+  if (first) switchTo(first.id)
+}
+
 function select(id: string) { selectedId.value = id }
 function switchTo(id: string) { currentId.value = id; selectedId.value = null }
 
@@ -102,7 +132,10 @@ function enquire() {
 .amv-legend { margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 999px; background: rgba(10,11,16,0.82); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; white-space: nowrap; backdrop-filter: blur(12px); pointer-events: none; }
 .amv-legend__title { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
 .amv-legend i, .amv-status i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-.amv-tabs { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5; display: flex; gap: 4px; padding: 4px; max-width: calc(100% - 100px); overflow-x: auto; border-radius: 12px; background: rgba(10,12,20,0.82); border: 1px solid rgba(255,255,255,0.1); }
+.amv-switch { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: calc(100% - 100px); }
+.amv-tabs--groups button { font-weight: 800; }
+.amv-tabs small { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: rgba(255,255,255,0.14); font-size: 10px; }
+.amv-tabs { display: flex; gap: 4px; padding: 4px; max-width: 100%; overflow-x: auto; border-radius: 12px; background: rgba(10,12,20,0.82); border: 1px solid rgba(255,255,255,0.1); }
 .amv-tabs button { flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: 9px; border: 0; background: transparent; color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 700; cursor: pointer; }
 .amv-tabs .amv-tab--on { background: rgba(255,255,255,0.14); color: #fff; }
 

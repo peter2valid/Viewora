@@ -13,7 +13,7 @@
     :max-scale="1.62"
     :sigma-px="92"
     :lift-px="14"
-    @select="$emit('select-scene', $event)"
+    @select="onSelect"
     @add="$emit('add-scene')"
     @reorder="$emit('reorder-scenes', $event)"
     @context="$emit('rename-scene', $event)"
@@ -33,12 +33,19 @@ const props = withDefaults(defineProps<{
   showAdd: true
 })
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'select-scene', id: string): void
   (e: 'add-scene'): void
   (e: 'reorder-scenes', ids: string[]): void
   (e: 'rename-scene', id: string): void
 }>()
+
+// Tapping the scene you're already on opens its name/category editor — the
+// right-click menu alone was undiscoverable and doesn't exist on iPhone.
+function onSelect(id: string) {
+  if (id === props.activeSceneId) emit('rename-scene', id)
+  else emit('select-scene', id)
+}
 
 const visible = ref(false)
 onMounted(() => { visible.value = true })
@@ -51,7 +58,7 @@ const dockItems = computed(() =>
     // A ready scene can still carry a 'warn' badge (unreachable / dead-end) —
     // only fall back to the 'loading' spinner when there's no explicit badge.
     badge: s.badge ?? (s.ready ? null : 'loading'),
-    tooltip: s.badge === 'warn' ? s.warnReason : null,
+    tooltip: s.badge === 'warn' ? s.warnReason : (s.id === props.activeSceneId ? 'Tap again to rename or set a category' : null),
   }))
 )
 </script>

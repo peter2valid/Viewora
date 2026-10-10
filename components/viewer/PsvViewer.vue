@@ -448,7 +448,7 @@
       v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome"
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
-      :active-id="activeSceneId"
+      :active-id="dockActiveId"
       glass-class="dock-glass-superdark"
       :sortable="false"
       :bottom-px="20"
@@ -458,7 +458,7 @@
       :max-scale="1.6"
       :sigma-px="94"
       :lift-px="14"
-      @select="handleDockSelect"
+      @select="onDockSelect"
     />
 
   </div>
@@ -472,6 +472,10 @@ import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
+import {
+  BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
+  type GroupableScene,
+} from '~/shared/utils/sceneGroups'
 import { toIntlPhoneDigits } from '~/utils/phone'
 import { PLOT_ENQUIRE_EVENT, PLOT_POLY_SUFFIX, PLOT_STATUS_META, type PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
@@ -688,19 +692,47 @@ const activeSceneId = computed(() =>
     : ''
 )
 
-const dockItems = computed(() =>
+// Scenes as groupable entries — `group` is the scene's category, if any.
+const groupableScenes = computed<GroupableScene[]>(() =>
   tourScenes.value.map((s: any, idx: number) => ({
     id: s.id,
     label: s.name || `Scene ${idx + 1}`,
+    group: s.group_name ?? null,
     imageUrl: s.thumbnail_url || null,
-    ariaLabel: `Go to ${s.name || `Scene ${idx + 1}`}`,
     // If tiles are ready or we have a thumbnail, the scene is functional.
     // Only show 'loading' if it's genuinely pending, and skip 'failed' if it actually works.
-    badge: (s.tiles_ready || s.thumbnail_url || s.status === 'ready') 
-      ? null 
+    badge: (s.tiles_ready || s.thumbnail_url || s.status === 'ready')
+      ? null
       : (s.status === 'failed' || s.status === 'error' ? 'failed' : 'loading'),
-  })) as any[]
+  }))
 )
+
+// Category folders: the dock shows one card per category; opening one lists
+// its shots plus a back card. Follows the visitor — walking into a kitchen
+// shot via a hotspot opens the Kitchen folder.
+const openGroup = ref<string | null>(null)
+const dockState = computed(() => buildDockEntries(groupableScenes.value, openGroup.value, activeSceneId.value))
+const dockItems = computed(() => dockState.value.items as any[])
+const dockActiveId = computed(() => dockState.value.activeItemId)
+watch(activeSceneId, (id) => {
+  const g = groupOf(groupableScenes.value, id)
+  if (g) openGroup.value = g
+}, { immediate: true })
+
+function onDockSelect(itemId: string) {
+  if (itemId === BACK_ITEM_ID) { openGroup.value = null; return }
+  if (itemId.startsWith(GROUP_ITEM_PREFIX)) {
+    const g = itemId.slice(GROUP_ITEM_PREFIX.length)
+    openGroup.value = g
+    // Step into the category: first shot, unless we're already in it.
+    if (groupOf(groupableScenes.value, activeSceneId.value) !== g) {
+      const first = scenesInGroup(groupableScenes.value, g)[0]
+      if (first) void handleDockSelect(first.id)
+    }
+    return
+  }
+  void handleDockSelect(itemId)
+}
 
 const ctaEnabled = computed(() =>
   !!(props.tour?.space?.cta_enabled && props.tour?.space?.cta_destination)
@@ -1577,8 +1609,10 @@ watch(vtActiveNodeId, (newId, oldId) => {
   if (!oldId) return   // suppress toast on initial load
   const scene = tourScenes.value.find((s: any) => s.id === newId)
   const name = scene?.name || ''
-  if (!name) return
-  sceneToastText.value = name
+  const position = positionLabel(groupableScenes.value, newId)
+  if (!name && !position) return
+  // Inside a category: "Kitchen · 2 of 3" (plus the shot's own name if it has one).
+  sceneToastText.value = position ? (name && name !== position.split(' · ')[0] ? `${position} — ${name}` : position) : name
   sceneToastVisible.value = true
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   sceneToastTimer = setTimeout(() => { sceneToastVisible.value = false }, 2600)

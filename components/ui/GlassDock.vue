@@ -62,6 +62,8 @@
               :class="[
                 item.id === activeId ? 'glass-dock__item--active' : '',
                 item.badge === 'warn' ? 'glass-dock__item--warn' : '',
+                item.kind === 'group' ? 'glass-dock__item--group' : '',
+                item.kind === 'back' ? 'glass-dock__item--back' : '',
               ]"
               :aria-current="item.id === activeId ? 'true' : 'false'"
               :aria-label="item.tooltip ? `${item.label} — ${item.tooltip}` : item.label"
@@ -95,8 +97,15 @@
                   class="glass-dock__thumbLoading"
                   aria-hidden="true"
                 />
+                <span v-if="item.kind === 'back'" class="glass-dock__thumbFallback glass-dock__thumbBack" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </span>
+                <span v-if="item.kind === 'group' && item.count" class="glass-dock__count" aria-hidden="true">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><rect x="3" y="7" width="14" height="14" rx="2"/><path d="M7 3h14v14"/></svg>
+                  {{ item.count }}
+                </span>
                 <span
-                  v-if="!item.imageUrl || failedThumbUrls.has(item.imageUrl)"
+                  v-if="item.kind !== 'back' && (!item.imageUrl || failedThumbUrls.has(item.imageUrl))"
                   class="glass-dock__thumbFallback"
                   aria-hidden="true"
                 >
@@ -209,6 +218,9 @@ type DockItem = {
   ariaLabel?: string
   badge?: 'loading' | 'failed' | 'warn' | null
   tooltip?: string | null
+  /** 'group' = a category folder (shows a shot count); 'back' = leave the folder. */
+  kind?: 'group' | 'back'
+  count?: number
 }
 
 const props = withDefaults(defineProps<{
@@ -830,4 +842,19 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   opacity: 0;
   transform: translate(-50%, 8px);
 }
+
+/* ── Category folders ── */
+.glass-dock__item--group .glass-dock__thumb {
+  /* Stacked-cards look: this card holds several shots. */
+  box-shadow: 3px -3px 0 -1px rgba(255, 255, 255, 0.35), 6px -6px 0 -2px rgba(255, 255, 255, 0.18);
+}
+.glass-dock__count {
+  position: absolute; right: 4px; bottom: 4px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 6px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72); color: #fff;
+  font-size: 10px; font-weight: 800; line-height: 1;
+}
+.glass-dock__thumbBack { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.glass-dock__item--back .glass-dock__label { font-weight: 800; }
 </style>

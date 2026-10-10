@@ -99,6 +99,7 @@
           :title="m.title"
           @click="switchMap(m.id)"
         >
+          <span v-if="m.group_name" class="ap-thumb__group">{{ m.group_name }}</span>
           <span class="ap-thumb__count">{{ m.shapes.filter(s => s.kind === 'plot').length }} plots</span>
           <span v-if="(m as any)._upload === 'preparing' || (m as any)._upload === 'uploading'" class="ap-thumb__state" :title="(m as any)._upload === 'preparing' ? 'Preparing…' : 'Uploading…'">
             <span class="ap-spin ap-spin--sm" />
@@ -187,6 +188,14 @@
           <label class="ap-field">
             <span>Photo title</span>
             <input class="ap-input" :value="current.title" maxlength="80" @change="renameMap(($event.target as HTMLInputElement).value)" />
+          </label>
+          <label class="ap-field">
+            <span>Category <em>groups photos for buyers</em></span>
+            <input class="ap-input" :value="current.group_name || ''" maxlength="40" list="aerial-categories" placeholder="e.g. Phase 1"
+              @change="setMapGroup(($event.target as HTMLInputElement).value)" />
+            <datalist id="aerial-categories">
+              <option v-for="c in aerialCategoryOptions" :key="c" :value="c" />
+            </datalist>
           </label>
           <div class="ap-stats">
             <span v-for="(m, k) in AERIAL_STATUS" :key="k"><i :style="{ background: m.color }" />{{ counts[k] }} {{ m.label.toLowerCase() }}</span>
@@ -623,6 +632,27 @@ async function renameMap(title: string) {
   catch { toast.error('Could not rename the photo') }
 }
 
+const aerialCategoryOptions = computed(() => {
+  const used = [...new Set(maps.value.map(m => (m.group_name ?? '').trim()).filter(Boolean))]
+  const common = ['Overview', 'Phase 1', 'Phase 2', 'Phase 3', 'Entrance', 'Access road', 'Amenities']
+  return [...used, ...common.filter(c => !used.includes(c))]
+})
+
+async function setMapGroup(value: string) {
+  const m = current.value
+  const g = value.trim().slice(0, 40)
+  if (!m || g === (m.group_name ?? '')) return
+  const prev = m.group_name ?? null
+  m.group_name = g || null
+  if (isLocal(m.id)) return
+  try {
+    await apiFetch(`/aerial-maps/${m.id}`, { method: 'PATCH', body: { group_name: g || null } })
+  } catch {
+    m.group_name = prev
+    toast.error('Could not save the category. If this is new, run VIEWORA_CATEGORIES_MIGRATION.sql in Supabase.')
+  }
+}
+
 async function deleteMap() {
   const m = current.value
   if (!m) return
@@ -747,6 +777,7 @@ onBeforeUnmount(() => {
 }
 .ap-thumb { position: relative; flex-shrink: 0; width: 96px; height: 64px; border-radius: 10px; border: 2px solid transparent; background: #1f2430 center/cover no-repeat; cursor: pointer; }
 .ap-thumb--on { border-color: #fff; }
+.ap-thumb__group { position: absolute; left: 4px; top: 4px; max-width: calc(100% - 8px); padding: 1px 6px; border-radius: 6px; background: rgba(37,99,235,0.9); font-size: 9px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ap-thumb__count { position: absolute; left: 4px; bottom: 4px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,0.7); font-size: 9.5px; font-weight: 700; }
 .ap-thumb__state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(0,0,0,0.45); }
 .ap-thumb__state--failed { background: rgba(127,29,29,0.7); color: #fff; font-size: 11px; font-weight: 800; }

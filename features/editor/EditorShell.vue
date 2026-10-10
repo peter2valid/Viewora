@@ -113,7 +113,7 @@
       v-if="isPreviewMode && scenes.length > 0"
       v-model:collapsed="dockCollapsed"
       :items="glassDockItems"
-      :active-id="selectedSceneId"
+      :active-id="previewDock.activeItemId"
       :bottom-px="20"
       :edge-inset-px="16"
       :max-strip-vw="80"
@@ -121,7 +121,7 @@
       :max-scale="1.6"
       :sigma-px="94"
       :lift-px="14"
-      @select="selectScene"
+      @select="onPreviewDockSelect"
     />
 
     <!-- Editor mode: SceneDock with rename, reorder, add -->
@@ -198,6 +198,27 @@
             @keydown.enter="saveRenameScene"
             @keydown.exact.escape="renameCandidate = null"
           />
+          <span class="rename-popover__label" style="margin-top: 8px">Category <small style="opacity:0.55;text-transform:none;letter-spacing:0">— groups shots into a folder</small></span>
+          <input
+            v-model="renameGroupDraft"
+            class="rename-popover__input"
+            type="text"
+            maxlength="40"
+            list="viewora-scene-categories"
+            placeholder="e.g. Kitchen"
+            @keydown.enter="saveRenameScene"
+            @keydown.exact.escape="renameCandidate = null"
+          />
+          <datalist id="viewora-scene-categories">
+            <option v-for="c in categoryOptions" :key="c" :value="c" />
+          </datalist>
+          <div class="rename-popover__chips">
+            <button
+              v-for="c in categoryOptions.slice(0, 8)" :key="c" type="button"
+              class="rename-popover__chip" :class="{ 'rename-popover__chip--on': renameGroupDraft === c }"
+              @click="renameGroupDraft = renameGroupDraft === c ? '' : c"
+            >{{ c }}</button>
+          </div>
           <div class="rename-popover__actions">
             <button class="rename-popover__save" :disabled="renameSaving" @click="saveRenameScene">Save</button>
             <button class="rename-popover__cancel" @click="renameCandidate = null">✕</button>
@@ -438,6 +459,10 @@ import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
 import { resolveStartView } from '~/domain/scene'
+import {
+  BACK_ITEM_ID, CATEGORY_SUGGESTIONS, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, scenesInGroup,
+  type GroupableScene,
+} from '~/shared/utils/sceneGroups'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
@@ -571,7 +596,9 @@ const sceneChips = computed(() => {
     }
     return {
       id: s.id,
-      label: s.name || `Scene ${idx + 1}`,
+      label: (s as any).group_name ? `${(s as any).group_name} · ${s.name || `Scene ${idx + 1}`}` : (s.name || `Scene ${idx + 1}`),
+      group: (s as any).group_name ?? null,
+      name: s.name || `Scene ${idx + 1}`,
       ready: state === 'ready',
       badge,
       warnReason,
@@ -733,6 +760,12 @@ const spaceLoadFailed = ref(false)
 
 const renameCandidate = ref<{ id: string; name: string } | null>(null)
 const renameDraft = ref('')
+const renameGroupDraft = ref('')
+// Existing categories first (so new shots join them), then common suggestions.
+const categoryOptions = computed(() => {
+  const used = [...new Set(scenes.value.map((s: any) => (s.group_name ?? '').trim()).filter(Boolean))]
+  return [...used, ...CATEGORY_SUGGESTIONS.filter(c => !used.includes(c))]
+})
 const renameSaving = ref(false)
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const sceneDeleteConfirm = ref<string | null>(null)
@@ -740,15 +773,29 @@ const deletingScene = ref(false)
 
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
-const glassDockItems = computed(() =>
-  sceneChips.value.map(s => ({
-    id: s.id,
-    label: s.label,
-    imageUrl: s.imageUrl || null,
-    ariaLabel: `Go to ${s.label}`,
-    badge: s.badge,
-  }))
+const previewOpenGroup = ref<string | null>(null)
+const previewGroupable = computed<GroupableScene[]>(() =>
+  sceneChips.value.map((s: any) => ({ id: s.id, label: s.name ?? s.label, group: s.group ?? null, imageUrl: s.imageUrl || null, badge: s.badge }))
 )
+const previewDock = computed(() => buildDockEntries(previewGroupable.value, previewOpenGroup.value, selectedSceneId.value))
+const glassDockItems = computed(() => previewDock.value.items as any[])
+watch(selectedSceneId, (id) => {
+  const g = groupOf(previewGroupable.value, id)
+  if (g) previewOpenGroup.value = g
+})
+function onPreviewDockSelect(itemId: string) {
+  if (itemId === BACK_ITEM_ID) { previewOpenGroup.value = null; return }
+  if (itemId.startsWith(GROUP_ITEM_PREFIX)) {
+    const g = itemId.slice(GROUP_ITEM_PREFIX.length)
+    previewOpenGroup.value = g
+    if (groupOf(previewGroupable.value, selectedSceneId.value) !== g) {
+      const first = scenesInGroup(previewGroupable.value, g)[0]
+      if (first) selectScene(first.id)
+    }
+    return
+  }
+  selectScene(itemId)
+}
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
   if (type === 'error') {
@@ -889,6 +936,7 @@ function handleRenameScene(id: string) {
   if (!scene) return
   deleteCandidate.value = null
   renameDraft.value = scene.name || ''
+  renameGroupDraft.value = (scene as any).group_name || ''
   renameCandidate.value = { id, name: scene.name || '' }
 }
 
@@ -896,17 +944,30 @@ async function saveRenameScene() {
   if (!renameCandidate.value || renameSaving.value) return
   const name = renameDraft.value.trim()
   if (!name) return
-  renameSaving.value = true
   const { id } = renameCandidate.value
-  const prevScenes = scenes.value.slice()
-  scenes.value = scenes.value.map((s) => s.id === id ? { ...s, name } : s)
+  const current = scenes.value.find((s) => s.id === id) as any
+  const group = renameGroupDraft.value.trim().slice(0, 40)
+  const body: Record<string, any> = {}
+  if (name !== (current?.name ?? '')) body.name = name
+  if (group !== ((current?.group_name ?? '') as string).trim()) body.group_name = group || null
   renameCandidate.value = null
+  if (!Object.keys(body).length) return
+  renameSaving.value = true
+  const prevScenes = scenes.value.slice()
+  scenes.value = scenes.value.map((s) => s.id === id ? { ...s, ...body } : s)
   try {
-    await apiFetch(`/scenes/${id}`, { method: 'PATCH', body: { name } })
-    showToast('Scene renamed')
+    await apiFetch(`/scenes/${id}`, { method: 'PATCH', body })
+    showToast(body.group_name !== undefined && body.name === undefined
+      ? (body.group_name ? `Added to ${body.group_name}` : 'Removed from category')
+      : 'Scene updated')
   } catch (e: any) {
     scenes.value = prevScenes
-    showToast(e?.data?.statusMessage || 'Failed to rename scene', 'error')
+    showToast(
+      body.group_name !== undefined
+        ? 'Could not save the category. If this is new, run VIEWORA_CATEGORIES_MIGRATION.sql in Supabase.'
+        : (e?.data?.statusMessage || 'Failed to rename scene'),
+      'error',
+    )
   } finally {
     renameSaving.value = false
   }
@@ -1522,6 +1583,13 @@ defineExpose({
   color: rgba(255, 255, 255, 0.35);
   margin-bottom: 8px;
 }
+.rename-popover__chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-width: 260px; }
+.rename-popover__chip {
+  padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); font-size: 10.5px; font-weight: 700; cursor: pointer;
+}
+.rename-popover__chip:hover { background: rgba(255,255,255,0.1); }
+.rename-popover__chip--on { background: #2563eb; border-color: #2563eb; color: #fff; }
 .rename-popover__input {
   width: 100%;
   height: 32px;
