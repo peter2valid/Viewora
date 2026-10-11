@@ -7,7 +7,9 @@
       :image-url="displayUrl"
       :width="current.width"
       :height="current.height"
-      :shapes="current.shapes"
+      :shapes="visibleShapes"
+      :scenes="scenePreviews"
+      :active-scene-id="activeSceneId"
       :selected-id="selectedId"
       :insets="{ top: 64, bottom: maps.length > 1 ? (groups.length > 1 && visibleMaps.length > 1 ? 104 : 60) : 12 }"
       @shape-click="select"
@@ -24,7 +26,7 @@
             <path d="M6.5 10.5v2a5.5 5.5 0 0 0 5.5 5.5h.5a5.5 5.5 0 0 0 5.5-5.5V10"/>
           </svg>
         </span>
-        <span>{{ isTouch ? 'Drag to explore · Pinch to zoom · Tap a plot' : 'Drag to explore · Scroll to zoom · Click a plot' }}</span>
+        <span>{{ hintText }}</span>
       </div>
     </Transition>
 
@@ -34,6 +36,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
         <span>360° tour</span>
       </button>
+      <span v-if="!legend.length && pinCount" class="amv-legend amv-legend--pins"><i class="amv-pin-dot" />Tap a photo pin to stand there in 360°</span>
       <div v-if="legend.length" class="amv-legend">
         <span class="amv-legend__title">Plots</span>
         <span v-for="l in legend" :key="l.key"><i :style="{ background: l.color }" />{{ l.count }} {{ l.label.toLowerCase() }}</span>
@@ -88,14 +91,37 @@ import AerialCanvas from '~/features/aerial/AerialCanvas.vue'
 import { AERIAL_STATUS, type AerialMap, type AerialPlotStatus } from '~/shared/utils/aerialGeometry'
 import type { PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
 
-const props = withDefaults(defineProps<{ maps: AerialMap[]; closable?: boolean }>(), { closable: true })
+const props = withDefaults(defineProps<{
+  maps: AerialMap[]
+  closable?: boolean
+  /** The tour's 360 views, for 360 pins (pins to anything else are hidden). */
+  scenes?: Array<{ id: string; name: string; thumb: string }>
+  /** The 360 the buyer came from — its pin shows "You are here". */
+  activeSceneId?: string | null
+}>(), { closable: true, scenes: () => [], activeSceneId: null })
 const emit = defineEmits<{
   (e: 'close'): void
+  (e: 'open-scene', sceneId: string): void
   (e: 'enquire', detail: PlotEnquiryDetail): void
 }>()
 
 const canvasRef = ref<InstanceType<typeof AerialCanvas> | null>(null)
-const currentId = ref(props.maps[0]?.id ?? null)
+// Open on the photo that has a pin for the 360 the buyer is coming from.
+const currentId = ref(
+  (props.activeSceneId && props.maps.find(m => m.shapes.some(s => s.kind === 'scene' && s.scene_id === props.activeSceneId))?.id)
+  || props.maps[0]?.id || null,
+)
+
+const scenePreviews = computed(() => Object.fromEntries(props.scenes.map(sc => [sc.id, { name: sc.name, thumb: sc.thumb }])))
+const visibleShapes = computed(() => (current.value?.shapes ?? [])
+  .filter(s => s.kind !== 'scene' || (!!s.scene_id && !!scenePreviews.value[s.scene_id])))
+const pinCount = computed(() => visibleShapes.value.filter(s => s.kind === 'scene').length)
+const hintText = computed(() => {
+  const what = legend.value.length && pinCount.value ? 'a plot or photo pin' : pinCount.value ? 'a photo pin' : 'a plot'
+  return isTouch.value
+    ? `Drag to explore · Pinch to zoom · Tap ${what}`
+    : `Drag to explore · Scroll to zoom · Click ${what}`
+})
 const selectedId = ref<string | null>(null)
 
 const current = computed(() => props.maps.find(m => m.id === currentId.value) ?? props.maps[0] ?? null)
@@ -175,7 +201,12 @@ function loadFull() {
 onMounted(() => setTimeout(loadFull, 1200))
 watch(currentId, () => setTimeout(loadFull, 600))
 
-function select(id: string) { selectedId.value = id }
+function select(id: string) {
+  const s = current.value?.shapes.find(x => x.id === id)
+  // A 360 pin opens that spot straight away — like dropping into Street View.
+  if (s?.kind === 'scene' && s.scene_id) { emit('open-scene', s.scene_id); return }
+  selectedId.value = id
+}
 function switchTo(id: string) { currentId.value = id; selectedId.value = null }
 
 function enquire() {
@@ -191,6 +222,9 @@ function enquire() {
 .amv-top > * { pointer-events: auto; }
 .amv-close { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px 0 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); background: rgba(10,12,20,0.82); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; backdrop-filter: blur(12px); }
 .amv-legend { margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 999px; background: rgba(10,11,16,0.82); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; white-space: nowrap; backdrop-filter: blur(12px); pointer-events: none; }
+.amv-legend--pins { font-weight: 700; }
+.amv-pin-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; background: #2563eb; box-shadow: 0 0 0 2px #fff; vertical-align: -1px; }
+@media (max-width: 520px) { .amv-legend--pins { white-space: normal; font-size: 11px; } }
 .amv-legend__title { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
 .amv-legend i, .amv-status i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 .amv-switch { position: absolute; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: calc(100% - 100px); }

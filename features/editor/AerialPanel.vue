@@ -34,6 +34,7 @@
           :width="current.width"
           :height="current.height"
           :shapes="previewShapes"
+          :scenes="scenePreviews"
           :selected-id="selectedId"
           :crosshair="Boolean(tool)"
           :draft="draft"
@@ -63,7 +64,7 @@
       </aside>
 
       <!-- Drawing bar -->
-      <div v-if="tool && tool !== 'beacon'" class="ap-drawbar" role="toolbar">
+      <div v-if="tool && tool !== 'beacon' && tool !== 'scene'" class="ap-drawbar" role="toolbar">
         <div class="ap-drawbar__count" :class="{ 'ap-drawbar__count--ok': canFinish }">{{ draft?.points.length || 0 }}</div>
         <div class="ap-drawbar__copy">
           <p class="ap-drawbar__title">{{ drawTitle }}</p>
@@ -74,6 +75,22 @@
           <button class="ap-dbtn ap-dbtn--cancel" aria-label="Cancel drawing" @click="cancelTool">✕ Cancel</button>
           <button class="ap-dbtn ap-dbtn--primary" :disabled="!canFinish" @click="finishDraft">Finish</button>
         </div>
+      </div>
+      <div v-else-if="tool === 'scene'" class="ap-drawbar" role="toolbar">
+        <template v-if="scenes.length">
+          <div class="ap-drawbar__copy">
+            <p class="ap-drawbar__title">{{ redrawId ? 'Move 360 pin' : 'Place 360 view' }}</p>
+            <p class="ap-drawbar__hint">Click where this 360 photo was taken</p>
+          </div>
+          <select v-model="pinSceneId" class="ap-input ap-select" aria-label="Which 360 view">
+            <option v-for="sc in scenes" :key="sc.id" :value="sc.id">{{ sc.name }}{{ placedSceneIds.has(sc.id) ? ' ✓' : '' }}</option>
+          </select>
+        </template>
+        <div v-else class="ap-drawbar__copy">
+          <p class="ap-drawbar__title">No 360 photos yet</p>
+          <p class="ap-drawbar__hint">Add them in the 360 Tour tab, then pin them here</p>
+        </div>
+        <div class="ap-drawbar__actions"><button class="ap-dbtn ap-dbtn--cancel" @click="cancelTool">✕ Done</button></div>
       </div>
       <div v-else-if="tool === 'beacon'" class="ap-drawbar">
         <div class="ap-drawbar__copy">
@@ -122,7 +139,7 @@
           <label class="ap-field">
             <span>Label</span>
             <input class="ap-input" :value="selected.label" maxlength="60"
-              :placeholder="selected.kind === 'plot' ? 'Plot 4' : selected.kind === 'zone' ? 'Phase 2' : selected.kind === 'road' ? 'Old Namanga Road' : 'Beacon PL/23'"
+              :placeholder="selected.kind === 'plot' ? 'Plot 4' : selected.kind === 'zone' ? 'Phase 2' : selected.kind === 'road' ? 'Old Namanga Road' : selected.kind === 'scene' ? (sceneById[selected.scene_id || '']?.name || 'Main gate') : 'Beacon PL/23'"
               @input="patchSelected({ label: ($event.target as HTMLInputElement).value })" />
           </label>
 
@@ -142,6 +159,18 @@
               <label class="ap-field"><span>Price</span>
                 <input class="ap-input" :value="selected.price" maxlength="40" placeholder="KES 1.2M" @input="patchSelected({ price: ($event.target as HTMLInputElement).value })" /></label>
             </div>
+          </template>
+
+          <template v-if="selected.kind === 'scene'">
+            <label class="ap-field">
+              <span>Opens this 360</span>
+              <select class="ap-input ap-select" :value="selected.scene_id" @change="patchSelected({ scene_id: ($event.target as HTMLSelectElement).value })">
+                <option v-if="selected.scene_id && !sceneById[selected.scene_id]" :value="selected.scene_id">(deleted 360 — pick another)</option>
+                <option v-for="sc in scenes" :key="sc.id" :value="sc.id">{{ sc.name }}</option>
+              </select>
+            </label>
+            <div v-if="selected.scene_id && sceneById[selected.scene_id]?.thumb" class="ap-pinpreview" :style="{ backgroundImage: `url('${sceneById[selected.scene_id].thumb}')` }" />
+            <small class="ap-muted">Buyers tap this pin to stand here in 360, and come back with “Map”.</small>
           </template>
 
           <template v-if="selected.kind === 'road'">
@@ -179,7 +208,7 @@
           </div>
 
           <div class="ap-actions">
-            <button v-if="selected.kind !== 'beacon'" class="ap-btn" @click="redrawSelected">Redraw</button>
+            <button v-if="selected.kind !== 'beacon'" class="ap-btn" @click="redrawSelected">{{ selected.kind === 'scene' ? 'Move' : 'Redraw' }}</button>
             <button class="ap-btn ap-btn--danger" @click="deleteSelected">Delete</button>
           </div>
         </template>
@@ -226,8 +255,8 @@
           <ul class="ap-list">
             <li v-for="s in sortedShapes" :key="s.id">
               <button @click="selectShape(s.id, true)">
-                <i :style="{ background: s.kind === 'plot' ? AERIAL_STATUS[s.status || 'available'].color : '#94a3b8' }" />
-                <span>{{ s.label || KIND_LABEL[s.kind] }}</span>
+                <i :style="{ background: s.kind === 'plot' ? AERIAL_STATUS[s.status || 'available'].color : s.kind === 'scene' ? '#2563eb' : '#94a3b8' }" />
+                <span>{{ s.label || (s.kind === 'scene' && sceneById[s.scene_id || '']?.name) || KIND_LABEL[s.kind] }}</span>
                 <small>{{ s.kind === 'plot' ? AERIAL_STATUS[s.status || 'available'].label : KIND_LABEL[s.kind] }}</small>
               </button>
             </li>
@@ -242,6 +271,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
 import { toast } from 'vue-sonner'
+import { useImage } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import AerialCanvas from '~/features/aerial/AerialCanvas.vue'
@@ -255,11 +285,12 @@ const props = defineProps<{ spaceId: string }>()
 const { apiFetch } = useApiFetch()
 const { uploadFile } = useSceneUpload(props.spaceId)
 
-const KIND_LABEL: Record<AerialShapeKind, string> = { plot: 'Plot', zone: 'Estate', road: 'Road', beacon: 'Beacon' }
+const KIND_LABEL: Record<AerialShapeKind, string> = { plot: 'Plot', zone: 'Estate', road: 'Road', beacon: 'Beacon', scene: '360 view' }
 const TOOLS: Array<{ key: AerialShapeKind; label: string; hotkey: string; icon: string }> = [
   { key: 'plot', label: 'Plot', hotkey: 'p', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 7 L11 3 L20 6 L18 18 L7 20 Z"/></svg>' },
   { key: 'zone', label: 'Estate', hotkey: 'e', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M3 6l6-3 12 4-2 13-15-2z"/></svg>' },
   { key: 'road', label: 'Road', hotkey: 'r', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 21 L9 3"/><path d="M20 21 L15 3"/><path d="M12 5v2M12 11v2M12 17v2"/></svg>' },
+  { key: 'scene', label: '360', hotkey: 'v', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><ellipse cx="12" cy="10" rx="3.6" ry="1.6"/></svg>' },
   { key: 'beacon', label: 'Beacon', hotkey: 'b', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 7h6l1.5 14h-9z"/><path d="M8 3h8v4H8z"/><path d="M8 14h8"/></svg>' },
 ]
 
@@ -278,7 +309,7 @@ const gridCols = ref(6)
 
 const current = computed(() => maps.value.find(m => m.id === currentId.value) ?? null)
 const selected = computed(() => current.value?.shapes.find(s => s.id === selectedId.value) ?? null)
-const draft = computed(() => tool.value && tool.value !== 'beacon' ? { kind: tool.value, points: draftPoints.value } : null)
+const draft = computed(() => tool.value && tool.value !== 'beacon' && tool.value !== 'scene' ? { kind: tool.value, points: draftPoints.value } : null)
 // While redrawing, hide the old outline so the user sees only the new one.
 const previewShapes = computed(() => (current.value?.shapes ?? []).filter(s => s.id !== redrawId.value))
 const minPoints = computed(() => tool.value === 'road' ? 2 : 3)
@@ -291,7 +322,7 @@ const counts = computed(() => {
   return c
 })
 const sortedShapes = computed(() => {
-  const order: Record<AerialShapeKind, number> = { zone: 0, road: 1, beacon: 2, plot: 3 }
+  const order: Record<AerialShapeKind, number> = { scene: 0, zone: 1, road: 2, beacon: 3, plot: 4 }
   return [...(current.value?.shapes ?? [])].sort((a, b) =>
     order[a.kind] - order[b.kind] || (a.label || '').localeCompare(b.label || '', undefined, { numeric: true }))
 })
@@ -322,6 +353,35 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+// ── 360 pins: the tour's scenes, to link pins to ────────────
+type SceneOption = { id: string; name: string; thumb: string }
+const scenes = ref<SceneOption[]>([])
+const sceneById = computed<Record<string, SceneOption>>(() => Object.fromEntries(scenes.value.map(sc => [sc.id, sc])))
+const scenePreviews = computed(() => Object.fromEntries(scenes.value.map(sc => [sc.id, { name: sc.name, thumb: sc.thumb }])))
+const placedSceneIds = computed(() => new Set(maps.value.flatMap(m => m.shapes).filter(x => x.kind === 'scene' && x.scene_id).map(x => x.scene_id!)))
+const pinSceneId = ref('')
+const nuxtImg = useImage()
+
+async function loadScenes() {
+  try {
+    const res: any = await apiFetch(`/spaces/${props.spaceId}/scenes`)
+    const list: any[] = res?.scenes ?? res?.data?.scenes ?? []
+    scenes.value = list
+      .filter(sc => sc?.id)
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+      .map((sc, i) => {
+        const src = sc.thumbnail_url || sc.raw_image_url || ''
+        let thumb = src
+        try { if (src) thumb = nuxtImg(src, { width: 160, quality: 70, format: 'webp' }) || src } catch { /* keep src */ }
+        return { id: sc.id, name: (sc.name || '').trim() || `View ${i + 1}`, thumb }
+      })
+  } catch { /* pins just can't be added until scenes load */ }
+}
+
+function nextUnplacedScene(): string {
+  return scenes.value.find(sc => !placedSceneIds.value.has(sc.id))?.id ?? scenes.value[0]?.id ?? ''
 }
 
 function normalize(m: any): AerialMap {
@@ -474,6 +534,7 @@ function cleanShape(s: AerialShape): AerialShape {
     if (s.price?.trim()) out.price = s.price.trim()
     if (s.size?.trim()) out.size = s.size.trim()
   }
+  if (s.kind === 'scene') out.scene_id = s.scene_id
   if (s.kind === 'road') {
     out.arrow_width = Math.round((s.arrow_width ?? 1) * 100) / 100
     if (s.url?.trim()) out.url = s.url.trim()
@@ -498,6 +559,7 @@ function patchSelected(patch: Partial<AerialShape>) {
 // ── Tools & drawing ─────────────────────────────────────────
 function toggleTool(kind: AerialShapeKind) {
   if (tool.value === kind) { cancelTool(); return }
+  if (kind === 'scene') pinSceneId.value = nextUnplacedScene()
   tool.value = kind
   draftPoints.value = []
   redrawId.value = null
@@ -537,6 +599,29 @@ function snap(p: AerialPoint): AerialPoint {
 function onCanvasClick(p: AerialPoint) {
   const m = current.value
   if (!m || !tool.value) { selectedId.value = null; return }
+  if (tool.value === 'scene') {
+    const sceneId = pinSceneId.value
+    if (!sceneId) return
+    if (redrawId.value) {
+      const id = redrawId.value
+      setShapes(m.shapes.map(x => x.id === id ? { ...x, points: [p], scene_id: sceneId } : x))
+      selectedId.value = id
+      cancelTool()
+      return
+    }
+    const s: AerialShape = { id: newShapeId(), kind: 'scene', scene_id: sceneId, points: [p] }
+    setShapes([...m.shapes, s])
+    // Keep placing: move on to the next 360 that has no pin yet.
+    const next = scenes.value.find(sc => sc.id !== sceneId && !placedSceneIds.value.has(sc.id))
+    if (next) {
+      pinSceneId.value = next.id
+      toast.success(`Pinned “${sceneById.value[sceneId]?.name ?? '360 view'}” · now click for “${next.name}”`)
+    } else {
+      cancelTool()
+      selectedId.value = s.id
+    }
+    return
+  }
   if (tool.value === 'beacon') {
     const s: AerialShape = { id: newShapeId(), kind: 'beacon', label: 'Beacon', points: [p] }
     setShapes([...m.shapes, s])
@@ -550,7 +635,7 @@ function onCanvasClick(p: AerialPoint) {
 
 function finishDraft() {
   const m = current.value, kind = tool.value
-  if (!m || !kind || kind === 'beacon' || !canFinish.value) return
+  if (!m || !kind || kind === 'beacon' || kind === 'scene' || !canFinish.value) return
   const points = [...draftPoints.value]
   if (redrawId.value) {
     const id = redrawId.value
@@ -576,6 +661,7 @@ function selectShape(id: string, focus = false) {
 function redrawSelected() {
   const s = selected.value
   if (!s || s.kind === 'beacon') return
+  if (s.kind === 'scene') pinSceneId.value = s.scene_id || nextUnplacedScene()
   tool.value = s.kind
   draftPoints.value = []
   redrawId.value = s.id
@@ -750,12 +836,13 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 
 onMounted(() => {
   void load()
+  void loadScenes()
   window.addEventListener('keydown', onKey)
   window.addEventListener('beforeunload', onBeforeUnload)
 })
 // KeepAlive: flush pending edits when the user switches tabs.
 onDeactivated(() => { window.removeEventListener('keydown', onKey); void saveNow() })
-onActivated(() => window.addEventListener('keydown', onKey))
+onActivated(() => { window.addEventListener('keydown', onKey); void loadScenes() })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('beforeunload', onBeforeUnload)
@@ -812,6 +899,9 @@ onBeforeUnmount(() => {
 .ap-drawbar__title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; }
 .ap-drawbar__hint { font-size: 11px; color: rgba(255,255,255,0.62); margin-top: 2px; }
 .ap-drawbar__actions { display: flex; gap: 6px; }
+.ap-select { height: 34px; max-width: 220px; padding: 0 10px; cursor: pointer; }
+.ap-select option { background: #151821; color: #fff; }
+.ap-pinpreview { height: 110px; border-radius: 12px; background: #1f2430 center/cover no-repeat; border: 1px solid rgba(255,255,255,0.1); }
 .ap-dbtn { height: 34px; padding: 0 12px; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
 .ap-dbtn:disabled { opacity: 0.4; cursor: not-allowed; }
 .ap-dbtn--cancel { color: #fca5a5; }

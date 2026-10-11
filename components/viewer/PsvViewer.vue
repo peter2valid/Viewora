@@ -17,13 +17,16 @@
       @click.stop="showAerial = true"
     >
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
-      Plot map
+      {{ aerialHasPlots ? 'Plot map' : 'Map' }}
     </button>
     <AerialMapViewer
       v-if="showAerial || (!hasTourData && aerialMaps.length)"
       :maps="aerialMaps"
       :closable="hasTourData"
+      :scenes="aerialScenes"
+      :active-scene-id="beenIn360 ? vtActiveNodeId : null"
       @close="showAerial = false"
+      @open-scene="openSceneFromMap"
       @enquire="onAerialEnquire"
       @click.stop
     />
@@ -850,10 +853,62 @@ const aerialMaps = computed<any[]>(() => {
 // are "where is it, which plot, what's sold" — the map answers all three at a
 // glance; "360° tour" then lets them stand on the land. Houses and every other
 // type open in the 360 walkthrough, with "Plot map" one tap away.
+const aerialHasPlots = computed(() => aerialMaps.value.some((m: any) => m.shapes.some((s: any) => s?.kind === 'plot')))
+// Land with plots or 360 pins opens on the map — it's the hub buyers move
+// from (tap a pin → stand there in 360 → "Map" → back).
 const showAerial = ref(
   (props.tour as any)?.space?.space_type === 'land'
-  && ((props.tour as any)?.aerial_maps ?? []).some((m: any) => Array.isArray(m?.shapes) && m.shapes.some((s: any) => s?.kind === 'plot'))
+  && ((props.tour as any)?.aerial_maps ?? []).some((m: any) => Array.isArray(m?.shapes) && m.shapes.some((s: any) => s?.kind === 'plot' || s?.kind === 'scene'))
 )
+
+// 360 pins on the map: name + a small photo of each 360 view.
+const aerialScenes = computed(() => tourScenes.value.map((sc: any, i: number) => {
+  const src = sc.thumbnail_url || sc.raw_image_url || ''
+  let thumb = src
+  try { if (src) thumb = img(src, { width: 160, quality: 70, format: 'webp' }) || src } catch { /* keep src */ }
+  return { id: sc.id as string, name: (sc.name || '').trim() || `View ${i + 1}`, thumb }
+}))
+// "You are here" only once the buyer has actually been in a 360 (not on the
+// map-first opening).
+const beenIn360 = ref(!showAerial.value)
+watch(showAerial, (open) => { if (!open) beenIn360.value = true })
+let pendingMapScene: string | null = null
+
+/**
+ * Tap on a 360 pin: switch the 360 to that spot behind the map, then lift the
+ * map away — the buyer goes straight from the pin to standing there, without
+ * glimpsing the previous room. Back to the map with the "Map" button.
+ */
+async function openSceneFromMap(sceneId: string) {
+  $posthog?.capture('aerial_pin_opened', { scene: sceneId })
+  if (!vtHandle.value || !vtReady.value) {
+    // Still loading: the opening screen covers it; go there once ready.
+    pendingMapScene = sceneId
+    showAerial.value = false
+    return
+  }
+  if (vtActiveNodeId.value === sceneId) { showAerial.value = false; return }
+  if (vtTransitioning.value) return
+  vtTransitioning.value = true
+  const lift = setTimeout(() => { showAerial.value = false }, 2500) // never stall on a slow link
+  try {
+    const ok = await vtGoToNode(vtHandle.value, sceneId)
+    if (!ok) vtTransitioning.value = false
+  } catch {
+    vtTransitioning.value = false
+  } finally {
+    clearTimeout(lift)
+    showAerial.value = false
+  }
+}
+// Pin tapped before the 360 finished loading: go there once it's ready.
+watch(() => vtReady.value, (ready) => {
+  if (ready && pendingMapScene) {
+    const id = pendingMapScene
+    pendingMapScene = null
+    void openSceneFromMap(id)
+  }
+})
 function onAerialEnquire(detail: PlotEnquiryDetail) {
   onPlotEnquire(new CustomEvent(PLOT_ENQUIRE_EVENT, { detail }))
 }

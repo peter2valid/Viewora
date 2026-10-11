@@ -94,7 +94,14 @@
           :style="labelStyle(l.at)"
           :aria-label="l.aria"
         >
-          <template v-if="l.kind === 'beacon'">
+          <template v-if="l.kind === 'scene'">
+            <span class="ac-pin" :class="{ 'ac-pin--here': l.here }">
+              <span class="ac-pin__photo" :style="l.thumb ? { backgroundImage: `url('${l.thumb}')` } : undefined" />
+              <span class="ac-pin__badge">360°</span>
+            </span>
+            <span class="ac-label__under ac-pin__name">{{ l.here ? 'You are here' : l.text }}</span>
+          </template>
+          <template v-else-if="l.kind === 'beacon'">
             <svg viewBox="0 0 24 32" width="18" height="24" aria-hidden="true">
               <path d="M7 8 L17 8 L19 29 L5 29 Z" fill="#f8fafc" stroke="rgba(0,0,0,0.55)" stroke-width="1.2"/>
               <path d="M6.2 17 L17.8 17 L18.4 23 L5.6 23 Z" fill="#ef4444"/>
@@ -132,7 +139,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import {
   AERIAL_STATUS, arrowOutline, shapeAnchor,
-  type AerialIntro, type AerialPoint, type AerialShape, type AerialShapeKind, type CameraView,
+  type AerialIntro, type AerialPoint, type AerialScenePreview, type AerialShape, type AerialShapeKind, type CameraView,
 } from '~/shared/utils/aerialGeometry'
 
 const props = defineProps<{
@@ -149,6 +156,10 @@ const props = defineProps<{
   insets?: { top?: number; right?: number; bottom?: number; left?: number }
   /** 'auto' (public): fill the screen when shapes match, else whole photo. 'contain' (editor): always whole photo. */
   fitMode?: 'auto' | 'contain'
+  /** 360 pins: scene id → name + thumbnail. Pins whose scene isn't listed show a plain marker. */
+  scenes?: Record<string, AerialScenePreview>
+  /** The 360 the buyer came from — its pin says "You are here". */
+  activeSceneId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -194,15 +205,18 @@ const labels = computed(() => props.shapes
   .filter(x => x.points.length)
   .map(x => {
     const num = x.kind === 'plot' ? /^plot\s*#?\s*(\d+)$/i.exec((x.label || '').trim())?.[1] : undefined
-    const text = num ?? x.label ?? (x.kind === 'plot' ? 'Plot' : x.kind === 'zone' ? 'Estate' : x.kind === 'road' ? 'Road' : 'Beacon')
+    const scene = x.kind === 'scene' && x.scene_id ? props.scenes?.[x.scene_id] : undefined
+    const text = num ?? (x.label || scene?.name) ?? (x.kind === 'plot' ? 'Plot' : x.kind === 'zone' ? 'Estate' : x.kind === 'road' ? 'Road' : x.kind === 'scene' ? '360 view' : 'Beacon')
     const status = AERIAL_STATUS[x.status || 'available']
     return {
       id: x.id,
       kind: x.kind,
       text,
+      thumb: scene?.thumb || '',
+      here: x.kind === 'scene' && !!x.scene_id && x.scene_id === props.activeSceneId,
       color: status.color,
       at: shapeAnchor(x, W.value, H.value),
-      aria: x.kind === 'plot' ? `${x.label || 'Plot'}, ${status.label}` : (x.label || x.kind),
+      aria: x.kind === 'plot' ? `${x.label || 'Plot'}, ${status.label}` : x.kind === 'scene' ? `Open the 360 view: ${text}` : (x.label || x.kind),
     }
   }))
 
@@ -734,6 +748,34 @@ watch(() => props.imageUrl, () => { if (!fitted) loaded.value = false })
   flex-direction: column; gap: 2px; padding: 0; background: none; border: 0; box-shadow: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
+.ac-label--scene { padding: 0; background: transparent; border: 0; box-shadow: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ac-label--scene:hover { background: transparent; }
+.ac-label--scene.ac-label--sel { outline: none; }
+.ac-label--scene.ac-label--sel .ac-pin__photo { border-color: #60a5fa; }
+.ac-pin { position: relative; display: block; width: 46px; height: 46px; }
+.ac-pin::before {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.75); animation: ac-pin-pulse 2.4s ease-out infinite;
+}
+.ac-pin__photo {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: #1e293b center / cover no-repeat;
+  border: 3px solid #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+  transition: transform 0.18s ease;
+}
+.ac-label--scene:hover .ac-pin__photo { transform: scale(1.08); }
+.ac-pin__badge {
+  position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+  padding: 1px 6px; border-radius: 999px; background: #2563eb; color: #fff;
+  font-size: 9.5px; font-weight: 900; letter-spacing: 0.02em; line-height: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.ac-pin__name { margin-top: 6px; font-weight: 800; white-space: nowrap; }
+.ac-pin--here .ac-pin__photo { border-color: #22c55e; }
+.ac-pin--here .ac-pin__badge { background: #16a34a; }
+.ac-pin--here::before { border-color: rgba(34, 197, 94, 0.9); }
+@keyframes ac-pin-pulse { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ac-pin::before { animation: none; opacity: 0.6; } }
 .ac-label__under { font-size: 10.5px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
 
 .ac-vertex {

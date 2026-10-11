@@ -3,7 +3,8 @@
 // (x·W, y·H) so non-square photos don't distort shapes.
 
 export type AerialPoint = { x: number; y: number }
-export type AerialShapeKind = 'plot' | 'zone' | 'road' | 'beacon'
+/** 'scene' = a 360 pin: where a 360 photo was taken (tap → stand there). */
+export type AerialShapeKind = 'plot' | 'zone' | 'road' | 'beacon' | 'scene'
 export type AerialPlotStatus = 'available' | 'reserved' | 'sold'
 
 export interface AerialShape {
@@ -17,7 +18,12 @@ export interface AerialShape {
   size?: string
   url?: string
   arrow_width?: number
+  /** 360 pins: the scene this pin opens. */
+  scene_id?: string
 }
+
+/** What a 360 pin shows: the linked scene's name and a small photo. */
+export type AerialScenePreview = { name: string; thumb: string }
 
 export interface AerialMap {
   id: string
@@ -72,7 +78,7 @@ export function pathMidpoint(pts: AerialPoint[], W = 1, H = 1): AerialPoint {
 
 export function shapeAnchor(s: AerialShape, W = 1, H = 1): AerialPoint {
   if (s.kind === 'road') return pathMidpoint(s.points, W, H)
-  if (s.kind === 'beacon') return s.points[0]
+  if (s.kind === 'beacon' || s.kind === 'scene') return s.points[0]
   return polygonCentroid(s.points, W, H)
 }
 
