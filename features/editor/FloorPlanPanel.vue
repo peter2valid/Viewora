@@ -48,6 +48,23 @@
             <span class="fp-pin__dot" />
             <span class="fp-pin__label">{{ p.name }}</span>
           </button>
+          <!-- Direction of the selected photo's centre (same angle the viewer's cone uses) -->
+          <div
+            v-if="selectedPin"
+            class="fp-dir"
+            :style="{ left: `${selectedPin.x * 100}%`, top: `${selectedPin.y * 100}%`, transform: `rotate(${selectedDirDeg}deg)` }"
+          >
+            <span class="fp-dir__cone" />
+            <button
+              type="button"
+              class="fp-dir__handle"
+              :class="{ 'fp-dir__handle--drag': dirDraft !== null }"
+              aria-label="Drag to set which way this photo faces"
+              title="Drag to point where the centre of this photo faces"
+              @pointerdown.stop.prevent="onDirDown"
+              @click.stop
+            />
+          </div>
           <span
             v-if="pendingDot"
             class="fp-pin fp-pin--pending"
@@ -73,14 +90,21 @@
             {{ isOnCurrent(selectedSceneId) ? 'Drag the dot to move it, or click the plan to move it there.' : 'Click the plan where this photo was taken.' }}
           </p>
           <template v-if="isOnCurrent(selectedSceneId)">
-            <label class="fp-field">
-              Camera north offset <em>(°, optional)</em>
+            <div class="fp-field">
+              Facing direction <em>(optional)</em>
+              <div class="fp-pano" :style="{ backgroundImage: `url(${sceneById[selectedSceneId]?.pano})` }">
+                <span class="fp-pano__centre" />
+              </div>
+              <p class="fp-muted fp-hint">
+                Drag the blue handle on the dot so the cone points at whatever is in the <b>centre</b> of this photo (marked above).
+              </p>
               <input
                 type="number" min="-180" max="180" step="5" class="fp-input"
-                :value="sceneById[selectedSceneId]?.north_offset ?? 0"
+                aria-label="Facing direction in degrees"
+                :value="selectedDirDeg"
                 @change="saveNorthOffset(selectedSceneId, ($event.target as HTMLInputElement).valueAsNumber)"
               />
-            </label>
+            </div>
             <button class="fp-btn fp-btn--danger fp-btn--full" @click="unplace(selectedSceneId)">Remove from plan</button>
           </template>
         </div>
@@ -177,7 +201,7 @@ watch(current, f => { floorName.value = f?.name ?? '' }, { immediate: true })
 
 // ── Scenes (the tour's 360 photos) ──────────────────────────
 type SceneRow = {
-  id: string; name: string; thumb: string
+  id: string; name: string; thumb: string; pano: string
   floor_plan_id: string | null; plan_x: number | null; plan_y: number | null; north_offset: number | null
 }
 const scenes = ref<SceneRow[]>([])
@@ -198,11 +222,14 @@ async function loadScenes() {
     .map((sc, i) => {
       const src = sc.thumbnail_url || sc.raw_image_url || ''
       let thumb = src
+      let pano = src
       try { if (src) thumb = nuxtImg(src, { width: 160, quality: 70, format: 'webp' }) || src } catch { /* keep src */ }
+      try { if (src) pano = nuxtImg(src, { width: 640, quality: 70, format: 'webp' }) || src } catch { /* keep src */ }
       return {
         id: sc.id,
         name: (sc.name || '').trim() || `View ${i + 1}`,
         thumb,
+        pano,
         floor_plan_id: sc.floor_plan_id ?? null,
         plan_x: sc.plan_x ?? null,
         plan_y: sc.plan_y ?? null,
@@ -358,6 +385,48 @@ async function savePin(id: string, patch: Partial<Pick<SceneRow, 'floor_plan_id'
   }
 }
 
+// ── Facing direction (scenes.north_offset) ──────────────────
+// Degrees clockwise from the top of the plan that the photo's centre faces —
+// the viewer's minimap cone points at yaw + this, so 0 = up, 90 = right.
+const selectedPin = computed(() => pinsOnCurrent.value.find(p => p.id === selectedSceneId.value) ?? null)
+const dirDraft = ref<number | null>(null)
+const selectedDirDeg = computed(() => dirDraft.value ?? sceneById.value[selectedSceneId.value ?? '']?.north_offset ?? 0)
+
+function dirAt(e: { clientX: number; clientY: number }): number {
+  const pin = selectedPin.value!
+  const r = planRef.value!.getBoundingClientRect()
+  const dx = e.clientX - (r.left + pin.x * r.width)
+  const dy = e.clientY - (r.top + pin.y * r.height)
+  let deg = Math.round((Math.atan2(dx, -dy) * 180) / Math.PI)
+  // Gentle snap to the four plan directions and the diagonals.
+  const nearest45 = Math.round(deg / 45) * 45
+  if (Math.abs(deg - nearest45) <= 4) deg = nearest45
+  return deg === -180 ? 180 : deg
+}
+
+function onDirDown(e: PointerEvent) {
+  if (e.button !== 0 || !selectedPin.value) return
+  dirDraft.value = dirAt(e)
+  window.addEventListener('pointermove', onDirMove)
+  window.addEventListener('pointerup', onDirUp, { once: true })
+}
+
+function onDirMove(e: PointerEvent) {
+  if (dirDraft.value === null || !selectedPin.value) return
+  dirDraft.value = dirAt(e)
+}
+
+function onDirUp() {
+  window.removeEventListener('pointermove', onDirMove)
+  const id = selectedSceneId.value
+  const deg = dirDraft.value
+  // Keep showing the drafted angle until the optimistic save applies it.
+  if (id && deg !== null) saveNorthOffset(id, deg)
+  dirDraft.value = null
+  suppressClick = true
+  setTimeout(() => { suppressClick = false }, 0)
+}
+
 // ── Dragging pins ───────────────────────────────────────────
 const draggingId = ref<string | null>(null)
 let dragStart: { x: number; y: number } | null = null
@@ -426,6 +495,7 @@ onActivated(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('pointermove', onPinMove)
+  window.removeEventListener('pointermove', onDirMove)
   ro?.disconnect()
 })
 </script>
@@ -464,6 +534,23 @@ onBeforeUnmount(() => {
 .fp-pin:hover .fp-pin__dot { transform: scale(1.2); }
 .fp-pin--on .fp-pin__dot { background: #22c55e; transform: scale(1.3); }
 .fp-pin--pending { pointer-events: none; }
+.fp-dir { position: absolute; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.fp-dir__cone {
+  position: absolute; left: -38px; top: -64px; width: 76px; height: 64px;
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+  background: linear-gradient(to top, rgba(37, 99, 235, 0.6), rgba(37, 99, 235, 0.05));
+}
+.fp-dir__handle {
+  position: absolute; left: -12px; top: -80px; width: 24px; height: 24px; padding: 0;
+  border-radius: 50%; border: 3px solid #fff; background: #2563eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  cursor: grab; pointer-events: auto; touch-action: none;
+}
+.fp-dir__handle--drag { cursor: grabbing; transform: scale(1.15); }
+.fp-pano { position: relative; height: 72px; border-radius: 8px; background: #1f2430 center/cover no-repeat; border: 1px solid rgba(255,255,255,0.1); }
+.fp-pano__centre { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #3b82f6; box-shadow: 0 0 0 1px rgba(255,255,255,0.7); }
+.fp-pano__centre::after { content: ''; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #3b82f6; }
+.fp-hint { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .fp-pin--pending .fp-pin__dot { background: #f59e0b; animation: fp-pulse 1s ease-in-out infinite; }
 @keyframes fp-pulse { 50% { transform: scale(1.35); } }
 .fp-pin__label { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: -4px; padding: 2px 7px; border-radius: 6px; background: rgba(10,12,20,0.85); color: #fff; font-size: 10.5px; font-weight: 700; white-space: nowrap; pointer-events: none; }
