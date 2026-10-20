@@ -24,6 +24,13 @@
       >Aerial Map</button>
       <button
         role="tab"
+        :aria-selected="mode === 'floorplan'"
+        class="mode-switch__btn"
+        :class="{ 'mode-switch__btn--active': mode === 'floorplan' }"
+        @click="setMode('floorplan')"
+      >Floor Plan</button>
+      <button
+        role="tab"
         :aria-selected="mode === 'details'"
         class="mode-switch__btn"
         :class="{ 'mode-switch__btn--active': mode === 'details' }"
@@ -49,6 +56,9 @@
       <AerialPanel v-if="mode === 'aerial'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
+      <FloorPlanPanel v-if="mode === 'floorplan'" :space-id="spaceId" />
+    </KeepAlive>
+    <KeepAlive>
       <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" @published="editorShellRef?.fetchSpace(true)" />
     </KeepAlive>
 
@@ -63,6 +73,7 @@ import EditorShell from '~/features/editor/EditorShell.vue'
 import PhotosPanel from '~/features/editor/PhotosPanel.vue'
 import DetailsPanel from '~/features/editor/DetailsPanel.vue'
 import AerialPanel from '~/features/editor/AerialPanel.vue'
+import FloorPlanPanel from '~/features/editor/FloorPlanPanel.vue'
 
 definePageMeta({ layout: 'editor', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
@@ -71,9 +82,9 @@ const route = useRoute()
 const router = useRouter()
 const spaceId = route.params.id as string
 
-type Mode = 'tour' | 'photos' | 'aerial' | 'details'
+type Mode = 'tour' | 'photos' | 'aerial' | 'floorplan' | 'details'
 function tabToMode(t: unknown): Mode {
-  return t === 'photos' || t === 'aerial' || t === 'details' ? t : 'tour'
+  return t === 'photos' || t === 'aerial' || t === 'floorplan' || t === 'details' ? t : 'tour'
 }
 const mode = ref<Mode>(tabToMode(route.query.tab))
 
@@ -122,5 +133,10 @@ watch(() => route.query.tab, (t) => {
 @media (max-width: 640px) {
   .mode-switch { top: 58px; max-width: calc(100vw - 24px); }
   .mode-switch__btn { padding: 0 10px; font-size: 11px; }
+}
+/* Five tabs on the smallest phones: tighten, and scroll rather than clip. */
+@media (max-width: 360px) {
+  .mode-switch { overflow-x: auto; scrollbar-width: none; }
+  .mode-switch__btn { padding: 0 8px; }
 }
 </style>
