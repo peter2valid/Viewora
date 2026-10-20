@@ -1317,6 +1317,11 @@ export interface VirtualTourInitOptions {
   loadingImg?: string
   /** When true (embed context), require two fingers to rotate — lets users scroll past the iframe. */
   twoFingerTouch?: boolean
+  /**
+   * Floor-plan minimap (tours with scenes placed on a floor plan only).
+   * Loads the MapPlugin; floorPlanMap.ts then drives its image/hotspots.
+   */
+  floorMap?: { imageUrl: string; config: Record<string, any> }
 }
 
 /**
@@ -1341,6 +1346,7 @@ export async function initVirtualTourViewer(
     performanceMode = 'auto',
     loadingImg = '/images/viewora-logo.png',
     twoFingerTouch = false,
+    floorMap,
   } = options
 
   installTileFetchThrottle()
@@ -1356,6 +1362,25 @@ export async function initVirtualTourViewer(
   }
 
   const nodes = buildTourNodes(scenes, hotspotsByScene, resolvedPerformanceMode, ktx2Available)
+
+  // Floor-plan minimap. VirtualTourPlugin takes over any loaded MapPlugin and
+  // needs a map config when one is present; its single-image hotspots can't
+  // express several floors, so nodes opt out (map: false) and floorPlanMap.ts
+  // manages the floor image, hotspots and position itself. Loaded on demand
+  // so tours without a floor plan are unchanged.
+  // A failed download just means no minimap — never a broken tour.
+  let FloorMapPlugin: any = null
+  if (floorMap) {
+    try {
+      const mod = await import('@photo-sphere-viewer/map-plugin')
+      await import('@photo-sphere-viewer/map-plugin/index.css')
+      FloorMapPlugin = mod.MapPlugin
+      for (const node of nodes as any[]) node.map = false
+    } catch (err) {
+      console.warn('[Viewora] Floor-plan minimap unavailable', err)
+      FloorMapPlugin = null
+    }
+  }
 
   // Plugin order matters — VirtualTour must be last (depends on MarkersPlugin)
   const plugins: any[] = [
@@ -1384,6 +1409,8 @@ export async function initVirtualTourViewer(
   // different opacities doubles GPU work and causes jitter on budget phones.
   // Full mode and higher-end devices keep the fade for a polished aesthetic.
   const useFade = !isLiteMode && window.devicePixelRatio >= 2
+
+  if (FloorMapPlugin) plugins.push([FloorMapPlugin, floorMap!.config])
 
   // VirtualTourPlugin must be added last — it depends on MarkersPlugin being registered
   plugins.push([VirtualTourPlugin, {
@@ -1419,6 +1446,7 @@ export async function initVirtualTourViewer(
           : ''
       }</div>`
     },
+    ...(FloorMapPlugin ? { map: { imageUrl: floorMap!.imageUrl, recenter: true } } : {}),
   }])
 
   const adapterClass = ktx2Available ? KtxEquirectangularTilesAdapter : EquirectangularTilesAdapter

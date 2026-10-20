@@ -31,6 +31,27 @@
       @click.stop
     />
 
+    <!-- Floor-plan minimap: floor switcher under the map (2+ floors) -->
+    <div
+      v-if="floorMapFloors.length > 1 && vtReady && !chromeHidden && !stereoActive && floorMapView === 'normal'"
+      class="floor-switch"
+      :class="{ 'floor-switch--compact': floorMapCompact }"
+      role="tablist"
+      aria-label="Floors"
+      @click.stop
+    >
+      <button
+        v-for="f in floorMapFloors"
+        :key="f.id"
+        type="button"
+        role="tab"
+        class="floor-switch__btn"
+        :class="{ 'floor-switch__btn--on': f.id === floorMapFloorId }"
+        :aria-selected="f.id === floorMapFloorId"
+        @click="floorMapCtl?.showFloor(f.id)"
+      >{{ f.name }}</button>
+    </div>
+
     <!-- Land: plot availability for the current view -->
     <Transition name="scene-toast">
       <div
@@ -512,7 +533,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue'
 import QRCode from 'qrcode'
 import { useImage, useHead } from '#imports'
 import { factsLine, formatPrice } from '~/utils/listingDisplay'
@@ -528,6 +549,12 @@ import { toIntlPhoneDigits } from '~/utils/phone'
 import { motionLikelySupported, type MotionError } from '~/shared/utils/viewerAdapters/motionControls'
 import { PLOT_ENQUIRE_EVENT, PLOT_POLY_SUFFIX, PLOT_STATUS_META, type PlotEnquiryDetail } from '~/shared/utils/viewerAdapters/landMarkers'
 import ViewerShell from '~/features/viewer/ViewerShell.vue'
+import {
+  attachFloorPlanMap,
+  buildFloorMapFloors,
+  floorMapPluginConfig,
+  type FloorPlanMapController,
+} from '~/shared/utils/viewerAdapters/floorPlanMap'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import {
   initVirtualTourViewer,
@@ -617,6 +644,16 @@ const compactNavActive = computed(() =>
 const vtContainerEl = ref<HTMLElement | null>(null)
 const vtHandle = ref<PsvViewerHandle | null>(null)
 const vtReady = ref(false)
+
+// ── Floor-plan minimap (only for tours with scenes placed on a plan) ──────
+const floorMapFloorId = ref<string | null>(null)
+const floorMapView = ref<'closed' | 'normal' | 'maximized'>('normal')
+const floorMapCompact = ref(false)
+const floorMapCtl = shallowRef<FloorPlanMapController | null>(null)
+function destroyFloorMap() {
+  floorMapCtl.value?.destroy()
+  floorMapCtl.value = null
+}
 const vtError = ref('')
 const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
@@ -750,6 +787,9 @@ const tourScenes = computed<any[]>(() => {
   })
 })
 const sceneCount = computed(() => tourScenes.value.length)
+const floorMapFloors = computed(() => buildFloorMapFloors((props.tour as any)?.floor_plans, tourScenes.value))
+// The minimap follows the controls: hidden with the chrome and in VR.
+watch([chromeHidden, stereoActive], ([hidden, vr]) => { floorMapCtl.value?.setVisible(!hidden && !vr) })
 const tourLoadKey = computed(() => {
   if (!hasTourData.value) return ''
 
@@ -1136,6 +1176,7 @@ async function initVT() {
     _removeMotionSync = () => {}
     gyroscopeActive.value = false
     stereoActive.value = false
+    destroyFloorMap()
     destroy(vtHandle.value)
     vtHandle.value = null
   }
@@ -1167,6 +1208,7 @@ async function initVT() {
     : ''
   const startNodeId = validHashScene || (tourScenes.value[0]?.id ?? '')
   const autoRotate = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
+  floorMapCompact.value = window.matchMedia('(max-width: 640px)').matches
 
   try {
     const handle = await initVirtualTourViewer(
@@ -1178,6 +1220,9 @@ async function initVT() {
         autoRotate,
         performanceMode: viewerPerformanceMode.value,
         loadingImg: optimizedLoadingLogo.value,
+        floorMap: floorMapFloors.value.length
+          ? { imageUrl: floorMapFloors.value[0].imageUrl, config: floorMapPluginConfig(floorMapFloors.value, { compact: floorMapCompact.value }) }
+          : undefined,
         twoFingerTouch: false,
         onReady: () => {
           if (version !== vtInitVersion) return
@@ -1292,6 +1337,21 @@ async function initVT() {
     )
     if (version !== vtInitVersion) { destroy(handle); return }
     vtHandle.value = handle
+    if (floorMapFloors.value.length) {
+      // The minimap is an extra: any failure here must leave the tour working.
+      try {
+        floorMapCtl.value = attachFloorPlanMap(handle, floorMapFloors.value, {
+          compact: floorMapCompact.value,
+          onSelectScene: (sceneId) => handleDockSelect(sceneId, 'floor-map'),
+          onFloorShown: (floorId) => { floorMapFloorId.value = floorId },
+          onViewChanged: (view) => { floorMapView.value = view },
+        })
+        floorMapCtl.value?.setVisible(!chromeHidden.value && !stereoActive.value)
+      } catch (err) {
+        console.warn('[Viewora] Floor-plan minimap failed to start', err)
+        floorMapCtl.value = null
+      }
+    }
     // Buttons follow the real state, however motion/VR turned on or off.
     _removeMotionSync()
     _removeMotionSync = onMotionStateChange(handle, (st) => {
@@ -1615,6 +1675,7 @@ onUnmounted(() => {
   vtInitVersion++
   _removeMotionSync()
   stopVrLoop()
+  destroyFloorMap()
   if (vtHandle.value) { destroy(vtHandle.value); vtHandle.value = null }
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   if (progressTimer) clearInterval(progressTimer)
@@ -3196,6 +3257,34 @@ watch(() => vtTransitioning.value, (loading) => {
   .plot-legend { gap: 9px; padding: 6px 11px; font-size: 11px; }
   .plot-legend__title { display: none; }
 }
+
+/* ── Floor-plan minimap (PSV MapPlugin, bottom left) + floor switcher ── */
+/* Lift the map clear of the bottom-left CTA button. */
+.public-viewer :deep(.psv-map--bottom-left:not(.psv-map--maximized)) { margin: 0 0 96px 10px; }
+/* Switcher beside the map, top-aligned with it: map bottom 96 + size 200. */
+.floor-switch {
+  position: absolute;
+  left: 218px; bottom: 296px; transform: translateY(100%);
+  z-index: 55;
+  display: flex; flex-direction: column; gap: 4px;
+  max-width: 160px;
+}
+@media (max-width: 640px) {
+  .public-viewer :deep(.psv-map--bottom-left:not(.psv-map--maximized)) { margin-bottom: 120px; }
+}
+.floor-switch--compact { left: 158px; bottom: 260px; max-width: 130px; }
+.floor-switch__btn {
+  height: 30px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10, 11, 16, 0.82); color: rgba(255,255,255,0.75);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  font-size: 12px; font-weight: 700; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: pointer;
+}
+.floor-switch__btn:not(.floor-switch__btn--on):hover { color: #fff; }
+.floor-switch__btn--on { background: #fff; color: #0b0d12; border-color: #fff; }
+.floor-switch--compact .floor-switch__btn { height: 28px; padding: 0 10px; font-size: 11px; }
 
 .scene-toast {
   position: absolute;
