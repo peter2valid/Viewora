@@ -227,6 +227,8 @@ async function init() {
 }
 
 // ── Floors ──────────────────────────────────────────────────
+const fileInput = ref<HTMLInputElement | null>(null)
+
 async function onFile(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
