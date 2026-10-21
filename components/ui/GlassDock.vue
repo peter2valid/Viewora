@@ -11,9 +11,11 @@
           maxWidth: `calc(100vw - ${edgeInsetPx}px)`,
         }"
       >
-        <!-- Navigation Controls: Prev, Collapse, Next -->
+        <!-- Navigation Controls: Prev, Collapse, Next. With a header (floor
+             tabs) a floor may list a single scene, but the dock still needs
+             its collapse button. -->
         <div
-          v-if="showControls && items.length > 1"
+          v-if="showControls && (items.length > 1 || $slots.header)"
           class="glass-dock__controls pointer-events-auto"
         >
           <button

@@ -526,8 +526,26 @@
       :max-scale="1.6"
       :sigma-px="94"
       :lift-px="14"
+      :collapsed-label="dockCollapsedLabel"
       @select="onDockSelect"
-    />
+    >
+      <!-- Floor tabs (tours with floor plans): browse a floor without moving -->
+      <template v-if="dockFloors.length" #header>
+        <div class="dock-floors" role="tablist" aria-label="Floors">
+          <button
+            v-for="f in dockFloors"
+            :key="f.id"
+            type="button"
+            role="tab"
+            class="dock-floors__btn"
+            :class="{ 'dock-floors__btn--on': f.id === dockFloorId, 'dock-floors__btn--here': f.id === visitorFloorId && f.id !== dockFloorId }"
+            :aria-selected="f.id === dockFloorId"
+            :title="f.id === visitorFloorId ? `${f.name} — you are here` : f.name"
+            @click="browseDockFloor(f.id)"
+          >{{ f.name }}</button>
+        </div>
+      </template>
+    </GlassDock>
 
   </div>
 </template>
@@ -555,6 +573,7 @@ import {
   floorMapPluginConfig,
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
+import { buildDockFloors, dockFloorOf, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import {
   initVirtualTourViewer,
@@ -831,15 +850,47 @@ const groupableScenes = computed<GroupableScene[]>(() =>
   }))
 )
 
+// Floor tabs: on a tour with floor plans the dock lists one floor at a time.
+// dockFloorId is the floor being shown; it follows the visitor on every
+// scene change, and a tab tap browses another floor without moving. No tabs
+// (no plans, or nothing to switch between) → every scene, as before.
+const dockFloors = computed(() => buildDockFloors(floorMapFloors.value, groupableScenes.value.map(s => s.id)))
+const visitorFloorId = computed(() => dockFloorOf(dockFloors.value, activeSceneId.value))
+const dockFloorId = ref<string | null>(null)
+watch([visitorFloorId, dockFloors], ([floorId, floors]) => {
+  dockFloorId.value = floorId ?? floors[0]?.id ?? null
+}, { immediate: true })
+function scenesOnFloor(floorId: string | null): GroupableScene[] {
+  const floor = dockFloors.value.find(f => f.id === floorId)
+  if (!floor) return groupableScenes.value
+  const ids = new Set(floor.sceneIds)
+  return groupableScenes.value.filter(s => ids.has(s.id))
+}
+const dockScenes = computed(() => scenesOnFloor(dockFloorId.value))
+// Collapsed dock button: "⌃ Ground Floor" — the floor the visitor is on.
+const dockCollapsedLabel = computed(() => {
+  const floor = dockFloors.value.find(f => f.id === visitorFloorId.value)
+  return floor && floor.id !== OTHER_FLOOR_ID ? floor.name : ''
+})
+
+function browseDockFloor(floorId: string) {
+  if (floorId === dockFloorId.value) return
+  dockFloorId.value = floorId
+  openGroup.value = null
+}
+
 // Category folders: the dock shows one card per category; opening one lists
 // its shots plus a back card. Follows the visitor — walking into a kitchen
-// shot via a hotspot opens the Kitchen folder.
+// shot via a hotspot opens the Kitchen folder. With floor tabs, folders are
+// built from the floor being shown.
 const openGroup = ref<string | null>(null)
-const dockState = computed(() => buildDockEntries(groupableScenes.value, openGroup.value, activeSceneId.value))
+const dockState = computed(() => buildDockEntries(dockScenes.value, openGroup.value, activeSceneId.value))
 const dockItems = computed(() => dockState.value.items as any[])
 const dockActiveId = computed(() => dockState.value.activeItemId)
 watch(activeSceneId, (id) => {
-  const g = groupOf(groupableScenes.value, id)
+  // The visitor's own floor, not dockScenes: this can run before the dock
+  // has switched floors.
+  const g = groupOf(scenesOnFloor(visitorFloorId.value), id)
   if (g) openGroup.value = g
 }, { immediate: true })
 
@@ -849,8 +900,8 @@ function onDockSelect(itemId: string) {
     const g = itemId.slice(GROUP_ITEM_PREFIX.length)
     openGroup.value = g
     // Step into the category: first shot, unless we're already in it.
-    if (groupOf(groupableScenes.value, activeSceneId.value) !== g) {
-      const first = scenesInGroup(groupableScenes.value, g)[0]
+    if (groupOf(dockScenes.value, activeSceneId.value) !== g) {
+      const first = scenesInGroup(dockScenes.value, g)[0]
       if (first) void handleDockSelect(first.id)
     }
     return
@@ -3289,6 +3340,36 @@ watch(() => vtTransitioning.value, (loading) => {
 .floor-switch__btn:not(.floor-switch__btn--on):hover { color: #fff; }
 .floor-switch__btn--on { background: #fff; color: #0b0d12; border-color: #fff; }
 .floor-switch--compact .floor-switch__btn { height: 28px; padding: 0 10px; font-size: 11px; }
+
+/* ── Dock floor tabs (GlassDock #header) ── */
+.dock-floors {
+  display: flex; gap: 6px;
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.dock-floors::-webkit-scrollbar { display: none; }
+.dock-floors__btn {
+  position: relative; flex: none;
+  height: 28px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75);
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  cursor: pointer;
+}
+.dock-floors__btn:not(.dock-floors__btn--on):hover { background: rgba(255,255,255,0.12); color: #fff; }
+.dock-floors__btn--on { background: #fff; color: #0b0d12; border-color: #fff; }
+/* Browsing another floor: a dot marks the floor the visitor is on. */
+.dock-floors__btn--here { padding-left: 22px; }
+.dock-floors__btn--here::before {
+  content: ''; position: absolute; left: 10px; top: 50%;
+  width: 6px; height: 6px; margin-top: -3px; border-radius: 50%;
+  background: #22c55e;
+}
+@media (max-width: 640px) {
+  .dock-floors__btn { height: 26px; padding: 0 10px; font-size: 11px; }
+  .dock-floors__btn--here { padding-left: 20px; }
+  .dock-floors__btn--here::before { left: 8px; }
+}
 
 .scene-toast {
   position: absolute;
