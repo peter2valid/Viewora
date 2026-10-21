@@ -77,7 +77,21 @@
       <aside class="fp-panel" aria-label="Floor plan photos">
         <label class="fp-field">
           Floor name
-          <input v-model="floorName" class="fp-input" maxlength="60" @change="saveFloorName" @keydown.enter="($event.target as HTMLInputElement).blur()" />
+          <span class="fp-name-row">
+            <input v-model="floorName" class="fp-input" maxlength="60" @change="saveFloorName" @keydown.enter="($event.target as HTMLInputElement).blur()" />
+            <template v-if="floorPlans.length > 1">
+              <button
+                type="button" class="fp-move" :disabled="currentIndex <= 0 || moving"
+                aria-label="Move floor left" title="Move left — floors show to visitors in this order"
+                @click.prevent="moveFloor(-1)"
+              >‹</button>
+              <button
+                type="button" class="fp-move" :disabled="currentIndex >= floorPlans.length - 1 || moving"
+                aria-label="Move floor right" title="Move right — floors show to visitors in this order"
+                @click.prevent="moveFloor(1)"
+              >›</button>
+            </template>
+          </span>
         </label>
 
         <div v-if="pendingDot" class="fp-callout">
@@ -189,7 +203,7 @@ import { clamp01, isPlaced, MAX_FLOOR_PLANS } from '~/shared/utils/floorPlan'
 const props = defineProps<{ spaceId: string }>()
 
 const { apiFetch } = useApiFetch()
-const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, deleteFloorPlan } = useFloorPlans(props.spaceId)
+const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, deleteFloorPlan } = useFloorPlans(props.spaceId)
 const nuxtImg = useImage()
 
 const loading = ref(true)
@@ -281,6 +295,18 @@ async function saveFloorName() {
   if (!f || !name || name === f.name) { floorName.value = f?.name ?? ''; return }
   try { await renameFloorPlan(f.id, name) }
   catch { floorName.value = f.name; toast.error('Could not rename the floor') }
+}
+
+const currentIndex = computed(() => floorPlans.value.findIndex(f => f.id === currentId.value))
+const moving = ref(false)
+
+async function moveFloor(dir: -1 | 1) {
+  const f = current.value
+  if (!f || moving.value) return
+  moving.value = true
+  try { await moveFloorPlan(f.id, dir) }
+  catch { toast.error('Could not change the floor order') }
+  finally { moving.value = false }
 }
 
 async function removeFloor() {
@@ -564,6 +590,11 @@ onBeforeUnmount(() => {
 .fp-field em { font-style: normal; text-transform: none; letter-spacing: 0; font-weight: 600; color: rgba(255,255,255,0.35); }
 .fp-input { width: 100%; height: 38px; padding: 0 11px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: 0; outline: none; }
 .fp-input:focus { border-color: rgba(96,165,250,0.7); }
+.fp-name-row { display: flex; gap: 6px; }
+.fp-name-row .fp-input { flex: 1; min-width: 0; }
+.fp-move { flex: none; width: 34px; height: 38px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer; }
+.fp-move:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+.fp-move:disabled { opacity: 0.3; cursor: default; }
 .fp-callout { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
 .fp-callout__title { font-size: 13px; font-weight: 800; }
 .fp-tip { padding: 2px 2px 0; }

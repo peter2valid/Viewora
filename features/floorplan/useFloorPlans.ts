@@ -65,6 +65,33 @@ export function useFloorPlans(spaceId: string) {
     if (updated) floorPlans.value = floorPlans.value.map(f => (f.id === id ? updated : f))
   }
 
+  /**
+   * Move a floor one place earlier (-1) or later (+1). The new order is
+   * written as order_index 0..n-1 to every floor whose index changed, which
+   * also repairs duplicate indexes left behind by earlier deletes.
+   */
+  async function moveFloorPlan(id: string, dir: -1 | 1) {
+    const prev = floorPlans.value
+    const from = prev.findIndex(f => f.id === id)
+    const to = from + dir
+    if (from < 0 || to < 0 || to >= prev.length) return
+    const next = prev.slice()
+    ;[next[from], next[to]] = [next[to], next[from]]
+    const changed = next
+      .map((f, i) => ({ f, i }))
+      .filter(({ f, i }) => f.order_index !== i)
+    floorPlans.value = next.map((f, i) => ({ ...f, order_index: i }))
+    try {
+      await Promise.all(changed.map(({ f, i }) =>
+        apiFetch(`/floor-plans/${f.id}`, { method: 'PATCH', body: { order_index: i } })))
+    } catch (e) {
+      floorPlans.value = prev
+      // Some writes may have landed — reload so the list matches the server.
+      load().catch(() => {})
+      throw e
+    }
+  }
+
   async function deleteFloorPlan(id: string) {
     const plan = floorPlans.value.find(f => f.id === id)
     await apiFetch(`/floor-plans/${id}`, { method: 'DELETE' })
@@ -72,5 +99,5 @@ export function useFloorPlans(spaceId: string) {
     floorPlans.value = floorPlans.value.filter(f => f.id !== id)
   }
 
-  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, deleteFloorPlan }
+  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, deleteFloorPlan }
 }
