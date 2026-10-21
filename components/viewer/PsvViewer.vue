@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive }" @click="onViewerClick">
+  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive, 'public-viewer--map-crowded': floorMapCrowded }" :style="dockLiftStyle" @click="onViewerClick">
 
     <!-- Loading progress bar -->
     <Transition name="viewer-progress">
@@ -33,7 +33,7 @@
 
     <!-- Floor-plan minimap: floor switcher under the map (2+ floors) -->
     <div
-      v-if="floorMapFloors.length > 1 && vtReady && !chromeHidden && !stereoActive && floorMapView === 'normal'"
+      v-if="floorMapFloors.length > 1 && vtReady && !chromeHidden && !stereoActive && !floorMapCrowded && floorMapView === 'normal' && !dockTabsOnScreen"
       class="floor-switch"
       :class="{ 'floor-switch--compact': floorMapCompact }"
       role="tablist"
@@ -48,7 +48,7 @@
         class="floor-switch__btn"
         :class="{ 'floor-switch__btn--on': f.id === floorMapFloorId }"
         :aria-selected="f.id === floorMapFloorId"
-        @click="floorMapCtl?.showFloor(f.id)"
+        @click="browseDockFloor(f.id)"
       >{{ f.name }}</button>
     </div>
 
@@ -551,7 +551,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import QRCode from 'qrcode'
 import { useImage, useHead } from '#imports'
 import { factsLine, formatPrice } from '~/utils/listingDisplay'
@@ -668,6 +668,9 @@ const vtReady = ref(false)
 const floorMapFloorId = ref<string | null>(null)
 const floorMapView = ref<'closed' | 'normal' | 'maximized'>('normal')
 const floorMapCompact = ref(false)
+// No room for the minimap above the open dock (e.g. a phone held sideways):
+// it hides until the dock is collapsed.
+const floorMapCrowded = ref(false)
 const floorMapCtl = shallowRef<FloorPlanMapController | null>(null)
 function destroyFloorMap() {
   floorMapCtl.value?.destroy()
@@ -857,7 +860,9 @@ const groupableScenes = computed<GroupableScene[]>(() =>
 const dockFloors = computed(() => buildDockFloors(floorMapFloors.value, groupableScenes.value.map(s => s.id)))
 const visitorFloorId = computed(() => dockFloorOf(dockFloors.value, activeSceneId.value))
 const dockFloorId = ref<string | null>(null)
-watch([visitorFloorId, dockFloors], ([floorId, floors]) => {
+// activeSceneId too: moving within the same floor also ends any browsing.
+// (The minimap resets itself on every scene change.)
+watch([activeSceneId, visitorFloorId, dockFloors], ([, floorId, floors]) => {
   dockFloorId.value = floorId ?? floors[0]?.id ?? null
 }, { immediate: true })
 function scenesOnFloor(floorId: string | null): GroupableScene[] {
@@ -873,10 +878,77 @@ const dockCollapsedLabel = computed(() => {
   return floor && floor.id !== OTHER_FLOOR_ID ? floor.name : ''
 })
 
+// Dock tab or minimap floor button: browse that floor in both, without
+// moving. "Other" has no plan, so the minimap stays where it is.
 function browseDockFloor(floorId: string) {
+  if (floorId !== OTHER_FLOOR_ID) floorMapCtl.value?.showFloor(floorId)
   if (floorId === dockFloorId.value) return
   dockFloorId.value = floorId
   openGroup.value = null
+}
+
+// ── Keep the bottom-left minimap and CTA clear of the open dock ──
+// The dock owns the bottom of the screen while open; anything bottom-left it
+// would cover moves up above it, and back down when it's collapsed. Measured
+// from the dock's height (not its on-screen position, which slides while
+// the dock animates open/closed). Nothing moves when they don't overlap.
+const dockTabsOnScreen = computed(() =>
+  dockFloors.value.length > 0 && !dockCollapsed.value && sceneCount.value > 0 && !chromeHidden.value && !props.hideOwnChrome)
+const dockLift = ref<{ map: number | null; cta: number | null }>({ map: null, cta: null })
+const dockLiftStyle = computed(() => ({
+  ...(dockLift.value.map !== null ? { '--fp-map-bottom': `${dockLift.value.map}px` } : {}),
+  ...(dockLift.value.cta !== null ? { '--viewer-cta-bottom': `${dockLift.value.cta}px` } : {}),
+}))
+const DOCK_GAP_PX = 12
+const CTA_HEIGHT_PX = 38
+const TOP_RESERVED_PX = 110   // branding block, top left
+
+function measureDockLift() {
+  const root = viewerRootEl.value
+  const dock = root?.querySelector('.glass-dock-container') as HTMLElement | null
+  if (!root || !dock || dockCollapsed.value || chromeHidden.value || props.hideOwnChrome) {
+    dockLift.value = { map: null, cta: null }
+    floorMapCrowded.value = false
+    return
+  }
+  const rootRect = root.getBoundingClientRect()
+  // The container is position: fixed, bottom-anchored to the window.
+  const dockBottomFromRoot = rootRect.bottom - (window.innerHeight - parseFloat(getComputedStyle(dock).bottom || '0'))
+  const clear = Math.max(0, Math.round(dockBottomFromRoot + dock.offsetHeight))
+  const dockLeft = dock.getBoundingClientRect().left - rootRect.left
+
+  const cta = root.querySelector('.viewer-cta-btn') as HTMLElement | null
+  const ctaRight = cta ? cta.getBoundingClientRect().right - rootRect.left : 0
+  const liftCta = !!cta && dockLeft < ctaRight + DOCK_GAP_PX
+  const ctaTop = liftCta ? clear + DOCK_GAP_PX + CTA_HEIGHT_PX : 0
+
+  const mapSize = floorMapCompact.value ? 140 : 200
+  const mapRight = 10 + mapSize
+  const liftMap = dockLeft < mapRight + DOCK_GAP_PX
+  const baseMapBottom = floorMapCompact.value ? 128 : 96
+  const mapBottom = liftMap ? Math.max(baseMapBottom, clear + DOCK_GAP_PX, ctaTop + DOCK_GAP_PX) : null
+
+  dockLift.value = { map: mapBottom, cta: liftCta ? clear + DOCK_GAP_PX : null }
+  floorMapCrowded.value = mapBottom !== null && rootRect.height - mapBottom - mapSize < TOP_RESERVED_PX
+}
+
+let dockLiftObserver: ResizeObserver | null = null
+let dockLiftObserved: Element | null = null
+function scheduleDockLift() {
+  if (typeof window === 'undefined') return
+  // Collapsing needs no layout read: put everything back straight away.
+  if (dockCollapsed.value || chromeHidden.value) measureDockLift()
+  nextTick(() => requestAnimationFrame(() => {
+    // Follow the dock's own size changes (tabs, folders, item count).
+    const dock = viewerRootEl.value?.querySelector('.glass-dock-container') ?? null
+    if (dock !== dockLiftObserved && 'ResizeObserver' in window) {
+      dockLiftObserver?.disconnect()
+      dockLiftObserver = dock ? new ResizeObserver(() => measureDockLift()) : null
+      if (dock) dockLiftObserver?.observe(dock)
+      dockLiftObserved = dock
+    }
+    measureDockLift()
+  }))
 }
 
 // Category folders: the dock shows one card per category; opening one lists
@@ -1593,8 +1665,16 @@ function onRailTouchStart(e: TouchEvent) {
   tooltipFlashTimer = setTimeout(() => btn.classList.remove('tooltip-show'), 1200)
 }
 
+// Re-measure the dock lift whenever the dock or what it would cover changes.
+watch(
+  () => [dockCollapsed.value, chromeHidden.value, dockItems.value.length, dockFloors.value.length, ctaEnabled.value, vtReady.value, floorMapCompact.value],
+  scheduleDockLift,
+)
+
 onMounted(() => {
   window.addEventListener(PLOT_ENQUIRE_EVENT, onPlotEnquire)
+  window.addEventListener('resize', scheduleDockLift)
+  scheduleDockLift()
   if (typeof window !== 'undefined' && props.isEmbed && viewerRootEl.value && 'ResizeObserver' in window) {
     resizeObserver = new ResizeObserver((entries) => {
       const box = entries[0]?.contentRect
@@ -1727,6 +1807,9 @@ watch(vtReady, (ready) => {
 
 onUnmounted(() => {
   window.removeEventListener(PLOT_ENQUIRE_EVENT, onPlotEnquire)
+  window.removeEventListener('resize', scheduleDockLift)
+  dockLiftObserver?.disconnect()
+  dockLiftObserver = null
   vtInitVersion++
   _removeMotionSync()
   stopVrLoop()
@@ -3315,19 +3398,24 @@ watch(() => vtTransitioning.value, (loading) => {
 
 /* ── Floor-plan minimap (PSV MapPlugin, bottom left) + floor switcher ── */
 /* Lift the map clear of the bottom-left CTA button. */
-.public-viewer :deep(.psv-map--bottom-left:not(.psv-map--maximized)) { margin: 0 0 96px 10px; }
+.public-viewer :deep(.psv-map--bottom-left:not(.psv-map--maximized)) { margin: 0 0 var(--fp-map-bottom, 96px) 10px; }
+/* No room above the open dock (floorMapCrowded): hidden by CSS, not the
+   plugin's hide(), so a scene change can't bring it back. visibility keeps
+   its size, so it reappears intact when the dock is collapsed. */
+.public-viewer--map-crowded :deep(.psv-map:not(.psv-map--maximized)) { visibility: hidden; pointer-events: none; }
 /* Switcher beside the map, top-aligned with it: map bottom 96 + size 200. */
 .floor-switch {
   position: absolute;
-  left: 218px; bottom: 296px; transform: translateY(100%);
+  left: 218px; bottom: calc(var(--fp-map-bottom, 96px) + 200px); transform: translateY(100%);
   z-index: 55;
   display: flex; flex-direction: column; gap: 4px;
   max-width: 160px;
 }
 @media (max-width: 640px) {
-  .public-viewer :deep(.psv-map--bottom-left:not(.psv-map--maximized)) { margin-bottom: 120px; }
+  /* 128: clear of the phone CTA button (bottom 88 + 34 tall) */
+  .public-viewer :deep(.psv-map--bottom-left:not(.psv-map--maximized)) { margin-bottom: var(--fp-map-bottom, 128px); }
 }
-.floor-switch--compact { left: 158px; bottom: 260px; max-width: 130px; }
+.floor-switch--compact { left: 158px; bottom: calc(var(--fp-map-bottom, 128px) + 140px); max-width: 130px; }
 .floor-switch__btn {
   height: 30px; padding: 0 12px;
   border-radius: 999px; border: 1px solid rgba(255,255,255,0.12);
@@ -3428,7 +3516,7 @@ watch(() => vtTransitioning.value, (loading) => {
   position: absolute;
   left: 20px;
   left: calc(20px + env(safe-area-inset-left, 0px));
-  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  bottom: var(--viewer-cta-bottom, calc(26px + env(safe-area-inset-bottom, 0px)));
   z-index: 35;
   display: inline-flex;
   align-items: center;
@@ -3641,7 +3729,7 @@ watch(() => vtTransitioning.value, (loading) => {
 @media (max-width: 640px) {
   .viewer-cta-btn {
     left: 12px;
-    bottom: 88px;
+    bottom: var(--viewer-cta-bottom, 88px);
     height: 34px;
     font-size: 11px;
     padding: 0 13px;
