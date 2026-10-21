@@ -101,11 +101,34 @@
       :has-scene="hasPanorama"
       :active-placement-type="activePlacementType"
       :settings-open="showSettingsPanel"
+      :ai-assistant-open="aiAssistantOpen"
       :land-tools="isLandSpace"
       @place-hotspot="handlePlaceHotspot"
       @open-settings="showSettingsPanel = !showSettingsPanel"
       @cancel-placement="onCancelPlacement"
       @auto-link="openAutoLink"
+      @ai-assistant="toggleAiAssistant"
+    />
+
+    <!-- AI assistant: prompt for the tour, this scene, or a drawn area -->
+    <AiAssistantPanel
+      v-if="editorStore.mode !== 'preview'"
+      :ai="aiAssistant"
+      :scene-id="activeScene?.id ?? null"
+      :scene-name="activeScene?.name || ''"
+      :space-type="space?.space_type"
+      :scene-has-edits="Boolean(activeScene?.original_raw_image_url)"
+      :restoring="aiRestoring"
+      @close="aiAssistant.close()"
+      @apply="handleAiApply"
+      @apply-photo="handleAiApplyPhoto"
+      @revert-photo="handleAiRevertPhoto"
+    />
+    <AreaSelectOverlay
+      v-if="aiDrawing && hasPanorama"
+      :to-spherical="aiClientToSpherical"
+      @select="aiAssistant.setRegion"
+      @cancel="aiAssistant.setRegion(null)"
     />
 
     <!-- Preview mode: identical GlassDock to what the public viewer shows -->
@@ -391,6 +414,45 @@
                 </ul>
               </template>
 
+              <!-- Fix existing hotspots -->
+              <template v-if="autoLinkFixes.length">
+                <p class="al-section-label">🎯 Fix existing hotspots</p>
+                <ul class="al-list">
+                  <li v-for="f in autoLinkFixes" :key="f._id" class="al-item">
+                    <label class="al-item__label">
+                      <input type="checkbox" class="al-checkbox" :checked="autoLinkSelectedFixes.has(f._id)" @change="toggleAutoLinkFix(f._id)" />
+                      <span class="al-item__text">
+                        <span class="al-item__from">{{ f.sceneName }}</span>
+                        <span class="al-item__arrow">·</span>
+                        <span>{{ f.label }}</span>
+                        <template v-if="f.newLabel">
+                          <span class="al-item__arrow">→</span>
+                          <strong>{{ f.newLabel }}</strong>
+                        </template>
+                        <span v-if="f.moveDeg" class="al-item__detail">Re-centre ({{ f.moveDeg }}° off)</span>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+              </template>
+
+              <!-- Scene settings -->
+              <template v-if="autoLinkSceneSettings.length">
+                <p class="al-section-label">🎬 Scene settings</p>
+                <ul class="al-list">
+                  <li v-for="c in autoLinkSceneSettings" :key="c._id" class="al-item">
+                    <label class="al-item__label">
+                      <input type="checkbox" class="al-checkbox" :checked="autoLinkSelectedSettings.has(c._id)" @change="toggleAutoLinkSetting(c._id)" />
+                      <span class="al-item__text">
+                        <strong>{{ c.sceneName }}</strong>
+                        <span v-if="c.initialYawDeg != null" class="al-item__detail">Opens facing its best side ({{ c.initialYawDeg > 0 ? '+' : '' }}{{ c.initialYawDeg }}°)</span>
+                        <span v-if="c.group" class="al-item__detail">Category: {{ c.group }}</span>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+              </template>
+
               <!-- Navigation hotspots -->
               <template v-if="autoLinkSuggestions.length">
                 <p class="al-section-label">🧭 Add navigation hotspots</p>
@@ -402,7 +464,7 @@
                         <span class="al-item__from">{{ s.fromSceneName }}</span>
                         <span class="al-item__arrow">→</span>
                         <strong>{{ s.toSceneName }}</strong>
-                        <span class="al-item__detail">{{ s.doorwayDescription }}</span>
+                        <span class="al-item__detail">{{ s.doorwayDescription }}<template v-if="s.scale && s.scale !== 1"> · size ×{{ s.scale }}</template></span>
                       </span>
                     </label>
                   </li>
@@ -419,7 +481,7 @@
                       <span class="al-item__text">
                         <span class="al-item__from">{{ h.sceneName }}</span>
                         <span class="al-item__arrow">·</span>
-                        <strong>{{ h.label }}</strong>
+                        <strong>{{ h.category === 'highlight' ? '⭐ ' : h.category === 'view' ? '📷 ' : '' }}{{ h.label }}</strong>
                         <span class="al-item__detail">{{ h.description }}</span>
                       </span>
                     </label>
@@ -427,7 +489,7 @@
                 </ul>
               </template>
 
-              <p v-if="!autoLinkRenames.length && !autoLinkDeletions.length && !autoLinkSuggestions.length && !autoLinkInfoHotspots.length" class="al-empty">
+              <p v-if="!autoLinkRenames.length && !autoLinkDeletions.length && !autoLinkFixes.length && !autoLinkSceneSettings.length && !autoLinkSuggestions.length && !autoLinkInfoHotspots.length" class="al-empty">
                 Everything looks good — no changes needed.
               </p>
 
@@ -475,6 +537,9 @@ import { useEditorUpload, isLocalSceneId, type SceneUploadState } from '~/featur
 import { useHotspotEditor } from '~/features/editor/composables/useHotspotEditor'
 import { useEditorPublish } from '~/features/editor/composables/useEditorPublish'
 import { useAutoLink } from '~/features/editor/composables/useAutoLink'
+import { useAiAssistant, type AiProposal } from '~/features/editor/composables/useAiAssistant'
+import AiAssistantPanel from '~/features/editor/components/AiAssistantPanel.vue'
+import AreaSelectOverlay from '~/features/editor/components/AreaSelectOverlay.vue'
 import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 import HotspotTypePicker from '~/features/editor/components/HotspotTypePicker.vue'
 import HotspotQuickEditor from '~/features/editor/components/HotspotQuickEditor.vue'
@@ -702,10 +767,14 @@ const {
   infoHotspots: autoLinkInfoHotspots,
   hotspotDeletions: autoLinkDeletions,
   sceneRenames: autoLinkRenames,
+  hotspotFixes: autoLinkFixes,
+  sceneSettings: autoLinkSceneSettings,
   selectedSuggestions: autoLinkSelected,
   selectedInfoHotspots: autoLinkSelectedInfo,
   selectedDeletions: autoLinkSelectedDeletions,
   selectedRenames: autoLinkSelectedRenames,
+  selectedFixes: autoLinkSelectedFixes,
+  selectedSettings: autoLinkSelectedSettings,
   hasSelections: autoLinkHasSelections,
   open: openAutoLink,
   close: closeAutoLink,
@@ -713,8 +782,55 @@ const {
   toggleInfoHotspot: toggleAutoLinkInfo,
   toggleDeletion: toggleAutoLinkDeletion,
   toggleRename: toggleAutoLinkRename,
+  toggleFix: toggleAutoLinkFix,
+  toggleSetting: toggleAutoLinkSetting,
   apply: applyAutoLink,
 } = useAutoLink(props.spaceId)
+
+// ── Shared AI write helpers (auto-link + assistant) ───────────────────────────
+// Each one saves through the normal API, then patches local state so the
+// viewer and panels update without a full reload.
+async function aiCreateHotspot(sceneId: string, payload: object) {
+  const data = await apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload }) as any
+  if (data?.hotspot) {
+    const mapped = mapDbHotspot(data.hotspot)
+    hotspotsByScene.value = {
+      ...hotspotsByScene.value,
+      [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), mapped],
+    }
+  }
+}
+
+async function aiDeleteHotspot(hotspotId: string) {
+  await apiFetch(`/hotspots/${hotspotId}`, { method: 'DELETE' })
+  for (const sceneId of Object.keys(hotspotsByScene.value)) {
+    hotspotsByScene.value = {
+      ...hotspotsByScene.value,
+      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== hotspotId),
+    }
+  }
+}
+
+async function aiUpdateHotspot(hotspotId: string, sceneId: string, body: object) {
+  const data = await apiFetch(`/hotspots/${hotspotId}`, { method: 'PATCH', body }) as any
+  if (data?.hotspot) {
+    const mapped = mapDbHotspot(data.hotspot)
+    hotspotsByScene.value = {
+      ...hotspotsByScene.value,
+      [sceneId]: (hotspotsByScene.value[sceneId] ?? []).map(h => h.id === hotspotId ? mapped : h),
+    }
+  }
+}
+
+async function aiUpdateScene(sceneId: string, body: object) {
+  await apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body })
+  scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, ...body } : s)
+}
+
+async function aiUpdateListing(body: object) {
+  await apiFetch(`/spaces/${props.spaceId}`, { method: 'PATCH', body })
+  space.value = { ...space.value, ...body }
+}
 
 async function handleAutoLinkApply() {
   await applyAutoLink(
@@ -728,29 +844,84 @@ async function handleAutoLinkApply() {
         scenes.value = prev
       }
     },
-    // create hotspot callback
-    async (sceneId, payload) => {
-      const data = await apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload }) as any
-      if (data?.hotspot) {
-        const mapped = mapDbHotspot(data.hotspot)
-        hotspotsByScene.value = {
-          ...hotspotsByScene.value,
-          [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), mapped],
-        }
-      }
-    },
-    // delete hotspot callback
-    async (hotspotId) => {
-      await apiFetch(`/hotspots/${hotspotId}`, { method: 'DELETE' })
-      for (const sceneId of Object.keys(hotspotsByScene.value)) {
-        hotspotsByScene.value = {
-          ...hotspotsByScene.value,
-          [sceneId]: (hotspotsByScene.value[sceneId] ?? []).filter(h => h.id !== hotspotId),
-        }
-      }
-    },
+    aiCreateHotspot,
+    aiDeleteHotspot,
+    aiUpdateHotspot,
+    aiUpdateScene,
   )
   showToast('Tour edited by AI!')
+}
+
+// ── AI assistant ──────────────────────────────────────────────────────────────
+const aiAssistant = useAiAssistant(props.spaceId)
+const { isOpen: aiAssistantOpen, isDrawing: aiDrawing } = aiAssistant
+const aiRestoring = ref(false)
+
+function toggleAiAssistant() {
+  if (aiAssistantOpen.value) {
+    aiAssistant.close()
+    return
+  }
+  // Both panels sit on the right edge
+  closeHotspotPanel()
+  showSettingsPanel.value = false
+  aiAssistant.open(activeScene.value?.id ? 'scene' : 'tour')
+}
+
+function aiClientToSpherical(clientX: number, clientY: number) {
+  return viewerCanvasRef.value?.clientToSpherical(clientX, clientY) ?? null
+}
+
+async function handleAiApply() {
+  const applied = await aiAssistant.applySelected({
+    createHotspot: aiCreateHotspot,
+    updateHotspot: aiUpdateHotspot,
+    deleteHotspot: aiDeleteHotspot,
+    updateScene:   aiUpdateScene,
+    updateListing: aiUpdateListing,
+  })
+  if (applied) showToast(`${applied} AI change${applied === 1 ? '' : 's'} applied`)
+}
+
+/**
+ * Photo edits / restores re-tile the scene in the background into a new tile
+ * folder. Polls until the scene points at it, then reloads scenes so the viewer
+ * swaps to the new photo.
+ */
+async function waitForSceneVariant(sceneId: string, variant: string): Promise<boolean> {
+  const deadline = Date.now() + 6 * 60_000
+  while (Date.now() < deadline && isMounted) {
+    await new Promise(r => setTimeout(r, 4000))
+    try {
+      const res = await apiFetch<any>(`/scenes/${sceneId}`)
+      const scene = res?.scene
+      if (scene?.tile_manifest_url?.includes(variant)) {
+        await fetchScenes()
+        return true
+      }
+      if (scene?.status === 'failed') return false
+    } catch { /* keep polling */ }
+  }
+  return false
+}
+
+async function handleAiApplyPhoto(p: AiProposal) {
+  await aiAssistant.applyPhotoEdit(p, waitForSceneVariant)
+  if (aiAssistant.photoEdits[p.id]?.status === 'applied') showToast('Photo updated')
+}
+
+async function handleAiRevertPhoto() {
+  const sceneId = activeScene.value?.id
+  if (!sceneId || aiRestoring.value) return
+  aiRestoring.value = true
+  try {
+    const ok = await aiAssistant.revertPhoto(sceneId, waitForSceneVariant)
+    showToast(ok ? 'Original photo restored' : 'Still restoring — check back in a few minutes', ok ? 'success' : 'error')
+  } catch (err: any) {
+    showToast(err?.data?.statusMessage || 'Could not restore the original photo', 'error')
+  } finally {
+    aiRestoring.value = false
+  }
 }
 
 let isMounted = false
@@ -830,6 +1001,16 @@ const selectedScene = computed(() =>
 )
 
 const activeScene = computed(() => selectedScene.value)
+
+// A drawn area belongs to the scene it was drawn on
+watch(() => activeScene.value?.id, () => {
+  if (aiAssistant.region.value || aiDrawing.value) aiAssistant.setRegion(null)
+})
+
+// The hotspot and settings panels share the AI panel's spot on the right edge
+watch(() => editorStore.activePanel === 'hotspots' || showSettingsPanel.value, (other) => {
+  if (other && aiAssistantOpen.value) aiAssistant.close()
+})
 
 
 const activePanoramaSrc = computed(() => {

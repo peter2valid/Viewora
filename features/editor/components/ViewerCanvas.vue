@@ -330,7 +330,11 @@ function refreshSettings(settings: LiveViewerSettings, animate = true) {
   editorCanvasRef.value?.refreshSettings(settings, animate)
 }
 
-defineExpose({ refreshSettings })
+function clientToSpherical(clientX: number, clientY: number) {
+  return editorCanvasRef.value?.clientToSpherical(clientX, clientY) ?? null
+}
+
+defineExpose({ refreshSettings, clientToSpherical })
 </script>
 
 <style scoped>

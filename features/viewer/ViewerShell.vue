@@ -107,7 +107,11 @@ function toggleStereo() {
   psvViewerRef.value?.toggleViewerStereo()
 }
 
-defineExpose({ refreshSettings, toggleSettings, toggleAutorotate, toggleStereo })
+function clientToSpherical(clientX: number, clientY: number) {
+  return psvViewerRef.value?.clientToSpherical(clientX, clientY) ?? null
+}
+
+defineExpose({ refreshSettings, toggleSettings, toggleAutorotate, toggleStereo, clientToSpherical })
 </script>
 
 <style scoped>

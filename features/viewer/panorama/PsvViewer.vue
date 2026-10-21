@@ -515,7 +515,9 @@ watch(
       await initWithScene(next)
       return
     }
-    if (next.id === prev?.id) return
+    // Same scene → nothing to load, unless its image was replaced (AI photo edit /
+    // restore re-tiles into new URLs, so both the image and the tile manifest change)
+    if (next.id === prev?.id && (next.imageUrl === prev?.imageUrl || next.tileManifestUrl === prev?.tileManifestUrl)) return
     
     closeMenu()
     isFocusing.value = false
@@ -663,7 +665,22 @@ function toggleViewerStereo() {
   toggleStereo(handle.value)
 }
 
-defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, toggleViewerStereo })
+/** Page coords → panorama yaw/pitch (yaw in -π..π), or null off the sphere. Used by the editor's AI area tool. */
+function clientToSpherical(clientX: number, clientY: number): { yaw: number; pitch: number } | null {
+  const viewer = handle.value?.viewer
+  const el = containerEl.value
+  if (!viewer || !el) return null
+  const rect = el.getBoundingClientRect()
+  try {
+    const c = viewer.dataHelper.viewerCoordsToSphericalCoords({ x: clientX - rect.left, y: clientY - rect.top })
+    if (!c) return null
+    return { yaw: c.yaw > Math.PI ? c.yaw - 2 * Math.PI : c.yaw, pitch: c.pitch }
+  } catch {
+    return null
+  }
+}
+
+defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, toggleViewerStereo, clientToSpherical })
 </script>
 
 <style scoped>

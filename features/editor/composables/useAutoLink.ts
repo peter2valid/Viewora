@@ -10,6 +10,8 @@ export type AutoLinkSuggestion = {
   pitch: number
   label: string
   doorwayDescription: string
+  icon?: string
+  scale?: number
 }
 
 export type InfoHotspotSuggestion = {
@@ -20,6 +22,31 @@ export type InfoHotspotSuggestion = {
   pitch: number
   label: string
   description: string
+  category?: 'feature' | 'view' | 'highlight'
+  icon?: string
+  scale?: number
+  labelBold?: boolean
+}
+
+export type HotspotFix = {
+  _id: string
+  hotspotId: string
+  sceneId: string
+  sceneName: string
+  label: string
+  type: string
+  newLabel?: string
+  yaw?: number
+  pitch?: number
+  moveDeg?: number
+}
+
+export type SceneSetting = {
+  _id: string
+  sceneId: string
+  sceneName: string
+  initialYawDeg?: number
+  group?: string
 }
 
 export type HotspotDeletion = {
@@ -49,22 +76,30 @@ export function useAutoLink(spaceId: string) {
   const infoHotspots     = ref<InfoHotspotSuggestion[]>([])
   const hotspotDeletions = ref<HotspotDeletion[]>([])
   const sceneRenames     = ref<SceneRename[]>([])
+  const hotspotFixes     = ref<HotspotFix[]>([])
+  const sceneSettings    = ref<SceneSetting[]>([])
 
   const selectedSuggestions  = ref<Set<string>>(new Set())
   const selectedInfoHotspots = ref<Set<string>>(new Set())
   const selectedDeletions    = ref<Set<string>>(new Set())
   const selectedRenames      = ref<Set<string>>(new Set())
+  const selectedFixes        = ref<Set<string>>(new Set())
+  const selectedSettings     = ref<Set<string>>(new Set())
 
   function applyResults(data: any) {
     suggestions.value      = (data.suggestions      ?? []).map((s: any, i: number) => ({ ...s, _id: `s${i}` }))
     infoHotspots.value     = (data.infoHotspots     ?? []).map((h: any, i: number) => ({ ...h, _id: h._id || `ih${i}` }))
     hotspotDeletions.value = (data.hotspotDeletions ?? []).map((d: any, i: number) => ({ ...d, _id: d._id || `del${i}` }))
     sceneRenames.value     = (data.sceneRenames     ?? []).map((r: any, i: number) => ({ ...r, _id: `r${i}` }))
+    hotspotFixes.value     = (data.hotspotFixes     ?? []).map((f: any, i: number) => ({ ...f, _id: f._id || `fix${i}` }))
+    sceneSettings.value    = (data.sceneSettings    ?? []).map((c: any, i: number) => ({ ...c, _id: c._id || `set${i}` }))
 
     selectedSuggestions.value  = new Set(suggestions.value.map(s => s._id))
     selectedInfoHotspots.value = new Set(infoHotspots.value.map(h => h._id))
     selectedDeletions.value    = new Set(hotspotDeletions.value.map(d => d._id))
     selectedRenames.value      = new Set(sceneRenames.value.map(r => r._id))
+    selectedFixes.value        = new Set(hotspotFixes.value.map(f => f._id))
+    selectedSettings.value     = new Set(sceneSettings.value.map(c => c._id))
   }
 
   async function open() {
@@ -76,6 +111,8 @@ export function useAutoLink(spaceId: string) {
     infoHotspots.value     = []
     hotspotDeletions.value = []
     sceneRenames.value     = []
+    hotspotFixes.value     = []
+    sceneSettings.value    = []
 
     // Build request URL and auth token from Nuxt composables.
     // We use native fetch (not apiFetch/$fetch) because $fetch buffers the
@@ -164,7 +201,7 @@ export function useAutoLink(spaceId: string) {
     } catch (err: any) {
       errorMsg.value =
         err?.message ||
-        'Analysis failed. Check that the Anthropic API key is configured on the server.'
+        'Analysis failed. Check that the Gemini API key is configured on the server.'
     } finally {
       isAnalyzing.value = false
       progress.value    = null
@@ -197,16 +234,32 @@ export function useAutoLink(spaceId: string) {
     selectedRenames.value = next
   }
 
+  function toggleFix(id: string) {
+    const next = new Set(selectedFixes.value)
+    next.has(id) ? next.delete(id) : next.add(id)
+    selectedFixes.value = next
+  }
+
+  function toggleSetting(id: string) {
+    const next = new Set(selectedSettings.value)
+    next.has(id) ? next.delete(id) : next.add(id)
+    selectedSettings.value = next
+  }
+
   const hasSelections = () =>
     selectedSuggestions.value.size > 0 ||
     selectedInfoHotspots.value.size > 0 ||
     selectedDeletions.value.size > 0 ||
-    selectedRenames.value.size > 0
+    selectedRenames.value.size > 0 ||
+    selectedFixes.value.size > 0 ||
+    selectedSettings.value.size > 0
 
   async function apply(
     onRename:        (sceneId: string, name: string) => Promise<void>,
     onCreateHotspot: (sceneId: string, payload: object) => Promise<void>,
     onDeleteHotspot: (hotspotId: string) => Promise<void>,
+    onUpdateHotspot: (hotspotId: string, sceneId: string, body: object) => Promise<void>,
+    onUpdateScene:   (sceneId: string, body: object) => Promise<void>,
   ) {
     isApplying.value = true
     errorMsg.value   = null
@@ -219,7 +272,23 @@ export function useAutoLink(spaceId: string) {
       for (const d of hotspotDeletions.value) {
         if (selectedDeletions.value.has(d._id)) await onDeleteHotspot(d.hotspotId)
       }
-      // 3. Create navigation hotspots
+      // 3. Fix existing hotspots (move / relabel)
+      for (const f of hotspotFixes.value) {
+        if (!selectedFixes.value.has(f._id)) continue
+        const body: Record<string, unknown> = {}
+        if (f.yaw != null && f.pitch != null) { body.yaw = f.yaw; body.pitch = f.pitch }
+        if (f.newLabel) body.label = f.newLabel
+        await onUpdateHotspot(f.hotspotId, f.sceneId, body)
+      }
+      // 4. Scene settings (opening view + category)
+      for (const c of sceneSettings.value) {
+        if (!selectedSettings.value.has(c._id)) continue
+        const body: Record<string, unknown> = {}
+        if (c.initialYawDeg != null) { body.initial_yaw = c.initialYawDeg; body.initial_pitch = 0 }
+        if (c.group) body.group_name = c.group
+        await onUpdateScene(c.sceneId, body)
+      }
+      // 5. Create navigation hotspots
       for (const s of suggestions.value) {
         if (!selectedSuggestions.value.has(s._id)) continue
         await onCreateHotspot(s.fromSceneId, {
@@ -228,9 +297,10 @@ export function useAutoLink(spaceId: string) {
           pitch:            s.pitch,
           label:            s.label,
           target_scene_id:  s.toSceneId,
+          content:          { icon: s.icon, scale: s.scale ?? 1 },
         })
       }
-      // 4. Create info hotspots
+      // 6. Create info hotspots
       for (const h of infoHotspots.value) {
         if (!selectedInfoHotspots.value.has(h._id)) continue
         await onCreateHotspot(h.sceneId, {
@@ -238,7 +308,12 @@ export function useAutoLink(spaceId: string) {
           yaw:      h.yaw,
           pitch:    h.pitch,
           label:    h.label,
-          content:  { text: h.description },
+          content:  {
+            text:       h.description,
+            icon:       h.icon,
+            scale:      h.scale ?? 1,
+            label_bold: h.labelBold || undefined,
+          },
         })
       }
       showModal.value = false
@@ -251,11 +326,11 @@ export function useAutoLink(spaceId: string) {
 
   return {
     showModal, isAnalyzing, isApplying, errorMsg, progress,
-    suggestions, infoHotspots, hotspotDeletions, sceneRenames,
-    selectedSuggestions, selectedInfoHotspots, selectedDeletions, selectedRenames,
+    suggestions, infoHotspots, hotspotDeletions, sceneRenames, hotspotFixes, sceneSettings,
+    selectedSuggestions, selectedInfoHotspots, selectedDeletions, selectedRenames, selectedFixes, selectedSettings,
     hasSelections,
     open, close,
-    toggleSuggestion, toggleInfoHotspot, toggleDeletion, toggleRename,
+    toggleSuggestion, toggleInfoHotspot, toggleDeletion, toggleRename, toggleFix, toggleSetting,
     apply,
   }
 }

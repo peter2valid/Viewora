@@ -146,6 +146,26 @@
         </div>
       </div>
 
+      <!-- AI Assistant -->
+      <div class="lt-item">
+        <button
+          class="lt-btn"
+          :class="{ 'lt-btn--on': aiAssistantOpen }"
+          aria-label="AI assistant (A)"
+          @click="handleAiAssistant"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M12 7l.9 2.1L15 10l-2.1.9L12 13l-.9-2.1L9 10l2.1-.9L12 7z"/>
+          </svg>
+          <span class="lt-label">Ask AI</span>
+        </button>
+        <div class="lt-tip">
+          <span class="lt-tip__text">AI Assistant</span>
+          <kbd class="lt-tip__key">A</kbd>
+        </div>
+      </div>
+
       <div class="lt-divider"/>
 
       <!-- Settings -->
@@ -199,6 +219,7 @@ type PlacementType = 'info' | 'nav' | 'plot' | 'beacon' | 'road' | 'zone'
 const props = withDefaults(defineProps<{
   activePlacementType?: PlacementType | null
   settingsOpen?: boolean
+  aiAssistantOpen?: boolean
   hasScene?: boolean
   landTools?: boolean
 }>(), {
@@ -211,6 +232,7 @@ const emit = defineEmits<{
   (e: 'open-settings'): void
   (e: 'cancel-placement'): void
   (e: 'auto-link'): void
+  (e: 'ai-assistant'): void
 }>()
 
 const route = useRoute()
@@ -255,11 +277,16 @@ function handleAutoLink() {
   emit('auto-link')
 }
 
+function handleAiAssistant() {
+  emit('ai-assistant')
+}
+
 const keyMap: Record<string, () => void> = {
   i: handleInfo,
   n: handleNav,
   s: handleSettings,
   l: handleAutoLink,
+  a: handleAiAssistant,
 }
 
 function onKeydown(e: KeyboardEvent) {
