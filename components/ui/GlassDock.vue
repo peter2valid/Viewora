@@ -49,10 +49,14 @@
 
         <div
           class="glass-dock pointer-events-auto"
-          :class="[glassClass, paddedClass, isSoloAdd ? 'glass-dock--solo' : '']"
+          :class="[glassClass, paddedClass, isSoloAdd ? 'glass-dock--solo' : '', $slots.header ? 'glass-dock--with-header' : '']"
           role="navigation"
           aria-label="Scene navigation"
         >
+          <!-- Optional row above the thumbnails (the public viewer's floor tabs). -->
+          <div v-if="$slots.header" class="glass-dock__header" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
+            <slot name="header" />
+          </div>
           <div v-if="items.length" ref="stripEl" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
             <button
               v-for="item in items"
@@ -195,13 +199,15 @@
       <button
         v-if="isCollapsed && visible"
         class="glass-dock-expand-trigger dock-glass pointer-events-auto fixed left-1/2 -translate-x-1/2 z-30"
+        :class="{ 'glass-dock-expand-trigger--label': !!collapsedLabel }"
         :style="{ bottom: `${bottomPx}px` }"
-        aria-label="Show scenes"
+        :aria-label="collapsedLabel ? `Show scenes — ${collapsedLabel}` : 'Show scenes'"
         @click="isCollapsed = false"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="m18 15-6-6-6 6"/>
         </svg>
+        <span v-if="collapsedLabel" class="glass-dock-expand-trigger__text">{{ collapsedLabel }}</span>
       </button>
     </Transition>
   </div>
@@ -239,6 +245,8 @@ const props = withDefaults(defineProps<{
   liftPx?: number
   collapsed?: boolean
   showControls?: boolean
+  /** Shown next to the chevron while collapsed (e.g. the current floor). */
+  collapsedLabel?: string
 }>(), {
   activeId: '',
   showAdd: false,
@@ -254,6 +262,7 @@ const props = withDefaults(defineProps<{
   liftPx: 12,
   collapsed: undefined,
   showControls: true,
+  collapsedLabel: '',
 })
 
 const emit = defineEmits<{
@@ -541,6 +550,16 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   .glass-dock--padded {
     padding: 14px;
   }
+}
+
+.glass-dock--with-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.glass-dock__header {
+  min-width: 0;
 }
 
 .glass-dock--solo {
@@ -831,6 +850,21 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 
 .glass-dock-expand-trigger:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.glass-dock-expand-trigger--label {
+  width: auto;
+  max-width: calc(100vw - 32px);
+  gap: 6px;
+  padding: 0 14px 0 12px;
+}
+
+.glass-dock-expand-trigger__text {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fade-smooth-enter-active,
