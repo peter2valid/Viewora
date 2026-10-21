@@ -37,6 +37,8 @@ export interface PsvViewerHandle {
   markers: any
   markerSignatures: Map<string, string>
   isEditing: boolean
+  /** Resolved at init; loadScene() needs it to pick the same tile levels */
+  performanceMode?: 'lite' | 'full'
   cleanup?: () => void
 }
 
@@ -168,8 +170,9 @@ export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | '
   const conn = (navigator as any).connection
   if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '')) return
 
-  // Only the tile set the viewer actually draws. buildPanorama() always uses
-  // the medium set when it exists; this used to prefetch the full-resolution
+  // Only the tile set the viewer draws on entry. buildPanorama() starts on the
+  // medium set when it exists (full-res tiles only load once zoomed in, for
+  // the part on screen); this used to prefetch the full-resolution
   // set (512 tiles a scene) on most devices — never displayed, and it took
   // the download slots from the tiles on screen (the black squares).
   if (!canUseMediumTiles(scene)) return
@@ -675,39 +678,85 @@ export interface InitViewerOptions {
   loadingImg?: string
 }
 
+const MEDIUM_TILE_WIDTH = 4096
+
+/**
+ * PSV picks the tile level by comparing it with the viewer size in CSS pixels,
+ * but the canvas renders at up to 2× that (setPixelRatio), so on Retina screens
+ * the default view stayed on medium tiles stretched ~2×. On desktop/laptop this
+ * makes the level check count real pixels, so the full-res level is used whenever
+ * the screen can show it. Phones/tablets keep the CSS-pixel check (full-res only
+ * once zoomed in): PSV never unloads tiles within a scene, and panning the whole
+ * sphere at full-res would hold the entire panorama (~280 MB at 12K) in shared
+ * GPU memory.
+ */
+function useDevicePixelsForTileLevels(viewer: any): void {
+  if (window.matchMedia('(pointer: coarse)').matches) return
+  const adapter = viewer.adapter
+  // __refresh is a PSV implementation detail (computes visible tiles + level)
+  const refresh = adapter?.__refresh
+  if (typeof refresh !== 'function') return
+  adapter.__refresh = function (this: any) {
+    const size = viewer.state.size
+    const ratio = viewer.renderer.renderer.getPixelRatio()
+    if (!size || ratio <= 1) return refresh.call(this)
+    viewer.state.size = { width: size.width * ratio, height: size.height * ratio }
+    try { return refresh.call(this) } finally { viewer.state.size = size }
+  }
+}
+
+/**
+ * Whether to add the full-resolution tiles as a zoom level above the medium set.
+ * PSV only loads tiles of that level when the zoom actually needs more pixels than
+ * 4096 wide gives, and only the ones on screen — so the cost scales with the
+ * viewport, not with the panorama. Skipped for data-saver / slow connections and
+ * on devices reporting ≤2 GB RAM, since tiles of a level stay in VRAM until the
+ * scene changes.
+ */
+function canUseFullResLevel(scene: TourScene, performanceMode: 'lite' | 'full'): boolean {
+  if (performanceMode !== 'full' || !canUseTiledPanorama(scene)) return false
+  if (!scene.width || scene.width <= MEDIUM_TILE_WIDTH) return false
+  const ram = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
+  return !(typeof ram === 'number' && ram < 4)
+}
+
 /**
  * Returns the PSV EquirectangularTilesAdapter panorama config.
- * performanceMode drives which tile set is selected:
- *   'full' → full-resolution tiles (desktop)
- *   'lite' → medium tiles when available (4096×2048), else thumbnail-only
- * In both cases the baseUrl (thumbnail) is shown instantly while tiles stream in.
+ *   - medium tiles (4096×2048, KTX2 or WebP) are the base level for every device;
+ *   - in 'full' mode the full-resolution tiles are added as a second level, which
+ *     PSV switches to when zoomed in (sharp text/signage, like Street View);
+ *   - 'lite' mode stays on the medium tiles.
+ * In all cases the baseUrl (thumbnail) is shown instantly while tiles stream in.
  */
 function buildPanorama(scene: TourScene, performanceMode: 'lite' | 'full' = 'full', useKtx2 = false) {
-  // Priority 1a: KTX2 medium tiles — GPU-compressed upload, stays compressed in VRAM.
-  // Only used when GPU supports compressed textures AND KTX2 tiles were generated.
-  if (useKtx2 && scene.tileMediumKtx2ManifestUrl && canUseMediumTiles(scene)) {
-    return {
-      width:   4096,
-      cols:    scene.tileMediumCols!,
-      rows:    scene.tileMediumRows!,
-      baseUrl: scene.imageUrl,
-      tileUrl: (col: number, row: number) =>
-        `${scene.tileMediumKtx2ManifestUrl}/${col}_${row}.ktx2`,
-    }
-  }
-
-  // Priority 1b: WebP medium tiles — the correct choice for ALL devices regardless of
-  // hardware class. Even flagship phones bottleneck on GPU VRAM and draw calls,
-  // not pixel count. 32 tiles at 4096×2048 gives 2× thumbnail quality with no
-  // freeze risk. Full-res tiles (288+) are never served — GPU floods on all devices.
+  // Priority 1: medium tiles. KTX2 when the GPU supports compressed textures AND
+  // KTX2 tiles were generated (stays compressed in VRAM), WebP otherwise.
   if (canUseMediumTiles(scene)) {
+    const mediumTileUrl = useKtx2 && scene.tileMediumKtx2ManifestUrl
+      ? (col: number, row: number) => `${scene.tileMediumKtx2ManifestUrl}/${col}_${row}.ktx2`
+      : (col: number, row: number) => `${scene.tileMediumManifestUrl}/${col}_${row}.webp`
+
+    if (canUseFullResLevel(scene, performanceMode)) {
+      // Full-res tiles are WebP only — KtxEquirectangularTilesAdapter hands
+      // non-.ktx2 URLs to the stock loader, so the two levels can mix formats.
+      return {
+        baseUrl: scene.imageUrl,
+        levels: [
+          { width: MEDIUM_TILE_WIDTH, cols: scene.tileMediumCols!, rows: scene.tileMediumRows! },
+          { width: scene.width!,      cols: scene.tileCols!,       rows: scene.tileRows! },
+        ],
+        tileUrl: (col: number, row: number, level: number) => level === 0
+          ? mediumTileUrl(col, row)
+          : `${scene.tileManifestUrl}/${col}_${row}.webp`,
+      }
+    }
+
     return {
-      width:   4096,
+      width:   MEDIUM_TILE_WIDTH,
       cols:    scene.tileMediumCols!,
       rows:    scene.tileMediumRows!,
       baseUrl: scene.imageUrl,
-      tileUrl: (col: number, row: number) =>
-        `${scene.tileMediumManifestUrl}/${col}_${row}.webp`,
+      tileUrl: mediumTileUrl,
     }
   }
 
@@ -822,7 +871,7 @@ export async function initViewer(
   const viewer: any = new Viewer({
     container,
     adapter: [EquirectangularTilesAdapter, { resolution: 64, baseBlur: false, antialias: false }] as any,
-    panorama: buildPanorama(scene),
+    panorama: buildPanorama(scene, resolvedPerformanceMode),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
     defaultZoomLvl: 0,
@@ -854,6 +903,7 @@ export async function initViewer(
   // the 4× pixel count of 3× DPR screens. Previous 1.5 cap caused visible
   // softness on Retina laptops (2× DPR rendered at only 75% of native).
   viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  useDevicePixelsForTileLevels(viewer)
 
   // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.
   // 99% of devices support 4096 but rare low-end Android GPUs may not.
@@ -916,6 +966,7 @@ export async function initViewer(
     markers,
     markerSignatures: new Map<string, string>(),
     isEditing,
+    performanceMode: resolvedPerformanceMode,
     cleanup: () => { for (const fn of cleanupFns) fn() },
   }
 }
@@ -928,7 +979,7 @@ export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene
     handle.markers.clearMarkers()
     handle.markerSignatures.clear()
 
-    await handle.viewer.setPanorama(buildPanorama(scene), {
+    await handle.viewer.setPanorama(buildPanorama(scene, handle.performanceMode), {
       showLoader: false,
       position: { yaw: scene.settings.yaw_default, pitch: scene.settings.pitch_default },
       zoom: 0,
@@ -1486,6 +1537,7 @@ export async function initVirtualTourViewer(
   // Cap at 2× for all devices — matches native Retina resolution without
   // the 4× pixel count of 3× DPR screens.
   viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  useDevicePixelsForTileLevels(viewer)
 
   // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.
   const gl = viewer.renderer.renderer.getContext()
@@ -1669,6 +1721,7 @@ export async function initVirtualTourViewer(
     markers,
     markerSignatures: new Map(),
     isEditing: false,
+    performanceMode: resolvedPerformanceMode,
     cleanup: () => { for (const fn of cleanupFns) fn() },
   }
 }
