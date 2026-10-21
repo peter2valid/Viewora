@@ -31,6 +31,13 @@
       >Floor Plan</button>
       <button
         role="tab"
+        :aria-selected="mode === 'organize'"
+        class="mode-switch__btn"
+        :class="{ 'mode-switch__btn--active': mode === 'organize' }"
+        @click="setMode('organize')"
+      >Organize</button>
+      <button
+        role="tab"
         :aria-selected="mode === 'details'"
         class="mode-switch__btn"
         :class="{ 'mode-switch__btn--active': mode === 'details' }"
@@ -59,6 +66,9 @@
       <FloorPlanPanel v-if="mode === 'floorplan'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
+      <OrganizePanel v-if="mode === 'organize'" :space-id="spaceId" @categories-changed="onCategoriesChanged" />
+    </KeepAlive>
+    <KeepAlive>
       <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" @published="editorShellRef?.fetchSpace(true)" />
     </KeepAlive>
 
@@ -74,6 +84,7 @@ import PhotosPanel from '~/features/editor/PhotosPanel.vue'
 import DetailsPanel from '~/features/editor/DetailsPanel.vue'
 import AerialPanel from '~/features/editor/AerialPanel.vue'
 import FloorPlanPanel from '~/features/editor/FloorPlanPanel.vue'
+import OrganizePanel from '~/features/editor/OrganizePanel.vue'
 
 definePageMeta({ layout: 'editor', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
@@ -82,9 +93,9 @@ const route = useRoute()
 const router = useRouter()
 const spaceId = route.params.id as string
 
-type Mode = 'tour' | 'photos' | 'aerial' | 'floorplan' | 'details'
+type Mode = 'tour' | 'photos' | 'aerial' | 'floorplan' | 'organize' | 'details'
 function tabToMode(t: unknown): Mode {
-  return t === 'photos' || t === 'aerial' || t === 'floorplan' || t === 'details' ? t : 'tour'
+  return t === 'photos' || t === 'aerial' || t === 'floorplan' || t === 'organize' || t === 'details' ? t : 'tour'
 }
 const mode = ref<Mode>(tabToMode(route.query.tab))
 
@@ -98,6 +109,16 @@ function setMode(next: Mode) {
   mode.value = next
   router.replace({ query: { ...route.query, tab: next } })
   if (leavingDetails) editorShellRef.value?.fetchSpace(true)
+}
+
+// The 360° Tour tab stays mounted with its own copy of the scenes (dock
+// folders, the rename popover's category) — bring it in line after a bulk
+// category change instead of refetching everything.
+function onCategoriesChanged({ sceneIds, groupName }: { sceneIds: string[]; groupName: string | null }) {
+  const shell = editorShellRef.value as any
+  if (!shell || !Array.isArray(shell.scenes)) return
+  const hit = new Set(sceneIds)
+  shell.scenes = shell.scenes.map((s: any) => (hit.has(s?.id) ? { ...s, group_name: groupName } : s))
 }
 
 // Lets a child panel's own "Next"/"Skip" links (plain NuxtLinks to
@@ -134,7 +155,7 @@ watch(() => route.query.tab, (t) => {
   .mode-switch { top: 58px; max-width: calc(100vw - 24px); }
   .mode-switch__btn { padding: 0 10px; font-size: 11px; }
 }
-/* Five tabs on the smallest phones: tighten, and scroll rather than clip. */
+/* Six tabs on the smallest phones: tighten, and scroll rather than clip. */
 @media (max-width: 360px) {
   .mode-switch { overflow-x: auto; scrollbar-width: none; }
   .mode-switch__btn { padding: 0 8px; }
