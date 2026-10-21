@@ -658,7 +658,11 @@ const vtError = ref('')
 const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
-const dockCollapsed = ref(true)
+// The dock starts open so visitors see every scene straight away. With
+// hideOwnChrome the host page has its own dock and this one never renders,
+// so keep it collapsed there — otherwise hide-nav-arrows would hide the
+// walk-through arrows for good.
+const dockCollapsed = ref(!!props.hideOwnChrome)
 
 // One-time nudge: the first time compact mode kicks in for this mounted
 // instance, expand the dock so there's an obvious way to change scenes now
