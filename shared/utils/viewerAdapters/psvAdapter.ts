@@ -83,6 +83,7 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
 // 8 concurrent tile fetches — matches PSV v5.13.2 maintainer default (#1605)
 // Original value was 4; raised after confirming safety for 32 × 4096×2048 medium tiles
 let _tileThrottleInstalled = false
+const CDN_IMAGE_OPS = /\/cdn-cgi\/image\/[^/]+\//
 
 function installTileFetchThrottle(): void {
   if (_tileThrottleInstalled || typeof window === 'undefined') return
@@ -98,6 +99,15 @@ function installTileFetchThrottle(): void {
   }
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url
+    if (CDN_IMAGE_OPS.test(url)) {
+      // Resized scene preview (providers/mediaCdn.ts). onerror=redirect already
+      // falls back server-side; if the transform still errors, load the original
+      // so the scene opens instead of staying black.
+      const original = url.replace(CDN_IMAGE_OPS, '/')
+      return orig(input, init)
+        .then(r => (r.ok ? r : orig(original, init)))
+        .catch(() => orig(original, init))
+    }
     if (!/\/tiles(?:_medium(?:_ktx2)?)?\/\d+_\d+\.(?:webp|ktx2)/.test(url)) return orig(input, init)
     return new Promise<Response>((resolve, reject) => {
       queue.push(() => orig(input, init)

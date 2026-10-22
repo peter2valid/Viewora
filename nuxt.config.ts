@@ -12,12 +12,18 @@ export default defineNuxtConfig({
   ],
 
   image: {
-    // 'none' = serve images straight from the media CDN, unresized. On Vercel the
-    // module otherwise auto-selects Vercel's image optimizer, whose Hobby quota ran
-    // out (402 OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED) — any image not already in
-    // its cache, e.g. every thumbnail moved by a re-tile, failed and the 360 viewer
-    // couldn't load its preview. Set NUXT_IMAGE_PROVIDER=vercel to switch back.
-    provider: process.env.NUXT_IMAGE_PROVIDER || 'none',
+    // Resize through Cloudflare Images transformations on the media zone (free
+    // allowance, see providers/mediaCdn.ts). Vercel's optimizer is not used: its
+    // Hobby quota ran out (402 OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED) and every
+    // uncached image — e.g. each thumbnail moved by a re-tile — failed, leaving
+    // the 360 viewer black. NUXT_IMAGE_PROVIDER=none serves originals unresized.
+    provider: process.env.NUXT_IMAGE_PROVIDER || 'mediaCdn',
+    providers: {
+      mediaCdn: {
+        provider: '~/providers/mediaCdn.ts',
+        options: { baseURL: 'https://media.viewora.software' },
+      },
+    },
     // Allow Nuxt IPX to fetch and resize images from Cloudflare R2.
     // The public bucket domain is either the custom MEDIA_DOMAIN or the default
     // r2.dev subdomain. Wildcard subdomains are matched by the *.r2.dev entry.
