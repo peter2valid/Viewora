@@ -1496,10 +1496,11 @@ async function initVT() {
     if (floorCursorRequested()) {
       try {
         const allHS = buildAllHotspots()
+        const sceneName = (id: string) => mappedScenes.find(s => s.id === id)?.title || 'Next scene'
         floorCursorCtl = attachFloorCursor(handle, {
-          getLinks: () => (allHS[vtActiveNodeId.value] ?? [])
+          getLinks: (sceneId) => (allHS[sceneId] ?? [])
             .filter(h => h.type === 'scene_link' && h.targetSceneId)
-            .map(h => ({ targetSceneId: h.targetSceneId!, yaw: h.yaw })),
+            .map(h => ({ hotspotId: h.id, targetSceneId: h.targetSceneId!, name: sceneName(h.targetSceneId!), yaw: h.yaw, pitch: h.pitch })),
           isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value,
           onWalk: (targetSceneId, yaw) => walkThroughFloorCursor(handle, targetSceneId, yaw),
         })
@@ -2841,6 +2842,8 @@ watch(() => vtTransitioning.value, (loading) => {
   .vt-canvas :deep(.psv-container:active) { cursor: grabbing; }
   /* Floor cursor pointing at a scene link (prototype, floorCursor.ts) */
   .vt-canvas :deep(.psv-container.psv--floor-cursor:not(:active)) { cursor: pointer; }
+  /* Floor discs replace the plugin's own arrows */
+  .vt-canvas :deep(.psv--floor-nav .psv-virtual-tour-arrow) { display: none !important; }
 }
 
 /* ── Overlays ───────────────────────────────────────────── */
