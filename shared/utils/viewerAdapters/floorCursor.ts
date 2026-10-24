@@ -2,11 +2,12 @@
 // (prototype, behind the ?floorcursor=1 flag).
 //
 //   - Every navigation hotspot (scene link) is drawn as a disc lying flat on
-//     the floor; its usual DOM chevron is hidden. Phones keep the chevrons.
+//     the floor, with an upright location pin standing on it so it can be
+//     spotted from afar; its usual DOM chevron is hidden. Phones keep the chevrons.
 //   - A cursor disc lies on the floor under the mouse. It picks the hotspot
 //     nearest to that floor spot, turns its arrow toward it, outlines it and
-//     shows its room name; a click walks there. With nothing close it's a
-//     plain ring and a click does nothing.
+//     shows its room name; a click walks there. With no hotspot in that
+//     direction it's a plain ring and a click does nothing.
 //
 // There's no depth data, so the floor is assumed flat with the camera one
 // unit above it: a point at pitch p (below the horizon) is 1/tan(−p) away.
@@ -30,6 +31,7 @@ const ARROW_ID = FLOOR_CURSOR_PREFIX + 'arrow'
 const RING_ID = FLOOR_CURSOR_PREFIX + 'ring'
 const HIGHLIGHT_ID = FLOOR_CURSOR_PREFIX + 'highlight'
 const SPOT_PREFIX = FLOOR_CURSOR_PREFIX + 'spot:'
+const PIN_PREFIX = FLOOR_CURSOR_PREFIX + 'pin:'
 const IMG = '/images/floor-cursor/'
 
 /** Cursor size (MarkersPlugin units, 100 ≈ 5.7°) when looking straight down. */
@@ -46,6 +48,15 @@ const SPOT_MAX_PITCH = -0.14
 const LINK_RANGE = (75 * Math.PI) / 180
 /** Pointing within this yaw of a hotspot picks it however far away it is (25°). */
 const AIM_RANGE = (25 * Math.PI) / 180
+/** With nothing aimed at or close by, the nearest hotspot within this yaw (90°). */
+const FALLBACK_RANGE = Math.PI / 2
+
+/** Pin standing on each hotspot disc: a screen-sized DOM marker, so it stays readable far away. */
+const PIN_WIDTH = 30
+const PIN_HEIGHT = 40
+const PIN_HTML = `<svg width="${PIN_WIDTH}" height="${PIN_HEIGHT}" viewBox="0 0 30 40" aria-hidden="true" style="display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">`
+  + '<path d="M15 39C15 39 2 23.6 2 14.5a13 13 0 0 1 26 0C28 23.6 15 39 15 39Z" fill="#e53935" stroke="#fff" stroke-width="2"/>'
+  + '<circle cx="15" cy="14.5" r="5.5" fill="#fff"/></svg>'
 
 export interface FloorCursorLink {
   hotspotId: string
@@ -102,6 +113,8 @@ export function attachFloorCursor(
   let links: FloorCursorLink[] = []
   let mouse: { x: number; y: number } | null = null
   let target: FloorCursorLink | null = null
+  /** Hotspot whose pin is under the mouse. */
+  let pinned: FloorCursorLink | null = null
   let shown: string | null = null
   let frame = 0
 
@@ -147,6 +160,7 @@ export function attachFloorCursor(
   function syncScene(sceneId: string | null | undefined) {
     links = sceneId ? opts.getLinks(sceneId) : []
     target = null
+    pinned = null
     shown = null
     for (const link of links) {
       // The chevron (MarkersPlugin marker with the hotspot's id) stays for phones.
@@ -162,6 +176,21 @@ export function attachFloorCursor(
         visible: true,
         data: { type: 'floor-cursor', targetSceneId: link.targetSceneId },
       })
+      const pinId = PIN_PREFIX + link.hotspotId
+      if (hasMarker(pinId)) markers.updateMarker({ id: pinId, position: { yaw: link.yaw, pitch } })
+      else {
+        markers.addMarker({
+          id: pinId,
+          html: PIN_HTML,
+          position: { yaw: link.yaw, pitch },
+          size: { width: PIN_WIDTH, height: PIN_HEIGHT },
+          anchor: 'bottom center',
+          hoverScale: { amount: 1.2, duration: 150 },
+          style: { cursor: 'pointer' },
+          zIndex: 5,
+          data: { type: 'floor-cursor', targetSceneId: link.targetSceneId },
+        })
+      }
     }
     ensureCursorMarkers()
     schedule()
@@ -176,30 +205,36 @@ export function attachFloorCursor(
     target = null
     label.style.display = 'none'
     container!.classList.remove('psv--floor-cursor')
+    hideMarker(HIGHLIGHT_ID)
     if (!shown) return
     hideMarker(shown)
-    hideMarker(HIGHLIGHT_ID)
     shown = null
   }
 
   /**
    * The hotspot the mouse means: among those within LINK_RANGE of its
    * direction, the nearest on the floor. It counts if the mouse aims right at
-   * it (within AIM_RANGE) or the floor spot is reasonably close to it.
+   * it (within AIM_RANGE) or the floor spot is reasonably close to it. With
+   * none of those, the nearest within FALLBACK_RANGE, so the arrow still
+   * points somewhere on any floor spot facing a hotspot.
    */
   function pick(yaw: number, pitch: number): { link: FloorCursorLink; roll: number } | null {
     const m = floorPoint(yaw, pitch)
-    let best: { link: FloorCursorLink; dist: number; dx: number; dz: number } | null = null
+    type Hit = { link: FloorCursorLink; dist: number; dx: number; dz: number }
+    let best: Hit | null = null
+    let fallback: Hit | null = null
     for (const link of links) {
       const turn = Math.abs(yawDiff(link.yaw, yaw))
-      if (turn > LINK_RANGE) continue
+      if (turn > FALLBACK_RANGE) continue
       const s = floorPoint(link.yaw, spotPitch(link))
       const dx = s.x - m.x
       const dz = s.z - m.z
       const dist = Math.hypot(dx, dz)
-      if (turn > AIM_RANGE && dist > Math.max(1.5, 0.75 * m.d)) continue
+      if (!fallback || dist < fallback.dist) fallback = { link, dist, dx, dz }
+      if (turn > LINK_RANGE || (turn > AIM_RANGE && dist > Math.max(1.5, 0.75 * m.d))) continue
       if (!best || dist < best.dist) best = { link, dist, dx, dz }
     }
+    best ??= fallback
     if (!best) return null
     // Arrow: from the mouse's floor spot toward the hotspot, relative to
     // "straight ahead" at that spot. On top of the disc, just point at it.
@@ -207,8 +242,34 @@ export function attachFloorCursor(
     return { link: best.link, roll: yawDiff(heading, yaw) }
   }
 
+  /** Over a pin: no floor cursor, just the outline and room name. */
+  function showPinned(link: FloorCursorLink, at: { x: number; y: number }) {
+    if (shown) hideMarker(shown)
+    shown = null
+    target = null
+    highlight(link, at)
+    container!.classList.remove('psv--floor-cursor')
+  }
+
+  function highlight(link: FloorCursorLink, at: { x: number; y: number }) {
+    const pitch = spotPitch(link)
+    const s = sizeAt(SPOT_SIZE, pitch) * 1.15
+    ensureCursorMarkers()
+    markers.updateMarker({
+      id: HIGHLIGHT_ID,
+      position: { yaw: link.yaw, pitch },
+      size: { width: s, height: s },
+      visible: true,
+    })
+    label.textContent = link.name
+    label.style.left = `${at.x + 18}px`
+    label.style.top = `${at.y + 18}px`
+    label.style.display = 'block'
+  }
+
   function update() {
     frame = 0
+    if (pinned && pinMouse && !opts.isBlocked()) { showPinned(pinned, pinMouse); return }
     if (!mouse || opts.isBlocked()) { hide(); return }
     const pos = viewer.dataHelper.viewerCoordsToSphericalCoords(mouse)
     if (!pos || !(pos.pitch < MAX_PITCH)) { hide(); return }
@@ -228,20 +289,8 @@ export function attachFloorCursor(
     shown = id
     target = picked?.link ?? null
 
-    if (picked) {
-      const pitch = spotPitch(picked.link)
-      const s = sizeAt(SPOT_SIZE, pitch) * 1.15
-      markers.updateMarker({
-        id: HIGHLIGHT_ID,
-        position: { yaw: picked.link.yaw, pitch },
-        size: { width: s, height: s },
-        visible: true,
-      })
-      label.textContent = picked.link.name
-      label.style.left = `${mouse.x + 18}px`
-      label.style.top = `${mouse.y + 18}px`
-      label.style.display = 'block'
-    } else {
+    if (picked) highlight(picked.link, mouse)
+    else {
       hideMarker(HIGHLIGHT_ID)
       label.style.display = 'none'
     }
@@ -258,25 +307,35 @@ export function attachFloorCursor(
     try { fn() } catch (err) { console.warn('[Viewora] Floor navigation update failed', err) }
   }
 
+  /** Last mouse position anywhere in the viewer (places the room name over a pin). */
+  let pinMouse: { x: number; y: number } | null = null
   // Only over the panorama itself — not over hotspots, the minimap or buttons.
   const onMouseMove = (e: MouseEvent) => {
-    const overCanvas = (e.target as Element | null)?.closest?.('.psv-canvas-container')
-    if (!overCanvas || e.buttons !== 0) { mouse = null; schedule(); return }
     const rect = container.getBoundingClientRect()
-    mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    const at = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    pinMouse = at
+    const overCanvas = (e.target as Element | null)?.closest?.('.psv-canvas-container')
+    mouse = overCanvas && e.buttons === 0 ? at : null
     schedule()
   }
-  const onMouseLeave = () => { mouse = null; schedule() }
+  const onMouseLeave = () => { mouse = null; pinMouse = null; pinned = null; schedule() }
+  const pinLink = (e: any) => {
+    const id = String(e?.marker?.id ?? '')
+    return id.startsWith(PIN_PREFIX) ? links.find(l => PIN_PREFIX + l.hotspotId === id) ?? null : null
+  }
+  const onEnterMarker = (e: any) => { const link = pinLink(e); if (link) { pinned = link; schedule() } }
+  const onLeaveMarker = (e: any) => { if (pinLink(e)) { pinned = null; schedule() } }
   // The camera turning (drag, autorotate, keys) moves the floor under a still mouse.
   const onViewMoved = () => { if (mouse) schedule() }
   const onSelect = (e: any) => {
     const id = String(e?.marker?.id ?? '')
     if (!id.startsWith(FLOOR_CURSOR_PREFIX)) return
-    // A hotspot disc clicked directly, or the cursor while it points at one.
-    const link = id.startsWith(SPOT_PREFIX)
-      ? links.find(l => SPOT_PREFIX + l.hotspotId === id) ?? null
+    // A hotspot disc or pin clicked directly, or the cursor while it points at one.
+    const link = id.startsWith(SPOT_PREFIX) || id.startsWith(PIN_PREFIX)
+      ? links.find(l => SPOT_PREFIX + l.hotspotId === id || PIN_PREFIX + l.hotspotId === id) ?? null
       : (id === ARROW_ID ? target : null)
     if (!link) return
+    pinned = null
     hide()
     opts.onWalk(link.targetSceneId, link.yaw)
   }
@@ -303,6 +362,8 @@ export function attachFloorCursor(
   viewer.addEventListener('position-updated', onViewMoved)
   viewer.addEventListener('zoom-updated', onViewMoved)
   markers.addEventListener('select-marker', onSelect)
+  markers.addEventListener('enter-marker', onEnterMarker)
+  markers.addEventListener('leave-marker', onLeaveMarker)
   vt.addEventListener('node-changed', onNodeChanged)
   container.classList.add('psv--floor-nav')
 
@@ -315,12 +376,15 @@ export function attachFloorCursor(
       viewer.removeEventListener('position-updated', onViewMoved)
       viewer.removeEventListener('zoom-updated', onViewMoved)
       markers.removeEventListener('select-marker', onSelect)
+      markers.removeEventListener('enter-marker', onEnterMarker)
+      markers.removeEventListener('leave-marker', onLeaveMarker)
       vt.removeEventListener('node-changed', onNodeChanged)
       container.classList.remove('psv--floor-cursor', 'psv--floor-nav')
       label.remove()
       safely(() => {
         for (const link of links) {
           if (hasMarker(SPOT_PREFIX + link.hotspotId)) markers.removeMarker(SPOT_PREFIX + link.hotspotId, false)
+          if (hasMarker(PIN_PREFIX + link.hotspotId)) markers.removeMarker(PIN_PREFIX + link.hotspotId, false)
           if (hasMarker(link.hotspotId)) markers.updateMarker({ id: link.hotspotId, visible: true }, false)
         }
         for (const id of [ARROW_ID, RING_ID, HIGHLIGHT_ID]) {
