@@ -573,6 +573,7 @@ import {
   floorMapPluginConfig,
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
+import { attachFloorCursor, supportsFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
 import { buildDockFloors, dockFloorOf, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import {
@@ -675,6 +676,18 @@ const floorMapCtl = shallowRef<FloorPlanMapController | null>(null)
 function destroyFloorMap() {
   floorMapCtl.value?.destroy()
   floorMapCtl.value = null
+}
+
+// ── Floor cursor (prototype: Street View-style disc on the floor) ─────────
+// Off unless the link has ?floorcursor=1; mouse devices only.
+let floorCursorCtl: FloorCursorController | null = null
+function floorCursorRequested(): boolean {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('floorcursor') === '1' && supportsFloorCursor()
+}
+function destroyFloorCursor() {
+  floorCursorCtl?.destroy()
+  floorCursorCtl = null
 }
 const vtError = ref('')
 const vtFocusing = ref(false)
@@ -1304,6 +1317,7 @@ async function initVT() {
     gyroscopeActive.value = false
     stereoActive.value = false
     destroyFloorMap()
+    destroyFloorCursor()
     destroy(vtHandle.value)
     vtHandle.value = null
   }
@@ -1479,6 +1493,21 @@ async function initVT() {
         floorMapCtl.value = null
       }
     }
+    if (floorCursorRequested()) {
+      try {
+        const allHS = buildAllHotspots()
+        floorCursorCtl = attachFloorCursor(handle, {
+          getLinks: () => (allHS[vtActiveNodeId.value] ?? [])
+            .filter(h => h.type === 'scene_link' && h.targetSceneId)
+            .map(h => ({ targetSceneId: h.targetSceneId!, yaw: h.yaw })),
+          isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value,
+          onWalk: (targetSceneId, yaw) => walkThroughFloorCursor(handle, targetSceneId, yaw),
+        })
+      } catch (err) {
+        console.warn('[Viewora] Floor cursor failed to start', err)
+        floorCursorCtl = null
+      }
+    }
     // Buttons follow the real state, however motion/VR turned on or off.
     _removeMotionSync()
     _removeMotionSync = onMotionStateChange(handle, (st) => {
@@ -1616,6 +1645,25 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
   }
 
   emit('hotspot-click', markerId)
+}
+
+// Same walk as clicking the floor arrow of that link.
+async function walkThroughFloorCursor(handle: PsvViewerHandle, targetSceneId: string, yaw: number) {
+  if (vtTransitioning.value || vtActiveNodeId.value === targetSceneId) return
+  vtTransitioning.value = true
+  pendingEntry = null
+  walkedInto = targetSceneId
+  try {
+    const success = await vtWalkToNode(handle, targetSceneId, {
+      towardYaw: yaw,
+      arrive: arrivalView(targetSceneId, vtActiveNodeId.value),
+      previewUrl: previewFor(targetSceneId),
+    })
+    if (!success) { vtTransitioning.value = false; walkedInto = null }
+  } catch {
+    vtTransitioning.value = false
+    walkedInto = null
+  }
 }
 
 // ── GlassDock navigation ───────────────────────────────────────────────────
@@ -1814,6 +1862,7 @@ onUnmounted(() => {
   _removeMotionSync()
   stopVrLoop()
   destroyFloorMap()
+  destroyFloorCursor()
   if (vtHandle.value) { destroy(vtHandle.value); vtHandle.value = null }
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   if (progressTimer) clearInterval(progressTimer)
@@ -2790,6 +2839,8 @@ watch(() => vtTransitioning.value, (loading) => {
 @media (pointer: fine) {
   .vt-canvas :deep(.psv-container) { cursor: grab; }
   .vt-canvas :deep(.psv-container:active) { cursor: grabbing; }
+  /* Floor cursor pointing at a scene link (prototype, floorCursor.ts) */
+  .vt-canvas :deep(.psv-container.psv--floor-cursor:not(:active)) { cursor: pointer; }
 }
 
 /* ── Overlays ───────────────────────────────────────────── */

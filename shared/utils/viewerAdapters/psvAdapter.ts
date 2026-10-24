@@ -30,6 +30,7 @@ import {
   PLOT_POLY_SUFFIX,
 } from './landMarkers'
 import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
+import { FLOOR_CURSOR_PREFIX } from './floorCursor'
 
 /** Master Handle: Unified state for a single viewer instance */
 export interface PsvViewerHandle {
@@ -1708,6 +1709,8 @@ export async function initVirtualTourViewer(
   viewer.addEventListener('ready', () => setTimeout(attachArrowPrefetch, 300), { once: true })
 
   const handleMarkerSelect = (e: any) => {
+    // The floor cursor handles its own clicks (floorCursor.ts).
+    if (String(e.marker?.id ?? '').startsWith(FLOOR_CURSOR_PREFIX)) return
     // Read type from data attribute (plain-DOM builders) or fallback to marker.data
     const el: HTMLElement | null = e.marker?.element?.querySelector?.('[data-vhs-type]') || null
     const type = el?.getAttribute('data-vhs-type') || e.marker?.config?.data?.type || 'info'
