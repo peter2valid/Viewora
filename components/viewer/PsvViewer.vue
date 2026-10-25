@@ -363,6 +363,9 @@
               <p class="share-modal__eyebrow">Link to share</p>
               <div class="share-modal__link-row">
                 <span class="share-modal__link share-modal__link--scroll">{{ publicUrl }}</span>
+                <a :href="publicUrl" target="_blank" rel="noopener" class="share-modal__open" title="Open in a new tab" aria-label="Open link in a new tab">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
+                </a>
                 <button class="share-modal__copy" @click="copyPublicUrl">
                   <template v-if="urlCopied">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -2572,6 +2575,8 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 
 .share-modal__copy:hover { background: #eef3fd; border-color: #c6dafc; }
+.share-modal__open { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #dadce0; background: #f8f9fa; color: #1a73e8; flex-shrink: 0; text-decoration: none; transition: background 120ms, border-color 120ms, transform 120ms; }
+.share-modal__open:hover { background: #eef3fd; border-color: #c6dafc; transform: translateY(-1px); }
 
 .share-modal__share-row {
   display: flex;

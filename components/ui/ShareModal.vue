@@ -26,6 +26,9 @@
               <p class="share-modal__eyebrow">Link to share</p>
               <div class="share-modal__link-row">
                 <span class="share-modal__link">{{ publicUrl }}</span>
+                <a :href="publicUrl" target="_blank" rel="noopener" class="share-modal__open" title="Open in a new tab" aria-label="Open link in a new tab">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
+                </a>
                 <button class="share-modal__copy" @click="copyShareUrl">
                   <template v-if="urlCopied"><UiIcon name="check" :size="14" :stroke-width="2.8" /> Copied</template>
                   <template v-else>Copy link</template>
@@ -200,6 +203,8 @@ function downloadQrCode() {
 .share-modal__link--code { white-space: nowrap; word-break: normal; }
 .share-modal__copy { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #dadce0; background: #f8f9fa; color: #1a73e8; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 120ms, border-color 120ms; flex-shrink: 0; }
 .share-modal__copy:hover { background: #eef3fd; border-color: #c6dafc; }
+.share-modal__open { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #dadce0; background: #f8f9fa; color: #1a73e8; flex-shrink: 0; text-decoration: none; transition: background 120ms, border-color 120ms, transform 120ms; }
+.share-modal__open:hover { background: #eef3fd; border-color: #c6dafc; transform: translateY(-1px); }
 .share-modal__share-row { display: flex; flex-wrap: wrap; gap: 14px; padding-top: 6px; }
 .share-modal__share-item { width: 76px; display: flex; flex-direction: column; align-items: center; gap: 8px; border: none; background: transparent; color: #3c4043; text-decoration: none; cursor: pointer; }
 .share-modal__share-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
