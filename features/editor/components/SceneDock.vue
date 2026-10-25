@@ -13,6 +13,7 @@
     :max-scale="1.62"
     :sigma-px="92"
     :lift-px="14"
+    branches
     @select="onSelect"
     @add="$emit('add-scene')"
     @reorder="$emit('reorder-scenes', $event)"
@@ -25,7 +26,7 @@ import { computed, onMounted, ref } from 'vue'
 import GlassDock from '~/components/ui/GlassDock.vue'
 
 const props = withDefaults(defineProps<{
-  scenes: { id: string; label: string; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | 'warn' | null; warnReason?: string | null }[]
+  scenes: { id: string; label: string; name?: string; group?: string | null; ready: boolean; imageUrl: string | null; badge?: 'loading' | 'failed' | 'warn' | null; warnReason?: string | null }[]
   activeSceneId: string
   addScenePending: boolean
   showAdd?: boolean
@@ -53,7 +54,9 @@ onMounted(() => { visible.value = true })
 const dockItems = computed(() =>
   (props.scenes ?? []).map((s) => ({
     id: s.id,
-    label: s.label,
+    // The category is the branch above the card, so the card shows the bare name.
+    label: s.name ?? s.label,
+    group: s.group ?? null,
     imageUrl: s.imageUrl,
     // A ready scene can still carry a 'warn' badge (unreachable / dead-end) —
     // only fall back to the 'loading' spinner when there's no explicit badge.

@@ -60,8 +60,24 @@
             <slot name="header" />
           </div>
           <div v-if="items.length" ref="stripEl" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
+            <!-- One section per category when `branches` is on: the category
+                 name is the branch, a line runs over its scenes, and a stem
+                 drops to each card. The name sticks to the strip's left edge
+                 while that category scrolls past. Otherwise one bare section. -->
+            <div
+              v-for="sec in sections"
+              :key="sec.key"
+              class="glass-dock__section"
+              :class="{ 'glass-dock__section--branch': sec.label !== null }"
+            >
+            <div v-if="sec.label !== null" class="glass-dock__branch">
+              <span class="glass-dock__branchLabel" :title="sec.label">
+                <span class="glass-dock__branchName">{{ sec.label }}</span><span class="glass-dock__branchCount">{{ sec.items.length }}</span>
+              </span>
+            </div>
+            <div class="glass-dock__sectionItems" data-dock-section>
             <button
-              v-for="item in items"
+              v-for="item in sec.items"
               :key="item.id"
               class="glass-dock__item"
               :data-dock-id="item.id"
@@ -134,6 +150,8 @@
                 aria-hidden="true"
               />
             </button>
+            </div>
+            </div>
             <button
               v-if="showAdd"
               class="glass-dock__item glass-dock__item--add"
@@ -229,6 +247,8 @@ type DockItem = {
   /** 'group' = a category folder (shows a shot count); 'back' = leave the folder. */
   kind?: 'group' | 'back'
   count?: number
+  /** Category name; with `branches`, the dock groups cards under it. */
+  group?: string | null
 }
 
 const props = withDefaults(defineProps<{
@@ -249,6 +269,8 @@ const props = withDefaults(defineProps<{
   showControls?: boolean
   /** Shown next to the chevron while collapsed (e.g. the current floor). */
   collapsedLabel?: string
+  /** Group cards under their category name (the editor dock). */
+  branches?: boolean
 }>(), {
   activeId: '',
   showAdd: false,
@@ -265,6 +287,7 @@ const props = withDefaults(defineProps<{
   collapsed: undefined,
   showControls: true,
   collapsedLabel: '',
+  branches: false,
 })
 
 const emit = defineEmits<{
@@ -299,7 +322,7 @@ onMounted(() => {
 
 const dockEl = ref<HTMLElement | null>(null)
 const stripEl = ref<HTMLElement | null>(null)
-let sortableInstance: Sortable | null = null
+let sortableInstances: Sortable[] = []
 const loadedThumbUrls = reactive(new Set<string>())
 const failedThumbUrls = reactive(new Set<string>())
 
@@ -328,24 +351,51 @@ watch(() => props.activeId, (newId) => {
   })
 }, { immediate: true })
 
+type DockSection = { key: string; label: string | null; items: DockItem[] }
+
+// Categories in order of their first scene; each keeps its scenes in tour
+// order. Scenes without a category get their own "No category" branch, but
+// only when some other scene has one — otherwise the strip stays flat.
+const sections = computed<DockSection[]>(() => {
+  if (!props.branches || !props.items.some(i => i.group)) {
+    return [{ key: '__all', label: null, items: props.items }]
+  }
+  const byKey = new Map<string, DockSection>()
+  for (const item of props.items) {
+    const key = item.group || '__none'
+    let sec = byKey.get(key)
+    if (!sec) {
+      sec = { key, label: item.group || 'No category', items: [] }
+      byKey.set(key, sec)
+    }
+    sec.items.push(item)
+  }
+  return [...byKey.values()]
+})
+
+/** Items in on-screen order, so prev/next walk the strip left to right. */
+const orderedItems = computed(() => sections.value.flatMap(s => s.items))
+
 const activeIndex = computed(() => {
   if (!props.activeId) return -1
-  return props.items.findIndex(item => item.id === props.activeId)
+  return orderedItems.value.findIndex(item => item.id === props.activeId)
 })
 
 function navigateLeft() {
-  if (props.items.length <= 1) return
-  const prevIndex = activeIndex.value > 0 ? activeIndex.value - 1 : props.items.length - 1
-  const prevItem = props.items[prevIndex]
+  const items = orderedItems.value
+  if (items.length <= 1) return
+  const prevIndex = activeIndex.value > 0 ? activeIndex.value - 1 : items.length - 1
+  const prevItem = items[prevIndex]
   if (prevItem) {
     emit('select', prevItem.id)
   }
 }
 
 function navigateRight() {
-  if (props.items.length <= 1) return
-  const nextIndex = activeIndex.value < props.items.length - 1 ? activeIndex.value + 1 : 0
-  const nextItem = props.items[nextIndex]
+  const items = orderedItems.value
+  if (items.length <= 1) return
+  const nextIndex = activeIndex.value < items.length - 1 ? activeIndex.value + 1 : 0
+  const nextItem = items[nextIndex]
   if (nextItem) {
     emit('select', nextItem.id)
   }
@@ -420,36 +470,43 @@ watch(stripEl, (el, oldEl) => {
   }
 }, { immediate: true })
 
-watch(stripEl, (el) => {
-  if (el && !sortableInstance && props.sortable) {
-    sortableInstance = Sortable.create(el, {
+// One Sortable per section: cards reorder within their category (dragging
+// one across would silently change its category). Rebuilt when the sections
+// themselves change; Sortable follows cards added/removed inside a section.
+function destroySortables() {
+  for (const s of sortableInstances) s.destroy()
+  sortableInstances = []
+}
+
+function initSortables() {
+  destroySortables()
+  const strip = stripEl.value
+  if (!strip || !props.sortable) return
+  strip.querySelectorAll<HTMLElement>('[data-dock-section]').forEach((el) => {
+    sortableInstances.push(Sortable.create(el, {
       animation: 150,
-      filter: '.glass-dock__item--add',
-      draggable: '.glass-dock__item:not(.glass-dock__item--add)',
+      draggable: '.glass-dock__item',
       onEnd: (evt) => {
         if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
-        
+
         // Using the actual DOM order ensures we don't desync if items are added/removed.
-        const currentDOMIds = Array.from(el.children)
+        const currentDOMIds = Array.from(strip.querySelectorAll('[data-dock-id]'))
           .map(node => node.getAttribute('data-dock-id'))
           .filter(Boolean) as string[]
-          
+
         if (currentDOMIds.length === props.items.length) {
           emit('reorder', currentDOMIds)
         }
       }
-    })
-  } else if (!el && sortableInstance) {
-    sortableInstance.destroy()
-    sortableInstance = null
-  }
-})
+    }))
+  })
+}
+
+const sectionKeys = computed(() => sections.value.map(s => s.key).join('|'))
+watch([stripEl, sectionKeys], () => nextTick(initSortables))
 
 onBeforeUnmount(() => {
-  if (sortableInstance) {
-    sortableInstance.destroy()
-    sortableInstance = null
-  }
+  destroySortables()
   if (stripEl.value) {
     stripEl.value.removeEventListener('touchstart', onStripTouchStart)
     stripEl.value.removeEventListener('touchmove', onStripTouchMove)
@@ -601,6 +658,101 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 .glass-dock__strip::-webkit-scrollbar { display: none; }
 
+/* ── Sections (category branches) ── */
+.glass-dock__section {
+  --item-w: 100px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.glass-dock__sectionItems {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex: 1;
+}
+.glass-dock__section--branch + .glass-dock__section--branch {
+  margin-left: 10px;
+}
+@media (min-width: 640px) {
+  .glass-dock__section { --item-w: 136px; }
+  .glass-dock__sectionItems { gap: 14px; }
+  .glass-dock__section--branch + .glass-dock__section--branch { margin-left: 16px; }
+}
+.glass-dock__branch {
+  display: flex;
+  padding-bottom: 6px;
+}
+.glass-dock__branchLabel {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(320px, 60vw);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(15, 18, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+/* Drop from the (sticky) name to the branch line, wherever it's scrolled. */
+.glass-dock__branchLabel::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 14px;
+  width: 1px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.28);
+}
+.glass-dock__branchName {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.glass-dock__branchCount {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+/* The branch: a line from under the name to the last card's centre... */
+.glass-dock__section--branch .glass-dock__sectionItems {
+  padding-top: 10px;
+}
+.glass-dock__section--branch .glass-dock__sectionItems::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: calc(var(--item-w) / 2);
+  height: 1px;
+  background: rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+/* ...and a stem down to each card. */
+.glass-dock__section--branch .glass-dock__item::before {
+  content: "";
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 1px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+.glass-dock__section--branch .glass-dock__item--active::before {
+  background: rgba(255, 255, 255, 0.7);
+}
+
 .glass-dock__item {
   --thumb-w: 80px;
   --thumb-h: 44px;
@@ -636,6 +788,8 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
     gap: 10px;
   }
 }
+
+.glass-dock__item--add { align-self: flex-end; }
 
 .glass-dock__item:hover {
   background: rgba(255,255,255,0.04);
@@ -742,13 +896,14 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   color: rgba(255,255,255,0.25);
 }
 
+/* Full scene name, wrapped onto as many lines as it needs. */
 .glass-dock__label {
   font-size: 11px;
   font-weight: 500;
+  line-height: 1.25;
   text-align: center;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
   width: 100%;
   letter-spacing: -0.01em;
 }
