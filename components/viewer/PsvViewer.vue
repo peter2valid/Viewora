@@ -106,6 +106,10 @@
         <div class="vt-intro__shade" />
 
         <div class="vt-intro__content">
+          <!-- The tour's own logo, on a light tile so dark and transparent logos read on the dark screen -->
+          <div v-if="introLogo" class="vt-intro__logo" :class="{ 'vt-intro__logo--shown': introLogoReady }">
+            <img :ref="onIntroLogoEl" :src="introLogo" :alt="introTitle" decoding="async" @load="introLogoReady = true" @error="introLogoFailed = true" />
+          </div>
           <span class="vt-intro__badge">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></svg>
             360° Virtual Tour
@@ -1118,6 +1122,13 @@ const introHi = computed(() => {
 })
 const introHiReady = ref(false)
 const introTitle = computed(() => (props.tour?.space?.title as string) || 'Virtual tour')
+const introLogoReady = ref(false)
+const introLogoFailed = ref(false)
+const introLogo = computed(() => (introLogoFailed.value ? '' : (props.tour?.space?.logo_url as string) || ''))
+// The intro is server-rendered, so a cached logo can finish before @load is bound.
+function onIntroLogoEl(el: any) {
+  if (el instanceof HTMLImageElement && el.complete && el.naturalWidth) introLogoReady.value = true
+}
 const introLocation = computed(() => (props.tour?.space?.location_text as string) || '')
 const introChips = computed(() => {
   const sp: any = props.tour?.space ?? {}
@@ -3334,6 +3345,20 @@ watch(() => vtTransitioning.value, (loading) => {
   color: #fff; animation: vt-intro-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes vt-intro-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.vt-intro__logo {
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px 18px; margin-bottom: 6px; border-radius: 18px;
+  background: rgba(255,255,255,0.94);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.4);
+  opacity: 0; transform: translateY(6px) scale(0.96);
+  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vt-intro__logo--shown { opacity: 1; transform: none; }
+.vt-intro__logo img { display: block; max-height: 64px; max-width: min(220px, 60vw); width: auto; height: auto; object-fit: contain; }
+@media (max-width: 640px) {
+  .vt-intro__logo { padding: 10px 14px; border-radius: 14px; }
+  .vt-intro__logo img { max-height: 48px; }
+}
 .vt-intro__badge {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
   background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
