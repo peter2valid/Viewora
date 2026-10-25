@@ -58,17 +58,13 @@ function fitZoom(floor: FloorMapFloor, sizePx: number): number {
 }
 
 /**
- * Zoom (percent) at which the whole of `floor`, turned by `rotationDeg`, fills
- * a `width` x `height` box with room left for the map's own buttons. Used for
- * the expanded map, which covers the whole viewer.
+ * Zoom (percent) at which the whole of `floor` fills a `width` x `height` box
+ * with room left for the map's own buttons. Used for the expanded map, which
+ * covers the whole viewer. (The map is static, so the plan is never drawn
+ * rotated.)
  */
-function fitBoxZoom(floor: FloorMapFloor, width: number, height: number, rotationDeg: number): number {
-  const a = (rotationDeg * Math.PI) / 180
-  const cos = Math.abs(Math.cos(a))
-  const sin = Math.abs(Math.sin(a))
-  const w = floor.width * cos + floor.height * sin
-  const h = floor.width * sin + floor.height * cos
-  return 100 * Math.min((width * 0.9) / w, (height * 0.82) / h)
+function fitBoxZoom(floor: FloorMapFloor, width: number, height: number): number {
+  return 100 * Math.min((width * 0.9) / floor.width, (height * 0.82) / floor.height)
 }
 
 /** MapPlugin options, verified against @photo-sphere-viewer/map-plugin 5.14.1. */
@@ -130,17 +126,18 @@ export function attachFloorPlanMap(
 
   let shownFloorId: string | null = null
   let currentSceneId: string | null = null
-  let rotationDeg = 0
   let maximized = false
 
   // The expanded map fills the viewer, so the minimap's zoom leaves the plan a
   // postage stamp in the middle: fit it to the screen instead, centred.
   function fitMaximized(floor: FloorMapFloor) {
-    const el: HTMLElement | undefined = map.component?.container ?? viewer.container
+    // Measure what the map grows into (100% of its parent), not the map: it
+    // animates open over 0.3s, so right now it is still minimap-sized.
+    const el: HTMLElement | undefined = map.component?.container?.parentElement ?? viewer.container
     const rect = el?.getBoundingClientRect?.()
     if (!rect?.width || !rect?.height) return
     map.setCenter({ x: floor.width / 2, y: floor.height / 2 })
-    map.setZoom(fitBoxZoom(floor, rect.width, rect.height, rotationDeg))
+    map.setZoom(fitBoxZoom(floor, rect.width, rect.height))
   }
 
   function fit(floor: FloorMapFloor) {
@@ -156,8 +153,7 @@ export function attachFloorPlanMap(
     const pin = floor.pins.find(p => p.sceneId === currentSceneId)
     const center = pin ? pinToPixels(pin, floor) : { x: floor.width / 2, y: floor.height / 2 }
     // Numbers are radians to PSV — pass degrees as a string.
-    rotationDeg = pin?.northOffset ?? 0
-    const rotation = `${rotationDeg}deg`
+    const rotation = `${pin?.northOffset ?? 0}deg`
     // Only draw "you are here" on the floor the viewer is actually on.
     map.setOptions({ pinSize: pin ? PIN_SIZE : 0, coneSize: pin ? CONE_SIZE : 0 })
     if (floor.id !== shownFloorId) {
