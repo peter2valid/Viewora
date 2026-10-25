@@ -136,7 +136,14 @@ export function attachFloorPlanMap(
     const el: HTMLElement | undefined = map.component?.container?.parentElement ?? viewer.container
     const rect = el?.getBoundingClientRect?.()
     if (!rect?.width || !rect?.height) return
-    map.setCenter({ x: floor.width / 2, y: floor.height / 2 })
+    // MapPlugin's `center` is where the panorama is (the blue pin), not where
+    // the map looks. Keep it on the pin and shift the view to the middle of
+    // the plan instead: centring on the middle, then moving the centre to the
+    // pin without resetting the view, leaves that difference as the offset.
+    const middle = { x: floor.width / 2, y: floor.height / 2 }
+    const pin = floor.pins.find(p => p.sceneId === currentSceneId)
+    map.setCenter(middle)
+    if (pin) map.setCenter(pinToPixels(pin, floor), false)
     map.setZoom(fitBoxZoom(floor, rect.width, rect.height))
   }
 
@@ -199,6 +206,26 @@ export function attachFloorPlanMap(
     }
   }
 
+  // MapPlugin 5.14.1 zooms by the wheel's sign, deltaY / |deltaY|. A trackpad
+  // sends wheel events with deltaY 0 (sideways swipes, the edges of a pinch),
+  // which makes that 0/0: the zoom becomes NaN and the map is lost ("NaN%").
+  // A pinch also arrives as ctrl+wheel, which the plugin turns into rotating
+  // the 360 rather than zooming the map. Take the wheel over: ignore deltaY 0,
+  // zoom a pinch by how far the fingers moved, and leave mouse wheels to the
+  // plugin. Guarded: no-op if the internals differ.
+  const component: any = map.component
+  const componentHandleEvent = component?.handleEvent
+  if (typeof componentHandleEvent === 'function' && typeof component.zoom === 'function') {
+    component.handleEvent = (e: any) => {
+      if (e?.type !== 'wheel') return componentHandleEvent.call(component, e)
+      e.preventDefault()
+      e.stopPropagation()
+      if (!Number.isFinite(e.deltaY) || e.deltaY === 0) return
+      if (e.ctrlKey) component.zoom(Math.max(-0.3, Math.min(0.3, -e.deltaY * 0.01)))
+      else componentHandleEvent.call(component, e)
+    }
+  }
+
   const onNodeChanged = (e: any) => onScene(e?.node?.id)
   const onSelectHotspot = (e: any) => {
     const id = String(e?.hotspotId ?? '')
@@ -238,6 +265,7 @@ export function attachFloorPlanMap(
     },
     destroy() {
       if (map.handleEvent !== pluginHandleEvent) map.handleEvent = pluginHandleEvent
+      if (component && component.handleEvent !== componentHandleEvent) component.handleEvent = componentHandleEvent
       vt.removeEventListener('node-changed', onNodeChanged)
       map.removeEventListener('select-hotspot', onSelectHotspot)
       map.removeEventListener('view-changed', onViewChanged)
