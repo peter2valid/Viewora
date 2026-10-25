@@ -480,6 +480,14 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.38s ease;
 }
 
+/* Open dock sits above the panorama's hotspot layer (.psv-markers, z-index 35
+   in PsvViewer.vue), so a hotspot low on the screen slides under the dock
+   instead of covering its cards. Below the VR layer (40). Collapsed, it's off
+   screen and keeps 30. */
+.glass-dock-container:not(.glass-dock-container--collapsed) {
+  z-index: 38;
+}
+
 .glass-dock-container--collapsed {
   transform: translate(-50%, calc(100% + 60px)) !important;
   opacity: 0 !important;

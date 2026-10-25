@@ -573,7 +573,8 @@ import {
   floorMapPluginConfig,
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
-import { attachFloorCursor, supportsFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
+import { attachFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
+import { FLOOR_PIN_ICON } from '~/shared/utils/hotspotIcons'
 import { buildDockFloors, dockFloorOf, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import {
@@ -678,13 +679,17 @@ function destroyFloorMap() {
   floorMapCtl.value = null
 }
 
-// ── Floor cursor (prototype: Street View-style disc on the floor) ─────────
-// Off unless the link has ?floorcursor=1. Phones and tablets get the floor
-// discs and pins without the mouse cursor.
+// ── Floor navigation (Street View-style discs on the floor) ──────────────
+// Every scene link is a floor disc with a pin, plus the mouse cursor on
+// laptops; phones and tablets get the discs and pins without it.
+// ?floorcursor=0 turns it off (old chevrons; "Floor Pin" hotspots keep theirs).
 let floorCursorCtl: FloorCursorController | null = null
-function floorCursorRequested(): boolean {
-  if (typeof window === 'undefined') return false
-  return new URLSearchParams(window.location.search).get('floorcursor') === '1'
+// How the visitor moved to the next scene, for scene_navigated (sent on
+// node change). Set when one of our walks starts, cleared if it fails.
+let navVia: string | null = null
+function floorNavEnabled(): boolean {
+  if (typeof window === 'undefined') return true
+  return new URLSearchParams(window.location.search).get('floorcursor') !== '0'
 }
 function destroyFloorCursor() {
   floorCursorCtl?.destroy()
@@ -1071,12 +1076,14 @@ async function openSceneFromMap(sceneId: string) {
   if (vtActiveNodeId.value === sceneId) { showAerial.value = false; return }
   if (vtTransitioning.value) return
   vtTransitioning.value = true
+  navVia = 'aerial-map'
   const lift = setTimeout(() => { showAerial.value = false }, 2500) // never stall on a slow link
   try {
     const ok = await vtGoToNode(vtHandle.value, sceneId)
-    if (!ok) vtTransitioning.value = false
+    if (!ok) { vtTransitioning.value = false; navVia = null }
   } catch {
     vtTransitioning.value = false
+    navVia = null
   } finally {
     clearTimeout(lift)
     showAerial.value = false
@@ -1392,8 +1399,10 @@ async function initVT() {
           $posthog?.capture('scene_navigated', {
             from_scene: vtActiveNodeId.value,
             to_scene: nodeId,
-            via: 'hotspot',
+            // Nothing of ours started it: the plugin's own ring arrow.
+            via: navVia ?? 'arrow',
           })
+          navVia = null
           vtActiveNodeId.value = nodeId
 
           // Deactivate all info markers
@@ -1494,17 +1503,19 @@ async function initVT() {
         floorMapCtl.value = null
       }
     }
-    if (floorCursorRequested()) {
+    const allHS = buildAllHotspots()
+    const floorNav = floorNavEnabled()
+    const isFloorLink = (h: Hotspot) => h.type === 'scene_link' && !!h.targetSceneId && (floorNav || h.icon === FLOOR_PIN_ICON)
+    if (Object.values(allHS).some(list => list.some(isFloorLink))) {
       try {
-        const allHS = buildAllHotspots()
         const sceneName = (id: string) => mappedScenes.find(s => s.id === id)?.title || 'Next scene'
         floorCursorCtl = attachFloorCursor(handle, {
           getLinks: (sceneId) => (allHS[sceneId] ?? [])
-            .filter(h => h.type === 'scene_link' && h.targetSceneId)
+            .filter(isFloorLink)
             .map(h => ({ hotspotId: h.id, targetSceneId: h.targetSceneId!, name: sceneName(h.targetSceneId!), yaw: h.yaw, pitch: h.pitch })),
           isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value,
-          onWalk: (targetSceneId, yaw) => walkThroughFloorCursor(handle, targetSceneId, yaw),
-          touch: !supportsFloorCursor(),
+          onWalk: (targetSceneId, yaw, via) => walkThroughFloorCursor(handle, targetSceneId, yaw, via),
+          cursor: floorNav,
         })
       } catch (err) {
         console.warn('[Viewora] Floor cursor failed to start', err)
@@ -1632,6 +1643,7 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
         // Walk through the door: step toward the clicked arrow, crossfade,
         // arrive facing into the next room.
         vtTransitioning.value = true
+        navVia = 'hotspot'
         pendingEntry = null
         walkedInto = targetSceneId
         const success = await vtWalkToNode(handle, targetSceneId, {
@@ -1639,7 +1651,7 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
           arrive: arrivalView(targetSceneId, vtActiveNodeId.value),
           previewUrl: previewFor(targetSceneId),
         })
-        if (!success) { vtTransitioning.value = false; walkedInto = null }
+        if (!success) { vtTransitioning.value = false; walkedInto = null; navVia = null }
       }
     } catch {
       vtTransitioning.value = false
@@ -1651,9 +1663,10 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
 }
 
 // Same walk as clicking the floor arrow of that link.
-async function walkThroughFloorCursor(handle: PsvViewerHandle, targetSceneId: string, yaw: number) {
+async function walkThroughFloorCursor(handle: PsvViewerHandle, targetSceneId: string, yaw: number, via: string) {
   if (vtTransitioning.value || vtActiveNodeId.value === targetSceneId) return
   vtTransitioning.value = true
+  navVia = via
   pendingEntry = null
   walkedInto = targetSceneId
   try {
@@ -1662,10 +1675,11 @@ async function walkThroughFloorCursor(handle: PsvViewerHandle, targetSceneId: st
       arrive: arrivalView(targetSceneId, vtActiveNodeId.value),
       previewUrl: previewFor(targetSceneId),
     })
-    if (!success) { vtTransitioning.value = false; walkedInto = null }
+    if (!success) { vtTransitioning.value = false; walkedInto = null; navVia = null }
   } catch {
     vtTransitioning.value = false
     walkedInto = null
+    navVia = null
   }
 }
 
@@ -1675,11 +1689,7 @@ async function handleDockSelect(sceneId: string, via: string = 'dock') {
   if (autoplaying.value) { autoplaying.value = false; if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null } }
   if (vtHandle.value && !vtTransitioning.value && vtActiveNodeId.value !== sceneId) {
     vtTransitioning.value = true
-    $posthog?.capture('scene_navigated', {
-      from_scene: vtActiveNodeId.value,
-      to_scene: sceneId,
-      via,
-    })
+    navVia = via
     try {
       // Scene strip / guided tour: walk straight ahead, arrive on the scene's start view.
       walkedInto = sceneId
@@ -1687,10 +1697,11 @@ async function handleDockSelect(sceneId: string, via: string = 'dock') {
         arrive: arrivalView(sceneId, null),
         previewUrl: previewFor(sceneId),
       })
-      if (!success) { vtTransitioning.value = false; walkedInto = null }
+      if (!success) { vtTransitioning.value = false; walkedInto = null; navVia = null }
     } catch {
       vtTransitioning.value = false
       walkedInto = null
+      navVia = null
     }
   }
 }
@@ -2094,11 +2105,12 @@ function scheduleNextAutoplayScene() {
     const next = tourScenes.value[idx + 1]
     if (!next) return
     vtTransitioning.value = true
+    navVia = 'autoplay'
     autoplayFromButton = false
     try {
       const ok = await vtGoToNode(vtHandle.value, next.id)
-      if (!ok) vtTransitioning.value = false
-    } catch { vtTransitioning.value = false }
+      if (!ok) { vtTransitioning.value = false; navVia = null }
+    } catch { vtTransitioning.value = false; navVia = null }
   }, 9000)
 }
 
@@ -2842,11 +2854,9 @@ watch(() => vtTransitioning.value, (loading) => {
 @media (pointer: fine) {
   .vt-canvas :deep(.psv-container) { cursor: grab; }
   .vt-canvas :deep(.psv-container:active) { cursor: grabbing; }
-  /* Floor cursor pointing at a scene link (prototype, floorCursor.ts) */
+  /* Floor cursor pointing at a scene link (floorCursor.ts) */
   .vt-canvas :deep(.psv-container.psv--floor-cursor:not(:active)) { cursor: pointer; }
 }
-/* Floor discs replace the plugin's own arrows (all devices) */
-.vt-canvas :deep(.psv--floor-nav .psv-virtual-tour-arrow) { display: none !important; }
 
 /* ── Overlays ───────────────────────────────────────────── */
 .vt-overlay {

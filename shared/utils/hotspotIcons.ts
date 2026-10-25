@@ -37,7 +37,11 @@ export const HOTSPOT_ICON_DEFS: HotspotIconDef[] = [
   { key: 'nav-up-white',       label: 'Arrow (Black)',   group: 'nav',    url: '/hotspot-icons/nav-floor-black.svg' },
   { key: 'nav-sphere',         label: 'Sphere',          group: 'nav',    url: '/hotspot-icons/nav-sphere.png' },
   { key: 'nav-portal',         label: 'Portal',          group: 'nav',    url: '/hotspot-icons/nav-portal.svg' },
+  { key: 'nav-floor-pin',      label: 'Floor Pin',       group: 'nav',    url: '/hotspot-icons/nav-floor-pin.svg' },
 ]
+
+/** Nav icon drawn in the public viewer as a disc on the floor with a location pin (floorCursor.ts). */
+export const FLOOR_PIN_ICON = 'nav-floor-pin'
 
 export const HOTSPOT_ICONS_BY_KEY: Record<string, string> = Object.fromEntries(
   HOTSPOT_ICON_DEFS.map((d) => [d.key, d.url])

@@ -1,11 +1,11 @@
-// Street View-style floor navigation for the public viewer
-// (prototype, behind the ?floorcursor=1 flag).
+// Street View-style floor navigation for the public viewer.
 //
 //   - Every navigation hotspot (scene link) is drawn as a disc lying flat on
 //     the floor, with an upright location pin standing on it so it can be
 //     spotted from afar; its usual DOM chevron is hidden. Tapping or clicking
-//     the disc or pin walks there. This part runs on phones and tablets too.
-//   - Mouse devices only: a cursor disc lies on the floor under the mouse. It picks the hotspot
+//     the disc or pin walks there. All devices. (With ?floorcursor=0 only
+//     hotspots with the "Floor Pin" icon, and no cursor; see PsvViewer.vue.)
+//   - On mouse devices a cursor disc lies on the floor under the mouse. It picks the hotspot
 //     nearest to that floor spot, turns its arrow toward it, outlines it and
 //     shows its room name; a click walks there. With no hotspot in that
 //     direction it's a plain ring and a click does nothing.
@@ -105,12 +105,14 @@ export function attachFloorCursor(
     getLinks: (sceneId: string) => FloorCursorLink[]
     /** True while the cursor must stay hidden (scene transition, VR…). */
     isBlocked: () => boolean
-    onWalk: (targetSceneId: string, yaw: number) => void
-    /** Discs and pins only, no cursor following the mouse (phones, tablets). */
-    touch?: boolean
+    /** `via`: 'floor-pin' (a disc or pin) or 'floor-cursor' (the cursor arrow). */
+    onWalk: (targetSceneId: string, yaw: number, via: 'floor-pin' | 'floor-cursor') => void
+    /** Cursor disc following the mouse (ignored on touch screens). */
+    cursor?: boolean
   },
 ): FloorCursorController | null {
-  const touch = !!opts.touch
+  const touch = !supportsFloorCursor()
+  const cursor = !!opts.cursor && !touch
   const viewer = handle.viewer
   const markers = handle.markers
   const vt: any = viewer?.getPlugin?.('virtual-tour')
@@ -204,7 +206,7 @@ export function attachFloorCursor(
         })
       }
     }
-    if (touch) return
+    if (!cursor) return
     ensureCursorMarkers()
     schedule()
   }
@@ -283,7 +285,7 @@ export function attachFloorCursor(
   function update() {
     frame = 0
     if (pinned && pinMouse && !opts.isBlocked()) { showPinned(pinned, pinMouse); return }
-    if (!mouse || opts.isBlocked()) { hide(); return }
+    if (!cursor || !mouse || opts.isBlocked()) { hide(); return }
     const pos = viewer.dataHelper.viewerCoordsToSphericalCoords(mouse)
     if (!pos || !(pos.pitch < MAX_PITCH)) { hide(); return }
 
@@ -350,7 +352,7 @@ export function attachFloorCursor(
     if (!link) return
     pinned = null
     hide()
-    opts.onWalk(link.targetSceneId, link.yaw)
+    opts.onWalk(link.targetSceneId, link.yaw, id === ARROW_ID ? 'floor-cursor' : 'floor-pin')
   }
   // PSV cancels every image download in flight when a panorama starts
   // loading, and the MarkersPlugin leaves that rejection unhandled. So the
@@ -381,7 +383,6 @@ export function attachFloorCursor(
   }
   markers.addEventListener('select-marker', onSelect)
   vt.addEventListener('node-changed', onNodeChanged)
-  container.classList.add('psv--floor-nav')
 
   return {
     destroy() {
@@ -395,7 +396,7 @@ export function attachFloorCursor(
       markers.removeEventListener('enter-marker', onEnterMarker)
       markers.removeEventListener('leave-marker', onLeaveMarker)
       vt.removeEventListener('node-changed', onNodeChanged)
-      container.classList.remove('psv--floor-cursor', 'psv--floor-nav')
+      container.classList.remove('psv--floor-cursor')
       label.remove()
       safely(() => {
         for (const link of links) {

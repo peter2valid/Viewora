@@ -29,7 +29,7 @@ import {
   toHotspotId,
   PLOT_POLY_SUFFIX,
 } from './landMarkers'
-import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
+import { FLOOR_PIN_ICON, HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
 import { FLOOR_CURSOR_PREFIX } from './floorCursor'
 
 /** Master Handle: Unified state for a single viewer instance */
@@ -1350,6 +1350,8 @@ function buildTourNodes(
           size: hMarkerSize,
           anchor: 'center center',
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
+          // Floor pins are drawn by floorCursor.ts instead of the chevron
+          ...(isNav && h.icon === FLOOR_PIN_ICON ? { visible: false } : {}),
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
         }
       })
