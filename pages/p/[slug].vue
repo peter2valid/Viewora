@@ -52,6 +52,7 @@
         :tour="tour"
         :share-url="shareUrl"
         @chrome-toggle="viewerChromeHidden = $event"
+        @loaded="viewerLoaded = true"
       />
 
       <!-- Free/Standard tier: Viewora branding -->
@@ -76,7 +77,7 @@
       </a>
 
       <!-- Premium tier: User's custom branding -->
-      <div v-else-if="!viewerChromeHidden" class="brand-card" aria-label="Tour branding">
+      <div v-else-if="!viewerChromeHidden" class="brand-card" :class="{ 'brand-card--intro': !viewerLoaded }" aria-label="Tour branding">
         <NuxtImg
           v-if="tour.space?.logo_url"
           :src="tour.space.logo_url"
@@ -148,6 +149,9 @@ const state = ref<'loading' | 'ready' | 'empty' | 'error'>('loading')
 const space = ref<any>(null)
 const tour = ref<any>(null)
 const viewerChromeHidden = ref(false)
+// The viewer's opening screen already shows the logo and name; on small
+// screens the brand card would sit on top of it, so it waits until load.
+const viewerLoaded = ref(false)
 
 const shareUrl = computed(() => {
   const identifier = space.value?.slug || space.value?.id || slug
@@ -815,6 +819,11 @@ useHead(computed(() => {
   gap: 8px;
   max-width: 200px;
   pointer-events: none;
+}
+
+.brand-card { transition: opacity 0.4s ease; }
+@media (max-width: 640px), (max-height: 560px) {
+  .brand-card--intro { opacity: 0; }
 }
 
 .brand-card__logo {

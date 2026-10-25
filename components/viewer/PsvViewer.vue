@@ -921,8 +921,9 @@ function browseDockFloor(floorId: string) {
 // the dock animates open/closed). Nothing moves when they don't overlap.
 const dockTabsOnScreen = computed(() =>
   dockFloors.value.length > 0 && !dockCollapsed.value && sceneCount.value > 0 && !chromeHidden.value && !props.hideOwnChrome)
-const dockLift = ref<{ map: number | null; cta: number | null }>({ map: null, cta: null })
+const dockLift = ref<{ map: number | null; cta: number | null; intro: number | null }>({ map: null, cta: null, intro: null })
 const dockLiftStyle = computed(() => ({
+  ...(dockLift.value.intro !== null ? { '--vt-intro-bottom': `${dockLift.value.intro}px` } : {}),
   ...(dockLift.value.map !== null ? { '--fp-map-bottom': `${dockLift.value.map}px` } : {}),
   ...(dockLift.value.cta !== null ? { '--viewer-cta-bottom': `${dockLift.value.cta}px` } : {}),
 }))
@@ -934,7 +935,7 @@ function measureDockLift() {
   const root = viewerRootEl.value
   const dock = root?.querySelector('.glass-dock-container') as HTMLElement | null
   if (!root || !dock || dockCollapsed.value || chromeHidden.value || props.hideOwnChrome) {
-    dockLift.value = { map: null, cta: null }
+    dockLift.value = { map: null, cta: null, intro: null }
     floorMapCrowded.value = false
     return
   }
@@ -955,7 +956,8 @@ function measureDockLift() {
   const baseMapBottom = floorMapCompact.value ? 128 : 96
   const mapBottom = liftMap ? Math.max(baseMapBottom, clear + DOCK_GAP_PX, ctaTop + DOCK_GAP_PX) : null
 
-  dockLift.value = { map: mapBottom, cta: liftCta ? clear + DOCK_GAP_PX : null }
+  // The opening screen centres its content in the space above the dock.
+  dockLift.value = { map: mapBottom, cta: liftCta ? clear + DOCK_GAP_PX : null, intro: clear + DOCK_GAP_PX }
   floorMapCrowded.value = mapBottom !== null && rootRect.height - mapBottom - mapSize < TOP_RESERVED_PX
 }
 
@@ -3326,6 +3328,9 @@ watch(() => vtTransitioning.value, (loading) => {
 .vt-intro {
   position: absolute; inset: 0; z-index: 25; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
+  /* Centre the content in the space above the open scene dock (measured
+     in measureDockLift) so its arrows never sit on the progress line. */
+  box-sizing: border-box; padding: 16px 0 var(--vt-intro-bottom, 16px);
   background: #0b0d12; pointer-events: none;
 }
 .vt-intro__bg {
@@ -3403,6 +3408,26 @@ watch(() => vtTransitioning.value, (loading) => {
 @media (max-width: 480px) {
   .vt-intro__loc { font-size: 13px; }
   .vt-intro__chip { font-size: 12px; padding: 5px 10px; }
+}
+/* Short screens (landscape phones, small laptops with the dock open): tighten
+   the stack so everything still fits above the dock. */
+@media (max-height: 760px) {
+  .vt-intro__content { gap: 8px; }
+  .vt-intro__logo { padding: 8px 12px; margin-bottom: 2px; border-radius: 14px; }
+  .vt-intro__logo img { max-height: 44px; }
+  .vt-intro__title { font-size: clamp(24px, 4.4vw, 40px); }
+  .vt-intro__progress { margin-top: 8px; }
+}
+@media (max-height: 560px) {
+  .vt-intro__content { gap: 6px; }
+  .vt-intro__logo img { max-height: 32px; }
+  .vt-intro__badge { padding: 4px 10px; font-size: 10px; }
+  .vt-intro__title { margin: 0; font-size: clamp(20px, 3.6vw, 30px); }
+  .vt-intro__chips { display: none; }
+  .vt-intro__progress { margin-top: 4px; }
+}
+@media (max-height: 420px) {
+  .vt-intro__logo, .vt-intro__loc { display: none; }
 }
 
 .vt-init-overlay {
