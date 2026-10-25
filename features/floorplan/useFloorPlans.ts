@@ -66,20 +66,19 @@ export function useFloorPlans(spaceId: string) {
   }
 
   /**
-   * Move a floor one place earlier (-1) or later (+1). The new order is
+   * Put the floors in this order (ids of every floor). The new order is
    * written as order_index 0..n-1 to every floor whose index changed, which
    * also repairs duplicate indexes left behind by earlier deletes.
    */
-  async function moveFloorPlan(id: string, dir: -1 | 1) {
+  async function reorderFloorPlans(ids: string[]) {
     const prev = floorPlans.value
-    const from = prev.findIndex(f => f.id === id)
-    const to = from + dir
-    if (from < 0 || to < 0 || to >= prev.length) return
-    const next = prev.slice()
-    ;[next[from], next[to]] = [next[to], next[from]]
+    const byId = new Map(prev.map(f => [f.id, f]))
+    const next = ids.map(id => byId.get(id)).filter((f): f is FloorPlan => !!f)
+    if (next.length !== prev.length) return
     const changed = next
       .map((f, i) => ({ f, i }))
       .filter(({ f, i }) => f.order_index !== i)
+    if (!changed.length && next.every((f, i) => f === prev[i])) return
     floorPlans.value = next.map((f, i) => ({ ...f, order_index: i }))
     try {
       await Promise.all(changed.map(({ f, i }) =>
@@ -92,6 +91,16 @@ export function useFloorPlans(spaceId: string) {
     }
   }
 
+  /** Move a floor one place earlier (-1) or later (+1). */
+  async function moveFloorPlan(id: string, dir: -1 | 1) {
+    const ids = floorPlans.value.map(f => f.id)
+    const from = ids.indexOf(id)
+    const to = from + dir
+    if (from < 0 || to < 0 || to >= ids.length) return
+    ;[ids[from], ids[to]] = [ids[to], ids[from]]
+    await reorderFloorPlans(ids)
+  }
+
   async function deleteFloorPlan(id: string) {
     const plan = floorPlans.value.find(f => f.id === id)
     await apiFetch(`/floor-plans/${id}`, { method: 'DELETE' })
@@ -99,5 +108,5 @@ export function useFloorPlans(spaceId: string) {
     floorPlans.value = floorPlans.value.filter(f => f.id !== id)
   }
 
-  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, deleteFloorPlan }
+  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan }
 }

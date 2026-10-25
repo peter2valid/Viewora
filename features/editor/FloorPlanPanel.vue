@@ -31,7 +31,7 @@
           v-if="current"
           ref="planRef"
           class="fp-plan"
-          :class="{ 'fp-plan--placing': !!selectedSceneId && !draggingId }"
+          :class="{ 'fp-plan--placing': !!selectedSceneId && !draggingId, 'fp-plan--names': showNames, 'fp-plan--focus': !!selectedPin }"
           :style="{ width: `${planBox.w}px`, height: `${planBox.h}px` }"
           @click="onPlanClick"
         >
@@ -39,7 +39,7 @@
           <button
             v-for="p in pinsOnCurrent" :key="p.id"
             class="fp-pin"
-            :class="{ 'fp-pin--on': p.id === selectedSceneId }"
+            :class="{ 'fp-pin--on': p.id === selectedSceneId, 'fp-pin--drag': p.id === draggingId }"
             :style="{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }"
             :title="p.name"
             @pointerdown.stop="onPinDown($event, p.id)"
@@ -54,7 +54,9 @@
             class="fp-dir"
             :style="{ left: `${selectedPin.x * 100}%`, top: `${selectedPin.y * 100}%`, transform: `rotate(${selectedDirDeg}deg)` }"
           >
-            <span class="fp-dir__cone" />
+            <!-- The whole cone is a grab area too: a bigger target than the
+                 handle, and it sits above the other dots. -->
+            <span class="fp-dir__cone" @pointerdown.stop.prevent="onDirDown" @click.stop />
             <button
               type="button"
               class="fp-dir__handle"
@@ -94,6 +96,11 @@
           </span>
         </label>
 
+        <label class="fp-toggle">
+          <input v-model="showNames" type="checkbox" />
+          Show photo names on the plan
+        </label>
+
         <div v-if="pendingDot" class="fp-callout">
           <p class="fp-callout__title">Which photo was taken here?</p>
           <p class="fp-muted">Pick a photo below, or press Esc to cancel.</p>
@@ -110,7 +117,7 @@
                 <span class="fp-pano__centre" />
               </div>
               <p class="fp-muted fp-hint">
-                Drag the blue handle on the dot so the cone points at whatever is in the <b>centre</b> of this photo (marked above).
+                Drag the blue handle (or anywhere on the cone) so it points at whatever is in the <b>centre</b> of this photo (marked above).
               </p>
               <input
                 type="number" min="-180" max="180" step="5" class="fp-input"
@@ -169,11 +176,13 @@
       </aside>
 
       <!-- Floors -->
-      <div class="fp-strip" role="tablist" aria-label="Floors">
+      <div ref="stripRef" class="fp-strip" role="tablist" aria-label="Floors">
         <button
           v-for="f in floorPlans" :key="f.id"
           role="tab" :aria-selected="f.id === currentId"
-          class="fp-thumb" :class="{ 'fp-thumb--on': f.id === currentId }"
+          class="fp-thumb fp-thumb--floor" :class="{ 'fp-thumb--on': f.id === currentId }"
+          :data-floor-id="f.id"
+          :title="floorPlans.length > 1 ? 'Drag to change the floor order' : undefined"
           :style="{ backgroundImage: `url(${f.image_url})` }"
           @click="selectFloor(f.id)"
         >
@@ -195,6 +204,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick } from 'vue'
 import { toast } from 'vue-sonner'
+import Sortable from 'sortablejs'
 import { useImage } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFloorPlans } from '~/features/floorplan/useFloorPlans'
@@ -203,7 +213,7 @@ import { clamp01, isPlaced, MAX_FLOOR_PLANS } from '~/shared/utils/floorPlan'
 const props = defineProps<{ spaceId: string }>()
 
 const { apiFetch } = useApiFetch()
-const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, deleteFloorPlan } = useFloorPlans(props.spaceId)
+const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan } = useFloorPlans(props.spaceId)
 const nuxtImg = useImage()
 
 const loading = ref(true)
@@ -309,6 +319,31 @@ async function moveFloor(dir: -1 | 1) {
   finally { moving.value = false }
 }
 
+// ── Drag a floor thumbnail to reorder ───────────────────────
+const stripRef = ref<HTMLElement | null>(null)
+let stripSortable: Sortable | null = null
+watch(stripRef, (el) => {
+  stripSortable?.destroy()
+  stripSortable = null
+  if (!el) return
+  stripSortable = Sortable.create(el, {
+    animation: 150,
+    draggable: '.fp-thumb--floor',
+    onEnd: (evt) => {
+      const { oldIndex, newIndex, item } = evt
+      if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return
+      const ids = Array.from(el.querySelectorAll<HTMLElement>('[data-floor-id]')).map(n => n.dataset.floorId as string)
+      // Put the node back where Vue left it; the reorder re-renders the list.
+      el.removeChild(item)
+      el.insertBefore(item, el.children[oldIndex] ?? null)
+      moving.value = true
+      reorderFloorPlans(ids)
+        .catch(() => toast.error('Could not change the floor order'))
+        .finally(() => { moving.value = false })
+    },
+  })
+})
+
 async function removeFloor() {
   const f = current.value
   if (!f) return
@@ -360,6 +395,9 @@ function fractionAt(e: { clientX: number; clientY: number }) {
 
 // ── Placing ─────────────────────────────────────────────────
 const selectedSceneId = ref<string | null>(null)
+// Names are off by default: on a busy plan they cover the spots you need to
+// click. A dot still shows its name on hover, and the selected dot always does.
+const showNames = ref(false)
 const pendingDot = ref<{ x: number; y: number } | null>(null)
 
 function onPlanClick(e: MouseEvent) {
@@ -458,9 +496,13 @@ const draggingId = ref<string | null>(null)
 let dragStart: { x: number; y: number } | null = null
 let dragMoved = false
 let suppressClick = false
+// While a dot is selected, the other dots can be clicked to switch to them
+// but not dragged — a press that slips onto a neighbour must not move it.
+let dragLocked = false
 
 function onPinDown(e: PointerEvent, id: string) {
   if (e.button !== 0) return
+  dragLocked = !!selectedSceneId.value && selectedSceneId.value !== id
   draggingId.value = id
   dragStart = { x: e.clientX, y: e.clientY }
   dragMoved = false
@@ -473,6 +515,7 @@ function onPinMove(e: PointerEvent) {
   if (!id || !dragStart) return
   if (!dragMoved && Math.hypot(e.clientX - dragStart.x, e.clientY - dragStart.y) < 4) return
   dragMoved = true
+  if (dragLocked) return
   const at = fractionAt(e)
   const sc = sceneById.value[id]
   if (sc) { sc.plan_x = at.x; sc.plan_y = at.y }
@@ -483,7 +526,11 @@ function onPinUp() {
   const id = draggingId.value
   draggingId.value = null
   if (!id) return
-  if (dragMoved) {
+  if (dragMoved && dragLocked) {
+    // Slipped onto another dot while one was selected: ignore entirely.
+    suppressClick = true
+    setTimeout(() => { suppressClick = false }, 0)
+  } else if (dragMoved) {
     suppressClick = true
     const sc = sceneById.value[id]
     if (sc && current.value) {
@@ -523,6 +570,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onPinMove)
   window.removeEventListener('pointermove', onDirMove)
   ro?.disconnect()
+  stripSortable?.destroy()
 })
 </script>
 
@@ -565,6 +613,7 @@ onBeforeUnmount(() => {
   position: absolute; left: -38px; top: -64px; width: 76px; height: 64px;
   clip-path: polygon(50% 100%, 0 0, 100% 0);
   background: linear-gradient(to top, rgba(37, 99, 235, 0.6), rgba(37, 99, 235, 0.05));
+  pointer-events: auto; cursor: grab; touch-action: none;
 }
 .fp-dir__handle {
   position: absolute; left: -12px; top: -80px; width: 24px; height: 24px; padding: 0;
@@ -572,6 +621,8 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   cursor: grab; pointer-events: auto; touch-action: none;
 }
+/* Invisible 48px hit area around the 24px handle. */
+.fp-dir__handle::before { content: ''; position: absolute; inset: -12px; border-radius: 50%; }
 .fp-dir__handle--drag { cursor: grabbing; transform: scale(1.15); }
 .fp-pano { position: relative; height: 72px; border-radius: 8px; background: #1f2430 center/cover no-repeat; border: 1px solid rgba(255,255,255,0.1); }
 .fp-pano__centre { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #3b82f6; box-shadow: 0 0 0 1px rgba(255,255,255,0.7); }
@@ -579,7 +630,17 @@ onBeforeUnmount(() => {
 .fp-hint { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .fp-pin--pending .fp-pin__dot { background: #f59e0b; animation: fp-pulse 1s ease-in-out infinite; }
 @keyframes fp-pulse { 50% { transform: scale(1.35); } }
-.fp-pin__label { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: -4px; padding: 2px 7px; border-radius: 6px; background: rgba(10,12,20,0.85); color: #fff; font-size: 10.5px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.fp-pin__label { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: -4px; padding: 2px 7px; border-radius: 6px; background: rgba(10,12,20,0.85); color: #fff; font-size: 10.5px; font-weight: 700; white-space: nowrap; pointer-events: none; display: none; }
+/* Names: on hover, while dragging, for the selected dot, or all with the toggle. */
+.fp-plan--names .fp-pin__label,
+.fp-pin:hover .fp-pin__label,
+.fp-pin--drag .fp-pin__label,
+.fp-pin--on .fp-pin__label { display: block; }
+.fp-pin:hover, .fp-pin--drag { z-index: 2; }
+.fp-pin--on { z-index: 4; }
+/* With a dot selected, the others step back so the cone and handle stand out. */
+.fp-plan--focus .fp-pin:not(.fp-pin--on) .fp-pin__dot { opacity: 0.45; transform: scale(0.75); }
+.fp-plan--focus .fp-pin:not(.fp-pin--on):hover .fp-pin__dot { opacity: 1; transform: scale(1); }
 
 .fp-panel {
   position: fixed; right: 16px; top: 130px; bottom: 18px; width: 300px; z-index: 21;
@@ -595,6 +656,8 @@ onBeforeUnmount(() => {
 .fp-move { flex: none; width: 34px; height: 38px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer; }
 .fp-move:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
 .fp-move:disabled { opacity: 0.3; cursor: default; }
+.fp-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.75); cursor: pointer; }
+.fp-toggle input { width: 15px; height: 15px; accent-color: #22c55e; cursor: pointer; }
 .fp-callout { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
 .fp-callout__title { font-size: 13px; font-weight: 800; }
 .fp-tip { padding: 2px 2px 0; }
@@ -617,6 +680,9 @@ onBeforeUnmount(() => {
 }
 .fp-thumb { position: relative; flex-shrink: 0; width: 96px; height: 64px; border-radius: 10px; border: 2px solid transparent; background: #fff center/cover no-repeat; cursor: pointer; }
 .fp-thumb--on { border-color: #22c55e; }
+.fp-thumb--floor { cursor: grab; }
+.fp-thumb--floor:active { cursor: grabbing; }
+.fp-thumb.sortable-ghost { opacity: 0.35; }
 .fp-thumb__name { position: absolute; left: 4px; bottom: 4px; max-width: calc(100% - 8px); padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,0.75); color: #fff; font-size: 9.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fp-thumb--add { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1.5px dashed rgba(255,255,255,0.25); background: rgba(255,255,255,0.03); color: #fff; font-size: 20px; }
 .fp-thumb--add small { font-size: 10px; color: rgba(255,255,255,0.6); }
