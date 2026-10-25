@@ -71,7 +71,7 @@
               class="fp-dir__handle"
               :class="{ 'fp-dir__handle--drag': dirDraft !== null }"
               aria-label="Drag to set which way this photo faces"
-              title="Drag to point where the centre of this photo faces"
+              title="Drag to point at the spot under the line in the photo"
               @pointerdown.stop.prevent="onDirDown"
               @click.stop
             />
@@ -134,17 +134,33 @@
           <template v-if="isOnCurrent(selectedSceneId)">
             <div class="fp-field">
               Facing direction <em>(optional)</em>
-              <div class="fp-pano" :style="{ backgroundImage: `url(${sceneById[selectedSceneId]?.pano})` }">
-                <span class="fp-pano__centre" />
+              <!-- The whole 360 photo, repeated sideways. The line marks a spot
+                   in the photo; the cone on the plan says which way that spot
+                   is. The two are set separately: moving the line never turns
+                   the cone. -->
+              <div
+                ref="panoEl"
+                class="fp-pano"
+                :class="{ 'fp-pano--scrolling': panoMode === 'scroll' }"
+                :style="{ backgroundImage: `url(${sceneById[selectedSceneId]?.pano})`, backgroundPositionX: `${panoOff}px` }"
+                @pointerdown="onPanoDown"
+              >
+                <span
+                  class="fp-pano__line"
+                  :class="{ 'fp-pano__line--drag': panoMode === 'line' }"
+                  :style="{ left: `${lineX}px` }"
+                  title="Drag onto something you can recognise"
+                />
               </div>
               <p class="fp-muted fp-hint">
-                Drag the blue handle (or anywhere on the cone) so it points at whatever is in the <b>centre</b> of this photo (marked above).
+                <b>1.</b> Put the line on something easy to recognise, like a shop front or a door: drag the line or click the photo (drag the photo to look around).<br>
+                <b>2.</b> Drag the cone on the plan so it points at that same thing.
               </p>
               <input
                 type="number" min="-180" max="180" step="5" class="fp-input"
-                aria-label="Facing direction in degrees"
+                aria-label="Cone direction in degrees, 0 = up"
                 :value="selectedDirDeg"
-                @change="saveNorthOffset(selectedSceneId, ($event.target as HTMLInputElement).valueAsNumber)"
+                @change="saveConeDeg(selectedSceneId, ($event.target as HTMLInputElement).valueAsNumber)"
               />
             </div>
             <button class="fp-btn fp-btn--danger fp-btn--full" @click="unplace(selectedSceneId)">Remove from plan</button>
@@ -600,10 +616,21 @@ function unplace(id: string) {
   selectedSceneId.value = null
 }
 
+/** Any angle → (-180, 180]. */
+function normDeg(d: number) {
+  const v = ((d % 360) + 360) % 360
+  return v > 180 ? v - 360 : v
+}
+
 function saveNorthOffset(id: string, deg: number) {
   if (!Number.isFinite(deg)) return
-  const v = Math.max(-180, Math.min(180, Math.round(deg)))
-  void savePin(id, { north_offset: v })
+  void savePin(id, { north_offset: Math.round(normDeg(deg)) })
+}
+
+/** The cone points at the line's spot: offset = cone − where the line is in the photo. */
+function saveConeDeg(id: string, coneDeg: number) {
+  if (!Number.isFinite(coneDeg)) return
+  saveNorthOffset(id, coneDeg - refYaw.value)
 }
 
 /** Optimistic update; reverts and shows an error if the save fails. */
@@ -623,9 +650,110 @@ async function savePin(id: string, patch: Partial<Pick<SceneRow, 'floor_plan_id'
 // ── Facing direction (scenes.north_offset) ──────────────────
 // Degrees clockwise from the top of the plan that the photo's centre faces —
 // the viewer's minimap cone points at yaw + this, so 0 = up, 90 = right.
+// In the editor the cone shows where the *line's* spot is (refYaw, degrees
+// from the photo centre, + = right): cone = north_offset + refYaw. Only
+// north_offset is saved; the line resets to the centre for each photo.
 const selectedPin = computed(() => pinsOnCurrent.value.find(p => p.id === selectedSceneId.value) ?? null)
 const dirDraft = ref<number | null>(null)
-const selectedDirDeg = computed(() => dirDraft.value ?? sceneById.value[selectedSceneId.value ?? '']?.north_offset ?? 0)
+const refYaw = ref(0)
+// Cone angle held still while the line moves, so the line never turns it.
+const coneHold = ref<number | null>(null)
+const selectedDirDeg = computed(() => {
+  if (dirDraft.value !== null) return dirDraft.value
+  if (coneHold.value !== null) return coneHold.value
+  const off = sceneById.value[selectedSceneId.value ?? '']?.north_offset ?? 0
+  return Math.round(normDeg(off + refYaw.value))
+})
+
+// ── The photo strip ─────────────────────────────────────────
+// Height-fitted 2:1 panorama, repeated sideways: PANO_H * 2 px = 360°.
+const PANO_H = 120
+const PANO_W360 = PANO_H * 2
+const panoEl = ref<HTMLElement | null>(null)
+const panoW = ref(0)
+const panoOff = ref(0)
+const panoMode = ref<'line' | 'scroll' | null>(null)
+let panoRo: ResizeObserver | null = null
+watch(panoEl, (el) => {
+  panoRo?.disconnect()
+  if (!el) return
+  panoRo = new ResizeObserver(([entry]) => { panoW.value = entry.contentRect.width })
+  panoRo.observe(el)
+})
+
+/** Photo centre (yaw 0) in the middle of the strip, line back on it. */
+function resetPano() {
+  refYaw.value = 0
+  coneHold.value = null
+  panoOff.value = Math.round(panoW.value / 2 - PANO_W360 / 2)
+}
+watch(selectedSceneId, resetPano)
+watch(panoW, (w, old) => { if (!old) resetPano() })
+
+/** Where the line sits: the copy of its spot nearest the strip's middle. */
+const lineX = computed(() => {
+  const base = panoOff.value + ((refYaw.value + 180) / 360) * PANO_W360
+  const k = Math.round((panoW.value / 2 - base) / PANO_W360)
+  return base + k * PANO_W360
+})
+
+function yawAtX(x: number) {
+  const p = (((x - panoOff.value) % PANO_W360) + PANO_W360) % PANO_W360
+  // Whole degrees, so cone − line round-trips exactly (no 1° creep).
+  return normDeg(Math.round((p / PANO_W360) * 360 - 180))
+}
+
+let panoStart: { x: number; off: number } | null = null
+let panoPending = false
+
+function panoX(e: PointerEvent) {
+  const r = panoEl.value!.getBoundingClientRect()
+  return Math.max(0, Math.min(r.width, e.clientX - r.left))
+}
+
+function onPanoDown(e: PointerEvent) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  e.preventDefault()
+  const x = panoX(e)
+  panoStart = { x, off: panoOff.value }
+  // Within 10px of the line = grab the line; elsewhere wait to see if it's a click or a drag.
+  if (Math.abs(x - lineX.value) <= 10) {
+    panoMode.value = 'line'
+    coneHold.value = selectedDirDeg.value
+  } else {
+    panoMode.value = null
+    panoPending = true
+  }
+  window.addEventListener('pointermove', onPanoMove)
+  window.addEventListener('pointerup', onPanoUp, { once: true })
+}
+
+function onPanoMove(e: PointerEvent) {
+  if (!panoStart) return
+  const x = panoX(e)
+  if (panoMode.value === 'line') { refYaw.value = yawAtX(x); return }
+  if (panoPending && Math.abs(x - panoStart.x) < 4) return
+  panoPending = false
+  panoMode.value = 'scroll'
+  // The line marks a spot in the photo, so it travels with it.
+  panoOff.value = panoStart.off + (e.clientX - panoEl.value!.getBoundingClientRect().left - panoStart.x)
+}
+
+function onPanoUp(e: PointerEvent) {
+  window.removeEventListener('pointermove', onPanoMove)
+  const id = selectedSceneId.value
+  if (panoPending) {
+    // A click: move the line there.
+    coneHold.value = selectedDirDeg.value
+    refYaw.value = yawAtX(panoX(e))
+    panoMode.value = 'line'
+  }
+  if (panoMode.value === 'line' && id && coneHold.value !== null) saveConeDeg(id, coneHold.value)
+  coneHold.value = null
+  panoMode.value = null
+  panoPending = false
+  panoStart = null
+}
 
 function dirAt(e: { clientX: number; clientY: number }): number {
   const pin = selectedPin.value!
@@ -662,7 +790,7 @@ function onDirUp() {
   const id = selectedSceneId.value
   const deg = dirDraft.value
   // Keep showing the drafted angle until the optimistic save applies it.
-  if (id && deg !== null) saveNorthOffset(id, deg)
+  if (id && deg !== null) saveConeDeg(id, deg)
   dirDraft.value = null
   suppressClick = true
   setTimeout(() => { suppressClick = false }, 0)
@@ -765,6 +893,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('pointermove', onPinMove)
   window.removeEventListener('pointermove', onDirMove)
+  window.removeEventListener('pointermove', onPanoMove)
+  panoRo?.disconnect()
   window.removeEventListener('pointermove', onStageMove)
   window.removeEventListener('pointerup', onStageUp)
   window.removeEventListener('pointercancel', onStageUp)
@@ -841,9 +971,13 @@ onBeforeUnmount(() => {
 /* Invisible 48px hit area around the 24px handle. */
 .fp-dir__handle::before { content: ''; position: absolute; inset: -12px; border-radius: 50%; }
 .fp-dir__handle--drag { cursor: grabbing; transform: scale(1.15); }
-.fp-pano { position: relative; height: 72px; border-radius: 8px; background: #1f2430 center/cover no-repeat; border: 1px solid rgba(255,255,255,0.1); }
-.fp-pano__centre { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #3b82f6; box-shadow: 0 0 0 1px rgba(255,255,255,0.7); }
-.fp-pano__centre::after { content: ''; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #3b82f6; }
+.fp-pano { position: relative; height: 120px; overflow: hidden; border-radius: 8px; background-color: #1f2430; background-size: auto 100%; background-repeat: repeat-x; border: 1px solid rgba(255,255,255,0.1); cursor: grab; touch-action: none; user-select: none; }
+.fp-pano--scrolling { cursor: grabbing; }
+.fp-pano__line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #3b82f6; box-shadow: 0 0 0 1px rgba(255,255,255,0.7); cursor: ew-resize; }
+/* Knob at the top + a wider invisible grab area. */
+.fp-pano__line::before { content: ''; position: absolute; top: 0; bottom: 0; left: -9px; right: -9px; }
+.fp-pano__line::after { content: ''; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #3b82f6; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.fp-pano__line--drag::after { transform: translateX(-50%) scale(1.2); }
 .fp-hint { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .fp-pin--pending .fp-pin__dot { background: #f59e0b; animation: fp-pulse 1s ease-in-out infinite; }
 @keyframes fp-pulse { 50% { transform: scale(1.35); } }
