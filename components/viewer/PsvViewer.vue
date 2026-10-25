@@ -3645,6 +3645,10 @@ watch(() => vtTransitioning.value, (loading) => {
   .public-viewer :deep(.glass-dock-container),
   .public-viewer :deep(.glass-dock-expand-trigger) { bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
 }
+/* The global .dock-glass-superdark rule lifts the glass by the safe area for
+   docks that don't handle it themselves. This one already sits above the safe
+   area (bottom above), so that margin would count it twice. */
+.public-viewer :deep(.dock-glass-superdark) { margin-bottom: 0 !important; }
 
 /* ── Medium-size scene dock (public viewer only; the editor keeps GlassDock's
    full size). About a fifth smaller than the default, so it leaves more of
