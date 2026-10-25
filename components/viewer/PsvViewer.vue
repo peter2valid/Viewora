@@ -514,6 +514,7 @@
          host page drives scene switching itself via goToScene() ── -->
     <GlassDock
       v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome"
+      v-show="floorMapView !== 'maximized'"
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
       :active-id="dockActiveId"

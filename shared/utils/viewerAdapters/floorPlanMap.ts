@@ -57,6 +57,20 @@ function fitZoom(floor: FloorMapFloor, sizePx: number): number {
   return (100 * sizePx * 0.9) / Math.max(floor.width, floor.height)
 }
 
+/**
+ * Zoom (percent) at which the whole of `floor`, turned by `rotationDeg`, fills
+ * a `width` x `height` box with room left for the map's own buttons. Used for
+ * the expanded map, which covers the whole viewer.
+ */
+function fitBoxZoom(floor: FloorMapFloor, width: number, height: number, rotationDeg: number): number {
+  const a = (rotationDeg * Math.PI) / 180
+  const cos = Math.abs(Math.cos(a))
+  const sin = Math.abs(Math.sin(a))
+  const w = floor.width * cos + floor.height * sin
+  const h = floor.width * sin + floor.height * cos
+  return 100 * Math.min((width * 0.9) / w, (height * 0.82) / h)
+}
+
 /** MapPlugin options, verified against @photo-sphere-viewer/map-plugin 5.14.1. */
 export function floorMapPluginConfig(floors: FloorMapFloor[], opts: { compact: boolean }): Record<string, any> {
   const sizePx = opts.compact ? 140 : 200
@@ -116,20 +130,43 @@ export function attachFloorPlanMap(
 
   let shownFloorId: string | null = null
   let currentSceneId: string | null = null
+  let rotationDeg = 0
+  let maximized = false
+
+  // The expanded map fills the viewer, so the minimap's zoom leaves the plan a
+  // postage stamp in the middle: fit it to the screen instead, centred.
+  function fitMaximized(floor: FloorMapFloor) {
+    const el: HTMLElement | undefined = map.component?.container ?? viewer.container
+    const rect = el?.getBoundingClientRect?.()
+    if (!rect?.width || !rect?.height) return
+    map.setCenter({ x: floor.width / 2, y: floor.height / 2 })
+    map.setZoom(fitBoxZoom(floor, rect.width, rect.height, rotationDeg))
+  }
+
+  function fit(floor: FloorMapFloor) {
+    if (maximized) fitMaximized(floor)
+    else map.setZoom(fitZoom(floor, sizePx))
+  }
+
+  function shownFloor(): FloorMapFloor | undefined {
+    return floors.find(f => f.id === shownFloorId)
+  }
 
   function show(floor: FloorMapFloor) {
     const pin = floor.pins.find(p => p.sceneId === currentSceneId)
     const center = pin ? pinToPixels(pin, floor) : { x: floor.width / 2, y: floor.height / 2 }
     // Numbers are radians to PSV — pass degrees as a string.
-    const rotation = `${pin?.northOffset ?? 0}deg`
+    rotationDeg = pin?.northOffset ?? 0
+    const rotation = `${rotationDeg}deg`
     // Only draw "you are here" on the floor the viewer is actually on.
     map.setOptions({ pinSize: pin ? PIN_SIZE : 0, coneSize: pin ? CONE_SIZE : 0 })
     if (floor.id !== shownFloorId) {
       map.setImage(floor.imageUrl, center, rotation)
-      map.setZoom(fitZoom(floor, sizePx))
+      fit(floor)
     } else {
       map.setOptions({ rotation })
-      map.setCenter(center)
+      if (maximized) fitMaximized(floor)
+      else map.setCenter(center)
     }
     map.setHotspots(
       floor.pins
@@ -171,11 +208,28 @@ export function attachFloorPlanMap(
     const id = String(e?.hotspotId ?? '')
     if (id.startsWith(HOTSPOT_PREFIX)) opts.onSelectScene(id.slice(HOTSPOT_PREFIX.length))
   }
-  const onViewChanged = (e: any) => opts.onViewChanged?.(e?.view)
+  const onViewChanged = (e: any) => {
+    const view = e?.view
+    const wasMaximized = maximized
+    maximized = view === 'maximized'
+    const floor = shownFloor()
+    if (floor && maximized !== wasMaximized) {
+      safely(() => {
+        if (maximized) fitMaximized(floor)
+        else { fit(floor); show(floor) } // back to the minimap's zoom, centred on the pin
+      })
+    }
+    opts.onViewChanged?.(view)
+  }
+  const onResize = () => {
+    const floor = shownFloor()
+    if (maximized && floor) safely(() => fitMaximized(floor))
+  }
 
   vt.addEventListener('node-changed', onNodeChanged)
   map.addEventListener('select-hotspot', onSelectHotspot)
   map.addEventListener('view-changed', onViewChanged)
+  window.addEventListener('resize', onResize)
   onScene(vt.getCurrentNode?.()?.id)
 
   return {
@@ -191,6 +245,7 @@ export function attachFloorPlanMap(
       vt.removeEventListener('node-changed', onNodeChanged)
       map.removeEventListener('select-hotspot', onSelectHotspot)
       map.removeEventListener('view-changed', onViewChanged)
+      window.removeEventListener('resize', onResize)
     },
   }
 }
