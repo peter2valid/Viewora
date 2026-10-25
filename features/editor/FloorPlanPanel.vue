@@ -26,13 +26,22 @@
 
     <template v-else>
       <!-- Plan + pins -->
-      <div ref="stageRef" class="fp-stage">
+      <!-- Zoom: wheel/pinch at the pointer, drag the plan to move it (a plain
+           click still places), +/− buttons and keys. The plan is re-laid out
+           at the zoomed size rather than CSS-scaled, so dots and the cone stay
+           the same size on screen and spread apart as you zoom in. -->
+      <div
+        ref="stageRef"
+        class="fp-stage"
+        @wheel.prevent="onWheel"
+        @pointerdown.capture="onStageDown"
+      >
         <div
           v-if="current"
           ref="planRef"
           class="fp-plan"
-          :class="{ 'fp-plan--placing': !!selectedSceneId && !draggingId, 'fp-plan--names': showNames, 'fp-plan--focus': !!selectedPin }"
-          :style="{ width: `${planBox.w}px`, height: `${planBox.h}px` }"
+          :class="{ 'fp-plan--placing': !!selectedSceneId && !draggingId, 'fp-plan--names': showNames, 'fp-plan--focus': !!selectedPin, 'fp-plan--pannable': zoom > 1 && !selectedSceneId, 'fp-plan--panning': panning }"
+          :style="{ width: `${planBox.w * zoom}px`, height: `${planBox.h * zoom}px`, transform: `translate(${planOrigin.x}px, ${planOrigin.y}px)` }"
           @click="onPlanClick"
         >
           <img :src="current.image_url" :alt="current.name" class="fp-plan__img" draggable="false" @load="onImgLoad" />
@@ -73,6 +82,18 @@
             :style="{ left: `${pendingDot.x * 100}%`, top: `${pendingDot.y * 100}%` }"
           ><span class="fp-pin__dot" /></span>
         </div>
+
+        <div v-if="current" class="fp-zoom" @pointerdown.stop @wheel.stop>
+          <button type="button" class="fp-zoom__btn" :disabled="zoom <= ZOOM_MIN" aria-label="Zoom out" title="Zoom out (−)" @click="zoomBy(1 / ZOOM_STEP)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/></svg>
+          </button>
+          <span class="fp-zoom__pct" aria-live="polite">{{ Math.round(zoom * 100) }}%</span>
+          <button type="button" class="fp-zoom__btn" :disabled="zoom >= ZOOM_MAX" aria-label="Zoom in" title="Zoom in (+)" @click="zoomBy(ZOOM_STEP)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button type="button" class="fp-zoom__btn fp-zoom__fit" :disabled="zoom === 1" title="Fit the whole plan (0)" @click="resetZoom">Fit</button>
+        </div>
+        <p v-if="current && zoomHint" class="fp-zoom__hint">Scroll or pinch to zoom · drag the plan to move around</p>
       </div>
 
       <!-- Side panel -->
@@ -368,9 +389,158 @@ const stageSize = ref({ w: 0, h: 0 })
 const planBox = computed(() => {
   const w = natural.value.w || current.value?.width || 1
   const h = natural.value.h || current.value?.height || 1
-  const scale = Math.min(stageSize.value.w / w, stageSize.value.h / h) || 0
+  // 24px margin: the stage clips, and a dot on the top edge needs room for its cone.
+  const scale = Math.max(0, Math.min((stageSize.value.w - 48) / w, (stageSize.value.h - 48) / h)) || 0
   return { w: Math.floor(w * scale), h: Math.floor(h * scale) }
 })
+
+// ── Zoom + pan ──────────────────────────────────────────────
+// zoom multiplies the fitted size; pan is the plan's offset from centred.
+const ZOOM_MIN = 1
+const ZOOM_MAX = 8
+const ZOOM_STEP = 1.5
+const zoom = ref(1)
+const pan = ref({ x: 0, y: 0 })
+const panning = ref(false)
+const zoomHint = ref(true)
+onMounted(() => setTimeout(() => { zoomHint.value = false }, 8000))
+
+/** Top-left of the plan inside the stage. */
+const planOrigin = computed(() => ({
+  x: (stageSize.value.w - planBox.value.w * zoom.value) / 2 + pan.value.x,
+  y: (stageSize.value.h - planBox.value.h * zoom.value) / 2 + pan.value.y,
+}))
+
+/** Keep part of the plan on screen: it can't be pushed more than 80px past the stage edge. */
+function clampPan(p: { x: number; y: number }, z = zoom.value) {
+  const mx = Math.max(0, (planBox.value.w * z - stageSize.value.w) / 2 + 80)
+  const my = Math.max(0, (planBox.value.h * z - stageSize.value.h) / 2 + 80)
+  return z <= 1 ? { x: 0, y: 0 } : { x: Math.max(-mx, Math.min(mx, p.x)), y: Math.max(-my, Math.min(my, p.y)) }
+}
+
+/** Zoom to `next`, keeping the plan point under (sx, sy) — stage coordinates — where it is. */
+function zoomAt(next: number, sx: number, sy: number) {
+  const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next))
+  if (z === zoom.value || !planBox.value.w) return
+  const o = planOrigin.value
+  const fx = (sx - o.x) / (planBox.value.w * zoom.value)
+  const fy = (sy - o.y) / (planBox.value.h * zoom.value)
+  const nw = planBox.value.w * z
+  const nh = planBox.value.h * z
+  const p = { x: sx - fx * nw - (stageSize.value.w - nw) / 2, y: sy - fy * nh - (stageSize.value.h - nh) / 2 }
+  zoom.value = z
+  pan.value = clampPan(p, z)
+  zoomHint.value = false
+}
+
+/** Buttons and keys zoom around the selected dot if there is one, else the stage centre. */
+function zoomBy(factor: number) {
+  const pin = selectedPin.value
+  const o = planOrigin.value
+  const sx = pin ? o.x + pin.x * planBox.value.w * zoom.value : stageSize.value.w / 2
+  const sy = pin ? o.y + pin.y * planBox.value.h * zoom.value : stageSize.value.h / 2
+  zoomAt(zoom.value * factor, sx, sy)
+}
+
+function resetZoom() {
+  zoom.value = 1
+  pan.value = { x: 0, y: 0 }
+}
+watch(currentId, resetZoom)
+watch(stageSize, () => { pan.value = clampPan(pan.value) })
+
+function stagePoint(e: { clientX: number; clientY: number }) {
+  const r = stageRef.value!.getBoundingClientRect()
+  return { x: e.clientX - r.left, y: e.clientY - r.top }
+}
+
+function onWheel(e: WheelEvent) {
+  if (!current.value) return
+  const at = stagePoint(e)
+  // Trackpad pinch arrives as ctrl+wheel with small deltas; mouse wheels as ±100.
+  const k = e.ctrlKey ? 0.01 : 0.0015
+  zoomAt(zoom.value * Math.exp(-e.deltaY * k), at.x, at.y)
+}
+
+// Every pointer on the stage is seen here first (capture), dots included:
+// on a busy plan a pinch often starts on dots. One pointer on empty plan that
+// moves = pan (and the click that follows is swallowed); a second pointer
+// anywhere = pinch zoom around the midpoint, cancelling any dot/cone drag.
+const touches = new Map<number, { x: number; y: number }>()
+let panStart: { x: number; y: number; px: number; py: number } | null = null
+let pinchStart: { dist: number; zoom: number } | null = null
+
+function onStageDown(e: PointerEvent) {
+  if (!current.value || (e.pointerType === 'mouse' && e.button !== 0)) return
+  const target = e.target as HTMLElement
+  if (target.closest('.fp-zoom')) return
+  touches.set(e.pointerId, stagePoint(e))
+  if (touches.size === 1) {
+    // Dots and the cone handle their own drags; only empty plan pans.
+    panStart = target.closest('.fp-pin, .fp-dir') ? null : { ...stagePoint(e), px: pan.value.x, py: pan.value.y }
+  } else if (touches.size === 2) {
+    const [a, b] = [...touches.values()]
+    pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, zoom: zoom.value }
+    panStart = null
+    panning.value = false
+    cancelPinDrag()
+    cancelDirDrag()
+    // The second finger's own pointerdown must not start a dot/cone drag.
+    e.stopPropagation()
+  }
+  window.addEventListener('pointermove', onStageMove)
+  window.addEventListener('pointerup', onStageUp)
+  window.addEventListener('pointercancel', onStageUp)
+}
+
+function onStageMove(e: PointerEvent) {
+  if (!touches.has(e.pointerId)) return
+  const at = stagePoint(e)
+  touches.set(e.pointerId, at)
+  if (pinchStart && touches.size >= 2) {
+    const [a, b] = [...touches.values()]
+    zoomAt(pinchStart.zoom * Math.hypot(a.x - b.x, a.y - b.y) / pinchStart.dist, (a.x + b.x) / 2, (a.y + b.y) / 2)
+    suppressClick = true
+    return
+  }
+  if (!panStart) return
+  const dx = at.x - panStart.x
+  const dy = at.y - panStart.y
+  if (!panning.value && Math.hypot(dx, dy) < 5) return
+  if (zoom.value <= 1) return
+  panning.value = true
+  suppressClick = true
+  zoomHint.value = false
+  pan.value = clampPan({ x: panStart.px + dx, y: panStart.py + dy })
+}
+
+function onStageUp(e: PointerEvent) {
+  touches.delete(e.pointerId)
+  if (touches.size < 2) pinchStart = null
+  if (touches.size) return
+  window.removeEventListener('pointermove', onStageMove)
+  window.removeEventListener('pointerup', onStageUp)
+  window.removeEventListener('pointercancel', onStageUp)
+  panStart = null
+  if (panning.value || suppressClick) {
+    panning.value = false
+    // The click event fires right after pointerup; let it see suppressClick first.
+    setTimeout(() => { suppressClick = false }, 0)
+  }
+}
+
+/** When zoomed in, bring a dot picked from the list into view. */
+function revealPin(id: string) {
+  if (zoom.value <= 1) return
+  const sc = sceneById.value[id]
+  if (!sc || sc.plan_x == null || sc.plan_y == null) return
+  const o = planOrigin.value
+  const sx = o.x + sc.plan_x * planBox.value.w * zoom.value
+  const sy = o.y + sc.plan_y * planBox.value.h * zoom.value
+  const m = 60
+  if (sx > m && sx < stageSize.value.w - m && sy > m && sy < stageSize.value.h - m) return
+  pan.value = clampPan({ x: pan.value.x + stageSize.value.w / 2 - sx, y: pan.value.y + stageSize.value.h / 2 - sy })
+}
 function onImgLoad(e: Event) {
   const img = e.target as HTMLImageElement
   natural.value = { w: img.naturalWidth, h: img.naturalHeight }
@@ -422,6 +592,7 @@ function pickScene(id: string) {
   const sc = sceneById.value[id]
   // Jump to the floor a placed photo is on, so its dot is visible.
   if (sc && isPlaced(sc) && sc.floor_plan_id !== currentId.value) currentId.value = sc.floor_plan_id
+  else if (selectedSceneId.value === id) revealPin(id)
 }
 
 function unplace(id: string) {
@@ -468,6 +639,12 @@ function dirAt(e: { clientX: number; clientY: number }): number {
   return deg === -180 ? 180 : deg
 }
 
+function cancelDirDrag() {
+  window.removeEventListener('pointermove', onDirMove)
+  window.removeEventListener('pointerup', onDirUp)
+  dirDraft.value = null
+}
+
 function onDirDown(e: PointerEvent) {
   if (e.button !== 0 || !selectedPin.value) return
   dirDraft.value = dirAt(e)
@@ -506,8 +683,23 @@ function onPinDown(e: PointerEvent, id: string) {
   draggingId.value = id
   dragStart = { x: e.clientX, y: e.clientY }
   dragMoved = false
+  const sc = sceneById.value[id]
+  dragOrigin = sc ? { x: sc.plan_x, y: sc.plan_y } : null
   window.addEventListener('pointermove', onPinMove)
   window.addEventListener('pointerup', onPinUp, { once: true })
+}
+
+let dragOrigin: { x: number | null; y: number | null } | null = null
+
+/** A pinch began: put a half-dragged dot back and drop the drag. */
+function cancelPinDrag() {
+  window.removeEventListener('pointermove', onPinMove)
+  window.removeEventListener('pointerup', onPinUp)
+  const sc = draggingId.value ? sceneById.value[draggingId.value] : null
+  if (sc && dragOrigin && dragMoved) { sc.plan_x = dragOrigin.x; sc.plan_y = dragOrigin.y }
+  draggingId.value = null
+  dragOrigin = null
+  suppressClick = true
 }
 
 function onPinMove(e: PointerEvent) {
@@ -549,6 +741,10 @@ function onKey(e: KeyboardEvent) {
   const t = e.target as HTMLElement
   if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t?.isContentEditable) return
   if (e.key === 'Escape') { pendingDot.value = null; selectedSceneId.value = null }
+  if (!current.value || e.metaKey || e.ctrlKey || e.altKey) { /* leave browser zoom alone */ }
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(ZOOM_STEP) }
+  else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(1 / ZOOM_STEP) }
+  else if (e.key === '0') { e.preventDefault(); resetZoom() }
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSceneId.value && isOnCurrent(selectedSceneId.value)) {
     e.preventDefault()
     unplace(selectedSceneId.value)
@@ -569,6 +765,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('pointermove', onPinMove)
   window.removeEventListener('pointermove', onDirMove)
+  window.removeEventListener('pointermove', onStageMove)
+  window.removeEventListener('pointerup', onStageUp)
+  window.removeEventListener('pointercancel', onStageUp)
   ro?.disconnect()
   stripSortable?.destroy()
 })
@@ -597,8 +796,26 @@ onBeforeUnmount(() => {
 .fp-btn--full { width: 100%; }
 
 /* Plan area: clear of the top bars, the side panel and the floor strip. */
-.fp-stage { position: absolute; top: 130px; right: 332px; bottom: 104px; left: 16px; display: flex; align-items: center; justify-content: center; }
-.fp-plan { position: relative; flex-shrink: 0; border-radius: 8px; overflow: visible; background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,0.45); user-select: none; }
+.fp-stage { position: absolute; top: 130px; right: 332px; bottom: 104px; left: 16px; overflow: hidden; touch-action: none; border-radius: 12px; }
+.fp-plan { position: absolute; left: 0; top: 0; border-radius: 8px; overflow: visible; background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,0.45); user-select: none; }
+.fp-plan--pannable { cursor: grab; }
+.fp-plan--panning, .fp-plan--panning.fp-plan--placing { cursor: grabbing; }
+.fp-zoom {
+  position: absolute; right: 12px; bottom: 12px; z-index: 5;
+  display: flex; align-items: center; gap: 2px; padding: 4px;
+  border-radius: 12px; background: rgba(14,14,18,0.88); border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4); backdrop-filter: blur(12px);
+}
+.fp-zoom__btn { min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.fp-zoom__btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+.fp-zoom__btn:disabled { opacity: 0.35; cursor: default; }
+.fp-zoom__fit { margin-left: 2px; border-left: 1px solid rgba(255,255,255,0.12); border-radius: 0 8px 8px 0; }
+.fp-zoom__pct { min-width: 44px; text-align: center; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8); font-variant-numeric: tabular-nums; }
+.fp-zoom__hint {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 4;
+  padding: 5px 12px; border-radius: 999px; background: rgba(14,14,18,0.8); color: rgba(255,255,255,0.8);
+  font-size: 11.5px; font-weight: 600; white-space: nowrap; pointer-events: none;
+}
 .fp-plan--placing { cursor: crosshair; }
 .fp-plan__img { display: block; width: 100%; height: 100%; border-radius: 8px; pointer-events: none; }
 
