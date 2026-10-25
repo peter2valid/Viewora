@@ -63,6 +63,8 @@ import {
   clearTrace,
   isTraceMarkerId,
   getHotspotScreenPos,
+  hotspotDrawPosition,
+  moveHotspotMarkers,
   focusHotspot,
   toggleHotspotActive,
   applyLiveSettings,
@@ -154,11 +156,19 @@ async function retryCurrentScene() {
   await initWithScene(props.scene)
 }
 
+/** Screen point the action menu circles: the middle of a scene link's floor pin (40px tall at scale 1). */
+function menuAnchor(hs: Hotspot): { x: number; y: number } | null {
+  const at = hotspotDrawPosition(hs)
+  const pos = getHotspotScreenPos(handle.value, at.yaw, at.pitch)
+  if (!pos || hs.type !== 'scene_link') return pos
+  return { x: pos.x, y: pos.y - 20 * Number(hs.scale || 1) }
+}
+
 function trackMenuPosition() {
   if (!menu.visible || !menu.hotspotId || !handle.value) return
   const hs = props.hotspots?.find(h => h.id === menu.hotspotId)
   if (hs) {
-    const pos = getHotspotScreenPos(handle.value, hs.yaw, hs.pitch)
+    const pos = menuAnchor(hs)
     if (pos && menuLayerRef.value) {
       menuLayerRef.value.style.transform = `translate(${pos.x}px, ${pos.y}px)`
     }
@@ -170,7 +180,7 @@ function openMenu(id: string) {
   const hs = props.hotspots?.find(h => h.id === id)
   if (!hs) return
   if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
-  const pos = getHotspotScreenPos(handle.value, hs.yaw, hs.pitch)
+  const pos = menuAnchor(hs)
   menu.hotspotId = id
   if (pos && menuLayerRef.value) {
     menuLayerRef.value.style.transform = `translate(${pos.x}px, ${pos.y}px)`
@@ -433,7 +443,9 @@ function onPointerMove(e: PointerEvent) {
         y: e.clientY - rect.top,
       })
       if (coords) {
-        handle.value.markers.updateMarker({ id: dragTracker.hotspotId, position: coords })
+        const hs = props.hotspots?.find(h => h.id === dragTracker.hotspotId)
+        if (hs) moveHotspotMarkers(handle.value, hs, coords)
+        else handle.value.markers.updateMarker({ id: dragTracker.hotspotId, position: coords })
       }
     } catch (err) {
       errorLogger.logHotspotError(err, {

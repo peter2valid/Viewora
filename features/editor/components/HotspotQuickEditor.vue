@@ -73,7 +73,7 @@
             </template>
           </div>
 
-          <!-- Navigation icons — all 3 shown directly, no "Edit more" -->
+          <!-- Navigation icons (floor pin, up, down) — shown directly, no "Edit more" -->
           <div class="qe-section">
             <span class="qe-section-label">Navigation Icon</span>
             <div class="qe-nav-icons">
@@ -81,7 +81,7 @@
                 v-for="icon in NAV_ICONS"
                 :key="icon.key"
                 class="qe-nav-icon-btn"
-                :class="effectiveIcon === icon.key ? 'qe-nav-icon-btn--active' : ''"
+                :class="navPickerIcon(draft.icon) === icon.key ? 'qe-nav-icon-btn--active' : ''"
                 :title="icon.label"
                 @click="emit('update-draft', { icon: icon.key })"
               >
@@ -91,7 +91,7 @@
             </div>
           </div>
 
-          <!-- Size + Hover + Thickness -->
+          <!-- Size + Hover -->
           <div class="qe-section">
             <span class="qe-section-label">Size & Hover</span>
             <div class="qe-slider-row">
@@ -106,12 +106,6 @@
             </div>
             <input class="qe-range" type="range" :value="draft.hoverScale" min="1" max="2.5" step="0.1"
               @input="emit('update-draft', { hoverScale: Number(($event.target as HTMLInputElement).value) })" />
-            <div class="qe-slider-row" style="margin-top: 8px">
-              <label class="qe-slider-label">Thickness</label>
-              <span class="qe-slider-val">{{ draft.strokeScale.toFixed(1) }}×</span>
-            </div>
-            <input class="qe-range" type="range" :value="draft.strokeScale" min="0.3" max="3" step="0.1"
-              @input="emit('update-draft', { strokeScale: Number(($event.target as HTMLInputElement).value) })" />
           </div>
         </template>
 
@@ -176,7 +170,7 @@
                 <span class="qe-icon-group-label">{{ group.label }}</span>
                 <div class="qe-icon-row">
                   <button
-                    v-for="iconDef in HOTSPOT_ICON_DEFS.filter(d => d.group === group.key)"
+                    v-for="iconDef in PICKER_ICON_DEFS.filter(d => d.group === group.key)"
                     :key="iconDef.key"
                     class="qe-icon-btn"
                     :class="draft.icon === iconDef.key ? 'qe-icon-btn--active' : ''"
@@ -235,10 +229,10 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import { HOTSPOT_ICON_DEFS, ICON_GROUPS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
+import { ICON_GROUPS, PICKER_ICON_DEFS, navPickerIcon } from '~/shared/utils/hotspotIcons'
 import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/editor/hotspotPayload'
 
-const NAV_ICONS = HOTSPOT_ICON_DEFS.filter(d => d.group === 'nav')
+const NAV_ICONS = PICKER_ICON_DEFS.filter(d => d.group === 'nav')
 
 const props = defineProps<{
   visible: boolean
@@ -284,10 +278,6 @@ const userType = computed(() => {
 
 // Header badge: land markers are `info` hotspots underneath but read as their own type.
 const badgeKey = computed(() => props.draft.kind === 'beacon' || props.draft.kind === 'road' ? props.draft.kind : userType.value)
-
-const effectiveIcon = computed(() =>
-  props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info-3d-light'
-)
 
 const selectedScene = computed(() =>
   props.otherScenes.find(s => s.id === props.draft.targetSceneId)

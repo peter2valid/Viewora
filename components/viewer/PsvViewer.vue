@@ -574,7 +574,7 @@ import {
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
 import { attachFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
-import { FLOOR_PIN_ICON } from '~/shared/utils/hotspotIcons'
+import { floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
 import { buildDockFloors, dockFloorOf, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import {
@@ -1505,14 +1505,17 @@ async function initVT() {
     }
     const allHS = buildAllHotspots()
     const floorNav = floorNavEnabled()
-    const isFloorLink = (h: Hotspot) => h.type === 'scene_link' && !!h.targetSceneId && (floorNav || h.icon === FLOOR_PIN_ICON)
+    const isFloorLink = (h: Hotspot) => h.type === 'scene_link' && !!h.targetSceneId && (floorNav || isFloorIcon(h.icon))
     if (Object.values(allHS).some(list => list.some(isFloorLink))) {
       try {
         const sceneName = (id: string) => mappedScenes.find(s => s.id === id)?.title || 'Next scene'
         floorCursorCtl = attachFloorCursor(handle, {
           getLinks: (sceneId) => (allHS[sceneId] ?? [])
             .filter(isFloorLink)
-            .map(h => ({ hotspotId: h.id, targetSceneId: h.targetSceneId!, name: sceneName(h.targetSceneId!), yaw: h.yaw, pitch: h.pitch })),
+            .map(h => ({
+              hotspotId: h.id, targetSceneId: h.targetSceneId!, name: sceneName(h.targetSceneId!), yaw: h.yaw, pitch: h.pitch,
+              glyph: floorGlyph(h.icon), scale: Number(h.scale || 1), hoverScale: Number(h.hoverScale || 1.3),
+            })),
           isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value,
           onWalk: (targetSceneId, yaw, via) => walkThroughFloorCursor(handle, targetSceneId, yaw, via),
           cursor: floorNav,

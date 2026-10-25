@@ -3,6 +3,8 @@ export interface HotspotIconDef {
   label: string
   group: 'info' | 'video' | 'camera' | 'star' | 'nav'
   url: string
+  /** Kept so saved hotspots still resolve, but no longer offered in the pickers. */
+  legacy?: boolean
 }
 
 export const HOTSPOT_ICON_DEFS: HotspotIconDef[] = [
@@ -33,15 +35,40 @@ export const HOTSPOT_ICON_DEFS: HotspotIconDef[] = [
   { key: 'star-green',         label: 'Star Green',      group: 'star',   url: '/hotspot-icons/star-green.png' },
 
   // ── Navigation (scene links) ──────────────────────────────
-  { key: 'nav-up',             label: 'Arrow (White)',   group: 'nav',    url: '/hotspot-icons/nav-floor-white.svg' },
-  { key: 'nav-up-white',       label: 'Arrow (Black)',   group: 'nav',    url: '/hotspot-icons/nav-floor-black.svg' },
-  { key: 'nav-sphere',         label: 'Sphere',          group: 'nav',    url: '/hotspot-icons/nav-sphere.png' },
-  { key: 'nav-portal',         label: 'Portal',          group: 'nav',    url: '/hotspot-icons/nav-portal.svg' },
+  // Drawn as a disc on the floor with a pin or arrow standing on it (floorCursor.ts).
   { key: 'nav-floor-pin',      label: 'Floor Pin',       group: 'nav',    url: '/hotspot-icons/nav-floor-pin.svg' },
+  { key: 'nav-floor-up',       label: 'Floor Up',        group: 'nav',    url: '/hotspot-icons/nav-floor-up.svg' },
+  { key: 'nav-floor-down',     label: 'Floor Down',      group: 'nav',    url: '/hotspot-icons/nav-floor-down.svg' },
+  // Older nav icons: drawn as the Floor Pin since floor navigation became the default.
+  { key: 'nav-up',             label: 'Arrow (White)',   group: 'nav',    url: '/hotspot-icons/nav-floor-white.svg', legacy: true },
+  { key: 'nav-up-white',       label: 'Arrow (Black)',   group: 'nav',    url: '/hotspot-icons/nav-floor-black.svg', legacy: true },
+  { key: 'nav-sphere',         label: 'Sphere',          group: 'nav',    url: '/hotspot-icons/nav-sphere.png', legacy: true },
+  { key: 'nav-portal',         label: 'Portal',          group: 'nav',    url: '/hotspot-icons/nav-portal.svg', legacy: true },
 ]
 
-/** Nav icon drawn in the public viewer as a disc on the floor with a location pin (floorCursor.ts). */
+/** Icons offered in the pickers. */
+export const PICKER_ICON_DEFS = HOTSPOT_ICON_DEFS.filter(d => !d.legacy)
+
 export const FLOOR_PIN_ICON = 'nav-floor-pin'
+export const FLOOR_UP_ICON = 'nav-floor-up'
+export const FLOOR_DOWN_ICON = 'nav-floor-down'
+
+/** What stands on a navigation hotspot's floor disc. */
+export type FloorGlyph = 'pin' | 'up' | 'down'
+
+export function isFloorIcon(icon: string | null | undefined): boolean {
+  return icon === FLOOR_PIN_ICON || icon === FLOOR_UP_ICON || icon === FLOOR_DOWN_ICON
+}
+
+/** Older and missing nav icons get the pin. */
+export function floorGlyph(icon: string | null | undefined): FloorGlyph {
+  return icon === FLOOR_UP_ICON ? 'up' : icon === FLOOR_DOWN_ICON ? 'down' : 'pin'
+}
+
+/** The picker entry a navigation hotspot shows as selected. */
+export function navPickerIcon(icon: string | null | undefined): string {
+  return isFloorIcon(icon) ? icon! : FLOOR_PIN_ICON
+}
 
 export const HOTSPOT_ICONS_BY_KEY: Record<string, string> = Object.fromEntries(
   HOTSPOT_ICON_DEFS.map((d) => [d.key, d.url])
@@ -49,7 +76,7 @@ export const HOTSPOT_ICONS_BY_KEY: Record<string, string> = Object.fromEntries(
 
 export const TYPE_DEFAULT_ICON: Record<string, string> = {
   info:       'info-3d-light',
-  scene_link: 'nav-up',
+  scene_link: FLOOR_PIN_ICON,
   url:        'info-3d-light',
   video:      'video-3d-light',
   youtube:    'video-3d-light',

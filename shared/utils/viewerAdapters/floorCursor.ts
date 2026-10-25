@@ -1,10 +1,12 @@
 // Street View-style floor navigation for the public viewer.
 //
 //   - Every navigation hotspot (scene link) is drawn as a disc lying flat on
-//     the floor, with an upright location pin standing on it so it can be
-//     spotted from afar; its usual DOM chevron is hidden. Tapping or clicking
+//     the floor, with an upright location pin (or an up/down arrow for the
+//     "Floor Up"/"Floor Down" icons) standing on it so it can be spotted from
+//     afar; its usual DOM chevron is hidden. The editor draws the same disc and
+//     pin (floorDiscMarker/floorPinMarker, used by psvAdapter.addHotspot). Tapping or clicking
 //     the disc or pin walks there. All devices. (With ?floorcursor=0 only
-//     hotspots with the "Floor Pin" icon, and no cursor; see PsvViewer.vue.)
+//     hotspots with a floor icon, and no cursor; see PsvViewer.vue.)
 //   - On mouse devices a cursor disc lies on the floor under the mouse. It picks the hotspot
 //     nearest to that floor spot, turns its arrow toward it, outlines it and
 //     shows its room name; a click walks there. With no hotspot in that
@@ -26,6 +28,7 @@
 //   - a click on a 3D marker fires `select-marker` (psvAdapter ignores these ids).
 
 import type { PsvViewerHandle } from './psvAdapter'
+import type { FloorGlyph } from '~/shared/utils/hotspotIcons'
 
 export const FLOOR_CURSOR_PREFIX = 'floor-cursor:'
 const ARROW_ID = FLOOR_CURSOR_PREFIX + 'arrow'
@@ -55,9 +58,16 @@ const FALLBACK_RANGE = Math.PI / 2
 /** Pin standing on each hotspot disc: a screen-sized DOM marker, so it stays readable far away. */
 const PIN_WIDTH = 30
 const PIN_HEIGHT = 40
-const PIN_HTML = `<svg width="${PIN_WIDTH}" height="${PIN_HEIGHT}" viewBox="0 0 30 40" aria-hidden="true" style="display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">`
-  + '<path d="M15 39C15 39 2 23.6 2 14.5a13 13 0 0 1 26 0C28 23.6 15 39 15 39Z" fill="#e53935" stroke="#fff" stroke-width="2"/>'
-  + '<circle cx="15" cy="14.5" r="5.5" fill="#fff"/></svg>'
+const GLYPH_PATHS: Record<FloorGlyph, string> = {
+  pin: '<path d="M15 39C15 39 2 23.6 2 14.5a13 13 0 0 1 26 0C28 23.6 15 39 15 39Z" fill="#e53935" stroke="#fff" stroke-width="2"/>'
+    + '<circle cx="15" cy="14.5" r="5.5" fill="#fff"/>',
+  up: '<path d="M15 2L28 17.5H20.5V38H9.5V17.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
+  down: '<path d="M15 39L28 23.5H20.5V2H9.5V23.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
+}
+function glyphHtml(glyph: FloorGlyph): string {
+  return '<svg width="100%" height="100%" viewBox="0 0 30 40" aria-hidden="true" style="display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">'
+    + GLYPH_PATHS[glyph] + '</svg>'
+}
 
 export interface FloorCursorLink {
   hotspotId: string
@@ -65,6 +75,11 @@ export interface FloorCursorLink {
   name: string
   yaw: number
   pitch: number
+  glyph: FloorGlyph
+  /** Hotspot size (1 = default). */
+  scale: number
+  /** Pin zoom on hover (mouse only). */
+  hoverScale: number
 }
 
 export interface FloorCursorController { destroy: () => void }
@@ -87,8 +102,13 @@ function sizeAt(base: number, pitch: number): number {
   return base * Math.max(MIN_SCALE, Math.sin(-pitch))
 }
 
-function spotPitch(link: FloorCursorLink): number {
+function spotPitch(link: { pitch: number }): number {
   return Math.min(link.pitch, SPOT_MAX_PITCH)
+}
+
+/** Where a navigation hotspot is drawn: on the floor, below the horizon. */
+export function floorSpotPosition(yaw: number, pitch: number): { yaw: number; pitch: number } {
+  return { yaw, pitch: spotPitch({ pitch }) }
 }
 
 export function supportsFloorCursor(): boolean {
@@ -97,6 +117,45 @@ export function supportsFloorCursor(): boolean {
 
 /** Pin hit area on touch screens (the drawn pin stays the same size). */
 const TOUCH_PIN_PAD = 8
+
+/** Disc lying flat on the floor under a navigation hotspot (MarkersPlugin config). */
+export function floorDiscMarker(id: string, spot: { yaw: number; pitch: number; scale: number }) {
+  const position = floorSpotPosition(spot.yaw, spot.pitch)
+  const size = sizeAt(SPOT_SIZE, position.pitch) * spot.scale
+  return {
+    id,
+    imageLayer: IMG + 'spot.svg',
+    position,
+    size: { width: size, height: size },
+    rotation: { pitch: Math.PI / 2 },
+    zIndex: 1,
+  }
+}
+
+/** Pin or arrow standing on the disc: screen-sized, so it stays readable far away. */
+export function floorPinMarker(
+  id: string,
+  spot: { yaw: number; pitch: number; glyph: FloorGlyph; scale: number; hoverScale: number },
+  touch: boolean,
+) {
+  const w = Math.round(PIN_WIDTH * spot.scale)
+  const h = Math.round(PIN_HEIGHT * spot.scale)
+  // On touch, transparent padding makes the pin easier to tap; the bottom
+  // padding is pulled back so the tip still stands on the disc.
+  const pad = touch ? TOUCH_PIN_PAD : 0
+  return {
+    id,
+    html: glyphHtml(spot.glyph),
+    position: floorSpotPosition(spot.yaw, spot.pitch),
+    size: { width: w + 2 * pad, height: h + 2 * pad },
+    anchor: 'bottom center',
+    ...(touch ? {} : { hoverScale: { amount: spot.hoverScale, duration: 150 } }),
+    style: touch
+      ? { padding: `${pad}px`, marginTop: `${pad}px`, boxSizing: 'border-box' }
+      : { cursor: 'pointer' },
+    zIndex: 5,
+  }
+}
 
 export function attachFloorCursor(
   handle: PsvViewerHandle,
@@ -174,37 +233,13 @@ export function attachFloorCursor(
     for (const link of links) {
       // The chevron (MarkersPlugin marker with the hotspot's id) stays for phones.
       if (hasMarker(link.hotspotId)) markers.updateMarker({ id: link.hotspotId, visible: false })
-      const id = SPOT_PREFIX + link.hotspotId
-      if (!hasMarker(id)) addFlat(id, 'spot.svg', 1)
-      const pitch = spotPitch(link)
-      const size = sizeAt(SPOT_SIZE, pitch)
-      markers.updateMarker({
-        id,
-        position: { yaw: link.yaw, pitch },
-        size: { width: size, height: size },
-        visible: true,
-        data: { type: 'floor-cursor', targetSceneId: link.targetSceneId },
-      })
-      const pinId = PIN_PREFIX + link.hotspotId
-      if (hasMarker(pinId)) markers.updateMarker({ id: pinId, position: { yaw: link.yaw, pitch } })
-      else {
-        // On touch, transparent padding makes the pin easier to tap; the
-        // bottom padding is pulled back so the tip still stands on the disc.
-        const pad = touch ? TOUCH_PIN_PAD : 0
-        markers.addMarker({
-          id: pinId,
-          html: PIN_HTML,
-          position: { yaw: link.yaw, pitch },
-          size: { width: PIN_WIDTH + 2 * pad, height: PIN_HEIGHT + 2 * pad },
-          anchor: 'bottom center',
-          ...(touch ? {} : { hoverScale: { amount: 1.2, duration: 150 } }),
-          style: touch
-            ? { padding: `${pad}px`, marginTop: `${pad}px`, boxSizing: 'border-box' }
-            : { cursor: 'pointer' },
-          zIndex: 5,
-          data: { type: 'floor-cursor', targetSceneId: link.targetSceneId },
-        })
-      }
+      const data = { type: 'floor-cursor', targetSceneId: link.targetSceneId }
+      const disc = { ...floorDiscMarker(SPOT_PREFIX + link.hotspotId, link), visible: true, data }
+      if (hasMarker(disc.id)) markers.updateMarker(disc)
+      else markers.addMarker(disc)
+      const pin = { ...floorPinMarker(PIN_PREFIX + link.hotspotId, link, touch), data }
+      if (hasMarker(pin.id)) markers.removeMarker(pin.id)
+      markers.addMarker(pin)
     }
     if (!cursor) return
     ensureCursorMarkers()
@@ -268,7 +303,7 @@ export function attachFloorCursor(
 
   function highlight(link: FloorCursorLink, at: { x: number; y: number }) {
     const pitch = spotPitch(link)
-    const s = sizeAt(SPOT_SIZE, pitch) * 1.15
+    const s = sizeAt(SPOT_SIZE, pitch) * link.scale * 1.15
     ensureCursorMarkers()
     markers.updateMarker({
       id: HIGHLIGHT_ID,

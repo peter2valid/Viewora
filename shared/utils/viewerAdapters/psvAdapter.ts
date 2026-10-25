@@ -29,8 +29,8 @@ import {
   toHotspotId,
   PLOT_POLY_SUFFIX,
 } from './landMarkers'
-import { FLOOR_PIN_ICON, HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
-import { FLOOR_CURSOR_PREFIX } from './floorCursor'
+import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON, floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
+import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, floorSpotPosition, supportsFloorCursor } from './floorCursor'
 
 /** Master Handle: Unified state for a single viewer instance */
 export interface PsvViewerHandle {
@@ -664,6 +664,29 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
 
 
 
+/** Editor floor disc under a scene link's pin. */
+const FLOOR_DISC_SUFFIX = '__floor'
+
+/** Extra marker ids (plot polygons, floor discs) map back to the hotspot that owns them. */
+function toMarkerHotspotId(markerId: string): string {
+  return markerId.endsWith(FLOOR_DISC_SUFFIX) ? markerId.slice(0, -FLOOR_DISC_SUFFIX.length) : toHotspotId(markerId)
+}
+
+/** Where a hotspot is drawn: scene links sit on the floor, below the horizon. */
+export function hotspotDrawPosition(hs: Hotspot): { yaw: number; pitch: number } {
+  return hs.type === 'scene_link' ? floorSpotPosition(hs.yaw, hs.pitch) : { yaw: hs.yaw, pitch: hs.pitch }
+}
+
+/** Moves a hotspot's markers while it is dragged in the editor. */
+export function moveHotspotMarkers(handle: PsvViewerHandle | null, hs: Hotspot, position: { yaw: number; pitch: number }): void {
+  if (!handle?.markers) return
+  const moved = { ...hs, ...position }
+  handle.markers.updateMarker({ id: hs.id, position: hotspotDrawPosition(moved) })
+  if (hs.type !== 'scene_link') return
+  const disc = floorDiscMarker(`${hs.id}${FLOOR_DISC_SUFFIX}`, { ...moved, scale: Number(hs.scale || 1) })
+  try { handle.markers.updateMarker({ id: disc.id, position: disc.position, size: disc.size }) } catch { /* noop */ }
+}
+
 export function getHotspotScreenPos(
   handle: PsvViewerHandle | null,
   yaw: number,
@@ -952,18 +975,18 @@ export async function initViewer(
   viewer.addEventListener('click', handleClick)
   cleanupFns.push(() => viewer.removeEventListener('click', handleClick))
 
-  const handleMarkerSelect = (e: any) => onMarkerClick?.(toHotspotId(String(e.marker.id)))
+  const handleMarkerSelect = (e: any) => onMarkerClick?.(toMarkerHotspotId(String(e.marker.id)))
   markers.addEventListener('select-marker', handleMarkerSelect)
   cleanupFns.push(() => markers.removeEventListener('select-marker', handleMarkerSelect))
 
   if (onMarkerEnter) {
-    const handleEnter = (e: any) => onMarkerEnter(e.marker.id)
+    const handleEnter = (e: any) => onMarkerEnter(toMarkerHotspotId(String(e.marker.id)))
     markers.addEventListener('enter-marker', handleEnter)
     cleanupFns.push(() => markers.removeEventListener('enter-marker', handleEnter))
   }
 
   if (onMarkerLeave) {
-    const handleLeave = (e: any) => onMarkerLeave(e.marker.id)
+    const handleLeave = (e: any) => onMarkerLeave(toMarkerHotspotId(String(e.marker.id)))
     markers.addEventListener('leave-marker', handleLeave)
     cleanupFns.push(() => markers.removeEventListener('leave-marker', handleLeave))
   }
@@ -1038,22 +1061,41 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     const scale       = Number(hotspot.scale || 1)
     const hoverAmount = Number(hotspot.hoverScale || 1.3)
 
+    if (hotspot.type === 'scene_link') {
+      // Same disc + pin as the public viewer (floorCursor.ts), so owners see
+      // what visitors will. The pin carries the hotspot id and data-vhs-id
+      // (click, hover menu, drag); the disc maps back via toMarkerHotspotId().
+      const spot = {
+        yaw: hotspot.yaw,
+        pitch: hotspot.pitch,
+        glyph: floorGlyph(hotspot.icon),
+        scale,
+        hoverScale: hoverAmount,
+      }
+      handle.markers.addMarker(floorDiscMarker(`${hotspot.id}${FLOOR_DISC_SUFFIX}`, spot))
+      const pin = floorPinMarker(hotspot.id, spot, !supportsFloorCursor())
+      const el = document.createElement('div')
+      el.innerHTML = pin.html
+      el.style.width = el.style.height = '100%'
+      el.setAttribute('data-vhs-type', 'scene_link')
+      el.setAttribute('data-vhs-id', hotspot.id)
+      const { html: _html, ...config } = pin
+      handle.markers.addMarker({
+        ...config,
+        element: el,
+        tooltip: { content: hotspot.label || 'Go to scene', position: 'top center', trigger: 'hover' },
+      })
+      return
+    }
+
     if (!isLayerType) {
-      const labelText = hotspot.label || (hotspot.type === 'scene_link' ? 'Go to scene' : undefined)
-      const hoverAmount = Number(hotspot.hoverScale || 1.3)
-      const isNav = hotspot.type === 'scene_link'
-
-      const el = isNav ? buildNavMarkerEl(hotspot) : buildInfoMarkerEl(hotspot)
-
-      const markerSize = isNav ? { width: 120, height: 80 } : { width: 40, height: 40 }
       handle.markers.addMarker({
         id: hotspot.id,
         position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
-        element: el,
-        size: markerSize,
+        element: buildInfoMarkerEl(hotspot),
+        size: { width: 40, height: 40 },
         anchor: 'center center',
-        tooltip: labelText && isNav ? { content: labelText, position: 'top center', trigger: 'hover' } : undefined,
-        hoverScale: isNav ? hoverAmount : 1,
+        hoverScale: 1,
       })
       return
     }
@@ -1126,6 +1168,7 @@ export function removeHotspot(handle: PsvViewerHandle | null, id: string): void 
   if (!handle?.markers) return
   try { handle.markers.removeMarker(id) } catch { /* noop */ }
   try { handle.markers.removeMarker(`${id}${PLOT_POLY_SUFFIX}`) } catch { /* noop: not a plot */ }
+  try { handle.markers.removeMarker(`${id}${FLOOR_DISC_SUFFIX}`) } catch { /* noop: not a scene link */ }
   handle.markerSignatures?.delete(id)
 }
 
@@ -1351,7 +1394,7 @@ function buildTourNodes(
           anchor: 'center center',
           hoverScale: isNav ? Number(h.hoverScale || 1.3) : 1,
           // Floor pins are drawn by floorCursor.ts instead of the chevron
-          ...(isNav && h.icon === FLOOR_PIN_ICON ? { visible: false } : {}),
+          ...(isNav && isFloorIcon(h.icon) ? { visible: false } : {}),
           data: { type: h.type, targetSceneId: h.targetSceneId, url: h.url },
         }
       })

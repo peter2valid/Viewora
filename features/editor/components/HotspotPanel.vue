@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { EditorHotspot } from '../mappers'
-import { HOTSPOT_ICON_DEFS, HOTSPOT_ICONS_BY_KEY, ICON_GROUPS, TYPE_DEFAULT_ICON } from '~/shared/utils/hotspotIcons'
+import { HOTSPOT_ICONS_BY_KEY, ICON_GROUPS, PICKER_ICON_DEFS, TYPE_DEFAULT_ICON, navPickerIcon } from '~/shared/utils/hotspotIcons'
 import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/editor/hotspotPayload'
 import { PLOT_STATUS_META, directionsUrl } from '~/shared/utils/viewerAdapters/landMarkers'
 import type { PlotStatus } from '~/domain/hotspot'
@@ -90,7 +90,9 @@ const showAdvanced = ref(false)
 watch(() => props.selectedId, () => { showAdvanced.value = false })
 
 const effectiveIcon = computed(() =>
-  props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info-3d-light'
+  props.draft.type === 'scene_link'
+    ? navPickerIcon(props.draft.icon)
+    : props.draft.icon || TYPE_DEFAULT_ICON[props.draft.type] || 'info-3d-light'
 )
 
 const isMediaType = computed(() => props.draft.type === 'video' || props.draft.type === 'youtube')
@@ -150,7 +152,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
         >
           <div class="hs-item-icon">
             <img
-              :src="HOTSPOT_ICONS_BY_KEY[hs.icon || TYPE_DEFAULT_ICON[hs.type] || 'info-3d-light']"
+              :src="HOTSPOT_ICONS_BY_KEY[hs.type === 'scene_link' ? navPickerIcon(hs.icon) : hs.icon || TYPE_DEFAULT_ICON[hs.type] || 'info-3d-light']"
               class="w-full h-full object-contain"
               draggable="false"
               alt=""
@@ -399,7 +401,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
                   <span class="hs-icon-group-label">{{ group.label }}</span>
                   <div class="hs-icon-grid">
                     <button
-                      v-for="iconDef in HOTSPOT_ICON_DEFS.filter(d => d.group === group.key)"
+                      v-for="iconDef in PICKER_ICON_DEFS.filter(d => d.group === group.key)"
                       :key="iconDef.key"
                       :title="iconDef.label"
                       class="hs-icon-btn"
