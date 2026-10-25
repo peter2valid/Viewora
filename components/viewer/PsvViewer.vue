@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive, 'public-viewer--map-crowded': floorMapCrowded }" :style="dockLiftStyle" @click="onViewerClick">
+  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive, 'public-viewer--map-crowded': floorMapCrowded, 'public-viewer--rail-lifted': dockLift.rail !== null, 'public-viewer--wa-lifted': dockLift.wa !== null, 'public-viewer--rail-tight': dockLift.railTight }" :style="dockLiftStyle" @click="onViewerClick">
 
     <!-- Loading progress bar -->
     <Transition name="viewer-progress">
@@ -914,66 +914,134 @@ function browseDockFloor(floorId: string) {
   openGroup.value = null
 }
 
-// ── Keep the bottom-left minimap and CTA clear of the open dock ──
-// The dock owns the bottom of the screen while open; anything bottom-left it
-// would cover moves up above it, and back down when it's collapsed. Measured
-// from the dock's height (not its on-screen position, which slides while
-// the dock animates open/closed). Nothing moves when they don't overlap.
+// ── Bottom layout: nothing overlaps the dock or each other ──
+// The dock (or, collapsed, its expand button) owns the bottom of the viewer.
+// Everything else is placed from its measured height, never from fixed
+// offsets, so a taller dock, a short screen or a browser bar can't push
+// two things onto each other:
+//   - left column, bottom-up: CTA, WhatsApp (phones), floor-plan minimap.
+//     It starts above the dock when the dock reaches under it.
+//   - right control rail: sits above the dock when the dock reaches under
+//     it, and switches to smaller buttons when the space is short.
+//   - opening screen: centres in the space above the dock.
+// Heights come from offsetHeight + the CSS bottom (not the on-screen
+// position, which slides while the dock animates open/closed).
 const dockTabsOnScreen = computed(() =>
   dockFloors.value.length > 0 && !dockCollapsed.value && sceneCount.value > 0 && !chromeHidden.value && !props.hideOwnChrome)
-const dockLift = ref<{ map: number | null; cta: number | null; intro: number | null }>({ map: null, cta: null, intro: null })
+type DockLift = { map: number | null; cta: number | null; wa: number | null; rail: number | null; railTight: boolean; intro: number | null }
+const NO_LIFT: DockLift = { map: null, cta: null, wa: null, rail: null, railTight: false, intro: null }
+const dockLift = ref<DockLift>({ ...NO_LIFT })
 const dockLiftStyle = computed(() => ({
   ...(dockLift.value.intro !== null ? { '--vt-intro-bottom': `${dockLift.value.intro}px` } : {}),
   ...(dockLift.value.map !== null ? { '--fp-map-bottom': `${dockLift.value.map}px` } : {}),
   ...(dockLift.value.cta !== null ? { '--viewer-cta-bottom': `${dockLift.value.cta}px` } : {}),
+  ...(dockLift.value.wa !== null ? { '--viewer-wa-bottom': `${dockLift.value.wa}px` } : {}),
+  ...(dockLift.value.rail !== null ? { '--viewer-rail-bottom': `${dockLift.value.rail}px` } : {}),
 }))
 const DOCK_GAP_PX = 12
-const CTA_HEIGHT_PX = 38
-const TOP_RESERVED_PX = 110   // branding block, top left
+const EDGE_GAP_PX = 16        // phone left column with nothing under it
+const TOP_RESERVED_PX = 110   // branding block, top left (when it can't be measured)
+let railNaturalH = 0          // control rail height at full button size
 
 function measureDockLift() {
   const root = viewerRootEl.value
-  const dock = root?.querySelector('.glass-dock-container') as HTMLElement | null
-  if (!root || !dock || dockCollapsed.value || chromeHidden.value || props.hideOwnChrome) {
-    dockLift.value = { map: null, cta: null, intro: null }
+  if (!root || chromeHidden.value || props.hideOwnChrome) {
+    dockLift.value = { ...NO_LIFT }
     floorMapCrowded.value = false
     return
   }
   const rootRect = root.getBoundingClientRect()
-  // The container is position: fixed, bottom-anchored to the window.
-  const dockBottomFromRoot = rootRect.bottom - (window.innerHeight - parseFloat(getComputedStyle(dock).bottom || '0'))
-  const clear = Math.max(0, Math.round(dockBottomFromRoot + dock.offsetHeight))
-  const dockLeft = dock.getBoundingClientRect().left - rootRect.left
+  const rootH = rootRect.height
+  const phone = floorMapCompact.value // same breakpoint as the phone CSS (max-width: 640px)
+
+  // What sits at the bottom: the open dock, or the collapsed dock's button.
+  const obstacle = root.querySelector(dockCollapsed.value ? '.glass-dock-expand-trigger' : '.glass-dock-container') as HTMLElement | null
+  let clear = 0
+  let obL = Infinity
+  let obR = -Infinity
+  if (obstacle) {
+    clear = Math.max(0, Math.round((parseFloat(getComputedStyle(obstacle).bottom) || 0) + obstacle.offsetHeight))
+    const r = obstacle.getBoundingClientRect()
+    obL = r.left - rootRect.left
+    obR = r.right - rootRect.left
+  }
+  const underDock = (l: number, r: number) => !!obstacle && obL < r + DOCK_GAP_PX && obR > l - DOCK_GAP_PX
+  const rightOf = (el: Element | null) => el ? el.getBoundingClientRect().right - rootRect.left : 0
 
   const cta = root.querySelector('.viewer-cta-btn') as HTMLElement | null
-  const ctaRight = cta ? cta.getBoundingClientRect().right - rootRect.left : 0
-  const liftCta = !!cta && dockLeft < ctaRight + DOCK_GAP_PX
-  const ctaTop = liftCta ? clear + DOCK_GAP_PX + CTA_HEIGHT_PX : 0
-
+  const wa = root.querySelector('.viewer-wa-btn') as HTMLElement | null
+  const hasMap = !!root.querySelector('.psv-map')
   const mapSize = floorMapCompact.value ? 140 : 200
   const mapRight = 10 + mapSize
-  const liftMap = dockLeft < mapRight + DOCK_GAP_PX
-  const baseMapBottom = floorMapCompact.value ? 128 : 96
-  const mapBottom = liftMap ? Math.max(baseMapBottom, clear + DOCK_GAP_PX, ctaTop + DOCK_GAP_PX) : null
 
-  // The opening screen centres its content in the space above the dock.
-  dockLift.value = { map: mapBottom, cta: liftCta ? clear + DOCK_GAP_PX : null, intro: clear + DOCK_GAP_PX }
-  floorMapCrowded.value = mapBottom !== null && rootRect.height - mapBottom - mapSize < TOP_RESERVED_PX
+  let ctaBottom: number | null = null
+  let waBottom: number | null = null
+  let mapBottom: number | null = null
+  if (phone) {
+    // Phones: one column, bottom-up, always stacked.
+    let y = underDock(0, Math.max(rightOf(cta), rightOf(wa), hasMap ? mapRight : 0)) ? clear + DOCK_GAP_PX : EDGE_GAP_PX
+    if (cta) { ctaBottom = y; y += cta.offsetHeight + DOCK_GAP_PX }
+    if (wa) { waBottom = y; y += wa.offsetHeight + DOCK_GAP_PX }
+    mapBottom = y
+  } else {
+    // Larger screens: the CTA and map only move when the dock reaches them;
+    // WhatsApp stays mid-left unless the map would come up under it.
+    const liftCta = !!cta && underDock(0, rightOf(cta))
+    if (liftCta) ctaBottom = clear + DOCK_GAP_PX
+    const ctaTop = liftCta && cta ? clear + DOCK_GAP_PX + cta.offsetHeight : 0
+    const baseMapBottom = 96
+    if (underDock(0, mapRight)) mapBottom = Math.max(baseMapBottom, clear + DOCK_GAP_PX, ctaTop + DOCK_GAP_PX)
+    if (wa && hasMap) {
+      const mapTop = (mapBottom ?? baseMapBottom) + mapSize
+      if (rootH / 2 - wa.offsetHeight / 2 < mapTop + DOCK_GAP_PX) waBottom = mapTop + DOCK_GAP_PX
+    }
+  }
+
+  // No room for the map below the branding block: hide it (see floorMapCrowded).
+  const brand = document.querySelector('.brand-card, .viewora-free-brand')
+  const topReserved = brand ? Math.max(0, brand.getBoundingClientRect().bottom - rootRect.top) + DOCK_GAP_PX : TOP_RESERVED_PX
+  const crowded = hasMap && mapBottom !== null && rootH - mapBottom - mapSize < topReserved
+  // A crowded map leaves its slot; WhatsApp on a larger screen goes back to mid-left.
+  if (crowded && !phone) waBottom = null
+
+  // Right rail: above the dock when the dock reaches under it.
+  let railBottom: number | null = null
+  let railTight = false
+  const stack = controlStackEl.value
+  if (stack) {
+    const r = stack.getBoundingClientRect()
+    if (!dockLift.value.railTight) railNaturalH = stack.offsetHeight
+    if (underDock(r.left - rootRect.left, r.right - rootRect.left)) {
+      railBottom = clear + DOCK_GAP_PX
+      railTight = rootH - railBottom - railNaturalH < DOCK_GAP_PX
+    }
+  }
+
+  dockLift.value = {
+    map: mapBottom,
+    cta: ctaBottom,
+    wa: waBottom,
+    rail: railBottom,
+    railTight,
+    intro: obstacle && !dockCollapsed.value ? clear + DOCK_GAP_PX : null,
+  }
+  floorMapCrowded.value = crowded
 }
 
 let dockLiftObserver: ResizeObserver | null = null
 let dockLiftObserved: Element | null = null
 function scheduleDockLift() {
   if (typeof window === 'undefined') return
-  // Collapsing needs no layout read: put everything back straight away.
+  // Collapsing: put everything back straight away.
   if (dockCollapsed.value || chromeHidden.value) measureDockLift()
   nextTick(() => requestAnimationFrame(() => {
-    // Follow the dock's own size changes (tabs, folders, item count).
+    // Follow size changes of the dock (tabs, folders, item count), the
+    // control rail (buttons appearing) and the viewer itself.
     const dock = viewerRootEl.value?.querySelector('.glass-dock-container') ?? null
     if (dock !== dockLiftObserved && 'ResizeObserver' in window) {
       dockLiftObserver?.disconnect()
-      dockLiftObserver = dock ? new ResizeObserver(() => measureDockLift()) : null
-      if (dock) dockLiftObserver?.observe(dock)
+      dockLiftObserver = new ResizeObserver(() => measureDockLift())
+      for (const el of [dock, controlStackEl.value, viewerRootEl.value]) if (el) dockLiftObserver.observe(el)
       dockLiftObserved = dock
     }
     measureDockLift()
@@ -1749,7 +1817,7 @@ function onRailTouchStart(e: TouchEvent) {
 
 // Re-measure the dock lift whenever the dock or what it would cover changes.
 watch(
-  () => [dockCollapsed.value, chromeHidden.value, dockItems.value.length, dockFloors.value.length, ctaEnabled.value, vtReady.value, floorMapCompact.value],
+  () => [dockCollapsed.value, chromeHidden.value, dockItems.value.length, dockFloors.value.length, ctaEnabled.value, vtReady.value, floorMapCompact.value, !!whatsappHref.value, compactNavActive.value, floorMapFloors.value.length],
   scheduleDockLift,
 )
 
@@ -2301,6 +2369,17 @@ watch(() => vtTransitioning.value, (loading) => {
   gap: 10px;
 }
 
+/* Dock underneath (measureDockLift): sit on top of it instead of mid-height. */
+.public-viewer--rail-lifted .viewer-control-stack {
+  top: auto;
+  bottom: var(--viewer-rail-bottom);
+  transform: none;
+}
+/* ...and smaller buttons when the space above the dock is short. */
+.public-viewer--rail-tight .viewer-control-stack,
+.public-viewer--rail-tight .viewer-rail { gap: 6px; }
+.public-viewer--rail-tight .viewer-rail__btn { width: 34px; height: 34px; border-radius: 11px; }
+
 /* Rail: no longer absolutely positioned — stack handles that */
 .viewer-rail {
   display: flex;
@@ -2799,6 +2878,7 @@ watch(() => vtTransitioning.value, (loading) => {
     top: auto;
     /* Add safe-area-inset-bottom so controls clear the home indicator/gesture bar */
     bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--viewer-rail-bottom, calc(130px + env(safe-area-inset-bottom, 0px)));
     transform: none;
     gap: 8px;
   }
@@ -3554,6 +3634,18 @@ watch(() => vtTransitioning.value, (loading) => {
 .floor-switch__btn--on { background: #fff; color: #0b0d12; border-color: #fff; }
 .floor-switch--compact .floor-switch__btn { height: 28px; padding: 0 10px; font-size: 11px; }
 
+/* The dock and its collapsed button are position: fixed in GlassDock (the
+   editor needs that). Here they belong to the viewer box, like everything
+   they share the bottom of the screen with, so a browser bar or a viewer
+   that isn't the whole window can't move the dock away from them. */
+.public-viewer :deep(.glass-dock-container),
+.public-viewer :deep(.glass-dock-expand-trigger) { position: absolute; }
+/* Phones: down to the bottom edge, clear of the gesture bar / home indicator. */
+@media (max-width: 640px) {
+  .public-viewer :deep(.glass-dock-container),
+  .public-viewer :deep(.glass-dock-expand-trigger) { bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+
 /* ── Medium-size scene dock (public viewer only; the editor keeps GlassDock's
    full size). About a fifth smaller than the default, so it leaves more of
    the panorama in view. ── */
@@ -3772,6 +3864,10 @@ watch(() => vtTransitioning.value, (loading) => {
   opacity: 0;
   pointer-events: none;
 }
+/* Map under it (measureDockLift): sit above the map instead of mid-height. */
+.public-viewer--wa-lifted .viewer-wa-btn { top: auto; bottom: var(--viewer-wa-bottom); transform: none; }
+.public-viewer--wa-lifted .viewer-wa-btn:hover { transform: translateY(-2px); }
+.public-viewer--wa-lifted .viewer-wa-btn:active { transform: scale(0.95); }
 .wa-btn-enter-active, .wa-btn-leave-active { transition: opacity 200ms ease, transform 200ms ease; }
 .wa-btn-enter-from, .wa-btn-leave-to { opacity: 0; transform: translateY(-50%) translateX(-8px); }
 
@@ -3781,6 +3877,7 @@ watch(() => vtTransitioning.value, (loading) => {
     left: calc(10px + env(safe-area-inset-left, 0px));
     top: auto;
     bottom: calc(200px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--viewer-wa-bottom, calc(200px + env(safe-area-inset-bottom, 0px)));
     transform: none;
     width: 46px;
     height: 46px;
