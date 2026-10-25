@@ -528,9 +528,9 @@
       :edge-inset-px="16"
       :max-strip-vw="80"
       :max-strip-px="860"
-      :max-scale="1.6"
-      :sigma-px="94"
-      :lift-px="14"
+      :max-scale="1.4"
+      :sigma-px="80"
+      :lift-px="10"
       :collapsed-label="dockCollapsedLabel"
       @select="onDockSelect"
     >
@@ -3524,6 +3524,33 @@ watch(() => vtTransitioning.value, (loading) => {
 .floor-switch__btn--on { background: #fff; color: #0b0d12; border-color: #fff; }
 .floor-switch--compact .floor-switch__btn { height: 28px; padding: 0 10px; font-size: 11px; }
 
+/* ── Medium-size scene dock (public viewer only; the editor keeps GlassDock's
+   full size). About a fifth smaller than the default, so it leaves more of
+   the panorama in view. ── */
+.public-viewer :deep(.glass-dock--padded) { padding: 7px; }
+.public-viewer :deep(.glass-dock--with-header) { gap: 6px; }
+.public-viewer :deep(.glass-dock__strip) { gap: 6px; }
+.public-viewer :deep(.glass-dock__item) {
+  --thumb-w: 72px; --thumb-h: 40px;
+  width: 88px; min-width: 88px; max-width: 88px;
+  padding: 6px 6px 8px; gap: 6px; border-radius: 12px;
+}
+.public-viewer :deep(.glass-dock__section) { --item-w: 88px; }
+.public-viewer :deep(.glass-dock__label) { font-size: 10.5px; }
+@media (min-width: 640px) {
+  .public-viewer :deep(.glass-dock--padded) { padding: 10px; }
+  .public-viewer :deep(.glass-dock__strip) { gap: 8px; }
+  .public-viewer :deep(.glass-dock__item) {
+    --thumb-w: 92px; --thumb-h: 50px;
+    width: 112px; min-width: 112px; max-width: 112px;
+    padding: 8px 10px 10px; gap: 7px; border-radius: 14px;
+  }
+  .public-viewer :deep(.glass-dock__section) { --item-w: 112px; }
+  .public-viewer :deep(.glass-dock__sectionItems) { gap: 8px; }
+  .public-viewer :deep(.glass-dock__thumb) { border-radius: 10px; }
+  .public-viewer :deep(.glass-dock__label) { font-size: 11.5px; }
+}
+
 /* ── Dock floor tabs (GlassDock #header) ── */
 .dock-floors {
   display: flex; gap: 6px;
@@ -3533,10 +3560,10 @@ watch(() => vtTransitioning.value, (loading) => {
 .dock-floors::-webkit-scrollbar { display: none; }
 .dock-floors__btn {
   position: relative; flex: none;
-  height: 28px; padding: 0 12px;
+  height: 26px; padding: 0 11px;
   border-radius: 999px; border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75);
-  font-size: 12px; font-weight: 700; white-space: nowrap;
+  font-size: 11.5px; font-weight: 700; white-space: nowrap;
   cursor: pointer;
 }
 .dock-floors__btn:not(.dock-floors__btn--on):hover { background: rgba(255,255,255,0.12); color: #fff; }
