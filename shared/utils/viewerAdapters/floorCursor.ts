@@ -1,10 +1,11 @@
-// Street View-style floor navigation for the public viewer on mouse devices
+// Street View-style floor navigation for the public viewer
 // (prototype, behind the ?floorcursor=1 flag).
 //
 //   - Every navigation hotspot (scene link) is drawn as a disc lying flat on
 //     the floor, with an upright location pin standing on it so it can be
-//     spotted from afar; its usual DOM chevron is hidden. Phones keep the chevrons.
-//   - A cursor disc lies on the floor under the mouse. It picks the hotspot
+//     spotted from afar; its usual DOM chevron is hidden. Tapping or clicking
+//     the disc or pin walks there. This part runs on phones and tablets too.
+//   - Mouse devices only: a cursor disc lies on the floor under the mouse. It picks the hotspot
 //     nearest to that floor spot, turns its arrow toward it, outlines it and
 //     shows its room name; a click walks there. With no hotspot in that
 //     direction it's a plain ring and a click does nothing.
@@ -94,6 +95,9 @@ export function supportsFloorCursor(): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 }
 
+/** Pin hit area on touch screens (the drawn pin stays the same size). */
+const TOUCH_PIN_PAD = 8
+
 export function attachFloorCursor(
   handle: PsvViewerHandle,
   opts: {
@@ -102,8 +106,11 @@ export function attachFloorCursor(
     /** True while the cursor must stay hidden (scene transition, VR…). */
     isBlocked: () => boolean
     onWalk: (targetSceneId: string, yaw: number) => void
+    /** Discs and pins only, no cursor following the mouse (phones, tablets). */
+    touch?: boolean
   },
 ): FloorCursorController | null {
+  const touch = !!opts.touch
   const viewer = handle.viewer
   const markers = handle.markers
   const vt: any = viewer?.getPlugin?.('virtual-tour')
@@ -179,19 +186,25 @@ export function attachFloorCursor(
       const pinId = PIN_PREFIX + link.hotspotId
       if (hasMarker(pinId)) markers.updateMarker({ id: pinId, position: { yaw: link.yaw, pitch } })
       else {
+        // On touch, transparent padding makes the pin easier to tap; the
+        // bottom padding is pulled back so the tip still stands on the disc.
+        const pad = touch ? TOUCH_PIN_PAD : 0
         markers.addMarker({
           id: pinId,
           html: PIN_HTML,
           position: { yaw: link.yaw, pitch },
-          size: { width: PIN_WIDTH, height: PIN_HEIGHT },
+          size: { width: PIN_WIDTH + 2 * pad, height: PIN_HEIGHT + 2 * pad },
           anchor: 'bottom center',
-          hoverScale: { amount: 1.2, duration: 150 },
-          style: { cursor: 'pointer' },
+          ...(touch ? {} : { hoverScale: { amount: 1.2, duration: 150 } }),
+          style: touch
+            ? { padding: `${pad}px`, marginTop: `${pad}px`, boxSizing: 'border-box' }
+            : { cursor: 'pointer' },
           zIndex: 5,
           data: { type: 'floor-cursor', targetSceneId: link.targetSceneId },
         })
       }
     }
+    if (touch) return
     ensureCursorMarkers()
     schedule()
   }
@@ -357,13 +370,16 @@ export function attachFloorCursor(
     if (!vt.state?.loadingNode) safely(() => syncScene(vt.getCurrentNode?.()?.id))
   })
 
-  container.addEventListener('mousemove', onMouseMove, { passive: true })
-  container.addEventListener('mouseleave', onMouseLeave)
-  viewer.addEventListener('position-updated', onViewMoved)
-  viewer.addEventListener('zoom-updated', onViewMoved)
+  // Touch screens fire a fake mousemove after each tap, so no cursor there.
+  if (!touch) {
+    container.addEventListener('mousemove', onMouseMove, { passive: true })
+    container.addEventListener('mouseleave', onMouseLeave)
+    viewer.addEventListener('position-updated', onViewMoved)
+    viewer.addEventListener('zoom-updated', onViewMoved)
+    markers.addEventListener('enter-marker', onEnterMarker)
+    markers.addEventListener('leave-marker', onLeaveMarker)
+  }
   markers.addEventListener('select-marker', onSelect)
-  markers.addEventListener('enter-marker', onEnterMarker)
-  markers.addEventListener('leave-marker', onLeaveMarker)
   vt.addEventListener('node-changed', onNodeChanged)
   container.classList.add('psv--floor-nav')
 
