@@ -42,7 +42,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                   </span>
                 </div>
-                <span class="qe-room-name">{{ selectedScene?.label || 'Select destination…' }}</span>
+                <span class="qe-room-name" :title="selectedScene?.label">{{ selectedScene?.label || 'Select destination…' }}</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="qe-room-chevron" :style="{ transform: roomDropOpen ? 'rotate(180deg)' : '' }">
                   <path d="M6 9l6 6 6-6"/>
                 </svg>
@@ -64,7 +64,7 @@
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
                     </span>
                   </div>
-                  <span class="qe-room-item-name">{{ s.label }}</span>
+                  <span class="qe-room-item-name" :title="s.label">{{ s.label }}</span>
                   <svg v-if="draft.targetSceneId === s.id" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="qe-room-check">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
@@ -523,9 +523,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-size: 12px;
   font-weight: 700;
   color: rgba(255,255,255,0.85);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.35;
+  /* Full scene names wrap (long camera file names have no spaces to break at). */
+  overflow-wrap: anywhere;
 }
 .qe-room-chevron {
   color: rgba(255,255,255,0.3);
@@ -577,9 +577,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-size: 11px;
   font-weight: 700;
   color: rgba(255,255,255,0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 .qe-room-check { color: #818cf8; flex-shrink: 0; }
 
