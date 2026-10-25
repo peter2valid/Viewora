@@ -9,7 +9,7 @@ import {
   type MotionError,
 } from './motionControls'
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin'
-import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
+import { SceneSafeTilesAdapter } from './SceneSafeTilesAdapter'
 import {
   KtxEquirectangularTilesAdapter,
   initKtx2Loader,
@@ -904,7 +904,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [EquirectangularTilesAdapter, { resolution: 64, baseBlur: false, antialias: false }] as any,
+    adapter: [SceneSafeTilesAdapter, { resolution: 64, baseBlur: false, antialias: false }] as any,
     panorama: buildPanorama(scene, resolvedPerformanceMode),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -1556,7 +1556,7 @@ export async function initVirtualTourViewer(
     ...(FloorMapPlugin ? { map: { imageUrl: floorMap!.imageUrl, recenter: true } } : {}),
   }])
 
-  const adapterClass = ktx2Available ? KtxEquirectangularTilesAdapter : EquirectangularTilesAdapter
+  const adapterClass = ktx2Available ? KtxEquirectangularTilesAdapter : SceneSafeTilesAdapter
   const viewer: any = new Viewer({
     container,
     adapter: [adapterClass, { resolution: 64, baseBlur: false, antialias: false }] as any,

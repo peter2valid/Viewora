@@ -1,7 +1,7 @@
-import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshBasicMaterial } from 'three'
 import type { WebGLRenderer } from 'three'
+import { SceneSafeTilesAdapter } from './SceneSafeTilesAdapter'
 
 // Singleton — initialised once per app lifecycle
 let ktx2Loader: KTX2Loader | null = null
@@ -36,38 +36,36 @@ export function detectKtx2GpuSupport(): boolean {
 }
 
 /**
- * Extends EquirectangularTilesAdapter to load .ktx2 tiles via KTX2Loader
- * when GPU compressed texture support is available.
+ * Extends SceneSafeTilesAdapter (PSV's tiles adapter that keeps each scene's
+ * tiles on its own sphere) to load .ktx2 tiles via KTX2Loader when GPU
+ * compressed texture support is available.
  *
  * Falls back to WebP transparently when:
  * - GPU does not support any compressed texture format
  * - initKtx2Loader has not been called yet
  * - KTX2Loader throws for any reason (per-tile WebP fallback)
  */
-export class KtxEquirectangularTilesAdapter extends EquirectangularTilesAdapter {
+export class KtxEquirectangularTilesAdapter extends SceneSafeTilesAdapter {
   // @ts-ignore — __loadTile is an implementation detail not in PSV's public types
   __loadTile(tile: any, task: any): Promise<void> {
     if (tile.url?.endsWith?.('.ktx2') && ktx2Loader) {
       return ktx2Loader.loadAsync(tile.url).then((texture: any) => {
-        if (!task.isCancelled()) {
-          const material = new MeshBasicMaterial({ map: texture })
-          // @ts-ignore
-          this.__swapMaterial(tile, material, false)
-          // @ts-ignore
-          this.viewer.needsUpdate()
-        }
+        if (task.isCancelled()) { texture.dispose(); return }
+        const material = new MeshBasicMaterial({ map: texture })
+        // __swapMaterial drops (and disposes) it if the scene has changed meanwhile.
+        // @ts-ignore
+        this.__swapMaterial(tile, material, false)
+        // @ts-ignore
+        this.viewer.needsUpdate()
       }).catch(() => {
+        if (task.isCancelled()) return
         // KTX2 load failed — derive the WebP fallback URL and retry via parent
         const webpUrl = tile.url
           .replace(/tiles_medium_ktx2\//, 'tiles_medium/')
           .replace(/\.ktx2$/, '.webp')
-        // @ts-ignore
-        return (Object.getPrototypeOf(Object.getPrototypeOf(this)) as any).__loadTile.call(
-          this, { ...tile, url: webpUrl }, task,
-        )
+        return super.__loadTile({ ...tile, url: webpUrl }, task)
       })
     }
-    // @ts-ignore
-    return (Object.getPrototypeOf(Object.getPrototypeOf(this)) as any).__loadTile.call(this, tile, task)
+    return super.__loadTile(tile, task)
   }
 }
