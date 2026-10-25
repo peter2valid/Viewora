@@ -47,8 +47,14 @@
                   </button>
                   <div
                     class="qe-room-photo"
+                    role="button"
+                    title="Look around this room"
                     :style="selectedScene?.imageUrl ? `background-image: url('${selectedScene.imageUrl}')` : ''"
+                    @click="previewOpen = true"
                   >
+                    <span v-if="selectedScene" class="qe-room-expand" aria-hidden="true">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                    </span>
                     <span v-if="!selectedScene" class="qe-room-photo-hint">Use the arrows to pick a room</span>
                     <span v-else-if="!selectedScene.imageUrl" class="qe-room-thumb-icon">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -63,6 +69,13 @@
                   <span v-if="selectedIndex >= 0" class="qe-room-count">{{ selectedIndex + 1 }} / {{ otherScenes.length }}</span>
                 </div>
               </div>
+              <RoomPreviewOverlay
+                v-if="previewOpen"
+                :scenes="otherScenes"
+                :start-index="selectedIndex"
+                @close="previewOpen = false"
+                @choose="onPreviewChoose"
+              />
             </template>
           </div>
 
@@ -221,9 +234,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { ICON_GROUPS, PICKER_ICON_DEFS, navPickerIcon } from '~/shared/utils/hotspotIcons'
 import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/editor/hotspotPayload'
+import RoomPreviewOverlay from '~/features/editor/components/RoomPreviewOverlay.vue'
 
 const NAV_ICONS = PICKER_ICON_DEFS.filter(d => d.group === 'nav')
 
@@ -291,6 +305,15 @@ const posStyle = computed(() => {
 
   return { position: 'fixed' as const, left: `${left}px`, top: `${top}px`, width: `${CARD_W}px` }
 })
+
+/** Large drag-to-look-around preview of the destination photos. */
+const previewOpen = ref(false)
+watch(() => props.visible, (v) => { if (!v) previewOpen.value = false })
+
+function onPreviewChoose(id: string) {
+  emit('update-draft', { targetSceneId: id })
+  previewOpen.value = false
+}
 
 const selectedIndex = computed(() =>
   props.otherScenes.findIndex(s => s.id === props.draft.targetSceneId)
@@ -511,6 +534,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+.qe-room-photo {
+  position: relative;
+  cursor: zoom-in;
+  transition: border-color 130ms;
+}
+.qe-room-photo:hover { border-color: rgba(255,255,255,0.3); }
+.qe-room-expand {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(12, 14, 22, 0.6);
+  color: #fff;
+  pointer-events: none;
 }
 .qe-room-photo-hint {
   font-size: 11px;
