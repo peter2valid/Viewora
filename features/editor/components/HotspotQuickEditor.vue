@@ -33,42 +33,35 @@
               Add another scene first to use navigation hotspots.
             </div>
             <template v-else>
-              <button class="qe-room-trigger" @click="roomDropOpen = !roomDropOpen">
-                <div
-                  class="qe-room-thumb"
-                  :style="selectedScene?.imageUrl ? `background-image: url('${selectedScene.imageUrl}')` : ''"
-                >
-                  <span v-if="!selectedScene?.imageUrl" class="qe-room-thumb-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                  </span>
-                </div>
-                <span class="qe-room-name" :title="selectedScene?.label">{{ selectedScene?.label || 'Select destination…' }}</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="qe-room-chevron" :style="{ transform: roomDropOpen ? 'rotate(180deg)' : '' }">
-                  <path d="M6 9l6 6 6-6"/>
-                </svg>
-              </button>
-
-              <div v-if="roomDropOpen" class="qe-room-dropdown">
-                <button
-                  v-for="s in otherScenes"
-                  :key="s.id"
-                  class="qe-room-item"
-                  :class="draft.targetSceneId === s.id ? 'qe-room-item--active' : ''"
-                  @click="selectRoom(s.id)"
-                >
+              <!-- One big photo at a time; arrows step through the scenes in dock order. -->
+              <div
+                class="qe-room-carousel"
+                tabindex="0"
+                aria-label="Destination room"
+                @keydown.left.prevent="stepRoom(-1)"
+                @keydown.right.prevent="stepRoom(1)"
+              >
+                <div class="qe-room-stage">
+                  <button class="qe-room-arrow" title="Previous room" aria-label="Previous room" @click="stepRoom(-1)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                  </button>
                   <div
-                    class="qe-room-item-thumb"
-                    :style="s.imageUrl ? `background-image: url('${s.imageUrl}')` : ''"
+                    class="qe-room-photo"
+                    :style="selectedScene?.imageUrl ? `background-image: url('${selectedScene.imageUrl}')` : ''"
                   >
-                    <span v-if="!s.imageUrl" class="qe-room-item-thumb-icon">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                    <span v-if="!selectedScene" class="qe-room-photo-hint">Use the arrows to pick a room</span>
+                    <span v-else-if="!selectedScene.imageUrl" class="qe-room-thumb-icon">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     </span>
                   </div>
-                  <span class="qe-room-item-name" :title="s.label">{{ s.label }}</span>
-                  <svg v-if="draft.targetSceneId === s.id" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="qe-room-check">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </button>
+                  <button class="qe-room-arrow" title="Next room" aria-label="Next room" @click="stepRoom(1)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                  </button>
+                </div>
+                <div class="qe-room-caption">
+                  <span class="qe-room-name" :title="selectedScene?.label">{{ selectedScene?.label || 'No room selected' }}</span>
+                  <span v-if="selectedIndex >= 0" class="qe-room-count">{{ selectedIndex + 1 }} / {{ otherScenes.length }}</span>
+                </div>
               </div>
             </template>
           </div>
@@ -251,7 +244,6 @@ const emit = defineEmits<{
 }>()
 
 const cardEl = ref<HTMLElement | null>(null)
-const roomDropOpen = ref(false)
 const showAdvanced = ref(false)
 
 const CARD_W = 330
@@ -300,9 +292,17 @@ const posStyle = computed(() => {
   return { position: 'fixed' as const, left: `${left}px`, top: `${top}px`, width: `${CARD_W}px` }
 })
 
-function selectRoom(id: string) {
-  emit('update-draft', { targetSceneId: id })
-  roomDropOpen.value = false
+const selectedIndex = computed(() =>
+  props.otherScenes.findIndex(s => s.id === props.draft.targetSceneId)
+)
+
+/** Previous/next room in dock order, wrapping at the ends. With none picked, right starts at the first and left at the last. */
+function stepRoom(dir: 1 | -1) {
+  const n = props.otherScenes.length
+  if (!n) return
+  const i = selectedIndex.value
+  const next = i < 0 ? (dir > 0 ? 0 : n - 1) : (i + dir + n) % n
+  emit('update-draft', { targetSceneId: props.otherScenes[next].id })
 }
 
 function onInfoUrlInput(val: string) {
@@ -488,36 +488,66 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 /* ── Room picker ── */
-.qe-room-trigger {
-  width: 100%;
+.qe-room-carousel {
   display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 10px 7px 7px;
+  flex-direction: column;
+  gap: 8px;
+  outline: none;
   border-radius: 12px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  cursor: pointer;
-  transition: background 130ms, border-color 130ms;
-  text-align: left;
 }
-.qe-room-trigger:hover { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.18); }
-
-.qe-room-thumb {
-  width: 54px;
-  height: 36px;
-  border-radius: 8px;
+.qe-room-carousel:focus-visible { box-shadow: 0 0 0 2px rgba(129,140,248,0.6); }
+.qe-room-stage {
+  position: relative;
+}
+.qe-room-photo {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: 10px;
   background-size: cover;
   background-position: center;
   background-color: rgba(255,255,255,0.06);
-  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.12);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
+.qe-room-photo-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  padding: 0 12px;
+}
 .qe-room-thumb-icon { color: rgba(255,255,255,0.2); }
-
+.qe-room-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(12, 14, 22, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: #fff;
+  cursor: pointer;
+  transition: background 130ms, border-color 130ms;
+}
+.qe-room-arrow:first-child { left: 8px; }
+.qe-room-arrow:last-child { right: 8px; }
+.qe-room-arrow:hover { background: rgba(12, 14, 22, 0.78); border-color: rgba(255,255,255,0.4); }
+.qe-room-caption {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 2px;
+}
 .qe-room-name {
   flex: 1;
   font-size: 12px;
@@ -527,60 +557,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   /* Full scene names wrap (long camera file names have no spaces to break at). */
   overflow-wrap: anywhere;
 }
-.qe-room-chevron {
-  color: rgba(255,255,255,0.3);
+.qe-room-count {
   flex-shrink: 0;
-  transition: transform 180ms;
-}
-
-.qe-room-dropdown {
-  border-radius: 12px;
-  background: rgba(12, 14, 22, 0.48);
-  backdrop-filter: blur(26px);
-  -webkit-backdrop-filter: blur(26px);
-  border: 1px solid rgba(255,255,255,0.12);
-  overflow: hidden;
-  margin-top: -2px;
-}
-.qe-room-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 10px 7px 7px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background 120ms;
-  text-align: left;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-.qe-room-item:last-child { border-bottom: none; }
-.qe-room-item:hover { background: rgba(255,255,255,0.05); }
-.qe-room-item--active { background: rgba(99,102,241,0.08); }
-
-.qe-room-item-thumb {
-  width: 50px;
-  height: 34px;
-  border-radius: 7px;
-  background-size: cover;
-  background-position: center;
-  background-color: rgba(255,255,255,0.06);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.qe-room-item-thumb-icon { color: rgba(255,255,255,0.2); }
-.qe-room-item-name {
-  flex: 1;
   font-size: 11px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.8);
-  line-height: 1.35;
-  overflow-wrap: anywhere;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  font-variant-numeric: tabular-nums;
 }
-.qe-room-check { color: #818cf8; flex-shrink: 0; }
 
 /* ── Navigation icons (Move type) ── */
 .qe-nav-icons {
