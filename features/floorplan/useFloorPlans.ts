@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import { validateFloorPlanFile, type FloorPlan } from '~/shared/utils/floorPlan'
+import type { VenueFloorData } from '~/shared/utils/venue'
 
 function readSize(url: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -101,6 +102,12 @@ export function useFloorPlans(spaceId: string) {
     await reorderFloorPlans(ids)
   }
 
+  /** Save (or with null, remove) a floor's mall directory + walkways. */
+  async function setVenue(id: string, venue: VenueFloorData | null) {
+    await apiFetch(`/floor-plans/${id}/venue`, { method: 'PUT', body: { venue } })
+    floorPlans.value = floorPlans.value.map(f => (f.id === id ? { ...f, venue } : f))
+  }
+
   async function deleteFloorPlan(id: string) {
     const plan = floorPlans.value.find(f => f.id === id)
     await apiFetch(`/floor-plans/${id}`, { method: 'DELETE' })
@@ -108,5 +115,5 @@ export function useFloorPlans(spaceId: string) {
     floorPlans.value = floorPlans.value.filter(f => f.id !== id)
   }
 
-  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan }
+  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan, setVenue }
 }

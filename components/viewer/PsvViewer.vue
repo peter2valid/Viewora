@@ -31,6 +31,31 @@
       @click.stop
     />
 
+    <!-- Venue map: mall directory with search and routes between shops -->
+    <button
+      v-if="venueFloors.length && !chromeHidden && !showVenue && !showAerial"
+      type="button"
+      class="plot-map-btn venue-map-btn"
+      :style="{ top: aerialMaps.length && hasTourData ? (plotLegend.length ? '146px' : '102px') : (plotLegend.length ? '102px' : '58px') }"
+      @click.stop="openVenue"
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      Find a shop
+    </button>
+    <VenueMapViewer
+      v-if="showVenue || (!hasTourData && venueFloors.length)"
+      :floors="venueFloors"
+      :closable="hasTourData"
+      :scenes="tourScenes"
+      :active-scene-id="vtActiveNodeId"
+      :initial-to="venueInitial.to"
+      :initial-from="venueInitial.from"
+      @close="showVenue = false"
+      @open-scene="openSceneFromVenue"
+      @track="(ev: string, p?: Record<string, unknown>) => $posthog?.capture(ev, p)"
+      @click.stop
+    />
+
     <!-- Floor-plan minimap: floor switcher under the map (2+ floors) -->
     <div
       v-if="floorMapFloors.length > 1 && vtReady && !chromeHidden && !stereoActive && !floorMapCrowded && floorMapView === 'normal' && !dockTabsOnScreen"
@@ -567,6 +592,8 @@ import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
+import VenueMapViewer from '~/components/viewer/VenueMapViewer.vue'
+import { buildVenueFloors } from '~/shared/utils/venue'
 import {
   BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
   type GroupableScene,
@@ -1177,6 +1204,26 @@ watch(() => vtReady.value, (ready) => {
 })
 function onAerialEnquire(detail: PlotEnquiryDetail) {
   onPlotEnquire(new CustomEvent(PLOT_ENQUIRE_EVENT, { detail }))
+}
+
+// ── Venue map (mall directory + wayfinding) — floors that carry shops ──
+const venueFloors = computed(() => buildVenueFloors((props.tour as any)?.floor_plans))
+// A shared route link (?to=shop&from=shop) opens straight on the map.
+const venueInitial = (() => {
+  if (typeof window === 'undefined') return { to: null as string | null, from: null as string | null }
+  const q = new URLSearchParams(window.location.search)
+  return { to: q.get('to'), from: q.get('from') }
+})()
+const showVenue = ref(false)
+onMounted(() => { if (venueInitial.to && venueFloors.value.length) showVenue.value = true })
+function openVenue() {
+  showVenue.value = true
+  $posthog?.capture('venue_map_opened')
+}
+/** "360°" on a shop / "walk this route": stand there, map lifted away. */
+function openSceneFromVenue(sceneId: string) {
+  showAerial.value = false
+  void openSceneFromMap(sceneId).finally(() => { showVenue.value = false })
 }
 
 // ── Opening screen data ──

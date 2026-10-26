@@ -22,6 +22,7 @@
       <button class="fp-btn fp-btn--primary" :disabled="uploading" @click="fileInput?.click()">
         {{ uploading ? 'Uploading…' : 'Upload floor plan' }}
       </button>
+      <button class="fp-btn" :disabled="uploading" @click="showVenueImport = true">Import a mall map (Mapplic)</button>
     </div>
 
     <template v-else>
@@ -207,6 +208,19 @@
           </ul>
         </template>
 
+        <p class="fp-section">Shop directory</p>
+        <div class="fp-callout">
+          <p v-if="currentVenue" class="fp-muted">
+            {{ currentVenue.places.length }} shops · {{ currentVenue.edges.length }} walkway segments · {{ currentVenue.links.length }} lifts / escalators.
+            Visitors can search and get directions on the public tour.
+          </p>
+          <p v-else class="fp-muted">Malls and big venues: add shops and walkways so visitors can search a shop and get directions across floors.</p>
+          <span class="fp-name-row">
+            <button class="fp-btn" @click="showVenueImport = true">{{ currentVenue ? 'Re-import' : 'Import a mall map' }}</button>
+            <button v-if="currentVenue" class="fp-btn fp-btn--danger" @click="removeVenue">Remove</button>
+          </span>
+        </div>
+
         <div class="fp-actions">
           <button class="fp-btn fp-btn--danger" @click="removeFloor">Delete floor</button>
         </div>
@@ -235,6 +249,15 @@
         </button>
       </div>
     </template>
+
+    <VenueImportDialog
+      v-if="showVenueImport"
+      :existing-floors="floorPlans"
+      :add-floor-plan="addFloorPlan"
+      :set-venue="setVenue"
+      @close="showVenueImport = false"
+      @imported="onVenueImported"
+    />
   </div>
 </template>
 
@@ -245,12 +268,14 @@ import Sortable from 'sortablejs'
 import { useImage } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFloorPlans } from '~/features/floorplan/useFloorPlans'
+import VenueImportDialog from '~/features/venue/VenueImportDialog.vue'
+import { isVenueData } from '~/shared/utils/venue'
 import { clamp01, isPlaced, MAX_FLOOR_PLANS } from '~/shared/utils/floorPlan'
 
 const props = defineProps<{ spaceId: string }>()
 
 const { apiFetch } = useApiFetch()
-const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan } = useFloorPlans(props.spaceId)
+const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan, setVenue } = useFloorPlans(props.spaceId)
 const nuxtImg = useImage()
 
 const loading = ref(true)
@@ -328,6 +353,23 @@ async function onFile(e: Event) {
     toast.success(`${created.name} added`)
   } catch (err: any) {
     toast.error(err?.data?.statusMessage || err?.message || 'Upload failed')
+  }
+}
+
+// ── Shop directory (venue map) ──────────────────────────────
+const showVenueImport = ref(false)
+const currentVenue = computed(() => (isVenueData(current.value?.venue) && current.value!.venue!.places.length ? current.value!.venue! : null))
+function onVenueImported(ids: string[]) {
+  if (ids.length && !ids.includes(currentId.value ?? '')) currentId.value = ids[0]
+  toast.success(`Shop directory imported on ${ids.length} floor${ids.length === 1 ? '' : 's'}`)
+}
+async function removeVenue() {
+  if (!current.value || !confirm(`Remove the shop directory and walkways from ${current.value.name}?`)) return
+  try {
+    await setVenue(current.value.id, null)
+    toast.success('Shop directory removed')
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || 'Could not remove it')
   }
 }
 

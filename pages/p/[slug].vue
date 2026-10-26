@@ -117,6 +117,7 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig, useSupabaseUser } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { editorHref } from '~/utils/editorUrl'
+import { buildVenueFloors } from '~/shared/utils/venue'
 // PsvViewer is auto-imported as LazyPsvViewer by Nuxt when used in template
 
 const { public: { appUrl, marketingUrl, gaMeasurementId } } = useRuntimeConfig()
@@ -209,7 +210,9 @@ if (tourError.value) {
 
   // A land listing may have only aerial plot maps (flat drone photos), no 360 scenes.
   const hasAerialMap = Array.isArray(tourData?.aerial_maps) && tourData.aerial_maps.length > 0
-  state.value = hasRenderableScene || hasAerialMap ? 'ready' : 'empty'
+  // A mall may publish its shop directory map before any 360 is shot.
+  const hasVenueMap = buildVenueFloors(tourData?.floor_plans).length > 0
+  state.value = hasRenderableScene || hasAerialMap || hasVenueMap ? 'ready' : 'empty'
 
   // Photo-only listing: this page is built around the 360/aerial viewer and
   // would dead-end on "No Scenes Yet" — forward to the gallery listing page

@@ -2,6 +2,8 @@
 // Pins are stored as fractions (0–1) of the plan image's width / height so
 // they survive the image being resized; pixels only exist at the viewer edge.
 
+import type { VenueFloorData } from './venue'
+
 export interface FloorPlan {
   id: string
   name: string
@@ -10,6 +12,8 @@ export interface FloorPlan {
   width: number | null
   height: number | null
   order_index: number
+  /** Mall directory + walkways on this floor (see shared/utils/venue.ts). */
+  venue?: VenueFloorData | null
 }
 
 /** A scene's position on a floor plan (null fields = not placed). */
