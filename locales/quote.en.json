@@ -10,14 +10,20 @@
     "emailPdf": "Email me the PDF quote",
     "talkInstead": "Rather talk? WhatsApp us",
     "record": "Record a voice note",
-    "stopRecording": "Stop recording"
+    "stopRecording": "Stop recording",
+    "bookWhatsapp": "Book on WhatsApp",
+    "startOver": "Start a new quote",
+    "retry": "Try again",
+    "useLocation": "Use my location"
   },
   "contact": {
     "firstName": "First name",
     "whatsapp": "WhatsApp number",
     "whatsappHelp": "We send your quote and resume link here.",
     "email": "Email (optional)",
-    "consent": "Viewora can send me my quote and follow-ups on WhatsApp and email. I can stop them any time."
+    "consent": "Viewora can send me my quote and follow-ups on WhatsApp and email. I can stop them any time.",
+    "consentNote": "Without this tick we only show your price here, and won't message you.",
+    "honeypot": "Leave this empty"
   },
   "tiers": {
     "essential": "Essential",
@@ -34,7 +40,18 @@
     "included": "Every tour includes 48-72 hour delivery, a shareable link, 1 revision round and 12 months of hosting.",
     "estimate": "Estimate. Our team confirms the final price within a working day.",
     "custom": "We'll send your price on WhatsApp within a working day.",
-    "runningTotal": "Running total"
+    "runningTotal": "Running total",
+    "title": "Your price, {name}",
+    "titleNoName": "Your price",
+    "customTitle": "Thanks, {name}. We'll price this for you",
+    "tbc": "To confirm",
+    "free": "Free",
+    "beforeTravel": "Standard option so far, before travel",
+    "customRunning": "Our team prices this one by hand",
+    "validity": "This price holds for {days} days.",
+    "travelUnconfirmed": "Travel to your area is confirmed with you on WhatsApp before booking.",
+    "sentTo": "We've saved this quote. We'll also send it to {phone} on WhatsApp.",
+    "paymentLater": "Online deposit payment is coming soon. For now, book on WhatsApp and we'll send an M-Pesa request."
   },
   "errors": {
     "phone": {
@@ -46,7 +63,17 @@
     },
     "required": "Pick one to continue.",
     "saveFailed": "We couldn't save this step. Your answers are still here; check your connection and tap Next again.",
-    "offline": "You're offline. Your answers are saved on this phone and will send when you reconnect."
+    "offline": "You're offline. Your answers are saved on this phone and will send when you reconnect.",
+    "firstName": "Add your first name so we know who to ask for.",
+    "email": "That email doesn't look right. Check it, or leave it empty.",
+    "number": "Enter a number from {min} to {max}.",
+    "text": "Tell us a little about the place.",
+    "where": "Type your area, or tap Use my location.",
+    "loadFailed": "We couldn't load the form. Check your connection and try again, or WhatsApp us and we'll quote you there.",
+    "expired": "Your saved quote link has expired, so we've started a fresh one. It takes about a minute.",
+    "notFound": "We couldn't find that saved quote, so we've started a fresh one.",
+    "locationDenied": "We couldn't get your location. Type your area instead.",
+    "noRates": "Prices are being updated. Please try again shortly or WhatsApp us."
   },
   "stages": {
     "new": "New",
@@ -101,7 +128,33 @@
     "when": "When do you need it?",
     "thisWeek": "This week",
     "thisMonth": "This month",
-    "planning": "Just planning"
+    "planning": "Just planning",
+    "located": "Location added, accurate to about {metres} m.",
+    "locating": "Finding you…",
+    "note": "Anything we should know? (optional)",
+    "noteHelp": "Parking, access times, who to call on the day.",
+    "locatedPlain": "Location added."
   },
-  "contactIntro": "We'll send your price and a link to come back to this form."
+  "contactIntro": "We'll send your price and a link to come back to this form.",
+  "details": {
+    "yes": "Yes",
+    "no": "No",
+    "none": "No extras",
+    "from": "From {amount}",
+    "priceByHand": "We reply with a price"
+  },
+  "extras": {
+    "title": "Add anything else?",
+    "intro": "All optional. Tap to add, tap again to remove."
+  },
+  "whatsappHelp": "Hi Viewora, I'm on the quote form ({step}) and have a question.",
+  "whatsappBook": "Hi Viewora, I'd like to book the {tier} option ({amount}) for {industry}. My quote link: {link}",
+  "echo": {
+    "location": "My location",
+    "extras": "Extras"
+  },
+  "voice": {
+    "unsupported": "Voice typing isn't available in this browser. Please type instead.",
+    "listening": "Listening… speak now."
+  }
 }

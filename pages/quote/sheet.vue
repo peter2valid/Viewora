@@ -155,28 +155,7 @@
       <h2 id="s-options" class="q-h2">Three options</h2>
       <p class="q-small">2 bedroom in Nairobi, to let, with 20 edited photos. Output of the engine.</p>
       <QuoteAnswers class="narrow" :answers="echo" />
-      <div role="radiogroup" aria-label="Pick an option" class="options" @keydown="onArrows($event, samples.result.options.length, i => (tier = samples.result.options[i].tier))">
-        <article
-          v-for="o in samples.result.options" :key="o.tier"
-          role="radio" :aria-checked="tier === o.tier" :tabindex="tier === o.tier ? 0 : -1"
-          class="option" :class="{ 'option--picked': tier === o.tier }"
-          @click="tier = o.tier" @keydown.enter.space.prevent="tier = o.tier"
-        >
-          <header class="option__head">
-            <span class="option__radio" aria-hidden="true"><UiIcon v-if="tier === o.tier" name="check" :size="14" :stroke-width="3" /></span>
-            <h3 class="option__tier">{{ t(`tiers.${o.tier}`) }}</h3>
-            <p class="q-small">{{ t(`tiers.${o.tier}Note`) }}</p>
-          </header>
-          <p class="option__total q-num">{{ money(o.total) }}</p>
-          <ul class="option__lines">
-            <li v-for="l in o.lines.filter(x => x.amount !== 0 || x.kind === 'travel')" :key="l.key">
-              <span>{{ l.label }}</span>
-              <span class="q-num">{{ l.amount === 0 ? 'Free' : money(l.amount) }}</span>
-            </li>
-          </ul>
-          <p class="q-small q-num">{{ t('result.deposit', { amount: money(o.deposit) }) }}</p>
-        </article>
-      </div>
+      <QuoteOptions v-model="tier" :options="samples.result.options" />
       <div class="actions narrow">
         <QuoteButton block icon="calendar">{{ t('actions.bookNow', { amount: money(pickedOption.deposit) }) }}</QuoteButton>
         <QuoteButton block variant="secondary" icon="brand-whatsapp">{{ t('actions.chatWhatsapp') }}</QuoteButton>
@@ -237,6 +216,7 @@
 import samples from '~/features/quote/sheetSamples.generated.json'
 import { normalisePhoneHint } from '~/features/quote/phoneHint'
 import { ADDON_ICONS, CLIENT_TYPE_ICONS, INDUSTRY_ICONS, STEPS, STEP_ICONS } from '~/features/quote/presentation'
+import { onRadioArrows as onArrows } from '~/features/quote/keyboard'
 import type { IconName } from '~/types/icon'
 
 definePageMeta({ layout: 'quote' })
@@ -286,15 +266,6 @@ const echo = computed(() => [
   { step: 'where', icon: 'map-pin' as IconName, label: t('steps.where'), value: `Kilimani, Nairobi · ${t('where.thisMonth')}` },
 ])
 
-function onArrows(e: KeyboardEvent, count: number, pick: (i: number) => void) {
-  const keys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
-  if (!(e.key in keys)) return
-  e.preventDefault()
-  const tiles = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="radio"]')]
-  const i = (tiles.indexOf(document.activeElement as HTMLElement) + keys[e.key] + count) % count
-  pick(i)
-  nextTick(() => tiles[i]?.focus())
-}
 
 const picked = reactive<Record<string, boolean>>({ photos_20: true })
 const baseTotal = samples.result.options[0].total
@@ -361,21 +332,7 @@ const swatches = [
 .running { display: flex; align-items: center; gap: 12px; padding: 12px var(--q-gutter); background: var(--q-surface); border: 1px solid var(--q-border); border-radius: var(--q-radius); }
 .running__total { font-size: var(--q-text-lg); font-weight: 700; margin-right: auto; white-space: nowrap; }
 
-.options { display: grid; gap: 12px; }
-@media (min-width: 900px) { .options { grid-template-columns: repeat(3, 1fr); align-items: start; } }
-.option { display: grid; gap: 12px; padding: 18px; background: var(--q-surface); border: 1px solid var(--q-border); border-radius: var(--q-radius-lg); }
-.option--picked { border-color: var(--q-ink); box-shadow: inset 0 0 0 1px var(--q-ink); }
-.option { cursor: pointer; transition: border-color var(--q-fast) var(--q-ease); }
-.option:hover { border-color: var(--q-ink-3); }
-.option:focus-visible { outline: none; box-shadow: var(--q-focus); }
-.option__head { display: grid; grid-template-columns: 1fr 24px; column-gap: 10px; }
-.option__head > :not(.option__radio) { grid-column: 1; }
-.option__radio {
-  grid-column: 2; grid-row: 1 / span 2; display: grid; place-items: center;
-  width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--q-border-strong);
 }
-.option--picked .option__radio { border-color: var(--q-ink); background: var(--q-ink); color: var(--q-accent); }
-.option__tier { font-size: var(--q-text-md); font-weight: 700; }
 .actions { display: grid; gap: 10px; }
 
 .flow { display: grid; gap: 8px; max-width: 520px; }
@@ -389,10 +346,6 @@ const swatches = [
 .icon-gallery__item { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--q-surface); border: 1px solid var(--q-border); border-radius: var(--q-radius); }
 .icon-gallery__icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: var(--q-radius-sm); background: var(--q-sunken); }
 @media (min-width: 768px) { .tiles--when { grid-template-columns: repeat(3, 1fr); } }
-.option__total { font: 700 var(--q-text-xl)/1 var(--q-font); }
-.option__lines { display: grid; gap: 6px; padding: 12px 0; border-block: 1px solid var(--q-border); font-size: var(--q-text-sm); }
-.option__lines li { display: flex; justify-content: space-between; gap: 12px; }
-.option__lines li span:first-child { color: var(--q-ink-2); }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--q-border); border-radius: var(--q-radius); max-width: 100%; }
 

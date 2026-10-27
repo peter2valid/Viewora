@@ -44,3 +44,12 @@ export const ADDON_ICONS: Record<string, IconName> = {
   extra_revision: 'refresh',
   extra_scene_home: 'plus', extra_scene_business: 'plus',
 }
+
+// Icons beside each answer when it is echoed back on the result
+export const QUESTION_ICONS: Record<string, IconName> = {
+  size: 'bed', purpose: 'key', listings: 'list', same_building: 'building', units: 'building-community',
+  kind: 'clipboard-list', rooms_hotel: 'bed', rooms_safari: 'bed', showroom_size: 'car', vehicles: 'car',
+  description: 'edit', setting: 'sun', areas: 'grid', floors: 'elevator', link: 'world-www',
+}
+
+export const TIMING_ICONS: Record<string, IconName> = { this_week: 'clock', this_month: 'calendar', planning: 'clipboard-list' }

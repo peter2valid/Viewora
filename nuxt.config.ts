@@ -54,6 +54,8 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
       appUrl: process.env.NUXT_PUBLIC_APP_URL || 'https://app.viewora.software',
       marketingUrl: process.env.NUXT_PUBLIC_MARKETING_URL || 'https://viewora.software',
+      // Staff WhatsApp the quote form links to for help and booking (digits only)
+      quoteWhatsapp: process.env.NUXT_PUBLIC_QUOTE_WHATSAPP || '254117537025',
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
       gaMeasurementId: process.env.NUXT_PUBLIC_GA_MEASUREMENT_ID || '',
