@@ -23,36 +23,37 @@
 
         <!-- 1 Industry -->
         <template v-if="step === 1">
-          <p class="q-body">{{ t('intro') }}</p>
-          <div role="radiogroup" :aria-label="t('industryQuestion')" class="qf__tiles qf__tiles--industry" @keydown="onRadioArrows($event, config.modules.length, i => pickModule(config!.modules[i].key))">
+          <p class="q-small">{{ t('intro') }}</p>
+          <div role="radiogroup" :aria-label="t('industryQuestion')" class="qf__tiles qf__tiles--industry" @keydown="onRadioArrows($event, industryTiles.length, i => pickIndustry(industryTiles[i], false))">
             <QuoteTile
-              v-for="m in config.modules" :key="m.key"
-              :icon="INDUSTRY_ICONS[m.key] ?? 'dots-circle-horizontal'"
-              :title="t(`industries.${m.key}`)"
-              :sub="m.from ? t('details.from', { amount: money(m.from) }) : t('details.priceByHand')"
-              :selected="form.moduleKey === m.key"
-              :focusable="form.moduleKey ? form.moduleKey === m.key : m === config.modules[0]"
-              @select="pickModule(m.key)"
+              v-for="(tile, i) in industryTiles" :key="tile.key" size="compact"
+              :icon="INDUSTRY_ICONS[tile.key] ?? 'dots-circle-horizontal'"
+              :title="t(`industries.${tile.key}`)"
+              :sub="tile.from ? t('details.from', { amount: money(tile.from) }) : t('details.priceByHandShort')"
+              :selected="form.industry === tile.key"
+              :focusable="form.industry ? form.industry === tile.key : i === 0"
+              @select="pickIndustry(tile, true)"
             />
           </div>
+          <p v-if="errors.industry" class="qf__error" role="alert">{{ errors.industry }}</p>
+        </template>
+
+        <!-- 2 Contact -->
+        <template v-else-if="step === 2">
           <fieldset class="qf__group">
             <legend class="q-h2">{{ t('clientQuestion') }}</legend>
             <div role="radiogroup" :aria-label="t('clientQuestion')" class="qf__tiles qf__tiles--2" @keydown="onRadioArrows($event, CLIENT_TYPES.length, i => (form.clientType = CLIENT_TYPES[i]))">
               <QuoteTile
-                v-for="(c, i) in CLIENT_TYPES" :key="c" stack
+                v-for="(c, i) in CLIENT_TYPES" :key="c" size="small"
                 :icon="CLIENT_TYPE_ICONS[c]" :title="t(`clientTypes.${c}`)"
                 :selected="form.clientType === c"
                 :focusable="form.clientType ? form.clientType === c : i === 0"
                 @select="form.clientType = c"
               />
             </div>
+            <p v-if="errors.clientType" class="qf__error" role="alert">{{ errors.clientType }}</p>
           </fieldset>
-          <p v-if="errors.industry" class="qf__error" role="alert">{{ errors.industry }}</p>
-        </template>
-
-        <!-- 2 Contact -->
-        <template v-else-if="step === 2">
-          <p class="q-body">{{ t('contactIntro') }}</p>
+          <p class="q-small">{{ t('contactIntro') }}</p>
           <QuoteField id="q-name" v-model="form.firstName" icon="user" :label="t('contact.firstName')" autocomplete="given-name" :error="errors.firstName" />
           <QuoteField
             id="q-phone" v-model="form.whatsapp" icon="brand-whatsapp" :label="t('contact.whatsapp')" type="tel" inputmode="tel"
@@ -77,9 +78,9 @@
             <fieldset v-if="q.type === 'choice' || q.type === 'boolean'" class="qf__group">
               <legend class="q-h2">{{ q.label }}</legend>
               <p v-if="q.help" class="q-small">{{ q.help }}</p>
-              <div role="radiogroup" :aria-label="q.label" class="qf__tiles" :class="{ 'qf__tiles--2': choicesFor(q).length <= 2 }" @keydown="onRadioArrows($event, choicesFor(q).length, i => (form.details[q.id] = choicesFor(q)[i].value))">
+              <div role="radiogroup" :aria-label="q.label" class="qf__tiles" :class="gridFor(q)" @keydown="onRadioArrows($event, choicesFor(q).length, i => (form.details[q.id] = choicesFor(q)[i].value))">
                 <QuoteTile
-                  v-for="(o, i) in choicesFor(q)" :key="o.value"
+                  v-for="(o, i) in choicesFor(q)" :key="o.value" size="small"
                   :title="o.label"
                   :sub="o.price ? t('details.from', { amount: money(o.price) }) : undefined"
                   :selected="form.details[q.id] === o.value"
@@ -128,7 +129,7 @@
             <legend class="q-h2">{{ t('where.when') }}</legend>
             <div role="radiogroup" :aria-label="t('where.when')" class="qf__tiles qf__tiles--when" @keydown="onRadioArrows($event, TIMINGS.length, i => (form.timing = TIMINGS[i]))">
               <QuoteTile
-                v-for="(w, i) in TIMINGS" :key="w" :title="t(`where.${TIMING_KEYS[w]}`)" :icon="TIMING_ICONS[w]"
+                v-for="(w, i) in TIMINGS" :key="w" size="small" :title="t(`where.${TIMING_KEYS[w]}`)"
                 :selected="form.timing === w" :focusable="form.timing ? form.timing === w : i === 0" @select="form.timing = w"
               />
             </div>
@@ -144,8 +145,13 @@
         <p v-if="dictation.recording.value" class="q-small" role="status">{{ t('voice.listening') }}</p>
         <p v-if="saveError" class="qf__error qf__error--block" role="alert">{{ saveError }}</p>
 
-        <!-- Actions. On extras they stick to the bottom with the running total. -->
-        <div class="qf__actions" :class="{ 'qf__actions--sticky': step === 4 }">
+        <a :href="helpLink" class="qf__talk" @click="track('quote_whatsapp_help', { step })">
+          <UiIcon name="brand-whatsapp" :size="18" aria-hidden="true" />{{ t('actions.talkInstead') }}
+        </a>
+
+        <!-- Actions, pinned to the bottom; on extras with the running total -->
+        <!-- Step 1 has no Next: tapping an industry moves on -->
+        <div v-if="step > 1" class="qf__actions">
           <div v-if="step === 4" class="qf__running" aria-live="polite">
             <span class="q-small">{{ module?.resultMode === 'custom' ? t('result.customRunning') : t('result.beforeTravel') }}</span>
             <span v-if="module?.resultMode !== 'custom'" class="qf__running-total q-num">{{ preview === null ? '…' : money(preview) }}</span>
@@ -156,9 +162,6 @@
           </div>
         </div>
 
-        <a :href="helpLink" class="qf__talk" @click="track('quote_whatsapp_help', { step })">
-          <UiIcon name="brand-whatsapp" :size="18" aria-hidden="true" />{{ t('actions.talkInstead') }}
-        </a>
       </form>
 
       <!-- ── Result ───────────────────────────────────────────── -->
@@ -183,7 +186,7 @@
               <span class="q-small">{{ t(`tiers.${pickedOption.tier}`) }}</span>
               <strong>{{ money(pickedOption.total) }}</strong>
             </p>
-            <QuoteButton class="qf__book-btn" icon="brand-whatsapp" :href="bookLink" @click="track('quote_book_clicked', { industry: form.moduleKey, tier })">{{ t('actions.bookWhatsapp') }}</QuoteButton>
+            <QuoteButton class="qf__book-btn" icon="brand-whatsapp" :href="bookLink" @click="track('quote_book_clicked', { industry: form.industry, tier })">{{ t('actions.bookWhatsapp') }}</QuoteButton>
           </div>
           <div class="qf__fine q-small">
             <p>{{ t('result.paymentLater') }}</p>
@@ -203,7 +206,7 @@
 import { normalisePhoneHint } from '~/features/quote/phoneHint'
 import { onRadioArrows } from '~/features/quote/keyboard'
 import {
-  ADDON_ICONS, CLIENT_TYPE_ICONS, INDUSTRY_ICONS, QUESTION_ICONS, STEPS, TIMING_ICONS,
+  ADDON_ICONS, CLIENT_TYPE_ICONS, INDUSTRY_ICONS, PLANNED_INDUSTRIES, QUESTION_ICONS, STEPS,
 } from '~/features/quote/presentation'
 import type { QuoteOptionView } from '~/components/quote/QuoteOptions.vue'
 import type { IconName } from '~/types/icon'
@@ -242,7 +245,7 @@ const route = useRoute()
 const router = useRouter()
 
 const RESULT = STEPS.length + 1
-const CLIENT_TYPES = ['owner', 'agent', 'developer', 'manager'] as const
+const CLIENT_TYPES = ['owner', 'agent', 'developer', 'manager', 'other'] as const
 const TIMINGS = ['this_week', 'this_month', 'planning'] as const
 const TIMING_KEYS: Record<string, string> = { this_week: 'thisWeek', this_month: 'thisMonth', planning: 'planning' }
 const TOKEN_KEY = 'vo-quote-token'
@@ -265,6 +268,8 @@ const errors = reactive<Record<string, string>>({})
 const heading = ref<HTMLElement | null>(null)
 
 const form = reactive({
+  industry: '',        // the tile picked; planned industries share the "other" module
+  industryHint: '',
   moduleKey: '',
   clientType: '' as '' | typeof CLIENT_TYPES[number],
   firstName: '', whatsapp: '', email: '', consent: false, website: '',
@@ -284,6 +289,17 @@ const entry = (() => {
 
 const module = computed(() => config.value?.modules.find(m => m.key === form.moduleKey))
 
+interface IndustryTile { key: string; moduleKey: string; hint?: string; from: number | null }
+const industryTiles = computed<IndustryTile[]>(() => {
+  const mods = config.value?.modules ?? []
+  return Object.keys(INDUSTRY_ICONS).flatMap(key => {
+    const m = mods.find(x => x.key === key)
+    if (m) return [{ key, moduleKey: key, from: m.from }]
+    if (PLANNED_INDUSTRIES.includes(key) && mods.some(x => x.key === 'other')) return [{ key, moduleKey: 'other', hint: key, from: null }]
+    return []
+  })
+})
+
 // Mirrors the engine's isVisible: client-type questions and showIf conditions
 const visibleQuestions = computed(() => (module.value?.questions ?? []).filter(q =>
   (!q.clientTypes || (!!form.clientType && q.clientTypes.includes(form.clientType)))
@@ -293,6 +309,12 @@ const visibleQuestions = computed(() => (module.value?.questions ?? []).filter(q
 const choicesFor = (q: QQuestion): QOption[] => q.type === 'boolean'
   ? [{ value: 'true', label: t('details.yes'), price: null }, { value: 'false', label: t('details.no'), price: null }]
   : q.options ?? []
+
+// Short answers sit three across, the rest two across, so a phone shows them all
+function gridFor(q: QQuestion) {
+  const choices = choicesFor(q)
+  return choices.length === 3 && choices.every(o => o.label.length <= 12) ? 'qf__tiles--3' : 'qf__tiles--2'
+}
 
 const stepTitle = computed(() => ({
   1: t('industryQuestion'), 2: t('steps.contact'), 3: t('steps.details'), 4: t('extras.title'), 5: t('steps.where'),
@@ -312,7 +334,7 @@ const bookLink = computed(() => {
   const picked = pickedOption.value
   const link = import.meta.client && token.value ? `${location.origin}/quote?r=${token.value}` : ''
   return wa(t('whatsappBook', {
-    tier: t(`tiers.${tier.value}`), amount: picked ? money(picked.total) : '', industry: t(`industries.${form.moduleKey}`), link,
+    tier: t(`tiers.${tier.value}`), amount: picked ? money(picked.total) : '', industry: t(`industries.${form.industry || form.moduleKey}`), link,
   }))
 })
 
@@ -321,8 +343,8 @@ const echo = computed(() => {
   const rows: Array<{ step: string; icon: IconName; label: string; value: string }> = []
   if (!module.value) return rows
   rows.push({
-    step: 'industry', icon: INDUSTRY_ICONS[module.value.key] ?? 'dots-circle-horizontal', label: t('industryQuestion'),
-    value: [t(`industries.${module.value.key}`), form.clientType ? t(`clientTypes.${form.clientType}`) : ''].filter(Boolean).join(' · '),
+    step: 'industry', icon: INDUSTRY_ICONS[form.industry] ?? 'dots-circle-horizontal', label: t('industryQuestion'),
+    value: [t(`industries.${form.industry || module.value.key}`), form.clientType ? t(`clientTypes.${form.clientType}`) : ''].filter(Boolean).join(' · '),
   })
   for (const q of visibleQuestions.value) {
     const v = form.details[q.id]
@@ -339,9 +361,13 @@ const echo = computed(() => {
 })
 
 // ── Choices ─────────────────────────────────────────────────────────────
-function pickModule(key: string) {
-  if (form.moduleKey !== key) { form.details = {}; form.addons = {} }
-  form.moduleKey = key
+function pickIndustry(tile: IndustryTile, advance: boolean) {
+  if (form.moduleKey !== tile.moduleKey) { form.details = {}; form.addons = {} }
+  form.moduleKey = tile.moduleKey
+  form.industry = tile.key
+  form.industryHint = tile.hint ?? ''
+  // One question on this screen, so a tap moves on (Back is always there)
+  if (advance && step.value === 1) setTimeout(() => { if (step.value === 1 && !saving.value) next() }, 160)
 }
 
 function applyDefaults() {
@@ -379,7 +405,8 @@ function locate() {
 function clearErrors() { for (const k of Object.keys(errors)) delete errors[k] }
 
 // An error goes as soon as the visitor changes that answer
-watch(() => [form.moduleKey, form.clientType], () => { if (form.moduleKey && form.clientType) delete errors.industry })
+watch(() => form.industry, () => delete errors.industry)
+watch(() => form.clientType, () => delete errors.clientType)
 watch(() => form.firstName, () => delete errors.firstName)
 watch(() => form.email, () => delete errors.email)
 watch(() => form.whatsapp, () => { if (errors.whatsapp && !normalisePhoneHint(form.whatsapp)) delete errors.whatsapp })
@@ -397,8 +424,9 @@ function checkPhone() {
 
 function validate(): boolean {
   clearErrors()
-  if (step.value === 1 && (!form.moduleKey || !form.clientType)) errors.industry = t('errors.required')
+  if (step.value === 1 && !form.industry) errors.industry = t('errors.required')
   if (step.value === 2) {
+    if (!form.clientType) errors.clientType = t('errors.required')
     if (!form.firstName.trim()) errors.firstName = t('errors.firstName')
     checkPhone()
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = t('errors.email')
@@ -445,19 +473,19 @@ async function saveStep(): Promise<boolean> {
   if (step.value === 1) {
     if (!token.value) {
       const res = await api<{ token: string }>('/requests', {
-        method: 'POST', body: { moduleKey: form.moduleKey, clientType: form.clientType, entry, website: form.website || undefined },
+        method: 'POST', body: { moduleKey: form.moduleKey, industryHint: form.industryHint || undefined, entry, website: form.website || undefined },
       })
       storeToken(res.token)
       return true
     }
-    await api(`/requests/${token.value}`, { method: 'PATCH', body: { step: 'industry', moduleKey: form.moduleKey, clientType: form.clientType } })
+    await api(`/requests/${token.value}`, { method: 'PATCH', body: { step: 'industry', moduleKey: form.moduleKey, industryHint: form.industryHint || undefined } })
     return true
   }
   if (step.value === 2) {
     await api(`/requests/${token.value}`, {
       method: 'PATCH',
       body: {
-        step: 'contact', firstName: form.firstName.trim(), whatsapp: form.whatsapp.trim(), email: form.email.trim(),
+        step: 'contact', clientType: form.clientType, firstName: form.firstName.trim(), whatsapp: form.whatsapp.trim(), email: form.email.trim(),
         consent: form.consent, consentTextId: config.value?.consent?.id ?? null, website: form.website || undefined,
       },
     })
@@ -533,7 +561,7 @@ function startOver() {
   storeToken(null)
   try { localStorage.removeItem(DRAFT_KEY) } catch {}
   Object.assign(form, {
-    moduleKey: '', clientType: '', details: {}, addons: {}, town: '', lat: null, lng: null, accuracy: null, timing: '', note: '',
+    industry: '', industryHint: '', moduleKey: '', clientType: '', details: {}, addons: {}, town: '', lat: null, lng: null, accuracy: null, timing: '', note: '',
   })
   result.value = null
   notice.value = ''
@@ -572,22 +600,22 @@ watch(step, n => {
   }
   if (!reached.has(n)) {
     reached.add(n)
-    if (n === RESULT) track('quote_result_viewed', { industry: form.moduleKey, mode: result.value?.mode, source: entry.source ?? null })
-    else track('quote_step_reached', { step: n, step_name: stepName(n), industry: form.moduleKey || null, source: entry.source ?? null })
+    if (n === RESULT) track('quote_result_viewed', { industry: form.industry, mode: result.value?.mode, source: entry.source ?? null })
+    else track('quote_step_reached', { step: n, step_name: stepName(n), industry: form.industry || null, source: entry.source ?? null })
   }
 })
 
 function onHidden() {
   if (document.visibilityState !== 'hidden' || step.value === RESULT || abandoned.has(step.value)) return
   abandoned.add(step.value)
-  track('quote_step_abandoned', { step: step.value, step_name: stepName(step.value), industry: form.moduleKey || null })
+  track('quote_step_abandoned', { step: step.value, step_name: stepName(step.value), industry: form.industry || null })
 }
 
 // The non-personal answers stay on this phone too, so nothing is lost offline
-watch(() => [form.moduleKey, form.clientType, form.details, form.addons, form.town, form.timing], () => {
+watch(() => [form.industry, form.clientType, form.details, form.addons, form.town, form.timing], () => {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({
-      moduleKey: form.moduleKey, clientType: form.clientType, details: form.details, addons: form.addons, town: form.town, timing: form.timing,
+      industry: form.industry, industryHint: form.industryHint, moduleKey: form.moduleKey, clientType: form.clientType, details: form.details, addons: form.addons, town: form.town, timing: form.timing,
     }))
   } catch {}
 }, { deep: true })
@@ -605,6 +633,8 @@ async function resume() {
       const a = res.request.answers ?? {}
       Object.assign(form, {
         moduleKey: res.request.moduleKey ?? '',
+        industry: res.request.industryHint ?? res.request.moduleKey ?? '',
+        industryHint: res.request.industryHint ?? '',
         clientType: res.request.clientType ?? '',
         details: Object.fromEntries(Object.entries(a.details ?? {}).map(([k, v]) => [k, String(v)])),
         addons: { ...(a.addons ?? {}) },
@@ -633,7 +663,7 @@ async function resume() {
   try {
     const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null')
     if (draft && config.value?.modules.some(m => m.key === draft.moduleKey)) {
-      Object.assign(form, { moduleKey: draft.moduleKey, clientType: draft.clientType ?? '', details: draft.details ?? {}, addons: draft.addons ?? {}, town: draft.town ?? '', timing: draft.timing ?? '' })
+      Object.assign(form, { industry: draft.industry ?? draft.moduleKey, industryHint: draft.industryHint ?? '', moduleKey: draft.moduleKey, clientType: draft.clientType ?? '', details: draft.details ?? {}, addons: draft.addons ?? {}, town: draft.town ?? '', timing: draft.timing ?? '' })
     }
   } catch {}
 }
@@ -644,7 +674,7 @@ onMounted(async () => {
   if (config.value) await resume()
   if (!reached.has(step.value)) {
     reached.add(step.value)
-    track(step.value === RESULT ? 'quote_result_viewed' : 'quote_step_reached', { step: step.value, step_name: stepName(step.value), industry: form.moduleKey || null, source: entry.source ?? null })
+    track(step.value === RESULT ? 'quote_result_viewed' : 'quote_step_reached', { step: step.value, step_name: stepName(step.value), industry: form.industry || null, source: entry.source ?? null })
   }
 })
 onBeforeUnmount(() => {
@@ -658,6 +688,8 @@ onBeforeUnmount(() => {
 .qf--wide { max-width: 1040px; }
 .qf__form, .qf__result { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .qf__title:focus { outline: none; }
+/* One line on a 360 px phone, so the choices sit higher */
+@media (max-width: 559px) { .qf .qf__title { font-size: 1.375rem; } }
 .qf__narrow { max-width: 560px; }
 .qf__stack { display: grid; gap: 10px; }
 .qf__row { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -665,9 +697,10 @@ onBeforeUnmount(() => {
 .qf__group { display: grid; gap: 10px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .qf__group legend { padding: 0; margin-bottom: 10px; }
 .qf__tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.qf__tiles--2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.qf__tiles--3, .qf__tiles--when { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.qf__tiles--2, .qf__tiles--industry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 @media (min-width: 560px) {
-  .qf__tiles--industry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .qf__tiles--industry { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .qf__tiles--when { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
@@ -689,8 +722,9 @@ onBeforeUnmount(() => {
 .qf__actions { display: grid; gap: 12px; padding-top: 4px; }
 .qf__buttons { display: flex; gap: 10px; }
 .qf__next { flex: 1; }
-/* Extras: total and Next stay within thumb reach */
-.qf__actions--sticky {
+/* Back and Next stay within thumb reach, so nobody has to hunt for them.
+   On extras the running total rides along. */
+.qf__actions {
   position: sticky; bottom: 0; z-index: 2;
   margin: 0 calc(-1 * var(--q-gutter)); padding: 12px var(--q-gutter) calc(12px + env(safe-area-inset-bottom));
   background: var(--q-surface); border-top: 1px solid var(--q-border);

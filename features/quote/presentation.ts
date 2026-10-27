@@ -26,8 +26,11 @@ export const INDUSTRY_ICONS: Record<string, IconName> = {
 }
 
 export const CLIENT_TYPE_ICONS: Record<string, IconName> = {
-  owner: 'key', agent: 'briefcase', developer: 'crane', manager: 'clipboard-list',
+  owner: 'key', agent: 'briefcase', developer: 'crane', manager: 'clipboard-list', other: 'dots-circle-horizontal',
 }
+
+// Shown on the form before they have their own pricing; staff price them by hand
+export const PLANNED_INDUSTRIES = ['restaurants', 'developers', 'malls', 'institutions', 'farms']
 
 export const ADDON_ICONS: Record<string, IconName> = {
   video: 'video',

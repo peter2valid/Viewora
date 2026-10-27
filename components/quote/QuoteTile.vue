@@ -6,10 +6,10 @@
     :aria-checked="selected"
     :tabindex="focusable ? 0 : -1"
     class="q-tile"
-    :class="{ 'q-tile--selected': selected, 'q-tile--media': !!image, 'q-tile--stack': stack }"
+    :class="[`q-tile--${size}`, { 'q-tile--selected': selected, 'q-tile--media': !!image, 'q-tile--stack': stack }]"
     @click="$emit('select')"
   >
-    <span v-if="icon && !image" class="q-tile__icon" aria-hidden="true"><UiIcon :name="icon" :size="26" :stroke-width="1.75" /></span>
+    <span v-if="icon && !image" class="q-tile__icon" aria-hidden="true"><UiIcon :name="icon" :size="size === 'default' ? 26 : 22" :stroke-width="1.75" /></span>
     <img v-if="image" :src="image" :alt="''" class="q-tile__img" loading="lazy" width="320" height="160">
     <span class="q-tile__text">
       <span class="q-tile__title">{{ title }}</span>
@@ -32,7 +32,8 @@ withDefaults(defineProps<{
   selected?: boolean
   focusable?: boolean
   stack?: boolean     // icon above the label, for 2-up grids on phones
-}>(), { selected: false, focusable: true, stack: false })
+  size?: 'default' | 'compact' | 'small'   // compact: many choices on one phone screen; small: one-line choices
+}>(), { selected: false, focusable: true, stack: false, size: 'default' })
 
 defineEmits<{ select: [] }>()
 </script>
@@ -79,6 +80,18 @@ defineEmits<{ select: [] }>()
 .q-tile__text { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .q-tile__title { font-size: var(--q-text-md); font-weight: 600; line-height: 1.3; }
 .q-tile__sub { font-size: var(--q-text-sm); color: var(--q-ink-2); }
+
+/* Compact: icon beside a short label, so ten industries fit one phone screen.
+   Selection shows as the outline and fill; the round mark is dropped for room. */
+.q-tile--compact { gap: 8px; min-height: 60px; padding: 8px; }
+.q-tile--compact .q-tile__icon, .q-tile--small .q-tile__icon { width: 36px; height: 36px; }
+.q-tile--compact .q-tile__icon { width: 28px; height: 28px; }
+.q-tile--compact .q-tile__title { font-size: var(--q-text-sm); line-height: 1.2; }
+.q-tile--compact .q-tile__sub { font-size: var(--q-text-xs); line-height: 1.3; white-space: nowrap; }
+.q-tile--compact .q-tile__mark, .q-tile--small .q-tile__mark { display: none; }
+/* Small: one line, still a 48 px target */
+.q-tile--small { min-height: var(--q-tap); padding: 6px 10px; gap: 10px; }
+.q-tile--small .q-tile__title { font-size: var(--q-text-sm); }
 
 .q-tile__mark {
   flex: none;

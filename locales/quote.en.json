@@ -94,7 +94,7 @@
   },
   "steps": {
     "industry": "What we're shooting",
-    "contact": "Where to send your price",
+    "contact": "About you",
     "details": "About the place",
     "extras": "Extras",
     "where": "Where and when"
@@ -115,7 +115,8 @@
     "owner": "Owner",
     "agent": "Agent",
     "developer": "Developer",
-    "manager": "Manager"
+    "manager": "Manager",
+    "other": "Something else"
   },
   "clientQuestion": "Who are you?",
   "industryQuestion": "What should we shoot?",
@@ -135,13 +136,14 @@
     "noteHelp": "Parking, access times, who to call on the day.",
     "locatedPlain": "Location added."
   },
-  "contactIntro": "We'll send your price and a link to come back to this form.",
+  "contactIntro": "Who you are changes a few questions. We'll send your price and a link back to this form.",
   "details": {
     "yes": "Yes",
     "no": "No",
     "none": "No extras",
     "from": "From {amount}",
-    "priceByHand": "We reply with a price"
+    "priceByHand": "We reply with a price",
+    "priceByHandShort": "Priced for you"
   },
   "extras": {
     "title": "Add anything else?",
