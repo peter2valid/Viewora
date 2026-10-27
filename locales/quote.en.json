@@ -107,7 +107,7 @@
     "developers": "Developers and land",
     "malls": "Malls and retail",
     "institutions": "Offices, schools and clinics",
-    "vehicles": "Vehicles",
+    "vehicles": "Car dealers and hire",
     "farms": "Farms and factories",
     "other": "Something else"
   },
@@ -116,7 +116,8 @@
     "agent": "Agent",
     "developer": "Developer",
     "manager": "Manager",
-    "other": "Something else"
+    "other": "Something else",
+    "marketer": "Marketing agency"
   },
   "clientQuestion": "Who are you?",
   "industryQuestion": "What should we shoot?",
@@ -158,5 +159,53 @@
   "voice": {
     "unsupported": "Voice typing isn't available in this browser. Please type instead.",
     "listening": "Listening… speak now."
-  }
+  },
+  "groups": {
+    "property": "Property",
+    "hospitality": "Hotels and food",
+    "business": "Cars and business"
+  },
+  "clientTypesFor": {
+    "airbnb": {
+      "owner": "Host or owner",
+      "manager": "Co-host or manager"
+    },
+    "hotels": {
+      "owner": "Owner",
+      "manager": "Manager or marketing team"
+    },
+    "restaurants": {
+      "owner": "Owner",
+      "manager": "Manager"
+    },
+    "vehicles": {
+      "owner": "Dealer or business owner",
+      "manager": "Manager"
+    },
+    "malls": {
+      "owner": "Owner or landlord",
+      "manager": "Mall or centre manager"
+    },
+    "institutions": {
+      "owner": "We run it",
+      "manager": "Office or facilities manager"
+    },
+    "farms": {
+      "owner": "Owner",
+      "manager": "Farm or plant manager"
+    },
+    "homes": {
+      "manager": "Property manager"
+    }
+  },
+  "describe": {
+    "label": "Tell us about the place",
+    "restaurants": "For example: a restaurant with a rooftop terrace, about 80 seats.",
+    "developers": "For example: a 5-acre plot in Kitengela with beacons, or a show house.",
+    "malls": "For example: a two-floor mall in Thika with 40 shops.",
+    "institutions": "For example: a dental clinic on two floors, or a school with 12 classrooms.",
+    "farms": "For example: a dairy farm in Limuru with a milking parlour.",
+    "other": "A sentence is enough, for example \"a church hall and its grounds\"."
+  },
+  "otherNote": "We'll price this by hand and send it on WhatsApp within a working day. A few details help us get it right."
 }

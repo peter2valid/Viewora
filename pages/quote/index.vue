@@ -1,5 +1,5 @@
 <template>
-  <div class="qf" :class="{ 'qf--wide': step === RESULT }">
+  <div class="qf" :class="{ 'qf--wide': step === RESULT, 'qf--mid': step === 1 }">
     <!-- Loading and load errors -->
     <div v-if="pending" class="qf__state" aria-busy="true">
       <span class="qf__skeleton" /><span class="qf__skeleton qf__skeleton--short" />
@@ -23,37 +23,43 @@
 
         <!-- 1 Industry -->
         <template v-if="step === 1">
-          <p class="q-small">{{ t('intro') }}</p>
-          <div role="radiogroup" :aria-label="t('industryQuestion')" class="qf__tiles qf__tiles--industry" @keydown="onRadioArrows($event, industryTiles.length, i => pickIndustry(industryTiles[i], false))">
-            <QuoteTile
-              v-for="(tile, i) in industryTiles" :key="tile.key" size="compact"
-              :icon="INDUSTRY_ICONS[tile.key] ?? 'dots-circle-horizontal'"
-              :title="t(`industries.${tile.key}`)"
-              :sub="tile.from ? t('details.from', { amount: money(tile.from) }) : t('details.priceByHandShort')"
-              :selected="form.industry === tile.key"
-              :focusable="form.industry ? form.industry === tile.key : i === 0"
-              @select="pickIndustry(tile, true)"
-            />
+          <p class="q-small qf__intro">{{ t('intro') }}</p>
+          <!-- Grouped, most-asked first; one radiogroup so arrow keys run through all of them -->
+          <div role="radiogroup" :aria-label="t('industryQuestion')" class="qf__industries" @keydown="onRadioArrows($event, industryTiles.length, i => pickIndustry(industryTiles[i], false))">
+            <div v-for="g in industryGroups" :key="g.key" class="qf__industry-group">
+              <h2 v-if="g.key !== 'other'" class="qf__group-label">{{ t(`groups.${g.key}`) }}</h2>
+              <div class="qf__tiles qf__tiles--industry">
+                <QuoteTile
+                  v-for="tile in g.tiles" :key="tile.key" size="compact"
+                  :icon="INDUSTRY_ICONS[tile.key] ?? 'dots-circle-horizontal'"
+                  :title="t(`industries.${tile.key}`)"
+                  :sub="tile.from ? t('details.from', { amount: money(tile.from) }) : t('details.priceByHandShort')"
+                  :selected="form.industry === tile.key"
+                  :focusable="form.industry ? form.industry === tile.key : tile === industryTiles[0]"
+                  @select="pickIndustry(tile, true)"
+                />
+              </div>
+            </div>
           </div>
           <p v-if="errors.industry" class="qf__error" role="alert">{{ errors.industry }}</p>
         </template>
 
         <!-- 2 Contact -->
         <template v-else-if="step === 2">
-          <fieldset class="qf__group">
+          <fieldset class="qf__group" data-q="clientType">
             <legend class="q-h2">{{ t('clientQuestion') }}</legend>
-            <div role="radiogroup" :aria-label="t('clientQuestion')" class="qf__tiles qf__tiles--2" @keydown="onRadioArrows($event, CLIENT_TYPES.length, i => (form.clientType = CLIENT_TYPES[i]))">
+            <div role="radiogroup" :aria-label="t('clientQuestion')" class="qf__tiles qf__tiles--2" @keydown="onRadioArrows($event, clientTypes.length, i => pickClientType(clientTypes[i], false))">
               <QuoteTile
-                v-for="(c, i) in CLIENT_TYPES" :key="c" size="small"
-                :icon="CLIENT_TYPE_ICONS[c]" :title="t(`clientTypes.${c}`)"
+                v-for="(c, i) in clientTypes" :key="c" size="small"
+                :icon="CLIENT_TYPE_ICONS[c]" :title="clientLabel(c)"
                 :selected="form.clientType === c"
                 :focusable="form.clientType ? form.clientType === c : i === 0"
-                @select="form.clientType = c"
+                @select="pickClientType(c, true)"
               />
             </div>
             <p v-if="errors.clientType" class="qf__error" role="alert">{{ errors.clientType }}</p>
           </fieldset>
-          <p class="q-small">{{ t('contactIntro') }}</p>
+          <p class="q-small" data-q="name">{{ t('contactIntro') }}</p>
           <QuoteField id="q-name" v-model="form.firstName" icon="user" :label="t('contact.firstName')" autocomplete="given-name" :error="errors.firstName" />
           <QuoteField
             id="q-phone" v-model="form.whatsapp" icon="brand-whatsapp" :label="t('contact.whatsapp')" type="tel" inputmode="tel"
@@ -74,30 +80,31 @@
 
         <!-- 3 Details: the industry module's own questions -->
         <template v-else-if="step === 3 && module">
+          <p v-if="module.resultMode === 'custom'" class="q-small">{{ t('otherNote') }}</p>
           <template v-for="q in visibleQuestions" :key="q.id">
-            <fieldset v-if="q.type === 'choice' || q.type === 'boolean'" class="qf__group">
-              <legend class="q-h2">{{ q.label }}</legend>
+            <fieldset v-if="q.type === 'choice' || q.type === 'boolean'" class="qf__group" :data-q="q.id">
+              <legend class="q-h2">{{ questionLabel(q) }}</legend>
               <p v-if="q.help" class="q-small">{{ q.help }}</p>
-              <div role="radiogroup" :aria-label="q.label" class="qf__tiles" :class="gridFor(q)" @keydown="onRadioArrows($event, choicesFor(q).length, i => (form.details[q.id] = choicesFor(q)[i].value))">
+              <div role="radiogroup" :aria-label="questionLabel(q)" class="qf__tiles" :class="gridFor(q)" @keydown="onRadioArrows($event, choicesFor(q).length, i => (form.details[q.id] = choicesFor(q)[i].value))">
                 <QuoteTile
                   v-for="(o, i) in choicesFor(q)" :key="o.value" size="small"
                   :title="o.label"
                   :sub="o.price ? t('details.from', { amount: money(o.price) }) : undefined"
                   :selected="form.details[q.id] === o.value"
                   :focusable="form.details[q.id] ? form.details[q.id] === o.value : i === 0"
-                  @select="form.details[q.id] = o.value"
+                  @select="form.details[q.id] = o.value; afterAnswer(q.id)"
                 />
               </div>
               <p v-if="errors[q.id]" class="qf__error" role="alert">{{ errors[q.id] }}</p>
             </fieldset>
             <QuoteField
               v-else-if="q.type === 'number'"
-              :id="`q-${q.id}`" v-model="form.details[q.id]" :icon="QUESTION_ICONS[q.id]" :label="q.label"
-              inputmode="numeric" :help="q.help" :error="errors[q.id]"
+              :id="`q-${q.id}`" v-model="form.details[q.id]" :icon="QUESTION_ICONS[q.id]" :label="questionLabel(q)"
+              inputmode="numeric" :help="q.help" :error="errors[q.id]" :data-q="q.id"
             />
             <QuoteField
               v-else
-              :id="`q-${q.id}`" v-model="form.details[q.id]" :label="q.label" :help="q.help" :error="errors[q.id]"
+              :id="`q-${q.id}`" v-model="form.details[q.id]" :label="questionLabel(q)" :help="questionHelp(q)" :error="errors[q.id]" :data-q="q.id"
               :multiline="q.id === 'description'" :voice="dictation.supported.value && q.id === 'description'"
               :recording="dictation.recording.value" @voice="dictate(text => (form.details[q.id] = join(form.details[q.id], text)))"
             />
@@ -125,18 +132,18 @@
             </p>
           </div>
           <QuoteField id="q-town" v-model="form.town" icon="map-pin" :label="t('where.type')" autocomplete="address-level2" :error="errors.where" />
-          <fieldset class="qf__group">
+          <fieldset class="qf__group" data-q="timing">
             <legend class="q-h2">{{ t('where.when') }}</legend>
             <div role="radiogroup" :aria-label="t('where.when')" class="qf__tiles qf__tiles--when" @keydown="onRadioArrows($event, TIMINGS.length, i => (form.timing = TIMINGS[i]))">
               <QuoteTile
                 v-for="(w, i) in TIMINGS" :key="w" size="small" :title="t(`where.${TIMING_KEYS[w]}`)"
-                :selected="form.timing === w" :focusable="form.timing ? form.timing === w : i === 0" @select="form.timing = w"
+                :selected="form.timing === w" :focusable="form.timing ? form.timing === w : i === 0" @select="form.timing = w; afterAnswer('timing')"
               />
             </div>
             <p v-if="errors.timing" class="qf__error" role="alert">{{ errors.timing }}</p>
           </fieldset>
           <QuoteField
-            id="q-note" v-model="form.note" :label="t('where.note')" :help="t('where.noteHelp')" multiline
+            id="q-note" v-model="form.note" data-q="note" :label="t('where.note')" :help="t('where.noteHelp')" multiline
             :voice="dictation.supported.value" :recording="dictation.recording.value"
             @voice="dictate(text => (form.note = join(form.note, text)))"
           />
@@ -206,7 +213,7 @@
 import { normalisePhoneHint } from '~/features/quote/phoneHint'
 import { onRadioArrows } from '~/features/quote/keyboard'
 import {
-  ADDON_ICONS, CLIENT_TYPE_ICONS, INDUSTRY_ICONS, PLANNED_INDUSTRIES, QUESTION_ICONS, STEPS,
+  ADDON_ICONS, CLIENT_TYPE_ICONS, CLIENT_TYPES_BY_INDUSTRY, DEFAULT_CLIENT_TYPES, INDUSTRY_GROUPS, INDUSTRY_ICONS, PLANNED_INDUSTRIES, QUESTION_ICONS, STEPS,
 } from '~/features/quote/presentation'
 import type { QuoteOptionView } from '~/components/quote/QuoteOptions.vue'
 import type { IconName } from '~/types/icon'
@@ -245,7 +252,7 @@ const route = useRoute()
 const router = useRouter()
 
 const RESULT = STEPS.length + 1
-const CLIENT_TYPES = ['owner', 'agent', 'developer', 'manager', 'other'] as const
+const CLIENT_TYPES = ['owner', 'agent', 'developer', 'manager', 'marketer', 'other'] as const
 const TIMINGS = ['this_week', 'this_month', 'planning'] as const
 const TIMING_KEYS: Record<string, string> = { this_week: 'thisWeek', this_month: 'thisMonth', planning: 'planning' }
 const TOKEN_KEY = 'vo-quote-token'
@@ -290,15 +297,42 @@ const entry = (() => {
 const module = computed(() => config.value?.modules.find(m => m.key === form.moduleKey))
 
 interface IndustryTile { key: string; moduleKey: string; hint?: string; from: number | null }
-const industryTiles = computed<IndustryTile[]>(() => {
+function tileFor(key: string): IndustryTile | null {
   const mods = config.value?.modules ?? []
-  return Object.keys(INDUSTRY_ICONS).flatMap(key => {
-    const m = mods.find(x => x.key === key)
-    if (m) return [{ key, moduleKey: key, from: m.from }]
-    if (PLANNED_INDUSTRIES.includes(key) && mods.some(x => x.key === 'other')) return [{ key, moduleKey: 'other', hint: key, from: null }]
-    return []
-  })
+  const m = mods.find(x => x.key === key)
+  if (m) return { key, moduleKey: key, from: m.from }
+  if (PLANNED_INDUSTRIES.includes(key) && mods.some(x => x.key === 'other')) return { key, moduleKey: 'other', hint: key, from: null }
+  return null
+}
+
+// Step 1 groups; "other" and any module not in a group go last
+const industryGroups = computed(() => {
+  const grouped = INDUSTRY_GROUPS.map(g => ({ key: g.key, tiles: g.industries.map(tileFor).filter((x): x is IndustryTile => !!x) }))
+  const placed = new Set(INDUSTRY_GROUPS.flatMap(g => g.industries))
+  const rest = (config.value?.modules ?? []).map(m => m.key).filter(k => !placed.has(k))
+    .sort((a, b) => Number(a === 'other') - Number(b === 'other'))
+    .map(tileFor).filter((x): x is IndustryTile => !!x)
+  return [...grouped, { key: 'other', tiles: rest }].filter(g => g.tiles.length)
 })
+const industryTiles = computed(() => industryGroups.value.flatMap(g => g.tiles))
+
+// "Who are you?" options and wording follow the industry
+const clientTypes = computed(() => (CLIENT_TYPES_BY_INDUSTRY[form.industry] ?? DEFAULT_CLIENT_TYPES) as Array<typeof CLIENT_TYPES[number]>)
+function clientLabel(c: string) {
+  const key = `clientTypesFor.${form.industry}.${c}`
+  const own = t(key)
+  return own === key ? t(`clientTypes.${c}`) : own
+}
+
+// Hand-priced industries reuse the "other" questions, worded for the place
+function questionLabel(q: QQuestion) {
+  return q.id === 'description' && form.industry !== 'other' && module.value?.resultMode === 'custom' ? t('describe.label') : q.label
+}
+function questionHelp(q: QQuestion) {
+  if (q.id !== 'description') return q.help
+  const key = `describe.${form.industry}`
+  return t(key) === key ? q.help : t(key)
+}
 
 // Mirrors the engine's isVisible: client-type questions and showIf conditions
 const visibleQuestions = computed(() => (module.value?.questions ?? []).filter(q =>
@@ -344,12 +378,12 @@ const echo = computed(() => {
   if (!module.value) return rows
   rows.push({
     step: 'industry', icon: INDUSTRY_ICONS[form.industry] ?? 'dots-circle-horizontal', label: t('industryQuestion'),
-    value: [t(`industries.${form.industry || module.value.key}`), form.clientType ? t(`clientTypes.${form.clientType}`) : ''].filter(Boolean).join(' · '),
+    value: [t(`industries.${form.industry || module.value.key}`), form.clientType ? clientLabel(form.clientType) : ''].filter(Boolean).join(' · '),
   })
   for (const q of visibleQuestions.value) {
     const v = form.details[q.id]
     if (!v) continue
-    rows.push({ step: 'details', icon: QUESTION_ICONS[q.id] ?? 'clipboard-list', label: q.label, value: choicesFor(q).find(o => o.value === v)?.label ?? v })
+    rows.push({ step: 'details', icon: QUESTION_ICONS[q.id] ?? 'clipboard-list', label: questionLabel(q), value: choicesFor(q).find(o => o.value === v)?.label ?? v })
   }
   const picked = module.value.addons.filter(a => form.addons[a.key]).map(a => a.label)
   rows.push({ step: 'extras', icon: 'plus', label: t('echo.extras'), value: picked.length ? picked.join(', ') : t('details.none') })
@@ -361,11 +395,31 @@ const echo = computed(() => {
 })
 
 // ── Choices ─────────────────────────────────────────────────────────────
+// After an answer, bring the next question up if it's below the pinned
+// Next bar, so nobody has to scroll to find it.
+function afterAnswer(id: string) {
+  nextTick(() => {
+    const blocks = [...document.querySelectorAll<HTMLElement>('.qf__form [data-q]')]
+    const next = blocks[blocks.findIndex(el => el.dataset.q === id) + 1]
+    if (!next) return
+    const bar = document.querySelector('.qf__actions')?.getBoundingClientRect().top ?? window.innerHeight
+    if (next.getBoundingClientRect().top + 60 < bar) return
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    next.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' })
+  })
+}
+
+function pickClientType(c: typeof CLIENT_TYPES[number], scroll: boolean) {
+  form.clientType = c
+  if (scroll) afterAnswer('clientType')
+}
+
 function pickIndustry(tile: IndustryTile, advance: boolean) {
   if (form.moduleKey !== tile.moduleKey) { form.details = {}; form.addons = {} }
   form.moduleKey = tile.moduleKey
   form.industry = tile.key
   form.industryHint = tile.hint ?? ''
+  if (form.clientType && !clientTypes.value.includes(form.clientType)) form.clientType = ''
   // One question on this screen, so a tap moves on (Back is always there)
   if (advance && step.value === 1) setTimeout(() => { if (step.value === 1 && !saving.value) next() }, 160)
 }
@@ -686,6 +740,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .qf { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .qf--wide { max-width: 1040px; }
+.qf--mid { max-width: 840px; }
 .qf__form, .qf__result { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .qf__title:focus { outline: none; }
 /* One line on a 360 px phone, so the choices sit higher */
@@ -697,6 +752,28 @@ onBeforeUnmount(() => {
 .qf__group { display: grid; gap: 10px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .qf__group legend { padding: 0; margin-bottom: 10px; }
 .qf__tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.qf__industries { display: grid; gap: 12px; }
+.qf__industry-group { display: grid; gap: 6px; min-width: 0; }
+.qf__group-label { font-size: var(--q-text-xs); font-weight: 600; letter-spacing: 0.02em; color: var(--q-ink-2); text-transform: uppercase; }
+/* Wider screens: the group name sits to the left of its tiles */
+@media (min-width: 720px) {
+  .qf__industry-group { grid-template-columns: 150px minmax(0, 1fr); align-items: start; column-gap: 16px; }
+  .qf__group-label { padding-top: 12px; }
+  .qf__industry-group:not(:has(.qf__group-label)) .qf__tiles { grid-column: 2; }
+}
+.qf [data-q] { scroll-margin-top: 16px; }
+@media (max-width: 559px) {
+  /* A lone tile at the end of a group takes the full row instead of leaving a gap */
+  .qf__tiles--industry > :last-child:nth-child(odd) { grid-column: 1 / -1; min-height: 52px; }
+}
+/* Short phones: drop the reassurance line so the industries fit */
+@media (max-height: 700px) and (max-width: 559px) {
+  .qf__intro { display: none; }
+  .qf--mid .qf__form { gap: 12px; }
+  .qf__industries { gap: 8px; }
+  .qf__industry-group { gap: 4px; }
+  .qf__tiles--industry :deep(.q-tile--compact) { padding-block: 6px; min-height: 56px; }
+}
 .qf__tiles--3, .qf__tiles--when { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .qf__tiles--2, .qf__tiles--industry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 @media (min-width: 560px) {

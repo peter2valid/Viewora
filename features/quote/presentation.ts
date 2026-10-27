@@ -26,8 +26,24 @@ export const INDUSTRY_ICONS: Record<string, IconName> = {
 }
 
 export const CLIENT_TYPE_ICONS: Record<string, IconName> = {
-  owner: 'key', agent: 'briefcase', developer: 'crane', manager: 'clipboard-list', other: 'dots-circle-horizontal',
+  owner: 'key', agent: 'briefcase', developer: 'crane', manager: 'clipboard-list', marketer: 'chart', other: 'dots-circle-horizontal',
 }
+
+// Step 1 groups, most-asked first. "other" sits on its own after the groups.
+export const INDUSTRY_GROUPS: Array<{ key: string; industries: string[] }> = [
+  { key: 'property', industries: ['homes', 'airbnb', 'developers'] },
+  { key: 'hospitality', industries: ['hotels', 'restaurants'] },
+  { key: 'business', industries: ['vehicles', 'malls', 'institutions', 'farms'] },
+]
+
+// "Who are you?" fits the industry: no estate agents for a car dealer.
+// Marketing agencies book for clients in every industry.
+export const CLIENT_TYPES_BY_INDUSTRY: Record<string, string[]> = {
+  homes: ['owner', 'agent', 'developer', 'manager', 'marketer', 'other'],
+  developers: ['developer', 'agent', 'marketer', 'other'],
+  airbnb: ['owner', 'manager', 'marketer', 'other'],
+}
+export const DEFAULT_CLIENT_TYPES = ['owner', 'manager', 'marketer', 'other']
 
 // Shown on the form before they have their own pricing; staff price them by hand
 export const PLANNED_INDUSTRIES = ['restaurants', 'developers', 'malls', 'institutions', 'farms']
