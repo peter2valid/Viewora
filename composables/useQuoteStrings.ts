@@ -19,6 +19,7 @@ export function useQuoteStrings(locale = 'en') {
 
 // Money arrives as integers: whole KES, or USD cents.
 export function formatMoney(amount: number, currency: 'KES' | 'USD' = 'KES'): string {
+  if (amount < 0) return `−${formatMoney(-amount, currency)}`   // discounts: −KES 7,020
   if (currency === 'USD') {
     return `USD ${(amount / 100).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
