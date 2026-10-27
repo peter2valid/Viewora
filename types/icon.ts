@@ -14,3 +14,4 @@ export type IconName =
   | 'barbell' | 'paw' | 'elevator' | 'trees' | 'snowflake' | 'flame'
   | 'washing-machine' | 'sofa' | 'building-community' | 'phone'
   | 'microphone' | 'brand-whatsapp'
+  | 'brand-airbnb' | 'tools-kitchen-2' | 'crane' | 'shopping-bag' | 'building' | 'building-factory-2' | 'building-estate' | 'dots-circle-horizontal' | 'key' | 'briefcase' | 'helmet' | 'clipboard-list' | 'user' | 'mail' | 'current-location' | 'clock' | 'video' | 'device-mobile' | 'photo' | 'info-circle' | 'brand-google-maps' | 'refresh' | 'world-www' | 'code' | 'palette' | 'arrow-left' | 'arrow-right' | 'school' | 'stethoscope'
