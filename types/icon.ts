@@ -13,3 +13,4 @@ export type IconName =
   | 'parking' | 'wifi' | 'pool' | 'droplet' | 'bolt' | 'shield-check'
   | 'barbell' | 'paw' | 'elevator' | 'trees' | 'snowflake' | 'flame'
   | 'washing-machine' | 'sofa' | 'building-community' | 'phone'
+  | 'microphone' | 'brand-whatsapp'
