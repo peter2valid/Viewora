@@ -332,7 +332,6 @@ const swatches = [
 .running { display: flex; align-items: center; gap: 12px; padding: 12px var(--q-gutter); background: var(--q-surface); border: 1px solid var(--q-border); border-radius: var(--q-radius); }
 .running__total { font-size: var(--q-text-lg); font-weight: 700; margin-right: auto; white-space: nowrap; }
 
-}
 .actions { display: grid; gap: 10px; }
 
 .flow { display: grid; gap: 8px; max-width: 520px; }
