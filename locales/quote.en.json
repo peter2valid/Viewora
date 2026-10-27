@@ -1,0 +1,68 @@
+{
+  "progress": "Step {step} of {total}",
+  "intro": "Your price in about 60 seconds. No payment now.",
+  "actions": {
+    "next": "Next",
+    "back": "Back",
+    "seePrice": "See my price",
+    "bookNow": "Book now, pay {amount} deposit",
+    "chatWhatsapp": "Chat on WhatsApp",
+    "emailPdf": "Email me the PDF quote",
+    "talkInstead": "Rather talk? WhatsApp us",
+    "record": "Record a voice note",
+    "stopRecording": "Stop recording"
+  },
+  "contact": {
+    "firstName": "First name",
+    "whatsapp": "WhatsApp number",
+    "whatsappHelp": "We send your quote and resume link here.",
+    "email": "Email (optional)",
+    "consent": "Viewora can send me my quote and follow-ups on WhatsApp and email. I can stop them any time."
+  },
+  "tiers": {
+    "essential": "Essential",
+    "standard": "Standard",
+    "premium": "Premium",
+    "essentialNote": "The tour only",
+    "standardNote": "What you picked",
+    "premiumNote": "Adds a video, a reel and photos"
+  },
+  "result": {
+    "deposit": "50% deposit {amount}, balance on delivery",
+    "vatExcluded": "Prices exclude VAT.",
+    "vatIncluded": "Prices include VAT at {rate}%.",
+    "included": "Every tour includes 48-72 hour delivery, a shareable link, 1 revision round and 12 months of hosting.",
+    "estimate": "Estimate. Our team confirms the final price within a working day.",
+    "custom": "We'll send your price on WhatsApp within a working day.",
+    "runningTotal": "Running total"
+  },
+  "errors": {
+    "phone": {
+      "empty": "Add your WhatsApp number so we can send your quote.",
+      "too_short": "That number looks a digit or two short. Kenyan numbers look like 0712 345 678.",
+      "too_long": "That number has too many digits. Kenyan numbers look like 0712 345 678.",
+      "not_mobile": "That looks like a landline. We need a WhatsApp number, starting 07 or 01.",
+      "invalid": "Use digits only, like 0712 345 678 or +44 7911 123456."
+    },
+    "required": "Pick one to continue.",
+    "saveFailed": "We couldn't save this step. Your answers are still here; check your connection and tap Next again.",
+    "offline": "You're offline. Your answers are saved on this phone and will send when you reconnect."
+  },
+  "stages": {
+    "new": "New",
+    "contacted": "Contacted",
+    "quoted": "Quoted",
+    "booked": "Booked",
+    "delivered": "Delivered",
+    "paid": "Paid",
+    "lost": "Lost"
+  },
+  "warnings": {
+    "discount_capped": "Discount capped at {cap}%. An admin can approve more with a reason.",
+    "override_not_allowed": "Only an admin can go past the discount cap.",
+    "travel_far": "Far job: travel is actual cost plus accommodation and KES {perDiem} a day.",
+    "location_unresolved": "We couldn't place this location. Confirm travel before sending.",
+    "scenes_missing": "No scene count yet. Ask the client how many rooms or areas.",
+    "plan_exceeds": "{scenes} scenes is more than {plan} allows ({cap} per tour)."
+  }
+}

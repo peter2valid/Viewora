@@ -1,0 +1,95 @@
+/* ============================================================
+   Quote engine tokens — extend the public --vo-* tokens in main.css.
+   Scoped to .q-root so the dashboard is untouched.
+
+   Direction: warm paper base, ink for text and the one primary
+   action, Viewora green (#00dc82) as the single accent. The green
+   never carries text (it fails contrast on white); it marks what
+   is selected and how far along you are. Status colours appear
+   only in status pills.
+   ============================================================ */
+
+.q-root {
+  /* Surfaces */
+  --q-page: var(--vo-page);          /* #f8f8f7 */
+  --q-surface: var(--vo-surface);    /* #ffffff */
+  --q-sunken: var(--vo-elevated);    /* #f1f1f0 */
+  --q-border: var(--vo-border);      /* #dededb */
+  --q-border-strong: var(--vo-border-strong);
+
+  /* Text */
+  --q-ink: var(--vo-text);           /* #111111 */
+  --q-ink-2: var(--vo-secondary);    /* #5f5f5c, 6.3:1 on white */
+  --q-ink-3: #6f6f6a;                /* 5.0:1 on white; --vo-muted fails AA for body text */
+  --q-inverse: var(--vo-inverse);
+
+  /* One accent */
+  --q-accent: #00dc82;
+  --q-accent-tint: #e6fbf2;          /* selected backgrounds; ink text on it is 17:1 */
+  --q-accent-ink: #00663c;           /* when the accent must be text: 6.9:1 on white */
+
+  /* Status (pills only) */
+  --q-new: #1d4ed8;      --q-new-bg: #eef3ff;
+  --q-warn: #9a5b00;     --q-warn-bg: #fff6e5;
+  --q-good: #15803d;     --q-good-bg: #ecfdf3;
+  --q-bad: #b91c1c;      --q-bad-bg: #fef2f2;
+  --q-quiet: #52525b;    --q-quiet-bg: #f1f1f2;
+
+  /* Shape and space */
+  --q-radius-sm: var(--vo-radius-sm);  /* 6px */
+  --q-radius: var(--vo-radius-md);     /* 10px */
+  --q-radius-lg: var(--vo-radius-lg);  /* 14px */
+  --q-tap: 48px;
+  --q-gutter: 16px;
+
+  /* Type: Outfit for the few display lines, Inter for everything else */
+  --q-font: 'Inter', system-ui, -apple-system, sans-serif;
+  --q-font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+  --q-text-xs: 0.8125rem;   /* 13 */
+  --q-text-sm: 0.875rem;    /* 14 */
+  --q-text-md: 1rem;        /* 16, inputs never go below this (no iOS zoom) */
+  --q-text-lg: 1.25rem;     /* 20 */
+  --q-text-xl: 1.625rem;    /* 26 */
+  --q-text-2xl: 2.125rem;   /* 34 */
+
+  /* Motion: short, and none at all when reduced motion is asked for */
+  --q-fast: 120ms;
+  --q-base: 180ms;
+  --q-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  --q-focus: 0 0 0 2px var(--q-surface), 0 0 0 4px var(--q-ink);
+
+  font-family: var(--q-font);
+  color: var(--q-ink);
+  background: var(--q-page);
+  -webkit-font-smoothing: antialiased;
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-root { --q-fast: 0ms; --q-base: 0ms; }
+  .q-root *, .q-root *::before, .q-root *::after { transition-duration: 0ms !important; animation: none !important; }
+}
+
+.q-root .q-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+.q-root .q-h1 { font-family: var(--q-font-display); font-size: var(--q-text-xl); font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; }
+.q-root .q-h2 { font-size: var(--q-text-lg); font-weight: 600; line-height: 1.25; }
+.q-root .q-body { font-size: var(--q-text-md); line-height: 1.5; color: var(--q-ink-2); }
+.q-root .q-small { font-size: var(--q-text-sm); line-height: 1.45; color: var(--q-ink-2); }
+.q-root .q-label { font-size: var(--q-text-xs); font-weight: 600; letter-spacing: 0.02em; color: var(--q-ink-2); }
+
+@media (min-width: 768px) {
+  .q-root .q-h1 { font-size: var(--q-text-2xl); }
+}
+
+/* Admin density: real tables, compact rows, sticky header */
+.q-root .q-table { width: 100%; border-collapse: collapse; font-size: var(--q-text-sm); background: var(--q-surface); }
+.q-root .q-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--q-sunken);
+  text-align: left; font-weight: 600; font-size: var(--q-text-xs); color: var(--q-ink-2);
+  padding: 8px 12px; border-bottom: 1px solid var(--q-border);
+}
+.q-root .q-table td { padding: 8px 12px; border-bottom: 1px solid var(--q-border); vertical-align: middle; }
+.q-root .q-table tr:hover td { background: #fafaf9; }
+.q-root .q-table .q-right { text-align: right; }

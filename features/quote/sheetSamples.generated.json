@@ -1,0 +1,201 @@
+{
+  "_note": "Generated from viewora-backend rate table v1 by the engine, for the component sheet only. Do not edit; real screens load prices from the API.",
+  "rateTableVersion": 1,
+  "tiles": [
+    {
+      "key": "homes",
+      "label": "Homes",
+      "from": 4500
+    },
+    {
+      "key": "airbnb",
+      "label": "Airbnb and short-stay",
+      "from": 4500
+    },
+    {
+      "key": "hotels",
+      "label": "Hotels and lodges",
+      "from": 15000
+    },
+    {
+      "key": "other",
+      "label": "Something else",
+      "from": null
+    }
+  ],
+  "addons": [
+    {
+      "key": "video",
+      "label": "360° video walkthrough",
+      "amount": 8000
+    },
+    {
+      "key": "reel",
+      "label": "Social reel, 30-60 sec vertical",
+      "amount": 8000
+    },
+    {
+      "key": "photos_20",
+      "label": "20 edited photos",
+      "amount": 4000
+    },
+    {
+      "key": "hotspot_pack",
+      "label": "Hotspot / info-tag pack",
+      "amount": 2000
+    },
+    {
+      "key": "google_maps",
+      "label": "Google Maps publishing",
+      "amount": 3500
+    },
+    {
+      "key": "floorplan_home_draw",
+      "label": "Floor plan: drawn from the 360 scenes",
+      "amount": 2000
+    }
+  ],
+  "result": {
+    "mode": "instant",
+    "moduleKey": "homes",
+    "moduleVersion": 1,
+    "rateTableId": "seed-v1",
+    "rateTableVersion": 1,
+    "currency": "KES",
+    "vat": {
+      "charged": false,
+      "rateBp": 1600
+    },
+    "options": [
+      {
+        "tier": "essential",
+        "lines": [
+          {
+            "key": "home_2br",
+            "kind": "base",
+            "label": "2 bedroom tour",
+            "qty": 1,
+            "unit": 7000,
+            "amount": 7000
+          },
+          {
+            "key": "travel_nairobi",
+            "kind": "travel",
+            "label": "Travel: Nairobi, within ~15 km",
+            "qty": 1,
+            "unit": 0,
+            "amount": 0
+          }
+        ],
+        "subtotal": 7000,
+        "discount": 0,
+        "discountBp": 0,
+        "net": 7000,
+        "vat": 0,
+        "total": 7000,
+        "deposit": 3500
+      },
+      {
+        "tier": "standard",
+        "lines": [
+          {
+            "key": "home_2br",
+            "kind": "base",
+            "label": "2 bedroom tour",
+            "qty": 1,
+            "unit": 7000,
+            "amount": 7000
+          },
+          {
+            "key": "photos_20",
+            "kind": "addon",
+            "label": "20 edited photos",
+            "qty": 1,
+            "unit": 4000,
+            "amount": 4000
+          },
+          {
+            "key": "travel_nairobi",
+            "kind": "travel",
+            "label": "Travel: Nairobi, within ~15 km",
+            "qty": 1,
+            "unit": 0,
+            "amount": 0
+          }
+        ],
+        "subtotal": 11000,
+        "discount": 0,
+        "discountBp": 0,
+        "net": 11000,
+        "vat": 0,
+        "total": 11000,
+        "deposit": 5500
+      },
+      {
+        "tier": "premium",
+        "lines": [
+          {
+            "key": "home_2br",
+            "kind": "base",
+            "label": "2 bedroom tour",
+            "qty": 1,
+            "unit": 7000,
+            "amount": 7000
+          },
+          {
+            "key": "photos_20",
+            "kind": "addon",
+            "label": "20 edited photos",
+            "qty": 1,
+            "unit": 4000,
+            "amount": 4000
+          },
+          {
+            "key": "video",
+            "kind": "addon",
+            "label": "360° video walkthrough",
+            "qty": 1,
+            "unit": 8000,
+            "amount": 8000
+          },
+          {
+            "key": "reel",
+            "kind": "addon",
+            "label": "Social reel, 30-60 sec vertical",
+            "qty": 1,
+            "unit": 8000,
+            "amount": 8000
+          },
+          {
+            "key": "travel_nairobi",
+            "kind": "travel",
+            "label": "Travel: Nairobi, within ~15 km",
+            "qty": 1,
+            "unit": 0,
+            "amount": 0
+          }
+        ],
+        "subtotal": 27000,
+        "discount": 0,
+        "discountBp": 0,
+        "net": 27000,
+        "vat": 0,
+        "total": 27000,
+        "deposit": 13500
+      }
+    ],
+    "missing": [],
+    "warnings": [],
+    "planCheck": {
+      "scenes": 14,
+      "exceeds": false,
+      "smallestFit": "creator"
+    },
+    "travelZone": "travel_nairobi",
+    "hosting": {
+      "includedMonths": 12,
+      "renewal": 3000
+    },
+    "flags": []
+  }
+}

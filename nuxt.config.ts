@@ -57,6 +57,8 @@ export default defineNuxtConfig({
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
       gaMeasurementId: process.env.NUXT_PUBLIC_GA_MEASUREMENT_ID || '',
+      // Quote engine feature flag: off unless NUXT_PUBLIC_QUOTE_ENGINE=1
+      quoteEngine: process.env.NUXT_PUBLIC_QUOTE_ENGINE === '1',
     },
   },
 
@@ -108,6 +110,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // Quote engine (behind NUXT_PUBLIC_QUOTE_ENGINE) — never indexed while in build
+    '/quote/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
     // Auth pages
     '/login': { ssr: false },
     '/register': { ssr: false },
