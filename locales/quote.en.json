@@ -34,7 +34,7 @@
     "premiumNote": "Adds a video, a reel and photos"
   },
   "result": {
-    "deposit": "50% deposit {amount}, balance on delivery",
+    "deposit": "{percent}% deposit {amount}, balance on delivery",
     "vatExcluded": "Prices exclude VAT.",
     "vatIncluded": "Prices include VAT at {rate}%.",
     "included": "Every tour includes 48-72 hour delivery, a shareable link, 1 revision round and 12 months of hosting.",
@@ -207,5 +207,37 @@
     "farms": "For example: a dairy farm in Limuru with a milking parlour.",
     "other": "A sentence is enough, for example \"a church hall and its grounds\"."
   },
-  "otherNote": "We'll price this by hand and send it on WhatsApp within a working day. A few details help us get it right."
+  "otherNote": "We'll price this by hand and send it on WhatsApp within a working day. A few details help us get it right.",
+  "view": {
+    "title": "Your quote, {name}",
+    "titleNoName": "Your Viewora quote",
+    "meta": "{industry} · Quote {ref}",
+    "sent": "Sent {date}",
+    "noteFrom": "A note from us",
+    "recommended": "What we recommend",
+    "optionNote": "Another option",
+    "validUntil": "This price holds until {date}.",
+    "deposit": "A {percent}% deposit books your shoot date. The balance is due when your tour is delivered.",
+    "pdf": "Download PDF",
+    "expiredTitle": "This price has expired",
+    "expired": "It held until {date}. Prices may have changed, so ask us for an updated quote.",
+    "askUpdate": "Ask for an updated quote",
+    "replacedTitle": "This quote has been updated",
+    "replaced": "We sent you a newer version on {date}. Open the latest link we sent you, or ask us for it on WhatsApp.",
+    "replacedNoDate": "We sent you a newer version. Open the latest link we sent you, or ask us for it on WhatsApp.",
+    "closedTitle": "This quote is closed",
+    "closed": "It is no longer available. If you still need a tour, we will gladly send you a new quote.",
+    "goneTitle": "This link has expired",
+    "gone": "Quote links work for a month after the price expires. Ask us for a new one on WhatsApp.",
+    "notFoundTitle": "We can't find this quote",
+    "notFound": "Check that you opened the whole link from your message. If it still doesn't work, ask us on WhatsApp.",
+    "loadFailed": "We couldn't load your quote. Check your connection and try again.",
+    "accepted": "You accepted this quote. We will be in touch about your shoot date.",
+    "newQuote": "Ask for a new quote",
+    "ask": "Hi Viewora, I have a question about my quote {ref}.",
+    "book": "Hi Viewora, I'd like to book the {tier} option ({amount}) from quote {ref}.",
+    "update": "Hi Viewora, my quote {ref} has expired. Could you send me an updated one?",
+    "again": "Hi Viewora, I'd like a new quote for a 360° tour.",
+    "askLatest": "Hi Viewora, could you send me the latest version of my quote?"
+  }
 }

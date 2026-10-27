@@ -186,7 +186,7 @@
 
         <template v-else>
           <p v-if="result.mode === 'range'" class="q-body">{{ t('result.estimate') }}</p>
-          <QuoteOptions v-model="tier" :options="result.options" :currency="result.currency" />
+          <QuoteOptions v-model="tier" :options="result.options" :currency="result.currency" :deposit-bp="config.settings.depositBp" />
           <!-- The one action, kept within thumb reach on phones -->
           <div class="qf__book">
             <p v-if="pickedOption" class="qf__book-summary q-num">

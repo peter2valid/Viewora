@@ -9,18 +9,18 @@
       <header class="option__head">
         <span class="option__radio" aria-hidden="true"><UiIcon v-if="modelValue === o.tier" name="check" :size="14" :stroke-width="3" /></span>
         <h3 class="option__tier">{{ t(`tiers.${o.tier}`) }}</h3>
-        <p v-if="options.length > 1" class="q-small">{{ t(`tiers.${o.tier}Note`) }}</p>
+        <p v-if="options.length > 1" class="q-small">{{ notes?.[o.tier] ?? t(`tiers.${o.tier}Note`) }}</p>
       </header>
       <p class="option__total q-num">
         {{ money(o.total) }}<template v-if="o.totalHigh && o.totalHigh !== o.total"> – {{ money(o.totalHigh) }}</template>
       </p>
       <ul class="option__lines">
-        <li v-for="l in o.lines.filter(x => x.amount !== 0 || x.kind === 'travel')" :key="l.key">
+        <li v-for="(l, i) in o.lines.filter(x => x.amount !== 0 || x.kind === 'travel')" :key="l.key ?? i">
           <span>{{ l.label }}</span>
           <span class="q-num">{{ l.tbc ? t('result.tbc') : l.amount === 0 ? t('result.free') : money(l.amount) }}</span>
         </li>
       </ul>
-      <p class="q-small q-num">{{ t('result.deposit', { amount: money(o.deposit) }) }}</p>
+      <p class="q-small q-num">{{ t('result.deposit', { percent: depositBp / 100, amount: money(o.deposit) }) }}</p>
     </article>
   </div>
 </template>
@@ -33,10 +33,14 @@ export interface QuoteOptionView {
   total: number
   totalHigh?: number | null
   deposit: number
-  lines: Array<{ key: string; kind: string; label: string; amount: number; tbc?: boolean }>
+  lines: Array<{ key?: string; kind: string; label: string; amount: number; tbc?: boolean }>
 }
 
-const props = withDefaults(defineProps<{ options: QuoteOptionView[]; modelValue: string; currency?: 'KES' | 'USD'; label?: string }>(), { currency: 'KES', label: 'Pick an option' })
+const props = withDefaults(defineProps<{
+  options: QuoteOptionView[]; modelValue: string; currency?: 'KES' | 'USD'; label?: string
+  notes?: Record<string, string>   // line under each tier name; defaults to the form's wording
+  depositBp?: number
+}>(), { currency: 'KES', label: 'Pick an option', depositBp: 5000 })
 const emit = defineEmits<{ 'update:modelValue': [tier: string] }>()
 const { t } = useQuoteStrings()
 const money = (n: number) => formatMoney(n, props.currency)
