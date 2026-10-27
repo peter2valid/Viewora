@@ -2,6 +2,7 @@
   <div class="q-field" :class="{ 'q-field--error': !!error }">
     <label :for="id" class="q-field__label">{{ label }}</label>
     <div class="q-field__control">
+      <span v-if="icon" class="q-field__icon" aria-hidden="true"><UiIcon :name="icon" :size="20" /></span>
       <input
         v-if="!multiline"
         :id="id"
@@ -46,8 +47,11 @@
 </template>
 
 <script setup lang="ts">
+import type { IconName } from '~/types/icon'
+
 const props = withDefaults(defineProps<{
   id: string
+  icon?: IconName       // leading icon: WhatsApp, email, person, pin
   label: string
   modelValue?: string
   type?: string
@@ -89,6 +93,8 @@ const describedBy = computed(() => props.error ? `${props.id}-error` : props.hel
 .q-field--error .q-field__input { border-color: var(--q-bad); }
 .q-field--error .q-field__input:focus { box-shadow: 0 0 0 1px var(--q-bad); }
 .q-field:has(.q-field__mic) .q-field__input { padding-right: 56px; }
+.q-field:has(.q-field__icon) .q-field__input { padding-left: 46px; }
+.q-field__icon { position: absolute; z-index: 1; left: 14px; top: 14px; color: var(--q-ink-2); pointer-events: none; }
 
 .q-field__mic {
   position: absolute; right: 0; top: 0;

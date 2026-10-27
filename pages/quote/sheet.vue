@@ -8,6 +8,24 @@
       </p>
     </header>
 
+    <!-- ── Flow ─────────────────────────────────────────────── -->
+    <section class="sheet__section" aria-labelledby="s-flow">
+      <h2 id="s-flow" class="q-h2">Flow</h2>
+      <p class="q-small">The visitor picks what we're shooting first, then gives their contacts. From step 2 the lead is saved, so if they leave we can still send their resume link.</p>
+      <ol class="flow">
+        <li v-for="(s, i) in STEPS" :key="s" class="flow__step">
+          <span class="flow__icon" aria-hidden="true"><UiIcon :name="STEP_ICONS[s]" :size="20" /></span>
+          <span class="flow__n q-num">{{ i + 1 }}</span>
+          <span class="flow__name">{{ t(`steps.${s}`) }}</span>
+        </li>
+        <li class="flow__step flow__step--result">
+          <span class="flow__icon" aria-hidden="true"><UiIcon name="check" :size="20" /></span>
+          <span class="flow__name">Your price, then book, WhatsApp or email</span>
+        </li>
+      </ol>
+      <p class="flag">The A/B test (Phase 5) can move the contact step to the end, to compare which order finishes more forms.</p>
+    </section>
+
     <!-- ── Tokens ───────────────────────────────────────────── -->
     <section class="sheet__section" aria-labelledby="s-colour">
       <h2 id="s-colour" class="q-h2">Colour</h2>
@@ -42,7 +60,7 @@
         <QuoteButton>{{ t('actions.next') }}</QuoteButton>
         <QuoteButton variant="secondary">{{ t('actions.back') }}</QuoteButton>
         <QuoteButton variant="secondary" icon="brand-whatsapp">{{ t('actions.chatWhatsapp') }}</QuoteButton>
-        <QuoteButton variant="quiet">{{ t('actions.emailPdf') }}</QuoteButton>
+        <QuoteButton variant="quiet" icon="mail">{{ t('actions.emailPdf') }}</QuoteButton>
         <QuoteButton loading>Saving</QuoteButton>
         <QuoteButton disabled>{{ t('actions.next') }}</QuoteButton>
       </div>
@@ -51,12 +69,16 @@
     <section class="sheet__section" aria-labelledby="s-inputs">
       <h2 id="s-inputs" class="q-h2">Inputs</h2>
       <div class="stack narrow">
-        <QuoteField id="f-name" v-model="name" :label="t('contact.firstName')" autocomplete="given-name" />
+        <p class="q-small">{{ t('contactIntro') }}</p>
+        <QuoteField id="f-name" v-model="name" icon="user" :label="t('contact.firstName')" autocomplete="given-name" />
         <QuoteField
-          id="f-phone" v-model="phone" :label="t('contact.whatsapp')" type="tel" inputmode="tel"
+          id="f-phone" v-model="phone" icon="brand-whatsapp" :label="t('contact.whatsapp')" type="tel" inputmode="tel"
           autocomplete="tel" :help="t('contact.whatsappHelp')" :error="phoneError"
           @blur="phoneTouched = true"
         />
+        <QuoteField id="f-email" v-model="email" icon="mail" :label="t('contact.email')" type="email" inputmode="email" autocomplete="email" />
+        <QuoteField id="f-area" v-model="area" icon="map-pin" :label="t('where.type')" autocomplete="address-level2" />
+        <QuoteButton variant="secondary" icon="current-location">{{ t('where.useLocation') }}</QuoteButton>
         <QuoteField
           id="f-note" v-model="note" label="Anything we should know? (optional)" multiline voice
           :recording="recording" @voice="recording = !recording"
@@ -71,7 +93,7 @@
 
     <section class="sheet__section" aria-labelledby="s-progress">
       <h2 id="s-progress" class="q-h2">Progress</h2>
-      <div class="narrow"><QuoteProgress :step="2" :total="5" /></div>
+      <div class="narrow"><QuoteProgress :step="2" :total="5" :label="t('steps.contact')" /></div>
     </section>
 
     <section class="sheet__section" aria-labelledby="s-tiles">
@@ -80,7 +102,8 @@
       <div role="radiogroup" aria-label="Industry" class="tiles" @keydown="onArrows($event, samples.tiles.length, i => (industry = samples.tiles[i].key))">
         <QuoteTile
           v-for="tile in samples.tiles" :key="tile.key"
-          :title="tile.label"
+          :icon="INDUSTRY_ICONS[tile.key]"
+          :title="t(`industries.${tile.key}`)"
           :sub="tile.from ? `From ${money(tile.from)}` : 'We reply with a price'"
           :selected="industry === tile.key"
           :focusable="industry === tile.key"
@@ -89,8 +112,21 @@
       </div>
       <div role="radiogroup" aria-label="Who are you?" class="tiles tiles--2" @keydown="onArrows($event, clientTypes.length, i => (clientType = clientTypes[i].key))">
         <QuoteTile
-          v-for="c in clientTypes" :key="c.key" :title="c.label"
+          v-for="c in clientTypes" :key="c.key" :title="c.label" :icon="CLIENT_TYPE_ICONS[c.key]" stack
           :selected="clientType === c.key" :focusable="clientType === c.key" @select="clientType = c.key"
+        />
+      </div>
+      <h3 class="q-label">ALL INDUSTRY ICONS</h3>
+      <ul class="icon-gallery">
+        <li v-for="(icon, key) in INDUSTRY_ICONS" :key="key" class="icon-gallery__item">
+          <span class="icon-gallery__icon" aria-hidden="true"><UiIcon :name="icon" :size="28" :stroke-width="1.75" /></span>
+          <span class="q-small">{{ t(`industries.${key}`) }}</span>
+        </li>
+      </ul>
+      <div role="radiogroup" :aria-label="t('where.when')" class="tiles tiles--when" @keydown="onArrows($event, whenOptions.length, i => (when = whenOptions[i].key))">
+        <QuoteTile
+          v-for="w in whenOptions" :focusable="when === w.key" :key="w.key" :title="w.label" :icon="w.icon"
+          :selected="when === w.key" @select="when = w.key"
         />
       </div>
       <div class="tour-frame">
@@ -102,7 +138,7 @@
       <h2 id="s-chips" class="q-h2">Chips and the running total</h2>
       <div class="chips">
         <QuoteChip
-          v-for="a in samples.addons" :key="a.key" :label="a.label" :price="`+${money(a.amount)}`"
+          v-for="a in samples.addons" :key="a.key" :label="a.label" :price="`+${money(a.amount)}`" :icon="ADDON_ICONS[a.key]"
           :on="!!picked[a.key]" @toggle="picked[a.key] = !picked[a.key]"
         />
       </div>
@@ -118,9 +154,16 @@
     <section class="sheet__section" aria-labelledby="s-options">
       <h2 id="s-options" class="q-h2">Three options</h2>
       <p class="q-small">2 bedroom in Nairobi, to let, with 20 edited photos. Output of the engine.</p>
-      <div class="options">
-        <article v-for="o in samples.result.options" :key="o.tier" class="option" :class="{ 'option--picked': o.tier === 'standard' }">
-          <header>
+      <QuoteAnswers class="narrow" :answers="echo" />
+      <div role="radiogroup" aria-label="Pick an option" class="options" @keydown="onArrows($event, samples.result.options.length, i => (tier = samples.result.options[i].tier))">
+        <article
+          v-for="o in samples.result.options" :key="o.tier"
+          role="radio" :aria-checked="tier === o.tier" :tabindex="tier === o.tier ? 0 : -1"
+          class="option" :class="{ 'option--picked': tier === o.tier }"
+          @click="tier = o.tier" @keydown.enter.space.prevent="tier = o.tier"
+        >
+          <header class="option__head">
+            <span class="option__radio" aria-hidden="true"><UiIcon v-if="tier === o.tier" name="check" :size="14" :stroke-width="3" /></span>
             <h3 class="option__tier">{{ t(`tiers.${o.tier}`) }}</h3>
             <p class="q-small">{{ t(`tiers.${o.tier}Note`) }}</p>
           </header>
@@ -132,10 +175,12 @@
             </li>
           </ul>
           <p class="q-small q-num">{{ t('result.deposit', { amount: money(o.deposit) }) }}</p>
-          <QuoteButton :variant="o.tier === 'standard' ? 'primary' : 'secondary'" block>
-            Choose {{ t(`tiers.${o.tier}`) }}
-          </QuoteButton>
         </article>
+      </div>
+      <div class="actions narrow">
+        <QuoteButton block icon="calendar">{{ t('actions.bookNow', { amount: money(pickedOption.deposit) }) }}</QuoteButton>
+        <QuoteButton block variant="secondary" icon="brand-whatsapp">{{ t('actions.chatWhatsapp') }}</QuoteButton>
+        <QuoteButton block variant="quiet" icon="mail">{{ t('actions.emailPdf') }}</QuoteButton>
       </div>
       <p class="q-small">{{ samples.result.vat.charged ? t('result.vatIncluded', { rate: samples.result.vat.rateBp / 100 }) : t('result.vatExcluded') }} {{ t('result.included') }}</p>
     </section>
@@ -191,6 +236,8 @@
 <script setup lang="ts">
 import samples from '~/features/quote/sheetSamples.generated.json'
 import { normalisePhoneHint } from '~/features/quote/phoneHint'
+import { ADDON_ICONS, CLIENT_TYPE_ICONS, INDUSTRY_ICONS, STEPS, STEP_ICONS } from '~/features/quote/presentation'
+import type { IconName } from '~/types/icon'
 
 definePageMeta({ layout: 'quote' })
 useSeoMeta({ title: 'Quote components | Viewora', robots: 'noindex, nofollow' })
@@ -214,12 +261,30 @@ const note = ref('')
 const recording = ref(false)
 const consent = ref(false)
 
+const email = ref('')
+const area = ref('')
+
 const industry = ref('homes')
-const clientTypes = [
-  { key: 'owner', label: 'Owner' }, { key: 'agent', label: 'Agent' },
-  { key: 'developer', label: 'Developer' }, { key: 'manager', label: 'Manager' },
-]
+const clientTypes = ['owner', 'agent', 'developer', 'manager'].map(key => ({ key, label: t(`clientTypes.${key}`) }))
 const clientType = ref('owner')
+
+const when = ref('thisMonth')
+const whenOptions: Array<{ key: string; label: string; icon: IconName }> = [
+  { key: 'thisWeek', label: t('where.thisWeek'), icon: 'clock' },
+  { key: 'thisMonth', label: t('where.thisMonth'), icon: 'calendar' },
+  { key: 'planning', label: t('where.planning'), icon: 'clipboard-list' },
+]
+
+const tier = ref('standard')
+const pickedOption = computed(() => samples.result.options.find(o => o.tier === tier.value) ?? samples.result.options[0])
+
+// Echo the visitor's earlier answers back on the result (same sample as the options)
+const echo = computed(() => [
+  { step: 'industry', icon: INDUSTRY_ICONS.homes, label: t('industryQuestion'), value: `${t('industries.homes')} · ${t('clientTypes.owner')}` },
+  { step: 'details', icon: 'bed' as IconName, label: 'Size', value: '2 bedrooms, to let' },
+  { step: 'extras', icon: ADDON_ICONS.photos_20, label: t('steps.extras'), value: '20 edited photos' },
+  { step: 'where', icon: 'map-pin' as IconName, label: t('steps.where'), value: `Kilimani, Nairobi · ${t('where.thisMonth')}` },
+])
 
 function onArrows(e: KeyboardEvent, count: number, pick: (i: number) => void) {
   const keys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
@@ -266,7 +331,8 @@ const swatches = [
 </script>
 
 <style scoped>
-.sheet { max-width: 1040px; margin: 0 auto; display: grid; gap: 40px; }
+.sheet { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; }
+.sheet__section > * { min-width: 0; }
 .sheet__intro { display: grid; gap: 8px; max-width: 640px; }
 .sheet__section { display: grid; gap: 14px; padding-top: 24px; border-top: 1px solid var(--q-border); }
 .narrow { max-width: 420px; }
@@ -287,7 +353,7 @@ const swatches = [
 .consent input { width: 22px; height: 22px; margin-top: 1px; accent-color: var(--q-ink); flex: none; }
 
 .tiles { display: grid; gap: 10px; }
-.tiles--2 { grid-template-columns: 1fr 1fr; }
+.tiles--2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 @media (min-width: 768px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
 .tour-frame { display: grid; place-items: center; min-height: 120px; padding: 16px; border: 1px dashed var(--q-border-strong); border-radius: var(--q-radius); background: var(--q-sunken); text-align: center; }
 
@@ -299,7 +365,30 @@ const swatches = [
 @media (min-width: 900px) { .options { grid-template-columns: repeat(3, 1fr); align-items: start; } }
 .option { display: grid; gap: 12px; padding: 18px; background: var(--q-surface); border: 1px solid var(--q-border); border-radius: var(--q-radius-lg); }
 .option--picked { border-color: var(--q-ink); box-shadow: inset 0 0 0 1px var(--q-ink); }
+.option { cursor: pointer; transition: border-color var(--q-fast) var(--q-ease); }
+.option:hover { border-color: var(--q-ink-3); }
+.option:focus-visible { outline: none; box-shadow: var(--q-focus); }
+.option__head { display: grid; grid-template-columns: 1fr 24px; column-gap: 10px; }
+.option__head > :not(.option__radio) { grid-column: 1; }
+.option__radio {
+  grid-column: 2; grid-row: 1 / span 2; display: grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--q-border-strong);
+}
+.option--picked .option__radio { border-color: var(--q-ink); background: var(--q-ink); color: var(--q-accent); }
 .option__tier { font-size: var(--q-text-md); font-weight: 700; }
+.actions { display: grid; gap: 10px; }
+
+.flow { display: grid; gap: 8px; max-width: 520px; }
+.flow__step { display: grid; grid-template-columns: 40px 20px 1fr; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; background: var(--q-surface); border: 1px solid var(--q-border); border-radius: var(--q-radius); }
+.flow__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--q-radius-sm); background: var(--q-sunken); }
+.flow__n { font-weight: 700; color: var(--q-ink-2); }
+.flow__name { font-weight: 600; }
+.flow__step--result { grid-template-columns: 40px 1fr; background: var(--q-accent-tint); border-color: var(--q-ink); }
+
+.icon-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.icon-gallery__item { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--q-surface); border: 1px solid var(--q-border); border-radius: var(--q-radius); }
+.icon-gallery__icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: var(--q-radius-sm); background: var(--q-sunken); }
+@media (min-width: 768px) { .tiles--when { grid-template-columns: repeat(3, 1fr); } }
 .option__total { font: 700 var(--q-text-xl)/1 var(--q-font); }
 .option__lines { display: grid; gap: 6px; padding: 12px 0; border-block: 1px solid var(--q-border); font-size: var(--q-text-sm); }
 .option__lines li { display: flex; justify-content: space-between; gap: 12px; }

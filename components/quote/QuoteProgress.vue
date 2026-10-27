@@ -1,6 +1,6 @@
 <template>
   <div class="q-progress">
-    <p class="q-progress__text">{{ t('progress', { step, total }) }}</p>
+    <p class="q-progress__text">{{ t('progress', { step, total }) }}<span v-if="label" class="q-progress__label"> · {{ label }}</span></p>
     <div
       class="q-progress__bar"
       role="progressbar"
@@ -15,13 +15,14 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ step: number; total: number }>()
+defineProps<{ step: number; total: number; label?: string }>()
 const { t } = useQuoteStrings()
 </script>
 
 <style scoped>
 .q-progress { display: grid; gap: 8px; }
 .q-progress__text { font-size: var(--q-text-sm); font-weight: 600; color: var(--q-ink-2); }
+.q-progress__label { color: var(--q-ink); }
 .q-progress__bar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
 .q-progress__seg { height: 4px; border-radius: 2px; background: var(--q-border); transition: background-color var(--q-base) var(--q-ease); }
 .q-progress__seg--done { background: var(--q-ink); }

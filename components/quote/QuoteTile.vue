@@ -6,9 +6,10 @@
     :aria-checked="selected"
     :tabindex="focusable ? 0 : -1"
     class="q-tile"
-    :class="{ 'q-tile--selected': selected, 'q-tile--media': !!image }"
+    :class="{ 'q-tile--selected': selected, 'q-tile--media': !!image, 'q-tile--stack': stack }"
     @click="$emit('select')"
   >
+    <span v-if="icon && !image" class="q-tile__icon" aria-hidden="true"><UiIcon :name="icon" :size="26" :stroke-width="1.75" /></span>
     <img v-if="image" :src="image" :alt="''" class="q-tile__img" loading="lazy" width="320" height="160">
     <span class="q-tile__text">
       <span class="q-tile__title">{{ title }}</span>
@@ -21,13 +22,17 @@
 </template>
 
 <script setup lang="ts">
+import type { IconName } from '~/types/icon'
+
 withDefaults(defineProps<{
   title: string
+  icon?: IconName     // recognisable at a glance, so visitors don't have to read
   sub?: string
   image?: string      // a frame from a real Viewora tour of this industry
   selected?: boolean
   focusable?: boolean
-}>(), { selected: false, focusable: true })
+  stack?: boolean     // icon above the label, for 2-up grids on phones
+}>(), { selected: false, focusable: true, stack: false })
 
 defineEmits<{ select: [] }>()
 </script>
@@ -61,6 +66,16 @@ defineEmits<{ select: [] }>()
 .q-tile--media .q-tile__text { padding: 12px 14px 14px; }
 .q-tile__img { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; background: var(--q-sunken); }
 
+.q-tile__icon {
+  flex: none; display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: var(--q-radius-sm);
+  background: var(--q-sunken); color: var(--q-ink);
+}
+.q-tile--selected .q-tile__icon { background: var(--q-surface); }
+.q-tile { min-width: 0; }
+.q-tile--stack { flex-direction: column; align-items: flex-start; gap: 10px; min-height: 96px; }
+.q-tile--stack .q-tile__mark { position: absolute; top: 12px; right: 12px; }
+.q-tile--stack .q-tile__text { width: 100%; }
 .q-tile__text { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .q-tile__title { font-size: var(--q-text-md); font-weight: 600; line-height: 1.3; }
 .q-tile__sub { font-size: var(--q-text-sm); color: var(--q-ink-2); }

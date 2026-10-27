@@ -8,7 +8,7 @@
   >
     <span class="q-chip__box" aria-hidden="true">
       <UiIcon v-if="on" name="check" :size="14" :stroke-width="3" />
-      <UiIcon v-else name="plus" :size="14" :stroke-width="2.5" />
+      <UiIcon v-else :name="icon ?? 'plus'" :size="16" :stroke-width="2" />
     </span>
     <span class="q-chip__label">{{ label }}</span>
     <span v-if="price" class="q-chip__price q-num">{{ price }}</span>
@@ -16,7 +16,9 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ label: string; price?: string; on?: boolean }>(), { on: false })
+import type { IconName } from '~/types/icon'
+
+withDefaults(defineProps<{ label: string; price?: string; icon?: IconName; on?: boolean }>(), { on: false })
 defineEmits<{ toggle: [] }>()
 </script>
 
@@ -45,7 +47,7 @@ defineEmits<{ toggle: [] }>()
 
 .q-chip__box {
   display: grid; place-items: center;
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 50%;
   background: var(--q-sunken); color: var(--q-ink-2);
 }
 .q-chip--on .q-chip__box { background: var(--q-ink); color: var(--q-accent); }

@@ -5,7 +5,7 @@
     "next": "Next",
     "back": "Back",
     "seePrice": "See my price",
-    "bookNow": "Book now, pay {amount} deposit",
+    "bookNow": "Book now, {amount} deposit",
     "chatWhatsapp": "Chat on WhatsApp",
     "emailPdf": "Email me the PDF quote",
     "talkInstead": "Rather talk? WhatsApp us",
@@ -64,5 +64,44 @@
     "location_unresolved": "We couldn't place this location. Confirm travel before sending.",
     "scenes_missing": "No scene count yet. Ask the client how many rooms or areas.",
     "plan_exceeds": "{scenes} scenes is more than {plan} allows ({cap} per tour)."
-  }
+  },
+  "steps": {
+    "industry": "What we're shooting",
+    "contact": "Where to send your price",
+    "details": "About the place",
+    "extras": "Extras",
+    "where": "Where and when"
+  },
+  "industries": {
+    "homes": "Homes and real estate",
+    "airbnb": "Airbnb and short-stay",
+    "hotels": "Hotels and lodges",
+    "restaurants": "Restaurants and venues",
+    "developers": "Developers and land",
+    "malls": "Malls and retail",
+    "institutions": "Offices, schools and clinics",
+    "vehicles": "Vehicles",
+    "farms": "Farms and factories",
+    "other": "Something else"
+  },
+  "clientTypes": {
+    "owner": "Owner",
+    "agent": "Agent",
+    "developer": "Developer",
+    "manager": "Manager"
+  },
+  "clientQuestion": "Who are you?",
+  "industryQuestion": "What should we shoot?",
+  "answersTitle": "Your answers",
+  "edit": "Change",
+  "where": {
+    "useLocation": "Use my location",
+    "pin": "Drop a pin on the map",
+    "type": "Or type the area, e.g. Kilimani",
+    "when": "When do you need it?",
+    "thisWeek": "This week",
+    "thisMonth": "This month",
+    "planning": "Just planning"
+  },
+  "contactIntro": "We'll send your price and a link to come back to this form."
 }
