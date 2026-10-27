@@ -32,21 +32,47 @@
         </p>
       </header>
 
+      <!-- Back from Paystack -->
+      <div v-if="payCheck === 'checking'" class="qv__notice qv__notice--quiet" role="status" aria-live="polite">
+        <p class="qv__checking"><span class="qv__spinner" aria-hidden="true" />{{ t('pay.checking') }}</p>
+      </div>
+      <div v-else-if="payCheck && payCheck !== 'paid'" class="qv__notice" :class="{ 'qv__notice--bad': payCheck === 'failed' }" role="alert">
+        <p class="qv__notice-title">{{ t(`pay.${payCheck}Title`) }}</p>
+        <p>{{ t(`pay.${payCheck}`) }}</p>
+        <div v-if="payCheck !== 'failed'" class="qv__row">
+          <QuoteButton variant="secondary" icon="refresh" @click="recheck">{{ t('actions.retry') }}</QuoteButton>
+          <QuoteButton variant="quiet" icon="brand-whatsapp" :href="wa(t('pay.askHelp', { ref: quote.ref ?? '' }))">{{ t('actions.chatWhatsapp') }}</QuoteButton>
+        </div>
+      </div>
+
+      <QuoteBooking v-if="job" :job="job" :token="token" :first-name="quote.firstName" @updated="onJobUpdated" />
+
       <div v-if="quote.state === 'expired'" class="qv__notice" role="status">
         <p class="qv__notice-title">{{ t('view.expiredTitle') }}</p>
         <p>{{ t('view.expired', { date: longDate(quote.validUntil!) }) }}</p>
       </div>
-      <p v-else-if="quote.state === 'accepted'" class="qv__notice qv__notice--good" role="status">{{ t('view.accepted') }}</p>
+      <p v-else-if="quote.state === 'accepted' && !job" class="qv__notice qv__notice--good" role="status">{{ t('view.accepted') }}</p>
 
       <aside v-if="quote.clientNote" class="qv__note" :aria-label="t('view.noteFrom')">
         <p class="q-small qv__note-label">{{ t('view.noteFrom') }}</p>
         <p class="qv__note-body">{{ quote.clientNote }}</p>
       </aside>
 
+      <template v-if="!job">
       <QuoteOptions
         v-model="tier" :options="optionViews" :currency="quote.currency" :deposit-bp="quote.depositBp"
         :notes="tierNotes" :label="t('result.titleNoName')"
       />
+
+      <!-- Paystack needs an email; only asked when the form didn't get one -->
+      <form v-if="askEmail && canPay && picked" ref="emailForm" class="qv__email" novalidate @submit.prevent="pay">
+        <QuoteField
+          id="qv-email" v-model="email" icon="mail" type="email" inputmode="email" autocomplete="email"
+          :label="t('pay.emailLabel')" :help="t('pay.emailHelp')" :error="emailError"
+        />
+        <!-- Enter submits; the pay button in the bar below does too -->
+        <button type="submit" hidden />
+      </form>
 
       <!-- The one action, in thumb reach on phones -->
       <div class="qv__book">
@@ -59,20 +85,28 @@
           :href="wa(t('view.update', { ref: quote.ref ?? '' }))"
         >{{ t('view.askUpdate') }}</QuoteButton>
         <QuoteButton
+          v-else-if="canPay && picked" class="qv__book-btn" icon="billing" :loading="paying"
+          @click="pay"
+        >{{ t('pay.button', { amount: money(picked.deposit) }) }}</QuoteButton>
+        <QuoteButton
           v-else class="qv__book-btn" icon="brand-whatsapp" :href="bookLink"
           @click="track('quote_view_book_clicked', { tier, state: quote.state })"
         >{{ t('actions.bookWhatsapp') }}</QuoteButton>
       </div>
 
+      <p v-if="payError" class="qv__notice qv__notice--bad" role="alert">{{ payError }}</p>
+
       <div class="qv__fine q-small">
-        <p v-if="quote.state === 'open'">{{ t('result.paymentLater') }}</p>
+        <p v-if="canPay">{{ t('pay.how', { percent: (quote.depositBp ?? 0) / 100 }) }}</p>
+        <p v-else-if="quote.state === 'open'">{{ t('result.paymentLater') }}</p>
         <p>
           <template v-if="quote.validUntil && quote.state === 'open'">{{ t('view.validUntil', { date: longDate(quote.validUntil) }) }} </template>
           {{ quote.vatCharged ? t('result.vatIncluded', { rate: (quote.vatRateBp ?? 0) / 100 }) : t('result.vatExcluded') }}
         </p>
-        <p v-if="quote.depositBp">{{ t('view.deposit', { percent: quote.depositBp / 100 }) }}</p>
+        <p v-if="quote.depositBp && !canPay">{{ t('view.deposit', { percent: quote.depositBp / 100 }) }}</p>
         <p>{{ t('result.included') }}</p>
       </div>
+      </template>
 
       <div class="qv__row">
         <QuoteButton variant="secondary" icon="file-download" :href="`/api/quote/view/${token}/pdf`" @click="track('quote_pdf_downloaded', { state: quote.state })">{{ t('view.pdf') }}</QuoteButton>
@@ -88,6 +122,7 @@
 // fast on a slow phone; the view is counted from the browser after it
 // renders, so WhatsApp's link preview does not mark the quote as viewed.
 import type { QuoteOptionView } from '~/components/quote/QuoteOptions.vue'
+import type { PublicJob } from '~/components/quote/QuoteBooking.vue'
 
 definePageMeta({ layout: 'quote' })
 useSeoMeta({ title: 'Your quote | Viewora Capture', robots: 'noindex, nofollow' })
@@ -107,10 +142,11 @@ interface PublicQuote {
 const { t } = useQuoteStrings()
 const { track } = useAnalytics()
 const route = useRoute()
+const router = useRouter()
 const token = String(route.params.token ?? '')
 const validToken = /^[A-Za-z0-9_-]{43}$/.test(token)
 
-const { data, pending, error, refresh } = await useFetch<{ quote: PublicQuote; whatsapp: string }>(
+const { data, pending, error, refresh } = await useFetch<{ quote: PublicQuote; whatsapp: string; job?: PublicJob | null; pay?: { blocker: string | null; needsEmail: boolean } }>(
   () => `/api/quote/view/${token}`,
   { key: `quote-view-${token}`, immediate: validToken },
 )
@@ -136,6 +172,69 @@ const tierNotes = computed(() => Object.fromEntries((quote.value?.options ?? [])
 const picked = computed(() => quote.value?.options?.find(o => o.tier === tier.value))
 const bookLink = computed(() => wa(t('view.book', { tier: t(`tiers.${tier.value}`), amount: picked.value ? money(picked.value.total) : '', ref: quote.value?.ref ?? '' })))
 
+// ── Deposit ────────────────────────────────────────────────────────────────
+const job = computed(() => data.value?.job ?? null)
+const onJobUpdated = (j: PublicJob) => { if (data.value) data.value.job = j }
+const canPay = computed(() => !!data.value?.pay && data.value.pay.blocker === null && quote.value?.state === 'open')
+const askEmail = ref(false)
+const email = ref('')
+const emailError = ref('')
+const emailForm = ref<HTMLFormElement | null>(null)
+const paying = ref(false)
+const payError = ref('')
+watch(email, () => { emailError.value = '' })
+const REFERENCE = /^qp_[A-Za-z0-9_-]{24}$/
+
+async function pay() {
+  payError.value = ''
+  if (data.value?.pay?.needsEmail) {
+    if (!askEmail.value) {
+      askEmail.value = true
+      await nextTick()
+      emailForm.value?.querySelector('input')?.focus()
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+      emailError.value = t('pay.emailInvalid')
+      return
+    }
+    emailError.value = ''
+  }
+  paying.value = true
+  track('quote_pay_clicked', { tier: tier.value })
+  try {
+    const r = await $fetch<{ authorizationUrl: string }>(`/api/quote/view/${token}/pay`, {
+      method: 'POST', body: { tier: tier.value, ...(data.value?.pay?.needsEmail ? { email: email.value.trim() } : {}) },
+    })
+    window.location.assign(r.authorizationUrl)
+  } catch (e: any) {
+    payError.value = e?.data?.data?.statusMessage ?? e?.data?.statusMessage ?? t('pay.failedStart')
+    paying.value = false
+  }
+}
+
+// Back from Paystack (?reference=…): ask the backend, which asks Paystack
+type PayCheck = 'checking' | 'paid' | 'failed' | 'pending' | 'mismatch' | null
+const payCheck = ref<PayCheck>(null)
+let reference = ''
+async function recheck() {
+  payCheck.value = 'checking'
+  for (let i = 0; i < 6; i++) {
+    let status = 'pending'
+    try {
+      status = (await $fetch<{ status: string }>('/api/quote/payments/verify', { method: 'POST', body: { reference } })).status
+    } catch { /* treat as still waiting */ }
+    if (status === 'paid') {
+      await refresh()
+      payCheck.value = 'paid'
+      return
+    }
+    if (status === 'failed' || status === 'mismatch') { payCheck.value = status; return }
+    await new Promise(r => setTimeout(r, 2500))
+  }
+  payCheck.value = 'pending'
+}
+
 const unpricedMessage = computed(() => {
   const q = quote.value!
   if (q.state === 'replaced') return q.replacedAt ? t('view.replaced', { date: longDate(q.replacedAt) }) : t('view.replacedNoDate')
@@ -143,6 +242,13 @@ const unpricedMessage = computed(() => {
 })
 
 onMounted(() => {
+  const back = String(route.query.reference ?? route.query.trxref ?? '')
+  if (REFERENCE.test(back)) {
+    reference = back
+    // Keep the page link clean, so a refresh or a shared link doesn't re-check
+    router.replace({ query: {} })
+    recheck()
+  }
   if (!quote.value || quote.value.state === 'gone') return
   // Count the view once per page load; analytics carry no personal data
   $fetch(`/api/quote/view/${token}/seen`, { method: 'POST' }).catch(() => {})
@@ -165,6 +271,13 @@ onMounted(() => {
 .qv__notice { display: grid; gap: 2px; padding: 12px 14px; background: var(--q-warn-bg); color: var(--q-ink); border-radius: var(--q-radius-sm); font-size: var(--q-text-sm); max-width: 640px; }
 .qv__notice-title { font-weight: 600; }
 .qv__notice--good { background: var(--q-good-bg); }
+.qv__notice--bad { background: var(--q-bad-bg); }
+.qv__notice--quiet { background: var(--q-sunken); }
+.qv__checking { display: flex; align-items: center; gap: 10px; }
+.qv__spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--q-border-strong); border-top-color: var(--q-ink); animation: qv-spin 0.9s linear infinite; }
+@keyframes qv-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .qv__spinner { animation-duration: 3s; } }
+.qv__email { display: grid; gap: 12px; max-width: 560px; }
 
 .qv__fine { display: grid; gap: 6px; max-width: 640px; color: var(--q-ink-2); }
 
@@ -172,8 +285,14 @@ onMounted(() => {
 .qv__book-summary { display: grid; gap: 2px; white-space: nowrap; }
 .qv__book-summary strong { font-size: var(--q-text-lg); }
 .qv__book-btn { flex: 1; white-space: nowrap; }
+/* Narrow phones: the amount on the button matters more than its icon */
+@media (max-width: 399px) {
+  .qv__book-btn { padding: 0 14px; }
+  .qv__book-btn :deep(svg) { display: none; }
+}
 @media (max-width: 899px) {
   .qv__book-summary strong { font-size: var(--q-text-md); }
+  .qv__book-btn { min-width: 0; }
   .qv__book {
     gap: 12px;
     position: sticky; bottom: 0; z-index: 2; max-width: none;
