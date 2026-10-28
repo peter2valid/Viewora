@@ -316,5 +316,9 @@
     "done": "Done. We won't send you any more messages. If you change your mind, WhatsApp us.",
     "invalid": "This link isn't valid, so nothing has changed. WhatsApp us and we will stop the messages for you.",
     "failed": "We couldn't save that just now. Try again, or WhatsApp us and we will do it for you."
+  },
+  "account": {
+    "usingOnFile": "We'll send your quote to your WhatsApp, {phone}.",
+    "change": "Change"
   }
 }

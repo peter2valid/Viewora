@@ -15,6 +15,9 @@
     <template v-else>
       <p v-if="notice" class="qf__notice" role="status">{{ notice }}</p>
       <p v-else-if="entryNote && step === 1" class="qf__notice" :class="{ 'qf__notice--hello': !entryProblem }" role="status">{{ entryNote }}</p>
+      <p v-else-if="accountNote && step === 3" class="qf__notice qf__notice--hello" role="status">
+        {{ accountNote }} <button type="button" class="qf__link" @click="goTo(2)">{{ t('account.change') }}</button>
+      </p>
 
       <!-- ── Steps 1 to 5 ─────────────────────────────────────── -->
       <form v-if="step < RESULT" class="qf__form" novalidate @submit.prevent="next">
@@ -292,7 +295,7 @@ const form = reactive({
 const entry = (() => {
   const q = route.query
   const utm = Object.fromEntries(Object.entries(q).filter(([k, v]) => /^utm_[a-z]+$/.test(k) && typeof v === 'string')) as Record<string, string>
-  const source = typeof q.src === 'string' ? q.src : utm.utm_source
+  const source = typeof q.src === 'string' ? q.src : utm.utm_source ?? (q.from === 'app' ? 'app' : undefined)
   const code = typeof q.e === 'string' && /^[A-Za-z0-9_-]{3,40}$/.test(q.e) ? q.e : undefined
   const partnerCode = typeof q.p === 'string' && /^[A-Za-z0-9-]{2,20}$/.test(q.p) ? q.p : undefined
   return {
@@ -302,6 +305,59 @@ const entry = (() => {
 })()
 
 const module = computed(() => config.value?.modules.find(m => m.key === form.moduleKey))
+
+// ── Ordering from a Viewora account (/quote?from=app) ─────────────────────
+// The request is tied to the signed-in account. Someone whose number is
+// already on file (with consent) skips the contact step; anyone else sees
+// it filled in from their profile, with the consent box left for them.
+interface AccountMe {
+  onFile: { firstName: string | null; whatsapp: string; email: string | null } | null
+  prefill: { firstName: string | null; whatsapp: string | null; email: string | null }
+}
+const session = useSupabaseSession()
+const { apiFetch } = useApiFetch()
+const account = ref<AccountMe | null>(null)
+const accountNote = ref('')
+const fromApp = route.query.from === 'app'
+
+async function loadAccount() {
+  if (!fromApp || !session.value?.access_token || session.value.user?.is_anonymous) return
+  try {
+    account.value = await apiFetch<AccountMe>('/quote/account/me')
+  } catch {
+    account.value = null   // the public form still works
+    return
+  }
+  const c = account.value.onFile ?? account.value.prefill
+  if (!form.firstName) form.firstName = c.firstName ?? ''
+  if (!form.whatsapp && c.whatsapp) form.whatsapp = localPhone(c.whatsapp)
+  if (!form.email) form.email = c.email ?? ''
+}
+
+// +254711000111 → 0711 000 111, as people type it
+function localPhone(e164: string) {
+  const m = /^\+254(\d{3})(\d{3})(\d{3})$/.exec(e164)
+  return m ? `0${m[1]} ${m[2]} ${m[3]}` : e164
+}
+
+// After the request exists: tie it to the account, and skip the contact step if we can.
+// Returns the step to go to next. Any failure leaves the normal form in place.
+async function afterStart(): Promise<number> {
+  if (!account.value || !token.value) return 2
+  try {
+    await apiFetch(`/quote/account/requests/${token.value}/claim`, { method: 'POST' })
+  } catch {
+    return 2
+  }
+  if (!account.value.onFile) return 2
+  try {
+    await apiFetch(`/quote/account/requests/${token.value}/contact`, { method: 'POST' })
+    accountNote.value = t('account.usingOnFile', { phone: localPhone(account.value.onFile.whatsapp) })
+    return 3
+  } catch {
+    return 2
+  }
+}
 
 interface IndustryTile { key: string; moduleKey: string; hint?: string; from: number | null }
 function tileFor(key: string): IndustryTile | null {
@@ -536,14 +592,14 @@ function storeToken(value: string | null) {
   try { value ? localStorage.setItem(TOKEN_KEY, value) : localStorage.removeItem(TOKEN_KEY) } catch {}
 }
 
-async function saveStep(): Promise<boolean> {
+async function saveStep(): Promise<boolean | number> {
   if (step.value === 1) {
     if (!token.value) {
       const res = await api<{ token: string }>('/requests', {
         method: 'POST', body: { moduleKey: form.moduleKey, industryHint: form.industryHint || undefined, entry, website: form.website || undefined },
       })
       storeToken(res.token)
-      return true
+      return afterStart()
     }
     await api(`/requests/${token.value}`, { method: 'PATCH', body: { step: 'industry', moduleKey: form.moduleKey, industryHint: form.industryHint || undefined } })
     return true
@@ -606,8 +662,8 @@ async function next() {
   if (!validate()) return
   saving.value = true
   try {
-    await saveStep()
-    goTo(step.value + 1)
+    const to = await saveStep()
+    goTo(typeof to === 'number' ? to : step.value + 1)
   } catch (e) {
     handleSaveError(e)
   } finally {
@@ -774,6 +830,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', onHidden)
   track('quote_form_viewed', { source: entry.source ?? null })
   if (config.value) await resume()
+  await loadAccount()
   if (config.value && !token.value && step.value === 1) await applyEntry()
   if (!reached.has(step.value)) {
     reached.add(step.value)
@@ -845,6 +902,8 @@ onBeforeUnmount(() => {
 .qf__error--block { padding: 10px 12px; background: var(--q-bad-bg); border-radius: var(--q-radius-sm); color: var(--q-ink); border-left: 3px solid var(--q-bad); }
 .qf__notice { padding: 10px 12px; background: var(--q-warn-bg); color: var(--q-ink); border-radius: var(--q-radius-sm); font-size: var(--q-text-sm); }
 .qf__notice--hello { background: var(--q-surface); border: 1px solid var(--q-border); }
+.qf__link { background: none; border: 0; padding: 0 2px; font: inherit; color: var(--q-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; display: inline-block; padding: 12px 6px; margin: -12px -4px; }
+.qf__link:focus-visible { outline: 2px solid var(--q-ink); outline-offset: 2px; border-radius: 2px; }
 
 .qf__actions { display: grid; gap: 12px; padding-top: 4px; }
 .qf__buttons { display: flex; gap: 10px; }

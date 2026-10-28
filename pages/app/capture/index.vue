@@ -32,6 +32,15 @@
     <!-- ── BROWSE SERVICES TAB ────────────────────────────────────────────── -->
     <template v-if="activeTab === 'browse'">
 
+      <!-- Quote engine: order with your price up front (behind NUXT_PUBLIC_QUOTE_ENGINE) -->
+      <section v-if="quoteEngine" class="order-card mb-8" aria-labelledby="order-title">
+        <div>
+          <h2 id="order-title" class="text-base font-black text-main">Get your price in about a minute</h2>
+          <p class="text-sm text-dim mt-1">Pick what we're shooting and answer a few short questions. We use the details on your account, and you see the price before you book.</p>
+        </div>
+        <NuxtLink to="/quote?from=app" class="btn btn-primary order-card__btn">Order a capture</NuxtLink>
+      </section>
+
       <!-- Free Shoot Banner -->
       <Transition name="free-banner">
         <section v-if="freeStatus !== null" class="free-banner mb-8">
@@ -435,6 +444,7 @@ const tabs = [
   { id: 'bookings', label: 'My Bookings' },
 ]
 const activeTab = ref('browse')
+const quoteEngine = !!useRuntimeConfig().public.quoteEngine
 
 // ── Packages ───────────────────────────────────────────────────────────────
 const packages = [
@@ -949,6 +959,10 @@ function formatDate(iso: string) {
 </script>
 
 <style scoped>
+.order-card { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.order-card__btn { min-height: 48px; justify-content: center; }
+@media (min-width: 768px) { .order-card { flex-direction: row; align-items: center; justify-content: space-between; } .order-card__btn { flex-shrink: 0; } }
+
 .capture-page { padding-bottom: 3rem; }
 
 /* ── Package cards ─────────────────────────────────────────── */
