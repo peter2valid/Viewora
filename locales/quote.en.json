@@ -53,6 +53,13 @@
     "sentTo": "We've saved this quote. We'll also send it to {phone} on WhatsApp.",
     "paymentLater": "Online payment is not open for this quote yet. Book on WhatsApp and we will send an M‑Pesa request."
   },
+  "entry": {
+    "hello": "Hi {name}. Pick what we are shooting to start.",
+    "helloIndustry": "Hi {name}. Tap {industry} to start, or pick another place.",
+    "industry": "Tap {industry} to start, or pick another place.",
+    "expired": "This link has expired, but you can still get your price here.",
+    "notFound": "We couldn't find that link, but you can still get your price here."
+  },
   "errors": {
     "phone": {
       "empty": "Add your WhatsApp number so we can send your quote.",

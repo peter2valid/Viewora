@@ -14,6 +14,7 @@
 
     <template v-else>
       <p v-if="notice" class="qf__notice" role="status">{{ notice }}</p>
+      <p v-else-if="entryNote && step === 1" class="qf__notice" :class="{ 'qf__notice--hello': !entryProblem }" role="status">{{ entryNote }}</p>
 
       <!-- ── Steps 1 to 5 ─────────────────────────────────────── -->
       <form v-if="step < RESULT" class="qf__form" novalidate @submit.prevent="next">
@@ -287,11 +288,17 @@ const form = reactive({
   note: '',
 })
 
+// Where the visitor came from: ?src= or utm_*, a /q/:code link (?e=), a partner (?p=)
 const entry = (() => {
   const q = route.query
   const utm = Object.fromEntries(Object.entries(q).filter(([k, v]) => /^utm_[a-z]+$/.test(k) && typeof v === 'string')) as Record<string, string>
   const source = typeof q.src === 'string' ? q.src : utm.utm_source
-  return { ...(source ? { source: source.slice(0, 40) } : {}), ...(Object.keys(utm).length ? { utm } : {}) }
+  const code = typeof q.e === 'string' && /^[A-Za-z0-9_-]{3,40}$/.test(q.e) ? q.e : undefined
+  const partnerCode = typeof q.p === 'string' && /^[A-Za-z0-9-]{2,20}$/.test(q.p) ? q.p : undefined
+  return {
+    ...(source ? { source: source.slice(0, 40) } : {}), ...(Object.keys(utm).length ? { utm } : {}),
+    ...(code ? { code } : {}), ...(partnerCode ? { partnerCode } : {}),
+  } as { source?: string; utm?: Record<string, string>; code?: string; partnerCode?: string }
 })()
 
 const module = computed(() => config.value?.modules.find(m => m.key === form.moduleKey))
@@ -722,10 +729,46 @@ async function resume() {
   } catch {}
 }
 
+// ── A /q/:code link or an industry page: fill in what it carries ────────
+const entryNote = ref('')   // shown on step 1 only
+const entryProblem = ref(false)   // a dead link is a warning; a greeting is not
+// Only when nothing was resumed: a form already started on this phone wins.
+// The industry is picked but not sent; tapping it starts, like any visit.
+async function applyEntry() {
+  if (entry.code) {
+    try {
+      const res = await api<{ kind: string; prefill: { firstName?: string; moduleKey?: string; industryHint?: string; town?: string } }>(`/entry/${entry.code}`)
+      const p = res.prefill
+      if (p.firstName) form.firstName = p.firstName
+      if (p.town) form.town = p.town
+      const tile = (p.industryHint ? tileFor(p.industryHint) : null) ?? (p.moduleKey ? tileFor(p.moduleKey) : null)
+      if (tile) pickIndustry(tile, false)
+      const industry = tile ? t(`industries.${tile.key}`) : ''
+      entryNote.value = p.firstName
+        ? t(tile ? 'entry.helloIndustry' : 'entry.hello', { name: p.firstName, industry })
+        : tile ? t('entry.industry', { industry }) : ''
+      track('quote_link_opened', { kind: res.kind })
+    } catch (e: any) {
+      const status = e?.statusCode ?? e?.response?.status
+      entryProblem.value = true
+      entryNote.value = status === 410 ? t('entry.expired') : status === 404 ? t('entry.notFound') : ''
+      delete entry.code
+    }
+    return
+  }
+  const key = typeof route.query.industry === 'string' ? route.query.industry : ''
+  const tile = key ? tileFor(key) : null
+  if (tile) {
+    pickIndustry(tile, false)
+    entryNote.value = t('entry.industry', { industry: t(`industries.${tile.key}`) })
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('visibilitychange', onHidden)
   track('quote_form_viewed', { source: entry.source ?? null })
   if (config.value) await resume()
+  if (config.value && !token.value && step.value === 1) await applyEntry()
   if (!reached.has(step.value)) {
     reached.add(step.value)
     track(step.value === RESULT ? 'quote_result_viewed' : 'quote_step_reached', { step: step.value, step_name: stepName(step.value), industry: form.industry || null, source: entry.source ?? null })
@@ -795,6 +838,7 @@ onBeforeUnmount(() => {
 .qf__error { font-size: var(--q-text-sm); color: var(--q-bad); }
 .qf__error--block { padding: 10px 12px; background: var(--q-bad-bg); border-radius: var(--q-radius-sm); color: var(--q-ink); border-left: 3px solid var(--q-bad); }
 .qf__notice { padding: 10px 12px; background: var(--q-warn-bg); color: var(--q-ink); border-radius: var(--q-radius-sm); font-size: var(--q-text-sm); }
+.qf__notice--hello { background: var(--q-surface); border: 1px solid var(--q-border); }
 
 .qf__actions { display: grid; gap: 12px; padding-top: 4px; }
 .qf__buttons { display: flex; gap: 10px; }
