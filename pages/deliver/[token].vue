@@ -56,8 +56,11 @@ interface DeliveryView { status: 'pending' | 'accepted'; expiresAt: string; tour
 
 const { t } = useQuoteStrings()
 const { apiFetch } = useApiFetch()
-const session = useSupabaseSession()
-const user = useSupabaseUser()
+// Read fresh each time: straight after signing in (or from a WhatsApp guest
+// session to a real one) the cached session can still be the old one
+const supabase = useSupabaseClient()
+let accessToken = ''
+const authed = () => ({ headers: { Authorization: `Bearer ${accessToken}` } })
 const token = String(useRoute().params.token ?? '')
 
 const state = ref<'loading' | 'signin' | 'pending' | 'accepted' | 'problem'>('loading')
@@ -83,9 +86,11 @@ function show(e: any) {
 async function load() {
   state.value = 'loading'
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) { problem.value = t('deliver.gone'); retryable.value = false; state.value = 'problem'; return }
-  if (!session.value?.access_token || user.value?.is_anonymous) { state.value = 'signin'; return }
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token || session.user?.is_anonymous) { state.value = 'signin'; return }
+  accessToken = session.access_token
   try {
-    view.value = await apiFetch<DeliveryView>(`/quote/account/deliveries/${token}`)
+    view.value = await apiFetch<DeliveryView>(`/quote/account/deliveries/${token}`, authed())
     state.value = view.value.status
   } catch (e) {
     show(e)
@@ -96,7 +101,7 @@ async function accept() {
   accepting.value = true
   actionError.value = ''
   try {
-    view.value = await apiFetch<DeliveryView>(`/quote/account/deliveries/${token}/accept`, { method: 'POST' })
+    view.value = await apiFetch<DeliveryView>(`/quote/account/deliveries/${token}/accept`, { method: 'POST', ...authed() })
     state.value = 'accepted'
   } catch (e: any) {
     // Still on the page: say what happened without losing the button
