@@ -44,6 +44,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
+import { takeReturnTo } from '~/utils/returnTo'
 
 const user = useSupabaseUser()
 const route = useRoute()
@@ -62,7 +63,7 @@ const unwatch = watch(
       unwatch()
       // Fire-and-forget: send welcome email (idempotent on the backend)
       apiFetch('/profile/welcome', { method: 'POST' }).catch(() => {})
-      navigateTo('/app/spaces')
+      navigateTo(takeReturnTo() ?? '/app/spaces')
     }
   },
   { immediate: true }

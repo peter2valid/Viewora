@@ -9,7 +9,7 @@
     <section v-else-if="state === 'signin'" class="qd__card" aria-labelledby="qd-title">
       <h1 id="qd-title" class="q-h1">{{ t('deliver.signInTitle') }}</h1>
       <p class="q-body">{{ t('deliver.signInBody') }}</p>
-      <QuoteButton class="qd__solo" icon="user" href="/login">{{ t('deliver.signIn') }}</QuoteButton>
+      <QuoteButton class="qd__solo" icon="user" :href="`/login?next=${encodeURIComponent(`/deliver/${token}`)}`">{{ t('deliver.signIn') }}</QuoteButton>
       <p class="q-small">{{ t('deliver.signInThen') }}</p>
     </section>
 

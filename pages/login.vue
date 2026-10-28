@@ -92,6 +92,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { definePageMeta, useSupabaseClient, navigateTo, useSeoMeta } from '#imports'
+import { rememberReturnTo, takeReturnTo } from '~/utils/returnTo'
 
 definePageMeta({
   middleware: 'guest'
@@ -102,6 +103,9 @@ const email = ref('')
 const password = ref('')
 const errorMsg = ref('')
 const isLoading = ref(false)
+
+// A page that sent them here (a tour delivery link) gets them back after sign-in
+onMounted(() => rememberReturnTo(useRoute().query.next))
 
 const signIn = async () => {
   errorMsg.value = ''
@@ -115,7 +119,7 @@ const signIn = async () => {
 
     if (error) throw error
 
-    await navigateTo('/app')
+    await navigateTo(takeReturnTo() ?? '/app')
   } catch (err: any) {
     errorMsg.value = err.message || 'An error occurred during log in.'
   } finally {

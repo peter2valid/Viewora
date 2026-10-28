@@ -118,6 +118,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { definePageMeta, useSupabaseClient, navigateTo, useSeoMeta } from '#imports'
+import { rememberReturnTo, takeReturnTo } from '~/utils/returnTo'
 
 definePageMeta({
   middleware: 'guest'
@@ -173,7 +174,7 @@ const signUp = async () => {
       // Email confirmation disabled — user is immediately logged in, send welcome now.
       // (If confirmation is required, welcome fires in confirm.vue instead.)
       useApiFetch().apiFetch('/profile/welcome', { method: 'POST' }).catch(() => {})
-      await navigateTo('/app')
+      await navigateTo(takeReturnTo() ?? '/app')
     } else {
       successMsg.value = 'Account created! Check your email for the confirmation link.'
     }
