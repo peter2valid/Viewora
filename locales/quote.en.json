@@ -118,6 +118,8 @@
     "institutions": "Offices, schools and clinics",
     "vehicles": "Car dealers and hire",
     "farms": "Farms and factories",
+    "wayfinding": "Venue maps and wayfinding",
+    "floorplans": "Floor plans",
     "other": "Something else"
   },
   "clientTypes": {
@@ -176,7 +178,8 @@
   "groups": {
     "property": "Property",
     "hospitality": "Hotels and food",
-    "business": "Cars and business"
+    "business": "Cars and business",
+    "plans": "Maps and floor plans"
   },
   "clientTypesFor": {
     "airbnb": {

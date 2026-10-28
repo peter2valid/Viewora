@@ -22,6 +22,8 @@ export const INDUSTRY_ICONS: Record<string, IconName> = {
   institutions: 'building',
   vehicles: 'car',
   farms: 'building-factory-2',
+  wayfinding: 'map-pin',
+  floorplans: 'ruler',
   other: 'dots-circle-horizontal',
 }
 
@@ -34,6 +36,7 @@ export const INDUSTRY_GROUPS: Array<{ key: string; industries: string[] }> = [
   { key: 'property', industries: ['homes', 'airbnb', 'developers'] },
   { key: 'hospitality', industries: ['hotels', 'restaurants'] },
   { key: 'business', industries: ['vehicles', 'malls', 'institutions', 'farms'] },
+  { key: 'plans', industries: ['wayfinding', 'floorplans'] },
 ]
 
 // "Who are you?" fits the industry: no estate agents for a car dealer.
@@ -74,6 +77,9 @@ export const QUESTION_ICONS: Record<string, IconName> = {
   guests: 'users', shoot_time: 'clock', hostel_rooms: 'bed', land_size: 'ruler', visits: 'calendar',
   mall_size: 'shopping-bag', tenants: 'shopping-bag', anchors: 'building', desks: 'briefcase',
   school_size: 'school', beds: 'stethoscope', warehouse_size: 'ruler',
+  // Wayfinding and floor plans
+  venue: 'building', destinations: 'map-pin', tour: 'camera', plans: 'clipboard-list', notes: 'edit',
+  place: 'building', floor_size: 'ruler', deliverable: 'ruler',
 }
 
 export const TIMING_ICONS: Record<string, IconName> = { this_week: 'clock', this_month: 'calendar', planning: 'clipboard-list' }
