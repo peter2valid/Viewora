@@ -328,5 +328,25 @@
   "account": {
     "usingOnFile": "We'll send your quote to your WhatsApp, {phone}.",
     "change": "Change"
+  },
+  "deliver": {
+    "checking": "Checking your link…",
+    "signInTitle": "Your tour is ready",
+    "signInBody": "Sign in to your Viewora account to add the tour to it. No account yet? Create one with the email or number you gave us.",
+    "signIn": "Sign in",
+    "signInThen": "After signing in, tap the link in WhatsApp again.",
+    "title": "Add “{title}” to your account?",
+    "yourTour": "your tour",
+    "body": "It will show under Spaces, where you can share it, embed it on your website and edit it.",
+    "once": "This link works once and expires on {date}.",
+    "accept": "Add to my account",
+    "acceptFailed": "We could not add the tour just now. Try again in a minute.",
+    "doneTitle": "Done. The tour is yours",
+    "done": "“{title}” is now in your account.",
+    "open": "Open my tours",
+    "problemTitle": "We can't open this link",
+    "gone": "This link has expired or was already used. Ask us on WhatsApp for a new one.",
+    "loadFailed": "We couldn't reach Viewora. Check your connection and try again.",
+    "askNew": "Hi Viewora, my tour link isn't working. Please send a new one."
   }
 }
