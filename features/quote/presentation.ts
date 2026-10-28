@@ -45,7 +45,8 @@ export const CLIENT_TYPES_BY_INDUSTRY: Record<string, string[]> = {
 }
 export const DEFAULT_CLIENT_TYPES = ['owner', 'manager', 'marketer', 'other']
 
-// Shown on the form before they have their own pricing; staff price them by hand
+// Kept on the form even if their module is switched off in the backend:
+// then they fall back to "other" and staff price them by hand
 export const PLANNED_INDUSTRIES = ['restaurants', 'developers', 'malls', 'institutions', 'farms']
 
 export const ADDON_ICONS: Record<string, IconName> = {
@@ -69,6 +70,10 @@ export const QUESTION_ICONS: Record<string, IconName> = {
   size: 'bed', purpose: 'key', listings: 'list', same_building: 'building', units: 'building-community',
   kind: 'clipboard-list', rooms_hotel: 'bed', rooms_safari: 'bed', showroom_size: 'car', vehicles: 'car',
   description: 'edit', setting: 'sun', areas: 'grid', floors: 'elevator', link: 'world-www',
+  // Restaurants, developers, malls, institutions, farms
+  guests: 'users', shoot_time: 'clock', hostel_rooms: 'bed', land_size: 'ruler', visits: 'calendar',
+  mall_size: 'shopping-bag', tenants: 'shopping-bag', anchors: 'building', desks: 'briefcase',
+  school_size: 'school', beds: 'stethoscope', warehouse_size: 'ruler',
 }
 
 export const TIMING_ICONS: Record<string, IconName> = { this_week: 'clock', this_month: 'calendar', planning: 'clipboard-list' }
