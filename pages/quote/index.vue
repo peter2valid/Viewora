@@ -351,13 +351,14 @@ interface AccountMe {
   prefill: { firstName: string | null; whatsapp: string | null; email: string | null }
 }
 const session = useSupabaseSession()
+const supabaseUser = useSupabaseUser()
 const { apiFetch } = useApiFetch()
 const account = ref<AccountMe | null>(null)
 const accountNote = ref('')
 const fromApp = route.query.from === 'app'
 
 async function loadAccount() {
-  if (!fromApp || !session.value?.access_token || session.value.user?.is_anonymous) return
+  if (!fromApp || !session.value?.access_token || supabaseUser.value?.is_anonymous) return
   try {
     account.value = await apiFetch<AccountMe>('/quote/account/me')
   } catch {
