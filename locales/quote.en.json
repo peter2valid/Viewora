@@ -297,5 +297,15 @@
     "paid": "Thank you. We received your payment.",
     "paidBalance": "Thank you. Your balance is paid, so your Viewora tour is all settled.",
     "missing": "This page needs the payment reference from Paystack. If you paid, check the receipt Paystack emailed you."
+  },
+  "stop": {
+    "title": "Stop messages from Viewora",
+    "checking": "Checking your link…",
+    "ask": "We will stop every follow-up message and email to you. If you still want a quote or a shoot, you can WhatsApp us any time.",
+    "confirm": "Stop all messages",
+    "saving": "Stopping…",
+    "done": "Done. We won't send you any more messages. If you change your mind, WhatsApp us.",
+    "invalid": "This link isn't valid, so nothing has changed. WhatsApp us and we will stop the messages for you.",
+    "failed": "We couldn't save that just now. Try again, or WhatsApp us and we will do it for you."
   }
 }
