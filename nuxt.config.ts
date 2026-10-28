@@ -61,6 +61,8 @@ export default defineNuxtConfig({
       gaMeasurementId: process.env.NUXT_PUBLIC_GA_MEASUREMENT_ID || '',
       // Quote engine feature flag: off unless NUXT_PUBLIC_QUOTE_ENGINE=1
       quoteEngine: process.env.NUXT_PUBLIC_QUOTE_ENGINE === '1',
+      // A/B test: ask for WhatsApp first (control) or after the extras. Off unless set
+      quoteAbContact: process.env.NUXT_PUBLIC_QUOTE_AB_CONTACT === '1',
     },
   },
 

@@ -144,7 +144,11 @@
     "locating": "Finding you…",
     "note": "Anything we should know? (optional)",
     "noteHelp": "Parking, access times, who to call on the day.",
-    "locatedPlain": "Location added."
+    "locatedPlain": "Location added.",
+    "currency": "Show my price in",
+    "kes": "Kenyan shillings (KES)",
+    "usd": "US dollars (USD)",
+    "usdHelp": "For clients paying from abroad. Dollar prices are converted from our shilling rates, and we send you a payment link."
   },
   "contactIntro": "Who you are changes a few questions. We'll send your price and a link back to this form.",
   "details": {
@@ -265,7 +269,8 @@
     "mismatchTitle": "We need to check your payment",
     "mismatch": "The amount Paystack reported does not match this quote, so we have not booked it yet. We will WhatsApp you today. If you were charged, we will sort it out or refund you.",
     "tryAgain": "Try again",
-    "askHelp": "Hi Viewora, I tried to pay the deposit for quote {ref}. Can you help?"
+    "askHelp": "Hi Viewora, I tried to pay the deposit for quote {ref}. Can you help?",
+    "usdByLink": "Your quote is in US dollars. We'll send you a payment link on WhatsApp."
   },
   "booking": {
     "title": "You're booked, {name}",

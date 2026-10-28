@@ -22,7 +22,7 @@
       <!-- ── Steps 1 to 5 ─────────────────────────────────────── -->
       <form v-if="step < RESULT" class="qf__form" novalidate @submit.prevent="next">
         <!-- From step 2 the heading is the step name, so the bar doesn't repeat it -->
-        <QuoteProgress :step="step" :total="STEPS.length" :label="step === 1 ? t('steps.industry') : undefined" />
+        <QuoteProgress :step="ORDER.indexOf(step) + 1" :total="STEPS.length" :label="step === 1 ? t('steps.industry') : undefined" />
         <h1 ref="heading" class="q-h1 qf__title" tabindex="-1">{{ stepTitle }}</h1>
 
         <!-- 1 Industry -->
@@ -146,6 +146,16 @@
             </div>
             <p v-if="errors.timing" class="qf__error" role="alert">{{ errors.timing }}</p>
           </fieldset>
+          <fieldset class="qf__group" data-q="currency">
+            <legend class="q-h2">{{ t('where.currency') }}</legend>
+            <div role="radiogroup" :aria-label="t('where.currency')" class="qf__tiles qf__tiles--two" @keydown="onRadioArrows($event, CURRENCIES.length, i => (form.currency = CURRENCIES[i]))">
+              <QuoteTile
+                v-for="c in CURRENCIES" :key="c" size="small" :title="t(`where.${c.toLowerCase()}`)"
+                :selected="form.currency === c" :focusable="form.currency === c" @select="form.currency = c"
+              />
+            </div>
+            <p v-if="form.currency === 'USD'" class="q-small qf__hint">{{ t('where.usdHelp') }}</p>
+          </fieldset>
           <QuoteField
             id="q-note" v-model="form.note" data-q="note" :label="t('where.note')" :help="t('where.noteHelp')" multiline
             :voice="dictation.supported.value" :recording="dictation.recording.value"
@@ -200,7 +210,7 @@
             <QuoteButton class="qf__book-btn" icon="brand-whatsapp" :href="bookLink" @click="track('quote_book_clicked', { industry: form.industry, tier })">{{ t('actions.bookWhatsapp') }}</QuoteButton>
           </div>
           <div class="qf__fine q-small">
-            <p>{{ t('result.paymentLater') }}</p>
+            <p>{{ result.currency === 'USD' ? t('pay.usdByLink') : t('result.paymentLater') }}</p>
             <p v-if="!result.travelConfirmed">{{ t('result.travelUnconfirmed') }}</p>
             <p>{{ t('result.validity', { days: config.settings.quoteValidityDays }) }} {{ result.vat.charged ? t('result.vatIncluded', { rate: result.vat.rateBp / 100 }) : t('result.vatExcluded') }}</p>
             <p>{{ t('result.included') }}</p>
@@ -251,13 +261,38 @@ interface QResult {
 }
 
 const { t } = useQuoteStrings()
-const { track } = useAnalytics()
+const analytics = useAnalytics()
 const route = useRoute()
 const router = useRouter()
 
+// ── A/B test: contact first (control) or after the extras ────────────────
+// Behind NUXT_PUBLIC_QUOTE_AB_CONTACT. Half of visitors are asked for their
+// WhatsApp after the extras instead of straight after the industry. The
+// variant is kept per browser, saved on the request and sent with every
+// event. Orders from the app are left out: their contact step is skipped.
+const AB_KEY = 'vo-quote-ab-contact'
+const abVariant = (() => {
+  if (!useRuntimeConfig().public.quoteAbContact || route.query.from === 'app' || import.meta.server) return null
+  try {
+    const saved = localStorage.getItem(AB_KEY)
+    if (saved === 'contact_first' || saved === 'contact_late') return saved
+    const picked = Math.random() < 0.5 ? 'contact_first' : 'contact_late'
+    localStorage.setItem(AB_KEY, picked)
+    return picked
+  } catch {
+    return null   // no storage: no experiment, the usual order
+  }
+})()
+const track = (event: string, props: Record<string, unknown> = {}) => analytics.track(event, { ...props, ...(abVariant ? { ab_variant: abVariant } : {}) })
+
 const RESULT = STEPS.length + 1
+// The order steps are shown in; `step` is always the step itself (2 = contact)
+const ORDER = abVariant === 'contact_late' ? [1, 3, 4, 2, 5] : [1, 2, 3, 4, 5]
+const nextOf = (n: number) => ORDER[ORDER.indexOf(n) + 1] ?? RESULT
+const prevOf = (n: number) => (n === RESULT ? ORDER[ORDER.length - 1] : ORDER[ORDER.indexOf(n) - 1] ?? 1)
 const CLIENT_TYPES = ['owner', 'agent', 'developer', 'manager', 'marketer', 'other'] as const
 const TIMINGS = ['this_week', 'this_month', 'planning'] as const
+const CURRENCIES = ['KES', 'USD'] as const
 const TIMING_KEYS: Record<string, string> = { this_week: 'thisWeek', this_month: 'thisMonth', planning: 'planning' }
 const TOKEN_KEY = 'vo-quote-token'
 const DRAFT_KEY = 'vo-quote-draft'
@@ -288,6 +323,7 @@ const form = reactive({
   addons: {} as Record<string, number>,
   town: '', lat: null as number | null, lng: null as number | null, accuracy: null as number | null,
   timing: '' as '' | typeof TIMINGS[number],
+  currency: 'KES' as typeof CURRENCIES[number],
   note: '',
 })
 
@@ -343,7 +379,7 @@ function localPhone(e164: string) {
 // After the request exists: tie it to the account, and skip the contact step if we can.
 // Returns the step to go to next. Any failure leaves the normal form in place.
 async function afterStart(): Promise<number> {
-  if (!account.value || !token.value) return 2
+  if (!account.value || !token.value) return nextOf(1)
   try {
     await apiFetch(`/quote/account/requests/${token.value}/claim`, { method: 'POST' })
   } catch {
@@ -596,7 +632,7 @@ async function saveStep(): Promise<boolean | number> {
   if (step.value === 1) {
     if (!token.value) {
       const res = await api<{ token: string }>('/requests', {
-        method: 'POST', body: { moduleKey: form.moduleKey, industryHint: form.industryHint || undefined, entry, website: form.website || undefined },
+        method: 'POST', body: { moduleKey: form.moduleKey, industryHint: form.industryHint || undefined, entry, abVariant: abVariant ?? undefined, website: form.website || undefined },
       })
       storeToken(res.token)
       return afterStart()
@@ -628,6 +664,7 @@ async function saveStep(): Promise<boolean | number> {
       step: 'where',
       location: { ...(form.town.trim() ? { town: form.town.trim() } : {}), ...(form.lat !== null ? { lat: form.lat, lng: form.lng } : {}) },
       timing: form.timing,
+      ...(form.currency === 'USD' ? { currency: 'USD' } : {}),
       ...(form.note.trim() ? { note: form.note.trim() } : {}),
     },
   })
@@ -663,7 +700,7 @@ async function next() {
   saving.value = true
   try {
     const to = await saveStep()
-    goTo(typeof to === 'number' ? to : step.value + 1)
+    goTo(typeof to === 'number' ? to : nextOf(step.value))
   } catch (e) {
     handleSaveError(e)
   } finally {
@@ -671,7 +708,7 @@ async function next() {
   }
 }
 
-function back() { goTo(step.value - 1) }
+function back() { goTo(prevOf(step.value)) }
 
 function goTo(target: number | string) {
   const n = typeof target === 'number' ? target : STEPS.indexOf(target as typeof STEPS[number]) + 1
@@ -684,7 +721,7 @@ function startOver() {
   storeToken(null)
   try { localStorage.removeItem(DRAFT_KEY) } catch {}
   Object.assign(form, {
-    industry: '', industryHint: '', moduleKey: '', clientType: '', details: {}, addons: {}, town: '', lat: null, lng: null, accuracy: null, timing: '', note: '',
+    industry: '', industryHint: '', moduleKey: '', clientType: '', details: {}, addons: {}, town: '', lat: null, lng: null, accuracy: null, timing: '', currency: 'KES', note: '',
   })
   result.value = null
   notice.value = ''
@@ -773,7 +810,12 @@ async function resume() {
         tier.value = res.result.options.find(o => o.tier === 'standard')?.tier ?? res.result.options[0]?.tier ?? 'standard'
         step.value = RESULT
       } else {
-        step.value = Math.min(Math.max(res.request.stepReached + 1, 1), STEPS.length)
+        // The furthest step saved, then the next one in this visitor's order;
+        // without a number on file, the contact step comes first
+        let after = nextOf(Math.min(Math.max(res.request.stepReached, 1), STEPS.length))
+        if (after === 2 && res.contact) after = nextOf(2)
+        if (!res.contact && ORDER.indexOf(after) > ORDER.indexOf(2)) after = 2
+        step.value = Math.min(after, STEPS.length)
       }
       return
     } catch (e: any) {
@@ -881,6 +923,7 @@ onBeforeUnmount(() => {
   .qf__tiles--industry :deep(.q-tile--compact) { padding-block: 6px; min-height: 56px; }
 }
 .qf__tiles--3, .qf__tiles--when { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.qf__tiles--two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-width: 420px; }
 .qf__tiles--2, .qf__tiles--industry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 @media (min-width: 560px) {
   .qf__tiles--industry { grid-template-columns: repeat(3, minmax(0, 1fr)); }

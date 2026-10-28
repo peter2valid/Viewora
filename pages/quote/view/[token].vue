@@ -98,6 +98,7 @@
 
       <div class="qv__fine q-small">
         <p v-if="canPay">{{ t('pay.how', { percent: (quote.depositBp ?? 0) / 100 }) }}</p>
+        <p v-else-if="quote.state === 'open' && data?.pay?.blocker === 'usd_by_link'">{{ t('pay.usdByLink') }}</p>
         <p v-else-if="quote.state === 'open'">{{ t('result.paymentLater') }}</p>
         <p>
           <template v-if="quote.validUntil && quote.state === 'open'">{{ t('view.validUntil', { date: longDate(quote.validUntil) }) }} </template>
