@@ -902,7 +902,7 @@ onBeforeUnmount(() => {
 .qf__error--block { padding: 10px 12px; background: var(--q-bad-bg); border-radius: var(--q-radius-sm); color: var(--q-ink); border-left: 3px solid var(--q-bad); }
 .qf__notice { padding: 10px 12px; background: var(--q-warn-bg); color: var(--q-ink); border-radius: var(--q-radius-sm); font-size: var(--q-text-sm); }
 .qf__notice--hello { background: var(--q-surface); border: 1px solid var(--q-border); }
-.qf__link { background: none; border: 0; padding: 0 2px; font: inherit; color: var(--q-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; display: inline-block; padding: 12px 6px; margin: -12px -4px; }
+.qf__link { background: none; border: 0; font: inherit; color: var(--q-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; display: inline-block; padding: 12px 6px; margin: -12px -4px; }
 .qf__link:focus-visible { outline: 2px solid var(--q-ink); outline-offset: 2px; border-radius: 2px; }
 
 .qf__actions { display: grid; gap: 12px; padding-top: 4px; }
