@@ -31,7 +31,9 @@
     "premium": "Premium",
     "essentialNote": "The tour only",
     "standardNote": "What you picked",
-    "premiumNote": "Adds a video, a reel and photos"
+    "premiumNote": "Adds a video, a reel and photos",
+    "estimate": "Estimate",
+    "estimateNote": "Our team confirms the final price"
   },
   "result": {
     "deposit": "{percent}% deposit {amount}, balance on delivery",

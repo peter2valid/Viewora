@@ -192,7 +192,7 @@
           <div class="qf__book">
             <p v-if="pickedOption" class="qf__book-summary q-num">
               <span class="q-small">{{ t(`tiers.${pickedOption.tier}`) }}</span>
-              <strong>{{ money(pickedOption.total) }}</strong>
+              <strong>{{ pickedAmount }}</strong>
             </p>
             <QuoteButton class="qf__book-btn" icon="brand-whatsapp" :href="bookLink" @click="track('quote_book_clicked', { industry: form.industry, tier })">{{ t('actions.bookWhatsapp') }}</QuoteButton>
           </div>
@@ -371,11 +371,17 @@ const resultTitle = computed(() => {
 const wa = (text: string) => `https://wa.me/${runtime.quoteWhatsapp}?text=${encodeURIComponent(text)}`
 const helpLink = computed(() => wa(t('whatsappHelp', { step: step.value < RESULT ? t(`steps.${STEPS[step.value - 1]}`) : t('result.titleNoName') })))
 const pickedOption = computed(() => result.value?.options.find(o => o.tier === tier.value))
+// An estimate is a range: say both ends, never just the low one
+const pickedAmount = computed(() => {
+  const o = pickedOption.value
+  if (!o) return ''
+  return o.totalHigh && o.totalHigh !== o.total ? `${money(o.total)} – ${money(o.totalHigh)}` : money(o.total)
+})
 const bookLink = computed(() => {
   const picked = pickedOption.value
   const link = import.meta.client && token.value ? `${location.origin}/quote?r=${token.value}` : ''
   return wa(t('whatsappBook', {
-    tier: t(`tiers.${tier.value}`), amount: picked ? money(picked.total) : '', industry: t(`industries.${form.industry || form.moduleKey}`), link,
+    tier: t(`tiers.${tier.value}`), amount: picked ? pickedAmount.value : '', industry: t(`industries.${form.industry || form.moduleKey}`), link,
   }))
 })
 
@@ -862,10 +868,11 @@ onBeforeUnmount(() => {
 
 .qf__fine { display: grid; gap: 6px; max-width: 640px; }
 .qf__again { justify-self: start; }
-.qf__book { display: flex; align-items: center; gap: 16px; max-width: 560px; }
+.qf__book { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; max-width: 560px; }
 .qf__book-summary { display: grid; gap: 2px; white-space: nowrap; }
 .qf__book-summary strong { font-size: var(--q-text-lg); }
-.qf__book-btn { flex: 1; white-space: nowrap; }
+/* A range is long: the button then takes its own row, full width */
+.qf__book-btn { flex: 1 1 180px; white-space: nowrap; }
 @media (max-width: 899px) {
   .qf__book-summary strong { font-size: var(--q-text-md); }
   .qf__book {
