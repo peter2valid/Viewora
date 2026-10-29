@@ -12,9 +12,10 @@
     <div v-if="!loaded" class="vc-loading"><span class="vc-spin" /></div>
 
     <!-- One layer carries the plan and everything on it, moved by a single
-         transform: panning changes nothing inside, so pins can't lag or jitter
-         against the plan. Only the image is scaled (one GPU texture, stays
-         sharp); pins and the route are placed at the current zoom. -->
+         transform and one zoom variable (--s): panning and zooming change
+         nothing inside, so pins can't lag or jitter against the plan. Only the
+         image is scaled (one GPU texture, stays sharp); pins keep their size
+         and sit at their plan pixel × --s. -->
     <div class="vc-stage" :style="stageStyle">
     <img
       ref="imgEl"
@@ -129,12 +130,8 @@ const dots = computed(() => props.places)
 const s = ref(1), tx = ref(0), ty = ref(0)
 let minS = 0.05, maxS = 8
 
-const stageStyle = computed(() => ({ transform: `translate3d(${tx.value}px, ${ty.value}px, 0)` }))
-const imgStyle = computed(() => ({
-  width: `${W.value}px`,
-  height: `${H.value}px`,
-  transform: `scale(${s.value})`,
-}))
+const stageStyle = computed(() => ({ transform: `translate3d(${tx.value}px, ${ty.value}px, 0)`, '--s': s.value }))
+const imgStyle = computed(() => ({ width: `${W.value}px`, height: `${H.value}px` }))
 
 // Inside the stage (zoom only; the pan is the stage's own transform).
 function lx(x: number) { return x * W.value * s.value }
@@ -143,7 +140,8 @@ function ly(y: number) { return y * H.value * s.value }
 function sx(x: number) { return lx(x) + tx.value }
 function sy(y: number) { return ly(y) + ty.value }
 function pts(list: RoutePoint[]) { return list.map(p => `${lx(p.x).toFixed(1)},${ly(p.y).toFixed(1)}`).join(' ') }
-function at(p: { x: number; y: number }) { return { left: `${lx(p.x)}px`, top: `${ly(p.y)}px` } }
+// Plan pixels only — independent of zoom, so pins never re-render while zooming.
+function at(p: { x: number; y: number }) { return { '--x': p.x * W.value, '--y': p.y * H.value } }
 
 // The draw-on animation replays when the route changes, not on every pan.
 const routeKey = computed(() => routePoints.value.map(p => `${p.x},${p.y}`).join(';'))
@@ -327,7 +325,9 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++ })
 .vc-root { position: absolute; inset: 0; overflow: hidden; background: #f3f4f6; touch-action: none; user-select: none; cursor: grab; }
 .vc-root--dragging { cursor: grabbing; }
 .vc-stage { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
-.vc-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; pointer-events: none; }
+.vc-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--s)); max-width: none; pointer-events: none; }
+/* Anything placed with at(): its plan pixel × the current zoom, sub-pixel exact. */
+.vc-dot, .vc-start, .vc-marker, .vc-connector { left: 0; top: 0; --at: translate(calc(var(--x) * var(--s) * 1px), calc(var(--y) * var(--s) * 1px)); transform: var(--at); }
 .vc-svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; pointer-events: none; overflow: visible; }
 .vc-route-casing { fill: none; stroke: #fff; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
 .vc-route {
@@ -354,7 +354,7 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++ })
 .vc-marker--sel path { fill: #1d4ed8; }
 .vc-marker__label { position: absolute; left: 0; top: -66px; transform: translateX(-50%); padding: 4px 9px; border-radius: 8px; background: #fff; color: #111827; font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 
-.vc-connector { position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 0; border-radius: 999px; background: #111827; color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,0.3); }
+.vc-connector { position: absolute; transform: var(--at) translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 0; border-radius: 999px; background: #111827; color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,0.3); }
 .vc-connector__icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e11d48; font-size: 13px; }
 
 .vc-zoom { position: absolute; right: calc(14px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.18); z-index: 3; }
