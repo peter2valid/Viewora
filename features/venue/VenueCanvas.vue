@@ -254,7 +254,15 @@ const pointers = new Map<number, { x: number; y: number }>()
 const dragging = ref(false)
 let downAt = { x: 0, y: 0 }
 let moved = false
-let pinchDist = 0
+// Pinch: the plan point between the fingers when it began stays between
+// them, at start zoom × finger spread change — recomputed from the start on
+// every move, so per-finger events can't make it drift or wobble.
+let pinch: { d: number; s: number; px: number; py: number } | null = null
+function startPinch() {
+  const [a, b] = [...pointers.values()]
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
+  pinch = { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), s: s.value, px: (mx - tx.value) / s.value, py: (my - ty.value) / s.value }
+}
 let lastTap = 0
 
 function onPointerDown(e: PointerEvent) {
@@ -264,10 +272,7 @@ function onPointerDown(e: PointerEvent) {
   const p = rel(e)
   pointers.set(e.pointerId, p)
   if (pointers.size === 1) { downAt = p; moved = false }
-  if (pointers.size === 2) {
-    const [a, b] = [...pointers.values()]
-    pinchDist = Math.hypot(a.x - b.x, a.y - b.y)
-  }
+  if (pointers.size === 2) startPinch()
 }
 function onPointerMove(e: PointerEvent) {
   const prev = pointers.get(e.pointerId)
@@ -281,17 +286,18 @@ function onPointerMove(e: PointerEvent) {
     tx.value += p.x - prev.x
     ty.value += p.y - prev.y
     clamp()
-  } else if (pointers.size === 2) {
+  } else if (pointers.size === 2 && pinch) {
     moved = true
     const [a, b] = [...pointers.values()]
-    const d = Math.hypot(a.x - b.x, a.y - b.y)
-    if (pinchDist > 0) zoomAt(d / pinchDist, (a.x + b.x) / 2, (a.y + b.y) / 2)
-    pinchDist = d
+    s.value = Math.min(maxS, Math.max(minS, pinch.s * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d))
+    tx.value = (a.x + b.x) / 2 - pinch.px * s.value
+    ty.value = (a.y + b.y) / 2 - pinch.py * s.value
+    clamp()
   }
 }
 function onPointerUp(e: PointerEvent) {
   const had = pointers.delete(e.pointerId)
-  if (pointers.size < 2) pinchDist = 0
+  if (pointers.size < 2) pinch = null
   if (pointers.size === 0) dragging.value = false
   if (!had || moved || pointers.size) return
   const now = performance.now()
@@ -338,6 +344,13 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++ })
 @keyframes vc-draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .vc-route { animation: none; stroke-dashoffset: 0; } }
 
+/* Pins move with the plan: the app's global touch-device button rule
+   (main.css, "faster tap feedback") would otherwise animate their position
+   80ms behind the plan. */
+.vc-dot, .vc-connector { transition-property: none; }
+/* On touch, a finger landing on a dot still pans / pinches the map; a tap
+   still picks the nearest place (onPointerUp). */
+@media (pointer: coarse) { .vc-dot { pointer-events: none; } }
 .vc-dot { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .vc-dot::after { content: ''; position: absolute; left: 7px; top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #1d4ed8; box-shadow: 0 0 0 2px #fff; opacity: 0.55; transition: opacity 0.2s, transform 0.2s; }
 .vc-dot:hover::after { opacity: 1; transform: scale(1.4); }
