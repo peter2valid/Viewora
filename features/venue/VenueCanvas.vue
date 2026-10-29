@@ -11,14 +11,16 @@
   >
     <div v-if="!loaded" class="vc-loading"><span class="vc-spin" /></div>
 
-    <!-- Only the plan image is scaled (one GPU texture, stays sharp); pins and
-         the route are drawn in screen space each frame — same approach as the
-         aerial map canvas. -->
+    <!-- One layer carries the plan and everything on it, moved by a single
+         transform: panning changes nothing inside, so pins can't lag or jitter
+         against the plan. Only the image is scaled (one GPU texture, stays
+         sharp); pins and the route are placed at the current zoom. -->
+    <div class="vc-stage" :style="stageStyle">
     <img
       ref="imgEl"
       :src="imageUrl"
       class="vc-img"
-      :style="stageStyle"
+      :style="imgStyle"
       alt=""
       draggable="false"
       decoding="async"
@@ -72,6 +74,7 @@
         </svg>
       </div>
     </template>
+    </div>
 
     <div class="vc-zoom" :style="{ bottom: `calc(${(insets?.bottom ?? 0) + 14}px + env(safe-area-inset-bottom, 0px))` }" @pointerdown.stop>
       <button type="button" aria-label="Zoom in" @click="zoomBy(1.5)">+</button>
@@ -126,16 +129,21 @@ const dots = computed(() => props.places)
 const s = ref(1), tx = ref(0), ty = ref(0)
 let minS = 0.05, maxS = 8
 
-const stageStyle = computed(() => ({
+const stageStyle = computed(() => ({ transform: `translate3d(${tx.value}px, ${ty.value}px, 0)` }))
+const imgStyle = computed(() => ({
   width: `${W.value}px`,
   height: `${H.value}px`,
-  transform: `translate(${tx.value}px, ${ty.value}px) scale(${s.value})`,
+  transform: `scale(${s.value})`,
 }))
 
-function sx(x: number) { return x * W.value * s.value + tx.value }
-function sy(y: number) { return y * H.value * s.value + ty.value }
-function pts(list: RoutePoint[]) { return list.map(p => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ') }
-function at(p: { x: number; y: number }) { return { left: `${sx(p.x)}px`, top: `${sy(p.y)}px` } }
+// Inside the stage (zoom only; the pan is the stage's own transform).
+function lx(x: number) { return x * W.value * s.value }
+function ly(y: number) { return y * H.value * s.value }
+// On screen (hit-testing taps).
+function sx(x: number) { return lx(x) + tx.value }
+function sy(y: number) { return ly(y) + ty.value }
+function pts(list: RoutePoint[]) { return list.map(p => `${lx(p.x).toFixed(1)},${ly(p.y).toFixed(1)}`).join(' ') }
+function at(p: { x: number; y: number }) { return { left: `${lx(p.x)}px`, top: `${ly(p.y)}px` } }
 
 // The draw-on animation replays when the route changes, not on every pan.
 const routeKey = computed(() => routePoints.value.map(p => `${p.x},${p.y}`).join(';'))
@@ -318,8 +326,9 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++ })
 <style scoped>
 .vc-root { position: absolute; inset: 0; overflow: hidden; background: #f3f4f6; touch-action: none; user-select: none; cursor: grab; }
 .vc-root--dragging { cursor: grabbing; }
-.vc-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; pointer-events: none; will-change: transform; }
-.vc-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.vc-stage { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.vc-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; pointer-events: none; }
+.vc-svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; pointer-events: none; overflow: visible; }
 .vc-route-casing { fill: none; stroke: #fff; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
 .vc-route {
   fill: none; stroke: #e11d48; stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round;
