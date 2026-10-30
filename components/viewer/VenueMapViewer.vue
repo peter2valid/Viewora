@@ -175,9 +175,23 @@
               <span>{{ st.text }}</span>
             </li>
           </ol>
-          <button v-if="walkScenes.length" type="button" class="vmv-cta vmv-cta--walk" @click="walkIn360">
-            <span aria-hidden="true">360°</span> Walk this route in 360°
-          </button>
+          <template v-if="walkPlan.sceneIds.length > 1">
+            <button type="button" class="vmv-cta vmv-cta--walk" @click="walkIn360">
+              <span aria-hidden="true">360°</span> Walk this route in 360°
+            </button>
+            <p v-if="walkPlan.status === 'partial'" class="vmv-note">
+              The 360° walk ends a short way from {{ route.to.name }}. Follow the map for the last stretch.
+            </p>
+          </template>
+          <!-- No hotspots lead there: say so instead of a dead button -->
+          <div v-else-if="walkPlan.status === 'none'" class="vmv-soon" role="note">
+            <span class="vmv-soon__badge" aria-hidden="true">360°</span>
+            <div>
+              <b>360° walk coming soon</b>
+              <p v-if="walkPlan.reason === 'destination'">Our virtual tour doesn't cover {{ route.to.name }} yet. Follow the red line on the map to get there.</p>
+              <p v-else>There's no virtual tour path from {{ route.from.name }} to here yet. Follow the red line on the map to get there.</p>
+            </div>
+          </div>
         </template>
         <p v-else-if="fromPlace && toPlace" class="vmv-note">
           {{ stepFree ? 'No step-free route between these places. Try without "Step-free".' : 'No route between these places on the map yet.' }}
@@ -233,12 +247,23 @@
   </div>
 </template>
 
+<script lang="ts">
+/** What "Walk this route in 360" hands the tour. */
+export interface VenueWalkRoute {
+  sceneIds: string[]
+  status: 'full' | 'partial' | 'none'
+  destination: string
+  /** The destination, to reopen the map on the same route. */
+  toKey: string
+}
+</script>
+
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import VenueCanvas, { type VenueCanvasConnector, type VenueCanvasMarker } from '~/features/venue/VenueCanvas.vue'
 import {
-  allPlaces, buildVenueGraph, findRoute, scenesAlongRoute, searchPlaces, splitCategories, venueCategories,
-  type VenueFloor, type VenuePlaceRef, type VenueLinkKind,
+  allPlaces, buildSceneGraph, buildVenueGraph, findRoute, planWalk, routeThroughScenes, searchPlaces, splitCategories, venueCategories,
+  type VenueFloor, type VenuePlaceRef, type VenueLinkKind, type WalkPlan,
 } from '~/shared/utils/venue'
 
 const props = withDefaults(defineProps<{
@@ -256,6 +281,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'open-scene', sceneId: string): void
+  /** "Walk this route in 360": the 360 stops, in order, to the destination. */
+  (e: 'walk-route', plan: VenueWalkRoute): void
   (e: 'track', event: string, props?: Record<string, unknown>): void
 }>()
 
@@ -452,10 +479,23 @@ function setField(p: VenuePlaceRef) {
 }
 function swap() { [fromKey.value, toKey.value] = [toKey.value, fromKey.value] }
 
+const sceneGraph = computed(() => buildSceneGraph(props.scenes))
+/** The 360 walk: along the tour's hotspots, from the visitor's 360 view when the route starts there. */
+const walkPlan = computed<WalkPlan>(() => {
+  if (mode.value !== 'directions' || !fromPlace.value || !toPlace.value || keyOf(fromPlace.value) === keyOf(toPlace.value)) return { status: 'none', sceneIds: [] }
+  const start = fromPlace.value.id === HERE_ID ? props.activeSceneId : null
+  return planWalk(sceneGraph.value, props.floors, fromPlace.value, toPlace.value, start)
+})
 const route = computed(() => {
   if (mode.value !== 'directions' || !fromPlace.value || !toPlace.value) return null
   if (keyOf(fromPlace.value) === keyOf(toPlace.value)) return null
-  return findRoute(graph.value, fromPlace.value, toPlace.value, { stepFree: stepFree.value })
+  const opts = { stepFree: stepFree.value }
+  // With a 360 walk, the red line goes through its stops, so map and 360 agree.
+  if (walkPlan.value.sceneIds.length > 1) {
+    const along = routeThroughScenes(graph.value, sceneGraph.value, fromPlace.value, toPlace.value, walkPlan.value.sceneIds, opts)
+    if (along) return along
+  }
+  return findRoute(graph.value, fromPlace.value, toPlace.value, opts)
 })
 const routeFloorIds = computed(() => new Set(route.value?.legs.map(l => l.floorId) ?? []))
 const legIndex = computed(() => route.value?.legs.findIndex(l => l.floorId === floor.value?.id) ?? -1)
@@ -535,12 +575,11 @@ watch(() => route.value && `${keyOf(route.value.from)}>${keyOf(route.value.to)}|
 })
 
 // ── 360 along the route ──
-const walkScenes = computed(() => (route.value ? scenesAlongRoute(route.value, props.scenes) : []))
 function walkIn360() {
-  const first = walkScenes.value[0]
-  if (!first) return
-  emit('track', 'venue_route_walk_360', { scenes: walkScenes.value.length })
-  emit('open-scene', first.sceneId)
+  const plan = walkPlan.value
+  if (!route.value || plan.sceneIds.length < 2) return
+  emit('track', 'venue_route_walk_360', { scenes: plan.sceneIds.length, status: plan.status, to: route.value.to.name })
+  emit('walk-route', { sceneIds: plan.sceneIds, status: plan.status, destination: route.value.to.name, toKey: keyOf(route.value.to) })
 }
 
 // ── Share: a link that opens this route ──
@@ -674,6 +713,10 @@ onMounted(() => {
 .vmv-cta--walk { width: 100%; height: 46px; border-radius: 14px; background: #111827; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
 .vmv-cta--walk span { padding: 2px 6px; border-radius: 6px; background: #e11d48; font-size: 11px; }
 .vmv-cta--walk:hover { background: #1f2937; }
+.vmv-soon { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+.vmv-soon__badge { flex-shrink: 0; padding: 3px 7px; border-radius: 7px; background: #f3f4f6; color: #6b7280; font-size: 11px; font-weight: 800; }
+.vmv-soon b { display: block; font-size: 14px; color: #111827; }
+.vmv-soon p { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: #6b7280; }
 
 .vmv-floors { position: absolute; z-index: 4; right: calc(14px + env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.18); max-height: 60%; overflow-y: auto; }
 .vmv-floor { position: relative; width: 44px; height: 40px; border: 0; border-bottom: 1px solid #f3f4f6; background: #fff; color: #374151; font-size: 13px; font-weight: 700; cursor: pointer; }

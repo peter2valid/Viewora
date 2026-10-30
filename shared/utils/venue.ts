@@ -315,35 +315,175 @@ export function routeSteps(floors: VenueFloor[], from: VenuePlaceRef, to: VenueP
   return steps
 }
 
-/** Distance from a point to a polyline (in plan fractions). */
-function distToPolyline(p: RoutePoint, line: RoutePoint[]): { d: number; along: number } {
-  let best = Infinity, along = 0, acc = 0
-  for (let i = 1; i < line.length; i++) {
-    const a = line[i - 1], b = line[i]
-    const dx = b.x - a.x, dy = b.y - a.y
-    const len2 = dx * dx + dy * dy
-    const t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0
-    const d = Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
-    const seg = Math.sqrt(len2)
-    if (d < best) { best = d; along = acc + t * seg }
-    acc += seg
+// ── Walking a route in 360 ────────────────────────────────────
+// The 360 tour can only be walked along its hotspots (scene links), which
+// are one-way: a scene shows only its own links. So the walk is planned on
+// that link graph, and the map's red line is then drawn through the same
+// stops, so the line and the 360 walk agree.
+
+/** A 360 view this close to a place (plan widths) counts as "at" it. */
+const WALK_NEAR = 0.05
+/** Further than this, the tour doesn't reach the place at all. */
+const WALK_PARTIAL = 0.1
+
+export interface SceneGraph {
+  /** sceneId → linked sceneIds (one-way, as the viewer shows them) */
+  links: Map<string, string[]>
+  pins: Map<string, { floorId: string; x: number; y: number }>
+}
+
+/** Raw tour scenes (with hotspots and floor-plan pins). */
+export function buildSceneGraph(scenes: any[] | null | undefined): SceneGraph {
+  const links = new Map<string, string[]>()
+  const pins = new Map<string, { floorId: string; x: number; y: number }>()
+  if (!Array.isArray(scenes)) return { links, pins }
+  const ids = new Set(scenes.map(s => s?.id).filter(Boolean))
+  for (const s of scenes) {
+    if (!s?.id) continue
+    const to = (Array.isArray(s.hotspots) ? s.hotspots : [])
+      .filter((h: any) => h?.type === 'scene_link' && ids.has(h.target_scene_id ?? h.targetSceneId) && (h.target_scene_id ?? h.targetSceneId) !== s.id)
+      .map((h: any) => h.target_scene_id ?? h.targetSceneId)
+    links.set(s.id, [...new Set<string>(to)])
+    if (s.floor_plan_id && typeof s.plan_x === 'number' && typeof s.plan_y === 'number') {
+      pins.set(s.id, { floorId: s.floor_plan_id, x: s.plan_x, y: s.plan_y })
+    }
   }
-  return { d: best, along }
+  return { links, pins }
+}
+
+function planDistance(floors: VenueFloor[], floorId: string, a: RoutePoint, b: RoutePoint): number {
+  const f = floors.find(fl => fl.id === floorId)
+  const ay = f ? f.height / f.width : 1
+  return Math.hypot(a.x - b.x, (a.y - b.y) * ay)
+}
+
+/** Dijkstra over the scene links: cost to every reachable scene, and the way back. */
+function sceneDistances(sg: SceneGraph, floors: VenueFloor[], start: string) {
+  const dist = new Map<string, number>([[start, 0]])
+  const prev = new Map<string, string>()
+  const done = new Set<string>()
+  for (;;) {
+    let u: string | null = null, best = Infinity
+    for (const [k, d] of dist) if (!done.has(k) && d < best) { best = d; u = k }
+    if (u === null) break
+    done.add(u)
+    const pu = sg.pins.get(u)
+    for (const v of sg.links.get(u) ?? []) {
+      const pv = sg.pins.get(v)
+      const w = pu && pv
+        ? (pu.floorId === pv.floorId ? planDistance(floors, pu.floorId, pu, pv) : FLOOR_CHANGE_COST)
+        : 0.05
+      const nd = best + Math.max(w, 1e-4)
+      if (nd < (dist.get(v) ?? Infinity)) { dist.set(v, nd); prev.set(v, u) }
+    }
+  }
+  return { dist, prev }
+}
+
+function pathTo(prev: Map<string, string>, start: string, end: string): string[] {
+  const path = [end]
+  for (let v = end; v !== start;) {
+    const p = prev.get(v)
+    if (!p) return []
+    path.unshift(p)
+    v = p
+  }
+  return path
+}
+
+export interface WalkPlan {
+  /**
+   * full: the 360 walk reaches the destination; partial: it ends a short walk
+   * away; none: the tour doesn't cover the destination (or can't get there
+   * from the start).
+   */
+  status: 'full' | 'partial' | 'none'
+  /** Scenes in walking order, starting where the visitor stands. */
+  sceneIds: string[]
+  /** Why there's no walk: the tour doesn't reach the destination, or can't get there from the start. */
+  reason?: 'destination' | 'start'
+}
+
+/** Shortest walk through the 360 links from one scene to another (empty if unreachable). */
+export function scenePath(sg: SceneGraph, floors: VenueFloor[], from: string, to: string): string[] {
+  if (from === to) return [from]
+  const { prev } = sceneDistances(sg, floors, from)
+  return pathTo(prev, from, to)
 }
 
 /**
- * The tour's 360 views that sit along a route, in walking order — "walk it
- * in 360" steps through these. Scenes are raw tour rows with floor-plan pins.
+ * Plan a 360 walk from `from` to `to`. `startSceneId` is the scene the visitor
+ * is standing in (when the route starts at "your 360 view"); otherwise the
+ * walk starts at the 360 view nearest the start place.
  */
-export function scenesAlongRoute(route: VenueRoute, scenes: any[] | null | undefined, maxDistance = 0.04): Array<{ sceneId: string; floorId: string }> {
-  if (!Array.isArray(scenes)) return []
-  const out: Array<{ sceneId: string; floorId: string; order: number }> = []
-  route.legs.forEach((leg, li) => {
-    for (const s of scenes) {
-      if (s?.floor_plan_id !== leg.floorId || typeof s.plan_x !== 'number' || typeof s.plan_y !== 'number') continue
-      const { d, along } = distToPolyline({ x: s.plan_x, y: s.plan_y }, leg.points)
-      if (d <= maxDistance) out.push({ sceneId: s.id, floorId: leg.floorId, order: li * 100 + along })
+export function planWalk(
+  sg: SceneGraph, floors: VenueFloor[], from: VenuePlaceRef, to: VenuePlaceRef, startSceneId?: string | null,
+): WalkPlan {
+  const near = (p: VenuePlaceRef, max: number) => [...sg.pins.entries()]
+    .filter(([, pin]) => pin.floorId === p.floorId)
+    .map(([id, pin]) => ({ id, d: planDistance(floors, p.floorId, pin, p) }))
+    .filter(c => c.d <= max)
+    .sort((a, b) => a.d - b.d)
+
+  // The destination's own 360 view (a place can name one) counts as at it.
+  const own = to.scene_id && sg.pins.has(to.scene_id) ? to.scene_id : null
+  const starts = startSceneId && sg.links.has(startSceneId) ? [startSceneId] : near(from, 0.08).map(c => c.id)
+  for (const start of starts) {
+    const { dist, prev } = sceneDistances(sg, floors, start)
+    let best: { id: string; d: number } | null = null
+    for (const id of dist.keys()) {
+      const pin = sg.pins.get(id)
+      if (!pin || pin.floorId !== to.floorId) continue
+      const d = id === own ? 0 : planDistance(floors, to.floorId, pin, to)
+      // Equal-ish distances: prefer the shorter walk.
+      if (!best || d < best.d - 0.005 || (Math.abs(d - best.d) <= 0.005 && dist.get(id)! < dist.get(best.id)!)) best = { id, d }
     }
-  })
-  return out.sort((a, b) => a.order - b.order).map(({ sceneId, floorId }) => ({ sceneId, floorId }))
+    if (!best || best.d > WALK_PARTIAL) continue
+    const sceneIds = pathTo(prev, start, best.id)
+    if (!sceneIds.length) continue
+    return { status: best.d <= WALK_NEAR ? 'full' : 'partial', sceneIds }
+  }
+  const covered = !!own || near(to, WALK_PARTIAL).length > 0
+  return { status: 'none', sceneIds: [], reason: covered ? 'start' : 'destination' }
+}
+
+/**
+ * The map route drawn through the walk's 360 stops, in order, so the red line
+ * follows the hotspots. Stops the walkways can't reach are skipped. Null when
+ * no route fits (the caller keeps the plain shortest route).
+ */
+export function routeThroughScenes(
+  g: VenueGraph, sg: SceneGraph, from: VenuePlaceRef, to: VenuePlaceRef, sceneIds: string[], opts: { stepFree?: boolean } = {},
+): VenueRoute | null {
+  const floorName = (id: string) => g.floors.find(f => f.id === id)?.name ?? ''
+  const stops: VenuePlaceRef[] = [from]
+  for (const id of sceneIds) {
+    const pin = sg.pins.get(id)
+    if (!pin || !g.floors.some(f => f.id === pin.floorId)) continue
+    stops.push({ id: `scene:${id}`, name: '', x: pin.x, y: pin.y, floorId: pin.floorId, floorName: floorName(pin.floorId) })
+  }
+  stops.push(to)
+
+  const legs: RouteLeg[] = []
+  let length = 0
+  let a = stops[0]
+  for (let i = 1; i < stops.length; i++) {
+    const b = stops[i]
+    if (Math.hypot(a.x - b.x, a.y - b.y) < 1e-4 && a.floorId === b.floorId) continue
+    const part = findRoute(g, a, b, opts)
+    if (!part) {
+      if (i === stops.length - 1) return null // can't reach the destination itself
+      continue // skip a stop off the walkways
+    }
+    length += part.length
+    for (const leg of part.legs) {
+      const last = legs[legs.length - 1]
+      if (last && last.floorId === leg.floorId && !last.connector) last.points.push(...leg.points)
+      else legs.push({ floorId: leg.floorId, points: [...leg.points] })
+      if (leg.connector) legs[legs.length - 1].connector = leg.connector
+    }
+    a = b
+  }
+  if (!legs.length) return null
+  return { from, to, legs, steps: routeSteps(g.floors, from, to, legs), length }
 }

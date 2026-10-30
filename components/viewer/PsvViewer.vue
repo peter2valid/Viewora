@@ -52,6 +52,7 @@
       :initial-from="venueInitial.from"
       @close="showVenue = false"
       @open-scene="openSceneFromVenue"
+      @walk-route="startRouteGuide"
       @track="(ev: string, p?: Record<string, unknown>) => $posthog?.capture(ev, p)"
       @click.stop
     />
@@ -542,10 +543,25 @@
       @hotspot-click="emit('hotspot-click', $event)"
     />
 
+    <!-- ── "Walk this route in 360": step-by-step guide along the hotspots ── -->
+    <RouteGuide
+      v-if="routeGuide && hasTourData && vtReady && !showVenue"
+      :plan="routeGuide"
+      :handle="vtHandle"
+      :active-scene-id="vtActiveNodeId"
+      :scenes="tourScenes"
+      :floors="venueFloors"
+      :transitioning="vtTransitioning"
+      @walk="onGuideWalk"
+      @rejoin="(id: string) => void openSceneFromMap(id)"
+      @show-map="showGuideMap"
+      @end="endRouteGuide"
+    />
+
     <!-- ── Scene dock (both modes) — hidden when hideOwnChrome is set; the
          host page drives scene switching itself via goToScene() ── -->
     <GlassDock
-      v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome"
+      v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome && !routeGuide"
       v-show="floorMapView !== 'maximized'"
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
@@ -592,7 +608,8 @@ import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
-import VenueMapViewer from '~/components/viewer/VenueMapViewer.vue'
+import VenueMapViewer, { type VenueWalkRoute } from '~/components/viewer/VenueMapViewer.vue'
+import RouteGuide from '~/components/viewer/RouteGuide.vue'
 import { buildVenueFloors } from '~/shared/utils/venue'
 import {
   BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
@@ -1209,21 +1226,41 @@ function onAerialEnquire(detail: PlotEnquiryDetail) {
 // ── Venue map (mall directory + wayfinding) — floors that carry shops ──
 const venueFloors = computed(() => buildVenueFloors((props.tour as any)?.floor_plans))
 // A shared route link (?to=shop&from=shop) opens straight on the map.
-const venueInitial = (() => {
+const venueInitial = ref((() => {
   if (typeof window === 'undefined') return { to: null as string | null, from: null as string | null }
   const q = new URLSearchParams(window.location.search)
   return { to: q.get('to'), from: q.get('from') }
-})()
+})())
 const showVenue = ref(false)
-onMounted(() => { if (venueInitial.to && venueFloors.value.length) showVenue.value = true })
+onMounted(() => { if (venueInitial.value.to && venueFloors.value.length) showVenue.value = true })
 function openVenue() {
   showVenue.value = true
   $posthog?.capture('venue_map_opened')
 }
-/** "360°" on a shop / "walk this route": stand there, map lifted away. */
+/** "360°" on a shop: stand there, map lifted away. */
 function openSceneFromVenue(sceneId: string) {
   showAerial.value = false
   void openSceneFromMap(sceneId).finally(() => { showVenue.value = false })
+}
+
+// "Walk this route in 360": stand at the first stop, then RouteGuide leads
+// the way hotspot by hotspot. Replaces the scene dock while it runs.
+const routeGuide = ref<VenueWalkRoute | null>(null)
+function startRouteGuide(plan: VenueWalkRoute) {
+  routeGuide.value = plan
+  openSceneFromVenue(plan.sceneIds[0])
+}
+function onGuideWalk(sceneId: string, yaw: number) {
+  if (vtHandle.value) void walkThroughFloorCursor(vtHandle.value, sceneId, yaw, 'venue-guide')
+}
+/** Back to the map on the same route, from where the visitor now stands. */
+function showGuideMap() {
+  if (routeGuide.value) venueInitial.value = { to: routeGuide.value.toKey, from: '__here' }
+  showVenue.value = true
+}
+function endRouteGuide() {
+  if (routeGuide.value) $posthog?.capture('venue_route_guide_ended', { to: routeGuide.value.destination, at: vtActiveNodeId.value })
+  routeGuide.value = null
 }
 
 // ── Opening screen data ──
