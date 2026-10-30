@@ -40,7 +40,14 @@
         </span>
         <div class="rg-card__text">
           <p class="rg-card__title">{{ title }}</p>
-          <p class="rg-card__sub">{{ subtitle }}</p>
+          <p class="rg-card__sub">
+            {{ subtitle }}
+            <!-- Changed your mind? Pick another destination from where you stand -->
+            <button v-if="!arrived || plan.status !== 'full'" type="button" class="rg-dest" title="Change destination" @click="emit('change-destination')">
+              {{ arrived || offRoute ? 'Go somewhere else' : `To ${plan.destination}` }}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            </button>
+          </p>
         </div>
         <button type="button" class="rg-x" aria-label="End the route" title="End the route" @click="emit('end')">×</button>
       </div>
@@ -91,6 +98,7 @@ const emit = defineEmits<{
   (e: 'walk', sceneId: string, yaw: number): void
   (e: 'rejoin', sceneId: string): void
   (e: 'show-map'): void
+  (e: 'change-destination'): void
   (e: 'end'): void
 }>()
 
@@ -147,7 +155,7 @@ const title = computed(() => {
 const subtitle = computed(() => {
   if (offRoute.value) return `No hotspots lead to ${props.plan.destination} from this view.`
   if (arrived.value) return props.plan.status === 'full' ? 'Look around, or open the map to go somewhere else.' : `${props.plan.destination} is a short walk from here. Follow the map for the last stretch.`
-  return `Stop ${index.value + 1} of ${path.value.length} · To ${props.plan.destination}`
+  return `Stop ${index.value + 1} of ${path.value.length} ·`
 })
 
 // ── Beacon / turn arrow, kept on the hotspot as the view moves ──
@@ -250,6 +258,8 @@ onBeforeUnmount(() => {
 .rg-card__text { flex: 1; min-width: 0; }
 .rg-card__title { margin: 0; font-size: 16px; font-weight: 800; line-height: 1.25; }
 .rg-card__sub { margin: 2px 0 0; font-size: 13px; color: #6b7280; line-height: 1.35; }
+.rg-dest { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 1px 6px; border: 0; border-radius: 6px; background: #fff1f2; color: #be123c; font: inherit; font-weight: 700; cursor: pointer; }
+.rg-dest:hover { background: #ffe4e6; text-decoration: underline; }
 .rg-x { flex-shrink: 0; align-self: flex-start; width: 32px; height: 32px; border: 0; border-radius: 10px; background: transparent; color: #6b7280; font-size: 22px; line-height: 1; cursor: pointer; }
 .rg-x:hover { background: #f3f4f6; }
 .rg-progress { height: 4px; margin: 10px 0 0; border-radius: 4px; background: #f3f4f6; overflow: hidden; }

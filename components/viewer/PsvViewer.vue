@@ -50,6 +50,8 @@
       :active-scene-id="vtActiveNodeId"
       :initial-to="venueInitial.to"
       :initial-from="venueInitial.from"
+      :initial-edit="venueInitial.edit"
+      :back-label="routeGuide ? 'Back to your 360° walk' : 'Back to the 360° tour'"
       @close="showVenue = false"
       @open-scene="openSceneFromVenue"
       @walk-route="startRouteGuide"
@@ -555,6 +557,7 @@
       @walk="onGuideWalk"
       @rejoin="(id: string) => void openSceneFromMap(id)"
       @show-map="showGuideMap"
+      @change-destination="showGuideMap('to')"
       @end="endRouteGuide"
     />
 
@@ -1226,14 +1229,15 @@ function onAerialEnquire(detail: PlotEnquiryDetail) {
 // ── Venue map (mall directory + wayfinding) — floors that carry shops ──
 const venueFloors = computed(() => buildVenueFloors((props.tour as any)?.floor_plans))
 // A shared route link (?to=shop&from=shop) opens straight on the map.
-const venueInitial = ref((() => {
-  if (typeof window === 'undefined') return { to: null as string | null, from: null as string | null }
+const venueInitial = ref<{ to: string | null; from: string | null; edit?: 'to' | null }>((() => {
+  if (typeof window === 'undefined') return { to: null, from: null }
   const q = new URLSearchParams(window.location.search)
   return { to: q.get('to'), from: q.get('from') }
 })())
 const showVenue = ref(false)
 onMounted(() => { if (venueInitial.value.to && venueFloors.value.length) showVenue.value = true })
 function openVenue() {
+  venueInitial.value = { to: null, from: null }
   showVenue.value = true
   $posthog?.capture('venue_map_opened')
 }
@@ -1253,9 +1257,12 @@ function startRouteGuide(plan: VenueWalkRoute) {
 function onGuideWalk(sceneId: string, yaw: number) {
   if (vtHandle.value) void walkThroughFloorCursor(vtHandle.value, sceneId, yaw, 'venue-guide')
 }
-/** Back to the map on the same route, from where the visitor now stands. */
-function showGuideMap() {
-  if (routeGuide.value) venueInitial.value = { to: routeGuide.value.toKey, from: '__here' }
+/**
+ * Back to the map on the same route, from where the visitor now stands —
+ * or, with 'to', straight on choosing another destination.
+ */
+function showGuideMap(edit: 'to' | null = null) {
+  if (routeGuide.value) venueInitial.value = { to: routeGuide.value.toKey, from: '__here', edit }
   showVenue.value = true
 }
 function endRouteGuide() {
