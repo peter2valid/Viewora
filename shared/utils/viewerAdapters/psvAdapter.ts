@@ -98,6 +98,24 @@ export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'a
 let _tileThrottleInstalled = false
 const CDN_IMAGE_OPS = /\/cdn-cgi\/image\/[^/]+\//
 
+/**
+ * Cloudflare sends the WebP only when the request says it accepts WebP. PSV
+ * fetches the preview with Accept: *\/* and got a JPEG, so the WebP our
+ * preloads had fetched was downloaded a second time (~0.5 s per room change).
+ * Every resized preview request asks for WebP, so they all share one cache entry.
+ */
+function acceptWebp(input: RequestInfo | URL, init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
+  headers.set('Accept', 'image/webp,*/*')
+  return { ...init, headers }
+}
+
+/** Fetch a scene preview into the browser cache, the same request PSV makes for it. */
+function preloadPreview(url: string): Promise<void> {
+  if (!url) return Promise.resolve()
+  return fetch(url).then(r => r.blob()).then(() => {}, () => {})
+}
+
 function installTileFetchThrottle(): void {
   if (_tileThrottleInstalled || typeof window === 'undefined') return
   _tileThrottleInstalled = true
@@ -117,6 +135,7 @@ function installTileFetchThrottle(): void {
       // falls back server-side; if the transform still errors, load the original
       // so the scene opens instead of staying black.
       const original = url.replace(CDN_IMAGE_OPS, '/')
+      init = acceptWebp(input, init)
       return orig(input, init)
         .then(r => (r.ok ? r : orig(original, init)))
         .catch(() => orig(original, init))
@@ -1709,10 +1728,8 @@ export async function initVirtualTourViewer(
       for (const id of linkedIds) {
         const target = scenes.find(s => s.id === id)
         if (target) {
-          // Preload thumbnail into browser memory so GPU upload is instant when
-          // the fade transition completes and PSV needs the texture.
-          const img = new Image()
-          img.src = target.imageUrl
+          // Preview into the browser cache, so PSV has it the moment we walk there.
+          void preloadPreview(target.imageUrl)
           prefetchSceneTiles(target, resolvedPerformanceMode)
         }
       }
@@ -1732,10 +1749,8 @@ export async function initVirtualTourViewer(
       const target = targetId ? scenes.find(s => s.id === targetId) : null
       if (!target) continue
       const prefetch = () => {
-        // Decode thumbnail into browser memory immediately on hover/touch so
-        // the GPU upload is instant when the fade transition completes.
-        const img = new Image()
-        img.src = target.imageUrl
+        // Preview into the browser cache as soon as the pointer heads for it.
+        void preloadPreview(target.imageUrl)
         prefetchSceneTiles(target, resolvedPerformanceMode)
       }
       el.addEventListener('pointerenter', prefetch, { passive: true })
@@ -1835,16 +1850,9 @@ export async function vtWalkToNode(
   const startZoom: number = viewer.getZoomLevel?.() ?? 50
   const pos = viewer.getPosition?.() ?? { yaw: 0, pitch: 0 }
 
-  // Next room's preview, decoded so the crossfade can start the moment we arrive.
-  const preload = opts.previewUrl
-    ? new Promise<void>(resolve => {
-        const im = new Image()
-        im.crossOrigin = 'anonymous'
-        im.onload = () => { (im.decode?.() ?? Promise.resolve()).catch(() => {}).finally(() => resolve()) }
-        im.onerror = () => resolve()
-        im.src = opts.previewUrl!
-      })
-    : Promise.resolve()
+  // Next room's preview in the browser cache, so the crossfade can start the
+  // moment we arrive (PSV's own request for it is then a cache hit).
+  const preload = preloadPreview(opts.previewUrl ?? '')
 
   try {
     if (!reduce) {
