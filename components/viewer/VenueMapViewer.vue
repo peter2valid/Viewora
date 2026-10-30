@@ -13,6 +13,7 @@
       :markers="markers"
       :connectors="connectorsOnFloor"
       :dim-others="!!route || !!selected"
+      :highlight-ids="route || selected ? null : highlightIds"
       :insets="insets"
       @place-click="onPlaceClick"
       @connector-click="showFloor"
@@ -44,16 +45,40 @@
           </button>
         </div>
 
-        <div v-if="categories.length > 1" class="vmv-chips" role="list">
-          <button
-            v-for="c in categories" :key="c.name"
-            type="button" role="listitem"
-            class="vmv-chip" :class="{ 'vmv-chip--on': c.name === category }"
-            @click="toggleCategory(c.name)"
-          >{{ c.name }}<small>{{ c.count }}</small></button>
+        <!-- Chips scroll sideways: swipe on touch; arrows, wheel and fading
+             edges on desktop (Google Maps style) so hidden chips are reachable. -->
+        <div v-if="categories.length > 1" class="vmv-chipbar" :class="{ 'vmv-chipbar--l': chipsCanLeft, 'vmv-chipbar--r': chipsCanRight }">
+          <button v-if="chipsCanLeft" type="button" class="vmv-chipbar__arrow vmv-chipbar__arrow--l" aria-label="Scroll categories left" tabindex="-1" @click="scrollChips(-1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div ref="chipsEl" class="vmv-chips" role="list" @scroll.passive="updateChipEdges" @wheel="onChipsWheel">
+            <button
+              v-for="c in categories" :key="c.name"
+              type="button" role="listitem"
+              class="vmv-chip" :class="{ 'vmv-chip--on': c.name === category }"
+              :aria-pressed="c.name === category"
+              @click="toggleCategory(c.name, $event)"
+            >{{ c.name }}<small>{{ c.count }}</small></button>
+          </div>
+          <button v-if="chipsCanRight" type="button" class="vmv-chipbar__arrow vmv-chipbar__arrow--r" aria-label="Scroll categories right" tabindex="-1" @click="scrollChips(1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
 
-        <ul v-if="showResults" class="vmv-results">
+        <!-- Hidden list: the filter stays on (matching dots stay bright on the map) -->
+        <button v-if="showResults && listCollapsed" type="button" class="vmv-listpill" @click="listCollapsed = false">
+          Show {{ results.length }} {{ results.length === 1 ? 'place' : 'places' }}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <ul v-if="showResults && !listCollapsed" class="vmv-results">
+          <li class="vmv-results__head">
+            <span>{{ results.length }} {{ results.length === 1 ? 'place' : 'places' }}<template v-if="category"> · {{ category }}</template></span>
+            <button type="button" class="vmv-results__hide" aria-label="Hide list" @click="listCollapsed = true">
+              Hide list
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 15l-6-6-6 6"/></svg>
+            </button>
+          </li>
           <li v-for="p in results" :key="`${p.floorId}:${p.id}`">
             <button type="button" @click="pick(p)">
               <span class="vmv-results__logo" :style="logoStyle(p)">{{ p.logo ? '' : initials(p.name) }}</span>
@@ -295,10 +320,53 @@ const results = computed(() => {
   return []
 })
 const showResults = computed(() => !!query.value.trim() || !!category.value)
-const panelOpen = computed(() => showResults.value || mode.value === 'directions')
+/** List hidden by the visitor (or a map tap) to see the map; the search / category stays on. */
+const listCollapsed = ref(false)
+watch([query, category], () => { listCollapsed.value = false })
+const panelOpen = computed(() => (showResults.value && !listCollapsed.value) || mode.value === 'directions')
+/** Places of the active category / search, kept bright on the map. */
+const highlightIds = computed(() => {
+  if (!showResults.value || !floor.value) return null
+  return new Set(results.value.filter(p => p.floorId === floor.value!.id).map(p => p.id))
+})
 
-function toggleCategory(name: string) { category.value = category.value === name ? null : name }
+function toggleCategory(name: string, e?: MouseEvent) {
+  category.value = category.value === name ? null : name
+  // Bring the tapped chip fully into view, so its neighbours show it can scroll.
+  ;(e?.currentTarget as HTMLElement | undefined)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+}
 function clearSearch() { query.value = ''; category.value = null; searchEl.value?.blur() }
+
+// ── Category chips: horizontal scroller ──
+const chipsEl = ref<HTMLElement | null>(null)
+const chipsCanLeft = ref(false)
+const chipsCanRight = ref(false)
+function updateChipEdges() {
+  const el = chipsEl.value
+  if (!el) return
+  chipsCanLeft.value = el.scrollLeft > 2
+  chipsCanRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 2
+}
+function scrollChips(dir: 1 | -1) {
+  const el = chipsEl.value
+  if (el) el.scrollBy({ left: dir * el.clientWidth * 0.7, behavior: 'smooth' })
+}
+/** A mouse wheel scrolls the row sideways (trackpads already scroll it natively). */
+function onChipsWheel(e: WheelEvent) {
+  const el = chipsEl.value
+  if (!el || Math.abs(e.deltaX) >= Math.abs(e.deltaY) || el.scrollWidth <= el.clientWidth) return
+  e.preventDefault()
+  el.scrollLeft += e.deltaY
+}
+let chipsRo: ResizeObserver | null = null
+watch(chipsEl, el => {
+  chipsRo?.disconnect()
+  if (!el) return
+  chipsRo = new ResizeObserver(updateChipEdges)
+  chipsRo.observe(el)
+  updateChipEdges()
+})
+onBeforeUnmount(() => chipsRo?.disconnect())
 
 const selectedKey = ref<string | null>(null)
 const selected = computed(() => (selectedKey.value ? placeByKey.value.get(selectedKey.value) ?? null : null))
@@ -326,7 +394,11 @@ function onPlaceClick(id: string) {
   pick(p)
 }
 function onMapClick() {
-  if (mode.value === 'browse') selectedKey.value = null
+  if (mode.value === 'browse') {
+    selectedKey.value = null
+    // Tapping the map tucks the list away (the filter stays), like Google Maps.
+    if (showResults.value) { listCollapsed.value = true; searchEl.value?.blur() }
+  }
   editing.value = null
 }
 
@@ -540,6 +612,24 @@ onMounted(() => {
 
 .vmv-chips, .vmv-opts { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 4px; scrollbar-width: none; }
 .vmv-chips::-webkit-scrollbar { display: none; }
+.vmv-chips { overscroll-behavior-x: contain; scroll-padding-inline: 40px; }
+/* Fading edge where more chips are hidden */
+.vmv-chipbar { position: relative; min-width: 0; }
+.vmv-chipbar--l .vmv-chips { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 44px); mask-image: linear-gradient(90deg, transparent 0, #000 44px); }
+.vmv-chipbar--r .vmv-chips { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+.vmv-chipbar--l.vmv-chipbar--r .vmv-chips { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 44px, #000 calc(100% - 44px), transparent); }
+.vmv-chipbar__arrow { position: absolute; z-index: 1; top: 3px; display: none; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid #e5e7eb; border-radius: 50%; background: #fff; color: #1f2937; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.16); }
+.vmv-chipbar__arrow:hover { background: #f3f4f6; }
+.vmv-chipbar__arrow--l { left: 0; }
+.vmv-chipbar__arrow--r { right: 0; }
+/* Arrows only where there's a mouse; touch screens swipe */
+@media (hover: hover) and (pointer: fine) { .vmv-chipbar__arrow { display: grid; } }
+
+.vmv-listpill { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 14px; border: 0; border-radius: 999px; background: #fff; color: #1d4ed8; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.14); }
+.vmv-listpill:hover { background: #eff6ff; }
+.vmv-results__head { position: sticky; top: -6px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -6px -6px 4px; padding: 8px 8px 8px 14px; background: #fff; border-bottom: 1px solid #f3f4f6; font-size: 12px; font-weight: 600; color: #6b7280; }
+.vmv-results .vmv-results__hide { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 6px 8px; border-radius: 8px; color: #1d4ed8; font-size: 13px; font-weight: 700; }
+.vmv-results .vmv-results__hide:hover { background: #eff6ff; }
 .vmv-chip { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px; border: 1px solid #e5e7eb; border-radius: 999px; background: #fff; color: #1f2937; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08); white-space: nowrap; }
 .vmv-chip small { color: #6b7280; font-weight: 600; }
 .vmv-chip--on { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }

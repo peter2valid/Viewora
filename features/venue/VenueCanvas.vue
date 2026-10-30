@@ -46,7 +46,7 @@
         v-for="p in dots" :key="p.id"
         type="button"
         class="vc-dot"
-        :class="{ 'vc-dot--dim': dimOthers }"
+        :class="{ 'vc-dot--dim': dimOthers || (highlightIds && !highlightIds.has(p.id)), 'vc-dot--hi': highlightIds?.has(p.id) }"
         :style="at(p)"
         :aria-label="p.name"
         :title="p.name"
@@ -106,6 +106,8 @@ const props = defineProps<{
   connectors?: VenueCanvasConnector[]
   /** Fade the other places' dots (a route or a place is in focus). */
   dimOthers?: boolean
+  /** Places of the active category / search: those stay bright, the rest fade. */
+  highlightIds?: Set<string> | null
   /** Screen space covered by floating panels. */
   insets?: { top?: number; right?: number; bottom?: number; left?: number }
 }>()
@@ -355,6 +357,7 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++ })
 .vc-dot::after { content: ''; position: absolute; left: 7px; top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #1d4ed8; box-shadow: 0 0 0 2px #fff; opacity: 0.55; transition: opacity 0.2s, transform 0.2s; }
 .vc-dot:hover::after { opacity: 1; transform: scale(1.4); }
 .vc-dot--dim::after { opacity: 0.18; }
+.vc-dot--hi::after { opacity: 1; transform: scale(1.25); }
 
 .vc-start { position: absolute; width: 0; height: 0; pointer-events: none; }
 .vc-start i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
