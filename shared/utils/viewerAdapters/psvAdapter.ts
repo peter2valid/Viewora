@@ -54,13 +54,14 @@ export type ViewerPerformanceMode = 'auto' | 'full' | 'lite'
 
 /**
  * Pieces around the panorama sphere. The tiles adapter draws each piece on
- * its own, so 64 (PSV's default) is 64 × 32 = 2,048 draw calls every frame.
- * ?sphere=32 tests 512 instead; PSV needs at least as many pieces as our
- * widest tile grid (16 × 8). Tiles are unchanged either way.
+ * its own, so PSV's default of 64 is 64 × 32 = 2,048 draw calls every frame;
+ * 32 is 512, which took a desktop drag from ~38 to ~56 fps. PSV needs at
+ * least as many pieces as our widest tile grid (16 × 8). Tiles are unchanged.
+ * ?sphere=64 brings back the old sphere for comparison.
  */
 function sphereResolution(): number {
-  if (typeof window === 'undefined') return 64
-  return new URLSearchParams(window.location.search).get('sphere') === '32' ? 32 : 64
+  if (typeof window === 'undefined') return 32
+  return new URLSearchParams(window.location.search).get('sphere') === '64' ? 64 : 32
 }
 
 export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'auto'> {
@@ -182,6 +183,8 @@ function canUseMediumTiles(scene: TourScene): boolean {
 // Uses low-priority fetch so it never competes with the active scene's rendering.
 // Only one prefetch runs at a time — a new call cancels the previous one.
 let _prefetchController: AbortController | null = null
+/** Next-room tiles downloaded at once; the tile throttle allows 8 in total. */
+const PREFETCH_CONCURRENCY = 4
 
 export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | 'full'): void {
   if (typeof window === 'undefined') return
@@ -223,19 +226,23 @@ export function prefetchSceneTiles(scene: TourScene, performanceMode: 'lite' | '
     (Math.abs(c2 - midC) + Math.abs(r2 - midR))
   )
 
-  // Fire requests sequentially so we don't flood the connection
-  ;(async () => {
-    for (const [col, row] of order) {
-      if (signal.aborted) break
+  // A few requests at a time, in that order. One at a time took ~6.5 s a
+  // room (each tile is ~200 ms, mostly server wait); all at once would take
+  // every slot of the tile throttle from the room on screen.
+  let nextTile = 0
+  const worker = async () => {
+    while (nextTile < order.length && !signal.aborted) {
+      const [col, row] = order[nextTile++]
       const url = `${manifest}/${col}_${row}.webp`
       try {
         await fetch(url, { signal, priority: 'low' as any, credentials: 'omit' })
       } catch {
         // abort or network error — stop quietly
-        break
+        return
       }
     }
-  })()
+  }
+  for (let i = 0; i < PREFETCH_CONCURRENCY; i++) void worker()
 }
 
 
