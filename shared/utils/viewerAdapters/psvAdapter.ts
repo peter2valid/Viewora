@@ -52,6 +52,17 @@ export interface PsvClickPayload {
 
 export type ViewerPerformanceMode = 'auto' | 'full' | 'lite'
 
+/**
+ * Pieces around the panorama sphere. The tiles adapter draws each piece on
+ * its own, so 64 (PSV's default) is 64 × 32 = 2,048 draw calls every frame.
+ * ?sphere=32 tests 512 instead; PSV needs at least as many pieces as our
+ * widest tile grid (16 × 8). Tiles are unchanged either way.
+ */
+function sphereResolution(): number {
+  if (typeof window === 'undefined') return 64
+  return new URLSearchParams(window.location.search).get('sphere') === '32' ? 32 : 64
+}
+
 export function detectViewerPerformanceMode(): Exclude<ViewerPerformanceMode, 'auto'> {
   if (typeof window === 'undefined') return 'full'
 
@@ -904,7 +915,7 @@ export async function initViewer(
 
   const viewer: any = new Viewer({
     container,
-    adapter: [SceneSafeTilesAdapter, { resolution: 64, baseBlur: false, antialias: false }] as any,
+    adapter: [SceneSafeTilesAdapter, { resolution: sphereResolution(), baseBlur: false, antialias: false }] as any,
     panorama: buildPanorama(scene, resolvedPerformanceMode),
     defaultYaw: scene.settings.yaw_default,
     defaultPitch: scene.settings.pitch_default,
@@ -1559,7 +1570,7 @@ export async function initVirtualTourViewer(
   const adapterClass = ktx2Available ? KtxEquirectangularTilesAdapter : SceneSafeTilesAdapter
   const viewer: any = new Viewer({
     container,
-    adapter: [adapterClass, { resolution: 64, baseBlur: false, antialias: false }] as any,
+    adapter: [adapterClass, { resolution: sphereResolution(), baseBlur: false, antialias: false }] as any,
     defaultYaw: startScene.settings.yaw_default,
     defaultPitch: startScene.settings.pitch_default,
     defaultZoomLvl: 0,

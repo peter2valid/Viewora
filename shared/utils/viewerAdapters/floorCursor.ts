@@ -44,6 +44,8 @@ const BASE_SIZE = 320
 const SPOT_SIZE = 260
 /** Smallest share of the size, near the horizon. */
 const MIN_SCALE = 0.4
+/** The cursor comes back this long after the camera stops turning (ms). */
+const VIEW_SETTLE_MS = 150
 /** No floor above this pitch (radians, ≈ −6°). */
 const MAX_PITCH = -0.1
 /** Hotspot discs sit at least this far below the horizon (radians, ≈ −8°). */
@@ -184,7 +186,11 @@ export function attachFloorCursor(
   /** Hotspot whose pin is under the mouse. */
   let pinned: FloorCursorLink | null = null
   let shown: string | null = null
+  /** The highlight marker is visible (so hiding it again is skipped). */
+  let highlighted = false
   let frame = 0
+  /** Pending recompute after the camera stops turning; the cursor stays hidden until then. */
+  let settle = 0
 
   // Room name next to the mouse while a hotspot is picked.
   const label = document.createElement('div')
@@ -221,6 +227,7 @@ export function attachFloorCursor(
       addFlat(id, img, z)
       // A re-added marker starts hidden; forget what was on screen.
       if (shown === id) shown = null
+      if (id === HIGHLIGHT_ID) highlighted = false
     }
   }
 
@@ -230,6 +237,7 @@ export function attachFloorCursor(
     target = null
     pinned = null
     shown = null
+    highlighted = false
     for (const link of links) {
       // The chevron (MarkersPlugin marker with the hotspot's id) stays for phones.
       if (hasMarker(link.hotspotId)) markers.updateMarker({ id: link.hotspotId, visible: false })
@@ -251,11 +259,19 @@ export function attachFloorCursor(
     try { markers.updateMarker({ id, visible: false }) } catch { /* removed by a node change */ }
   }
 
+  // Every updateMarker makes MarkersPlugin refresh, so markers already hidden
+  // are left alone: a drag calls hide() on every mouse move.
+  function hideHighlight() {
+    if (!highlighted) return
+    highlighted = false
+    hideMarker(HIGHLIGHT_ID)
+  }
+
   function hide() {
     target = null
     label.style.display = 'none'
     container!.classList.remove('psv--floor-cursor')
-    hideMarker(HIGHLIGHT_ID)
+    hideHighlight()
     if (!shown) return
     hideMarker(shown)
     shown = null
@@ -311,6 +327,7 @@ export function attachFloorCursor(
       size: { width: s, height: s },
       visible: true,
     })
+    highlighted = true
     label.textContent = link.name
     label.style.left = `${at.x + 18}px`
     label.style.top = `${at.y + 18}px`
@@ -320,7 +337,7 @@ export function attachFloorCursor(
   function update() {
     frame = 0
     if (pinned && pinMouse && !opts.isBlocked()) { showPinned(pinned, pinMouse); return }
-    if (!cursor || !mouse || opts.isBlocked()) { hide(); return }
+    if (!cursor || !mouse || settle || opts.isBlocked()) { hide(); return }
     const pos = viewer.dataHelper.viewerCoordsToSphericalCoords(mouse)
     if (!pos || !(pos.pitch < MAX_PITCH)) { hide(); return }
 
@@ -341,7 +358,7 @@ export function attachFloorCursor(
 
     if (picked) highlight(picked.link, mouse)
     else {
-      hideMarker(HIGHLIGHT_ID)
+      hideHighlight()
       label.style.display = 'none'
     }
     container!.classList.toggle('psv--floor-cursor', !!picked)
@@ -375,8 +392,15 @@ export function attachFloorCursor(
   }
   const onEnterMarker = (e: any) => { const link = pinLink(e); if (link) { pinned = link; schedule() } }
   const onLeaveMarker = (e: any) => { if (pinLink(e)) { pinned = null; schedule() } }
-  // The camera turning (drag, autorotate, keys) moves the floor under a still mouse.
-  const onViewMoved = () => { if (mouse) schedule() }
+  // The camera turning (drag glide, autorotate, keys) moves the floor under a
+  // still mouse. Placing the cursor costs a raycast and marker updates, so it
+  // is hidden while the view moves and placed once it settles.
+  const onViewMoved = () => {
+    if (!mouse) return
+    hide()
+    clearTimeout(settle)
+    settle = window.setTimeout(() => { settle = 0; schedule() }, VIEW_SETTLE_MS)
+  }
   const onSelect = (e: any) => {
     const id = String(e?.marker?.id ?? '')
     if (!id.startsWith(FLOOR_CURSOR_PREFIX)) return
@@ -423,6 +447,7 @@ export function attachFloorCursor(
     destroy() {
       destroyed = true
       if (frame) cancelAnimationFrame(frame)
+      clearTimeout(settle)
       container.removeEventListener('mousemove', onMouseMove)
       container.removeEventListener('mouseleave', onMouseLeave)
       viewer.removeEventListener('position-updated', onViewMoved)

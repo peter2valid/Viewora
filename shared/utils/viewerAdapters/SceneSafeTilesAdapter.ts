@@ -24,6 +24,22 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   /** Panorama of the sphere tiles are currently drawn onto (state.geom). */
   protected vwPanorama: unknown = undefined
 
+  /**
+   * The panorama spheres are never hit-tested. PSV finds the point under the
+   * mouse on its own invisible sphere (renderer.raycasterMesh), and only that
+   * hit and marker hits are ever used. Yet every mousemove (with 3D markers on
+   * screen) and every viewerCoordsToSphericalCoords call raycast the whole
+   * scene, testing ~4,000 triangles on each of these two meshes for nothing:
+   * about a third of the script time during a desktop drag.
+   */
+  // @ts-ignore
+  createMesh(panoData: any) {
+    // @ts-ignore
+    const group = super.createMesh(panoData)
+    group.traverse((obj: any) => { if (obj.isMesh) obj.raycast = () => {} })
+    return group
+  }
+
   // @ts-ignore — PSV internals below are not in its public types
   setTexture(group: any, textureData: any, transition: boolean) {
     group.userData.vwPanorama = textureData.panorama
