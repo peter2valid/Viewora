@@ -142,6 +142,14 @@
             @click="isSidebarOpen = false"
           />
           <SidebarLink
+            to="/app/route-gaps"
+            icon="route-gaps"
+            label="Route gaps"
+            :is-active="route.path.startsWith('/app/route-gaps')"
+            :collapsed="isSidebarCollapsed"
+            @click="isSidebarOpen = false"
+          />
+          <SidebarLink
             to="/app/capture"
             icon="capture"
             label="Capture"

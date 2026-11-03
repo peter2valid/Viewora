@@ -400,8 +400,12 @@ export interface WalkPlan {
   status: 'full' | 'partial' | 'none'
   /** Scenes in walking order, starting where the visitor stands. */
   sceneIds: string[]
-  /** Why there's no walk: the tour doesn't reach the destination, or can't get there from the start. */
-  reason?: 'destination' | 'start'
+  /**
+   * Why there's no walk: the tour doesn't reach the destination, can't get
+   * there from the start, or only gets there by a long way round (`detour`)
+   * while nothing covers the direct way.
+   */
+  reason?: 'destination' | 'start' | 'detour'
 }
 
 /** Shortest walk through the 360 links from one scene to another (empty if unreachable). */
@@ -486,4 +490,88 @@ export function routeThroughScenes(
   }
   if (!legs.length) return null
   return { from, to, legs, steps: routeSteps(g.floors, from, to, legs), length }
+}
+
+// ── Direct route first, hotspots only where they lie on it ────
+// The hotspot walk is only worth drawing when it's close to the obvious way.
+// When it wanders far from the direct line (round the back of a shop block),
+// the red line goes straight and the 360 walk uses only the 360 views that
+// actually sit on that line. With none, we say so rather than lead the
+// visitor on a long detour — and the caller records the gap.
+
+/** A hotspot walk longer than this × the direct route is a detour… */
+const DETOUR_RATIO = 1.4
+/** …unless the extra walking is this small (plan widths) — not worth dropping the 360 walk. */
+const DETOUR_MIN_EXTRA = 0.08
+/** A 360 view this close to the direct line (plan widths) counts as on it. */
+const ROUTE_CORRIDOR = 0.035
+
+function distToSegment(p: RoutePoint, a: RoutePoint, b: RoutePoint): number {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const len2 = dx * dx + dy * dy
+  const t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+}
+
+/** The scene graph cut down to the 360 views on the route (and the hotspots between them). */
+export function sceneGraphAlong(sg: SceneGraph, floors: VenueFloor[], route: VenueRoute): SceneGraph {
+  const pins = new Map<string, { floorId: string; x: number; y: number }>()
+  for (const [id, pin] of sg.pins) {
+    const f = floors.find(fl => fl.id === pin.floorId)
+    const ay = f ? f.height / f.width : 1
+    // Compare in plan-width units: stretch y by the floor's aspect ratio.
+    const scaled = (q: RoutePoint) => ({ x: q.x, y: q.y * ay })
+    const near = route.legs.some((leg) => {
+      if (leg.floorId !== pin.floorId) return false
+      const pts = leg.points.map(scaled)
+      const p = scaled(pin)
+      if (pts.length === 1) return Math.hypot(p.x - pts[0].x, p.y - pts[0].y) <= ROUTE_CORRIDOR
+      for (let i = 1; i < pts.length; i++) if (distToSegment(p, pts[i - 1], pts[i]) <= ROUTE_CORRIDOR) return true
+      return false
+    })
+    if (near) pins.set(id, pin)
+  }
+  const links = new Map<string, string[]>()
+  for (const id of pins.keys()) links.set(id, (sg.links.get(id) ?? []).filter(t => pins.has(t)))
+  return { links, pins }
+}
+
+export interface RoutePlan {
+  /** The red line on the map. */
+  route: VenueRoute | null
+  /** The 360 walk that goes with it. */
+  walk: WalkPlan
+  /** True when a longer hotspot walk was set aside in favour of the direct line. */
+  skippedDetour: boolean
+}
+
+/**
+ * The route to draw and the 360 walk that matches it. Prefers the hotspot
+ * walk when it is close to the direct route; otherwise draws the direct route
+ * and walks only the 360 views lying on it.
+ */
+export function planRoute(
+  g: VenueGraph, sg: SceneGraph, from: VenuePlaceRef, to: VenuePlaceRef, startSceneId: string | null, opts: { stepFree?: boolean } = {},
+): RoutePlan {
+  const direct = findRoute(g, from, to, opts)
+  const walk = planWalk(sg, g.floors, from, to, startSceneId)
+
+  if (walk.sceneIds.length > 1) {
+    const along = routeThroughScenes(g, sg, from, to, walk.sceneIds, opts)
+    if (along) {
+      const ok = !direct || along.length <= direct.length * DETOUR_RATIO || along.length - direct.length <= DETOUR_MIN_EXTRA
+      if (ok) return { route: along, walk, skippedDetour: false }
+    }
+  }
+  if (!direct) return { route: null, walk, skippedDetour: false }
+
+  // Hotspots lead the long way (or nowhere): keep only the 360 views on the direct line.
+  const onRoute = planWalk(sceneGraphAlong(sg, g.floors, direct), g.floors, from, to, startSceneId)
+  if (onRoute.sceneIds.length > 1) return { route: direct, walk: onRoute, skippedDetour: walk.sceneIds.length > 1 }
+  const hadDetour = walk.sceneIds.length > 1
+  return {
+    route: direct,
+    walk: { status: 'none', sceneIds: [], reason: hadDetour ? 'detour' : (walk.reason ?? 'start') },
+    skippedDetour: hadDetour,
+  }
 }

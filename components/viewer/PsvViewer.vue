@@ -55,6 +55,7 @@
       @close="showVenue = false"
       @open-scene="openSceneFromVenue"
       @walk-route="startRouteGuide"
+      @route-gap="reportRouteGap"
       @track="(ev: string, p?: Record<string, unknown>) => $posthog?.capture(ev, p)"
       @click.stop
     />
@@ -611,7 +612,7 @@ import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
-import VenueMapViewer, { type VenueWalkRoute } from '~/components/viewer/VenueMapViewer.vue'
+import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
 import { buildVenueFloors } from '~/shared/utils/venue'
 import {
@@ -1245,6 +1246,15 @@ function openVenue() {
 function openSceneFromVenue(sceneId: string) {
   showAerial.value = false
   void openSceneFromMap(sceneId).finally(() => { showVenue.value = false })
+}
+
+// A route visitors asked for that the tour can't walk (or only part of): kept
+// so hotspots can be added where visitors actually go. Fire-and-forget.
+function reportRouteGap(gap: VenueRouteGap) {
+  const spaceId = (props.tour as any)?.space?.id
+  if (!spaceId) return
+  $posthog?.capture('venue_route_gap', { reason: gap.reason, from: gap.fromName, to: gap.toName })
+  apiFetch('/route-gaps', { method: 'POST', body: { spaceId, ...gap } }).catch(() => {})
 }
 
 // "Walk this route in 360": stand at the first stop, then RouteGuide leads

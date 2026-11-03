@@ -186,7 +186,8 @@
             <span class="vmv-soon__badge" aria-hidden="true">360°</span>
             <div>
               <b>360° walk coming soon</b>
-              <p v-if="walkPlan.reason === 'destination'">Our virtual tour doesn't cover {{ route.to.name }} yet. Follow the red line on the map to get there.</p>
+              <p v-if="walkPlan.reason === 'detour'">There's no 360° view along the direct way to {{ route.to.name }} yet. Follow the red line on the map to get there.</p>
+              <p v-else-if="walkPlan.reason === 'destination'">Our virtual tour doesn't cover {{ route.to.name }} yet. Follow the red line on the map to get there.</p>
               <p v-else>There's no virtual tour path from {{ route.from.name }} to here yet. Follow the red line on the map to get there.</p>
             </div>
           </div>
@@ -254,6 +255,19 @@ export interface VenueWalkRoute {
   /** The destination, to reopen the map on the same route. */
   toKey: string
 }
+
+/** A requested route the 360 tour doesn't fully cover. */
+export interface VenueRouteGap {
+  reason: 'destination' | 'start' | 'detour' | 'partial'
+  fromRef: string
+  fromName: string
+  fromFloorId: string
+  toRef: string
+  toName: string
+  toFloorId: string
+  startSceneId: string | null
+  directLength: number | null
+}
 </script>
 
 <script setup lang="ts">
@@ -261,8 +275,9 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import VenueCanvas, { type VenueCanvasConnector, type VenueCanvasMarker } from '~/features/venue/VenueCanvas.vue'
 import VenueChips from '~/features/venue/VenueChips.vue'
 import {
-  allPlaces, buildSceneGraph, buildVenueGraph, findRoute, planWalk, routeThroughScenes, searchPlaces, splitCategories, venueCategories,
+  allPlaces, buildSceneGraph, buildVenueGraph, planRoute, searchPlaces, splitCategories, venueCategories,
   type VenueFloor, type VenuePlaceRef, type VenueLinkKind, type WalkPlan,
+  type RoutePlan,
 } from '~/shared/utils/venue'
 
 const props = withDefaults(defineProps<{
@@ -287,6 +302,8 @@ const emit = defineEmits<{
   /** "Walk this route in 360": the 360 stops, in order, to the destination. */
   (e: 'walk-route', plan: VenueWalkRoute): void
   (e: 'track', event: string, props?: Record<string, unknown>): void
+  /** A route the 360 tour doesn't (fully) cover — logged so hotspots can be added where visitors actually go. */
+  (e: 'route-gap', gap: VenueRouteGap): void
 }>()
 
 const canvasRef = ref<InstanceType<typeof VenueCanvas> | null>(null)
@@ -454,23 +471,20 @@ function setField(p: VenuePlaceRef) {
 function swap() { [fromKey.value, toKey.value] = [toKey.value, fromKey.value] }
 
 const sceneGraph = computed(() => buildSceneGraph(props.scenes))
-/** The 360 walk: along the tour's hotspots, from the visitor's 360 view when the route starts there. */
-const walkPlan = computed<WalkPlan>(() => {
-  if (mode.value !== 'directions' || !fromPlace.value || !toPlace.value || keyOf(fromPlace.value) === keyOf(toPlace.value)) return { status: 'none', sceneIds: [] }
-  const start = fromPlace.value.id === HERE_ID ? props.activeSceneId : null
-  return planWalk(sceneGraph.value, props.floors, fromPlace.value, toPlace.value, start)
-})
-const route = computed(() => {
+/**
+ * The red line and its 360 walk. The walk follows the tour's hotspots from the
+ * visitor's 360 view, but only when that is close to the obvious way: if the
+ * hotspots wander round the back, the line goes direct and the walk uses just
+ * the 360 views on it (or says the direct way isn't covered yet).
+ */
+const routePlan = computed<RoutePlan | null>(() => {
   if (mode.value !== 'directions' || !fromPlace.value || !toPlace.value) return null
   if (keyOf(fromPlace.value) === keyOf(toPlace.value)) return null
-  const opts = { stepFree: stepFree.value }
-  // With a 360 walk, the red line goes through its stops, so map and 360 agree.
-  if (walkPlan.value.sceneIds.length > 1) {
-    const along = routeThroughScenes(graph.value, sceneGraph.value, fromPlace.value, toPlace.value, walkPlan.value.sceneIds, opts)
-    if (along) return along
-  }
-  return findRoute(graph.value, fromPlace.value, toPlace.value, opts)
+  const start = fromPlace.value.id === HERE_ID ? props.activeSceneId : null
+  return planRoute(graph.value, sceneGraph.value, fromPlace.value, toPlace.value, start, { stepFree: stepFree.value })
 })
+const walkPlan = computed<WalkPlan>(() => routePlan.value?.walk ?? { status: 'none', sceneIds: [] })
+const route = computed(() => routePlan.value?.route ?? null)
 const routeFloorIds = computed(() => new Set(route.value?.legs.map(l => l.floorId) ?? []))
 const legIndex = computed(() => route.value?.legs.findIndex(l => l.floorId === floor.value?.id) ?? -1)
 const legOnFloor = computed(() => (legIndex.value >= 0 ? route.value!.legs[legIndex.value] : null))
@@ -546,6 +560,28 @@ watch(() => route.value && `${keyOf(route.value.from)}>${keyOf(route.value.to)}|
   const first = route.value.legs[0].floorId
   if (first !== currentFloorId.value) showFloor(first)
   else void nextTick(() => canvasRef.value?.whenLoaded(() => focusCurrent()))
+})
+
+// Tell the host when the tour can't walk this route, once per route per visit.
+const reportedGaps = new Set<string>()
+watch(routePlan, (plan) => {
+  if (!plan?.route || editing.value) return
+  const w = plan.walk
+  const reason = w.status === 'partial' ? 'partial' : w.status === 'none' ? (w.reason ?? 'start') : null
+  if (!reason) return
+  const { from, to } = plan.route
+  const here = from.id === HERE_ID
+  const fromRef = here ? (props.activeSceneId ? `scene:${props.activeSceneId}` : 'here') : keyOf(from)
+  const key = `${fromRef}>${keyOf(to)}|${reason}`
+  if (reportedGaps.has(key)) return
+  reportedGaps.add(key)
+  const scene = here ? (props.scenes ?? []).find((sc: any) => sc?.id === props.activeSceneId) : null
+  emit('route-gap', {
+    reason, fromRef, fromName: here ? (scene?.name || scene?.title || 'Visitor\'s 360 view') : from.name, fromFloorId: from.floorId,
+    toRef: keyOf(to), toName: to.name, toFloorId: to.floorId,
+    startSceneId: here ? props.activeSceneId : null,
+    directLength: Math.round(plan.route.length * 1000) / 1000,
+  })
 })
 
 // ── 360 along the route ──
