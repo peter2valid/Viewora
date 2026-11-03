@@ -62,7 +62,7 @@
 
     <!-- Floor-plan minimap: floor switcher under the map (2+ floors) -->
     <div
-      v-if="floorMapFloors.length > 1 && vtReady && !chromeHidden && !stereoActive && !floorMapCrowded && floorMapView === 'normal' && !dockTabsOnScreen"
+      v-if="showMinimap && floorMapFloors.length > 1 && vtReady && !chromeHidden && !stereoActive && !floorMapCrowded && floorMapView === 'normal' && !dockTabsOnScreen"
       class="floor-switch"
       :class="{ 'floor-switch--compact': floorMapCompact }"
       role="tablist"
@@ -911,6 +911,13 @@ const tourScenes = computed<any[]>(() => {
 })
 const sceneCount = computed(() => tourScenes.value.length)
 const floorMapFloors = computed(() => buildFloorMapFloors((props.tour as any)?.floor_plans, tourScenes.value))
+/**
+ * The floor-plan minimap (bottom left) and "Find a shop" are two ways of
+ * finding your way around, so never both: a venue with a shop directory gets
+ * Find a shop; any other tour with floor plans gets the minimap. The dock's
+ * floor tabs stay either way.
+ */
+const showMinimap = computed(() => floorMapFloors.value.length > 0 && venueFloors.value.length === 0)
 // The minimap follows the controls: hidden with the chrome and in VR.
 watch([chromeHidden, stereoActive], ([hidden, vr]) => { floorMapCtl.value?.setVisible(!hidden && !vr) })
 const tourLoadKey = computed(() => {
@@ -1613,7 +1620,7 @@ async function initVT() {
         autoRotate,
         performanceMode: viewerPerformanceMode.value,
         loadingImg: optimizedLoadingLogo.value,
-        floorMap: floorMapFloors.value.length
+        floorMap: showMinimap.value
           ? { imageUrl: floorMapFloors.value[0].imageUrl, config: floorMapPluginConfig(floorMapFloors.value, { compact: floorMapCompact.value }) }
           : undefined,
         twoFingerTouch: false,
@@ -1738,7 +1745,7 @@ async function initVT() {
     )
     if (version !== vtInitVersion) { destroy(handle); return }
     vtHandle.value = handle
-    if (floorMapFloors.value.length) {
+    if (showMinimap.value) {
       // The minimap is an extra: any failure here must leave the tour working.
       try {
         floorMapCtl.value = attachFloorPlanMap(handle, floorMapFloors.value, {
