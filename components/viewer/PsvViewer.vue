@@ -522,11 +522,24 @@
       />
 
       <!-- VT error -->
-      <div v-if="vtError" class="vt-overlay vt-overlay--error">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="vt-overlay-icon">
-          <circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" />
-        </svg>
-        <p class="vt-overlay-msg">{{ vtError }}</p>
+      <!-- A scene that won't load: a calm card, not a raw error. Over the scene
+           you're in once the tour is up (keep looking around); full screen if
+           the tour never opened. Reconnects on its own when the network returns. -->
+      <div v-if="vtError" class="vt-conn" :class="{ 'vt-conn--full': !vtReady }" role="alert" aria-live="polite">
+        <div class="vt-conn__card">
+          <span class="vt-conn__icon" aria-hidden="true">
+            <svg v-if="vtOffline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 4-2.6M22 8.8a15 15 0 0 0-9.6-4.7M5 12.9a10 10 0 0 1 3.5-2M19 12.9a10 10 0 0 0-3.7-2.2M8.5 16.4a5 5 0 0 1 7 0"/><path d="M12 20h.01M3 3l18 18"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+          </span>
+          <div class="vt-conn__copy">
+            <b>{{ vtOffline ? "You're offline" : "This view didn't load" }}</b>
+            <span v-if="vtFailedSceneName">{{ vtOffline ? `We'll open ${vtFailedSceneName} as soon as you're back online.` : `Couldn't open ${vtFailedSceneName}.` }}</span>
+            <span v-else>{{ vtOffline ? "We'll reconnect as soon as you're back online." : 'Check your connection and try again.' }}</span>
+          </div>
+          <button type="button" class="vt-conn__btn" :disabled="vtRetrying" @click="retryScene">
+            {{ vtRetrying ? 'Trying…' : 'Try again' }}
+          </button>
+        </div>
       </div>
 
       <template #fallback>
@@ -752,6 +765,15 @@ function destroyFloorCursor() {
   floorCursorCtl = null
 }
 const vtError = ref('')
+/** The scene that failed to open (retry target) — null when the tour itself never opened. */
+const vtFailedNodeId = ref<string | null>(null)
+const vtRetrying = ref(false)
+const online = ref(true)
+const vtOffline = computed(() => !online.value)
+const vtFailedSceneName = computed(() => {
+  const sc = vtFailedNodeId.value ? tourScenes.value.find((x: any) => x.id === vtFailedNodeId.value) : null
+  return sc?.name || sc?.title || ''
+})
 const vtFocusing = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
@@ -1499,6 +1521,42 @@ function buildAllHotspots(): Record<string, Hotspot[]> {
   return result
 }
 
+// ── Connection: retry a scene that wouldn't load ──────────────────────────
+async function retryScene() {
+  if (vtRetrying.value) return
+  vtRetrying.value = true
+  const target = vtFailedNodeId.value
+  const handle = vtHandle.value
+  if (!handle || !vtReady.value || !target) {
+    // The tour itself never opened: start it again.
+    vtError.value = ''
+    vtRetrying.value = false
+    void initVT()
+    return
+  }
+  vtError.value = ''
+  vtTransitioning.value = true
+  try {
+    await vtGoToNode(handle, target) // success clears the card; failure raises it again
+  } catch { /* shown by onError */ }
+  vtTransitioning.value = false
+  vtRetrying.value = false
+}
+function onNetOnline() {
+  online.value = true
+  if (vtError.value) void retryScene()
+}
+function onNetOffline() { online.value = false }
+onMounted(() => {
+  online.value = typeof navigator === 'undefined' ? true : navigator.onLine
+  window.addEventListener('online', onNetOnline)
+  window.addEventListener('offline', onNetOffline)
+})
+onUnmounted(() => {
+  window.removeEventListener('online', onNetOnline)
+  window.removeEventListener('offline', onNetOffline)
+})
+
 // ── Initialize VirtualTour viewer ─────────────────────────────────────────
 async function initVT() {
   if (!vtContainerEl.value || !hasTourData.value) return
@@ -1570,16 +1628,22 @@ async function initVT() {
           vtActiveNodeId.value = startNodeId
           emit('loaded')
         },
-        onError: (err) => {
+        onError: (err, failedNodeId) => {
           if (version !== vtInitVersion) return
           vtTransitioning.value = false
+          vtRetrying.value = false
+          vtFailedNodeId.value = failedNodeId ?? null
           vtError.value = err.message || 'Panorama load failed'
+          $posthog?.capture('scene_load_failed', { scene: failedNodeId ?? null, offline: !online.value })
           emit('error', err)
         },
         onNodeChanged: (nodeId) => {
           if (version !== vtInitVersion) return
           vtTransitioning.value = false
           vtFocusing.value = false
+          vtError.value = ''
+          vtFailedNodeId.value = null
+          vtRetrying.value = false
           activeInfoMarkerId = ''
           preFocusPosition = null
           $posthog?.capture('scene_navigated', {
@@ -3078,6 +3142,24 @@ watch(() => vtTransitioning.value, (loading) => {
 .vt-overlay--error { background: rgba(10, 10, 10, 0.85); }
 
 .vt-overlay-icon { width: 28px; height: 28px; color: rgba(255,255,255,0.25); }
+
+/* Scene didn't load: a card over the scene you're in (full screen if the tour never opened) */
+.vt-conn { position: absolute; left: 0; right: 0; bottom: 132px; display: flex; justify-content: center; padding: 0 16px; z-index: 11; pointer-events: none; }
+.vt-conn--full { inset: 0; bottom: 0; align-items: center; background: rgba(8, 10, 16, 0.88); backdrop-filter: blur(12px); }
+.vt-conn__card { pointer-events: auto; display: flex; align-items: center; gap: 14px; max-width: 460px; width: 100%; padding: 14px 16px; border-radius: 18px; color: #fff; background: rgba(17, 20, 28, 0.88); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 12px 40px rgba(0,0,0,0.35); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); animation: vt-conn-in 0.25s ease-out; }
+.vt-conn--full .vt-conn__card { flex-direction: column; text-align: center; padding: 28px 24px; max-width: 340px; gap: 16px; }
+.vt-conn__icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.1); }
+.vt-conn__icon svg { width: 22px; height: 22px; }
+.vt-conn--full .vt-conn__icon { width: 56px; height: 56px; border-radius: 18px; }
+.vt-conn--full .vt-conn__icon svg { width: 28px; height: 28px; }
+.vt-conn__copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; line-height: 1.4; color: rgba(255,255,255,0.7); }
+.vt-conn__copy b { font-size: 14px; font-weight: 700; color: #fff; }
+.vt-conn__btn { flex: none; height: 38px; padding: 0 16px; border: 0; border-radius: 12px; background: #fff; color: #111827; font-size: 13px; font-weight: 700; cursor: pointer; }
+.vt-conn__btn:disabled { opacity: 0.6; cursor: default; }
+.vt-conn--full .vt-conn__btn { width: 100%; }
+@keyframes vt-conn-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .vt-conn__card { animation: none; } }
+@media (max-width: 640px) { .vt-conn { bottom: 112px; } }
 .vt-overlay-msg  { font-size: 12px; color: rgba(255,255,255,0.3); font-weight: 500; }
 
 /* ── Plugin arrow hover — scene thumbnail card ──────────────────────────── */

@@ -1451,7 +1451,8 @@ function buildTourNodes(
 
 export interface VirtualTourInitOptions {
   onReady?: () => void
-  onError?: (err: Error) => void
+  /** `failedNodeId`: the scene being opened when the load failed (for a retry). */
+  onError?: (err: Error, failedNodeId?: string | null) => void
   onNodeChanged?: (nodeId: string) => void
   onMarkerClick?: (hotspotId: string, type: string, url?: string) => void
   onBackgroundClick?: () => void
@@ -1646,6 +1647,22 @@ export async function initVirtualTourViewer(
   const markers: any = viewer.getPlugin(MarkersPlugin)
   const virtualTour: any = viewer.getPlugin(VirtualTourPlugin)
 
+  // A scene that fails to load (offline, flaky link) is reported through onError
+  // and the host shows its own message; PSV's built-in full-screen error panel
+  // (oversized icon, raw browser error text) never appears.
+  const showErrorOrig = viewer.showError.bind(viewer)
+  viewer.showError = (message: string) => {
+    if (message === viewer.config?.lang?.loadError) return
+    showErrorOrig(message)
+  }
+  // Remember which scene was asked for, so "Try again" goes there.
+  let requestedNodeId: string | null = null
+  const setCurrentNodeOrig = virtualTour.setCurrentNode.bind(virtualTour)
+  virtualTour.setCurrentNode = (nodeId: string, ...rest: unknown[]) => {
+    requestedNodeId = nodeId
+    return setCurrentNodeOrig(nodeId, ...rest)
+  }
+
   const cleanupFns: Array<() => void> = []
 
   viewer.addEventListener('ready', () => {
@@ -1684,7 +1701,7 @@ export async function initVirtualTourViewer(
     }
   }, { once: true })
   viewer.addEventListener('panorama-error', (e: any) => {
-    onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'))
+    onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'), requestedNodeId)
   })
 
   const smoother = installMarkerSmoother(container)
