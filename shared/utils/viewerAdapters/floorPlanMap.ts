@@ -68,8 +68,11 @@ function fitBoxZoom(floor: FloorMapFloor, width: number, height: number): number
 }
 
 /** MapPlugin options, verified against @photo-sphere-viewer/map-plugin 5.14.1. */
+/** Minimap edge in px. Small enough to leave room for the contact / social icons on the left. */
+export function floorMapSize(compact: boolean): number { return compact ? 112 : 150 }
+
 export function floorMapPluginConfig(floors: FloorMapFloor[], opts: { compact: boolean }): Record<string, any> {
-  const sizePx = opts.compact ? 140 : 200
+  const sizePx = floorMapSize(opts.compact)
   const zoom = floors[0] ? fitZoom(floors[0], sizePx) : 100
   return {
     size: `${sizePx}px`,
@@ -120,7 +123,7 @@ export function attachFloorPlanMap(
   const vt: any = viewer?.getPlugin?.('virtual-tour')
   if (!map || !vt || !floors.length) return null
 
-  const sizePx = opts.compact ? 140 : 200
+  const sizePx = floorMapSize(opts.compact)
   const floorOfScene = new Map<string, FloorMapFloor>()
   for (const f of floors) for (const p of f.pins) floorOfScene.set(p.sceneId, f)
 

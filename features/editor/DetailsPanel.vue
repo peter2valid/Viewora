@@ -287,7 +287,7 @@
           <span class="df-card__num">3</span>
           <div>
             <h2 class="df-card__title">Contact</h2>
-            <p class="df-card__sub">Powers the Chat button buyers tap to reach you.</p>
+            <p class="df-card__sub">Powers the Chat button and the social icons visitors see on the tour.</p>
           </div>
         </div>
 
@@ -295,6 +295,25 @@
           <label class="df-field__label">WhatsApp Number <span class="df-field__rec">recommended</span></label>
           <input class="df-input" v-model="draft.phone" placeholder="+27117537025 or +254712345678" type="tel" />
           <div class="df-hint">Include the country code (e.g. +27 for SA, +254 for Kenya). Without this, buyers have no way to contact you from the tour.</div>
+        </div>
+
+        <div class="df-field">
+          <label class="df-field__label">Social links <span class="df-field__opt">optional</span></label>
+          <div class="df-social">
+            <div v-for="k in SOCIAL_KEYS" :key="k" class="df-social__row">
+              <span class="df-social__name">{{ SOCIAL_LABELS[k] }}</span>
+              <input
+                class="df-input"
+                :class="{ 'df-input--bad': draft.social[k].trim() && !normalizeSocialLink(k, draft.social[k]) }"
+                v-model="draft.social[k]"
+                :placeholder="SOCIAL_PLACEHOLDERS[k]"
+                autocapitalize="off"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+          </div>
+          <div class="df-hint">Paste a link or just the @handle. Each one adds its icon on the left of the tour; leave a field empty and that icon doesn't show.</div>
         </div>
       </section>
 
@@ -447,6 +466,7 @@ import { useSpaces } from '~/composables/useSpaces'
 import SpacePill from '~/features/editor/components/SpacePill.vue'
 import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
 import { toast } from 'vue-sonner'
+import { SOCIAL_KEYS, SOCIAL_LABELS, SOCIAL_PLACEHOLDERS, normalizeSocialLink, type SocialKey } from '~/shared/utils/socialLinks'
 
 const props = defineProps<{ spaceId: string }>()
 const emit = defineEmits<{ published: [] }>()
@@ -484,6 +504,7 @@ const draft = ref({
   logoUrl: '',
   phone: '',
   email: '',
+  social: Object.fromEntries(SOCIAL_KEYS.map(k => [k, ''])) as Record<SocialKey, string>,
   ctaEnabled: false,
   ctaButtonText: 'Book a Viewing',
   ctaAction: 'link' as 'link' | 'email' | 'phone',
@@ -551,6 +572,7 @@ function draftFromSpace(s: any) {
     logoUrl: s?.logo_url ?? '',
     phone: s?.phone ?? '',
     email: s?.email ?? '',
+    social: Object.fromEntries(SOCIAL_KEYS.map(k => [k, s?.social_links?.[k] ?? ''])) as Record<SocialKey, string>,
     ctaEnabled: s?.cta_enabled ?? false,
     ctaButtonText: s?.cta_button_text ?? 'Book a Viewing',
     ctaAction: (s?.cta_action as 'link' | 'email' | 'phone') ?? 'link',
@@ -619,6 +641,8 @@ async function save() {
     logo_url: draft.value.logoUrl || null,
     phone: draft.value.phone || null,
     email: draft.value.email || null,
+    // Handles and pasted links both work; the server keeps valid ones only. Empty = no icon.
+    social_links: Object.fromEntries(SOCIAL_KEYS.map(k => [k, normalizeSocialLink(k, draft.value.social[k]) ?? null])),
     cta_enabled: draft.value.ctaEnabled,
     cta_button_text: draft.value.ctaButtonText || 'Book a Viewing',
     cta_action: draft.value.ctaAction,
@@ -1098,6 +1122,11 @@ async function handleRemoveBg() {
 .df-field__rec { color: #60a5fa; }
 .df-field__label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .df-field__label-row .df-field__label { margin-bottom: 0; }
+.df-social { display: flex; flex-direction: column; gap: 8px; }
+.df-social__row { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 10px; }
+.df-social__name { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.6); }
+.df-input--bad { border-color: #f87171 !important; }
+@media (max-width: 520px) { .df-social__row { grid-template-columns: 1fr; gap: 4px; } }
 .df-hint { font-size: 11px; color: rgba(255,255,255,0.32); font-weight: 500; margin-top: 6px; line-height: 1.5; }
 .df-warning { font-size: 11px; color: #f0ad4e; font-weight: 600; margin-top: 6px; line-height: 1.5; }
 

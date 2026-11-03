@@ -302,10 +302,18 @@
       </div><!-- end .viewer-rail -->
     </div><!-- end .viewer-control-stack -->
 
-    <!-- WhatsApp Contact Button — left side, opposite the control rail -->
+    <!-- Contact column — left side, opposite the control rail: WhatsApp (from the
+         space's phone number) then a small icon per social link the owner added.
+         Nothing set, nothing shown. One container, so the dock / minimap lift
+         logic (measureDockLift) moves them together. -->
     <Transition name="wa-btn">
+      <div
+        v-if="(whatsappHref || socialLinks.length) && !chromeHidden && !props.hideOwnChrome"
+        class="viewer-contact"
+        :class="{ 'viewer-contact--dense': socialLinks.length > 3 }"
+      >
       <a
-        v-if="whatsappHref && !chromeHidden && !props.hideOwnChrome"
+        v-if="whatsappHref"
         :href="whatsappHref"
         class="viewer-wa-btn"
         target="_blank"
@@ -318,6 +326,20 @@
           <path d="M12.04 2C6.49 2 2 6.48 2 12c0 1.89.52 3.66 1.42 5.18L2 22l4.98-1.39A9.96 9.96 0 0 0 12.04 22C17.56 22 22 17.52 22 12S17.56 2 12.04 2Zm5.8 14.16c-.24.68-1.44 1.32-1.98 1.39-.52.07-1.2.1-1.95-.12-.46-.14-1.05-.33-1.81-.66-3.18-1.38-5.24-4.6-5.39-4.81-.14-.21-1.3-1.73-1.3-3.3s.79-2.34 1.07-2.66c.28-.32.61-.4.82-.4h.58c.19 0 .45-.07.7.53.24.6.82 2.07.89 2.22.07.15.12.33.02.54-.1.21-.15.34-.3.52-.15.18-.31.4-.45.53-.15.16-.3.33-.13.63.16.31.71 1.17 1.52 1.9 1.04.92 1.9 1.21 2.22 1.37.31.16.49.14.67-.08.18-.22.77-.9.98-1.2.2-.31.4-.26.67-.16.28.1 1.74.82 2.04.97.3.14.5.22.58.34.08.12.08.74-.17 1.42Z"/>
         </svg>
       </a>
+      <a
+        v-for="sl in socialLinks" :key="sl.key"
+        :href="sl.href"
+        class="viewer-social-btn"
+        :style="{ background: sl.color }"
+        target="_blank"
+        rel="noopener noreferrer"
+        :aria-label="`${sl.label}`"
+        :data-tooltip="sl.label"
+        @click.stop="onSocialClick(sl.key)"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path :d="sl.path" /></svg>
+      </a>
+      </div>
     </Transition>
 
     <!-- Floating CTA button (bottom-left, always above dock) -->
@@ -627,6 +649,7 @@ import { safeHotspots } from '~/shared/utils/guards'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
+import { socialIcons } from '~/shared/utils/socialLinks'
 import { buildVenueFloors } from '~/shared/utils/venue'
 import {
   BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
@@ -640,6 +663,7 @@ import {
   attachFloorPlanMap,
   buildFloorMapFloors,
   floorMapPluginConfig,
+  floorMapSize,
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
 import { attachFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
@@ -1046,9 +1070,9 @@ function measureDockLift() {
   const rightOf = (el: Element | null) => el ? el.getBoundingClientRect().right - rootRect.left : 0
 
   const cta = root.querySelector('.viewer-cta-btn') as HTMLElement | null
-  const wa = root.querySelector('.viewer-wa-btn') as HTMLElement | null
+  const wa = root.querySelector('.viewer-contact') as HTMLElement | null
   const hasMap = !!root.querySelector('.psv-map')
-  const mapSize = floorMapCompact.value ? 140 : 200
+  const mapSize = floorMapSize(floorMapCompact.value)
   const mapRight = 10 + mapSize
 
   let ctaBottom: number | null = null
@@ -1173,6 +1197,12 @@ const ctaHref = computed(() => {
 const whatsappNumber = computed<string | null>(() =>
   toIntlPhoneDigits((props.tour?.space as any)?.phone as string | undefined) || null
 )
+
+/** Social icons: only the links the owner filled in (see socialLinks.ts). */
+const socialLinks = computed(() => socialIcons((props.tour?.space as any)?.social_links))
+function onSocialClick(network: string) {
+  $posthog?.capture('social_link_clicked', { network, space_id: (props.tour?.space as any)?.id })
+}
 
 const whatsappHref = computed(() => {
   const clean = whatsappNumber.value
@@ -1989,7 +2019,7 @@ function onRailTouchStart(e: TouchEvent) {
 
 // Re-measure the dock lift whenever the dock or what it would cover changes.
 watch(
-  () => [dockCollapsed.value, chromeHidden.value, dockItems.value.length, dockFloors.value.length, ctaEnabled.value, vtReady.value, floorMapCompact.value, !!whatsappHref.value, compactNavActive.value, floorMapFloors.value.length],
+  () => [dockCollapsed.value, chromeHidden.value, dockItems.value.length, dockFloors.value.length, ctaEnabled.value, vtReady.value, floorMapCompact.value, !!whatsappHref.value, socialLinks.value.length, compactNavActive.value, floorMapFloors.value.length],
   scheduleDockLift,
 )
 
@@ -3798,10 +3828,10 @@ watch(() => vtTransitioning.value, (loading) => {
    plugin's hide(), so a scene change can't bring it back. visibility keeps
    its size, so it reappears intact when the dock is collapsed. */
 .public-viewer--map-crowded :deep(.psv-map:not(.psv-map--maximized)) { visibility: hidden; pointer-events: none; }
-/* Switcher beside the map, top-aligned with it: map bottom 96 + size 200. */
+/* Switcher beside the map, top-aligned with it: map bottom 96 + size 150 (floorMapSize). */
 .floor-switch {
   position: absolute;
-  left: 218px; bottom: calc(var(--fp-map-bottom, 96px) + 200px); transform: translateY(100%);
+  left: 168px; bottom: calc(var(--fp-map-bottom, 96px) + 150px); transform: translateY(100%);
   z-index: 55;
   display: flex; flex-direction: column; gap: 4px;
   max-width: 160px;
@@ -3810,7 +3840,7 @@ watch(() => vtTransitioning.value, (loading) => {
   /* 128: clear of the phone CTA button (bottom 88 + 34 tall) */
   .public-viewer :deep(.psv-map--bottom-left:not(.psv-map--maximized)) { margin-bottom: var(--fp-map-bottom, 128px); }
 }
-.floor-switch--compact { left: 158px; bottom: calc(var(--fp-map-bottom, 128px) + 140px); max-width: 130px; }
+.floor-switch--compact { left: 130px; bottom: calc(var(--fp-map-bottom, 128px) + 112px); max-width: 130px; }
 .floor-switch__btn {
   height: 30px; padding: 0 12px;
   border-radius: 999px; border: 1px solid rgba(255,255,255,0.12);
@@ -3982,14 +4012,25 @@ watch(() => vtTransitioning.value, (loading) => {
 .viewer-cta-fade-enter-from, .viewer-cta-fade-leave-to { opacity: 0; transform: translateY(6px); }
 
 
-/* ── WhatsApp contact button (left side, mirrors control stack) ────────────── */
-.viewer-wa-btn {
+/* ── Contact column (left side, mirrors the control stack) ─────────────────
+   WhatsApp, then one small round icon per social link. The container owns the
+   position (mid-height, or lifted by measureDockLift); the buttons just stack. */
+.viewer-contact {
   position: absolute;
   left: 18px;
   left: calc(18px + env(safe-area-inset-left, 0px));
   top: 50%;
   transform: translateY(-50%);
   z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  --soc: 40px;
+}
+.viewer-contact--dense { gap: 8px; --soc: 36px; }
+.viewer-wa-btn {
+  position: relative;
   width: 52px;
   height: 52px;
   border-radius: 50%;
@@ -4022,13 +4063,34 @@ watch(() => vtTransitioning.value, (loading) => {
   100% { transform: scale(1.75); opacity: 0; }
 }
 .viewer-wa-btn:hover {
-  transform: translateY(-50%) translateY(-2px);
+  transform: translateY(-2px);
   box-shadow: 0 8px 32px rgba(37, 211, 102, 0.7), 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 .viewer-wa-btn:hover::after { animation: none; opacity: 0; }
-.viewer-wa-btn:active { transform: translateY(-50%) scale(0.95); }
-/* Tooltip floats to the right of the button */
-.viewer-wa-btn[data-tooltip]::before {
+.viewer-wa-btn:active { transform: scale(0.95); }
+
+/* Social icons: smaller than WhatsApp so the column stays light */
+.viewer-social-btn {
+  position: relative;
+  width: var(--soc);
+  height: var(--soc);
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.viewer-social-btn svg { width: calc(var(--soc) * 0.5); height: calc(var(--soc) * 0.5); }
+.viewer-social-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); }
+.viewer-social-btn:active { transform: scale(0.95); }
+
+/* Tooltip floats to the right of each button */
+.viewer-wa-btn[data-tooltip]::before,
+.viewer-social-btn[data-tooltip]::before {
   content: attr(data-tooltip);
   position: absolute;
   left: calc(100% + 9px);
@@ -4050,35 +4112,34 @@ watch(() => vtTransitioning.value, (loading) => {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   z-index: 50;
 }
-.viewer-wa-btn[data-tooltip]:hover::before {
+.viewer-wa-btn[data-tooltip]:hover::before,
+.viewer-social-btn[data-tooltip]:hover::before {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
-.public-viewer--chrome-hidden .viewer-wa-btn {
+.public-viewer--chrome-hidden .viewer-contact {
   opacity: 0;
   pointer-events: none;
 }
 /* Map under it (measureDockLift): sit above the map instead of mid-height. */
-.public-viewer--wa-lifted .viewer-wa-btn { top: auto; bottom: var(--viewer-wa-bottom); transform: none; }
-.public-viewer--wa-lifted .viewer-wa-btn:hover { transform: translateY(-2px); }
-.public-viewer--wa-lifted .viewer-wa-btn:active { transform: scale(0.95); }
+.public-viewer--wa-lifted .viewer-contact { top: auto; bottom: var(--viewer-wa-bottom); transform: none; }
 .wa-btn-enter-active, .wa-btn-leave-active { transition: opacity 200ms ease, transform 200ms ease; }
 .wa-btn-enter-from, .wa-btn-leave-to { opacity: 0; transform: translateY(-50%) translateX(-8px); }
 
 @media (max-width: 640px) {
-  .viewer-wa-btn {
+  .viewer-contact {
     left: 10px;
     left: calc(10px + env(safe-area-inset-left, 0px));
     top: auto;
     bottom: calc(200px + env(safe-area-inset-bottom, 0px));
     bottom: var(--viewer-wa-bottom, calc(200px + env(safe-area-inset-bottom, 0px)));
     transform: none;
-    width: 46px;
-    height: 46px;
+    gap: 8px;
+    --soc: 34px;
   }
+  .viewer-contact--dense { gap: 6px; --soc: 32px; }
+  .viewer-wa-btn { width: 46px; height: 46px; }
   .viewer-wa-btn svg { width: 24px; height: 24px; }
-  .viewer-wa-btn:hover { transform: translateY(-2px); }
-  .viewer-wa-btn:active { transform: scale(0.95); }
   .wa-btn-enter-from, .wa-btn-leave-to { transform: translateX(-8px); }
 }
 
@@ -4299,13 +4360,16 @@ watch(() => vtTransitioning.value, (loading) => {
 
   .viewer-control-stack,
   .viewer-cta-btn,
+  .viewer-contact,
   .viewer-wa-btn,
+  .viewer-social-btn,
   .scene-toast {
     will-change: auto !important;
   }
   /* Ring animation is cheap but adds a repaint layer — disable on touch */
   .viewer-wa-btn::after { animation: none; }
-  .viewer-wa-btn[data-tooltip]::before { backdrop-filter: none !important; }
+  .viewer-wa-btn[data-tooltip]::before,
+  .viewer-social-btn[data-tooltip]::before { backdrop-filter: none !important; }
 }
 
 /* ── Interaction Hint Overlay ─────────────────────────────────────────── */
