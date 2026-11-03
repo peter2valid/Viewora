@@ -43,7 +43,7 @@
     <template v-if="loaded">
       <!-- Every place: a small dot, so the map shows what's searchable -->
       <button
-        v-for="p in dots" :key="p.id"
+        v-for="p in visibleDots" :key="p.id"
         type="button"
         class="vc-dot"
         :class="{ 'vc-dot--dim': dimOthers || (highlightIds && !highlightIds.has(p.id)), 'vc-dot--hi': highlightIds?.has(p.id) }"
@@ -126,7 +126,48 @@ const H = computed(() => props.height)
 const routePoints = computed(() => props.routePoints ?? [])
 const markers = computed(() => props.markers ?? [])
 const connectors = computed(() => props.connectors ?? [])
-const dots = computed(() => props.places)
+
+// ── Dense floors: fewer dots on screen ──
+// A floor with hundreds of places (a mall's ground floor) can't keep hundreds
+// of positioned elements in step with a pinch — phones drop frames and the
+// dots drift off the plan. So on those floors: no dots while zooming; zoomed
+// far out, only the highlighted ones (a category / search); zoomed in, only
+// those near the screen. Small floors keep every dot, always.
+const DENSE = 150
+/** Dots are worth showing from this zoom (× the whole-floor fit) on dense floors. */
+const DOT_ZOOM = 2.2
+const isDense = computed(() => props.places.length > DENSE)
+const zooming = ref(false)
+const fitScale = ref(0)
+// What the culling last saw — updated when a gesture settles, not on every frame.
+const seen = ref({ tx: 0, ty: 0, s: 1, vw: 0, vh: 0 })
+let settleTimer = 0
+function snapshot() {
+  const el = rootEl.value
+  seen.value = { tx: tx.value, ty: ty.value, s: s.value, vw: el?.clientWidth ?? 0, vh: el?.clientHeight ?? 0 }
+}
+/** A zoom is in progress; it counts as over 140 ms after the last change. */
+function zoomingNow() {
+  if (!isDense.value) return
+  zooming.value = true
+  clearTimeout(settleTimer)
+  settleTimer = window.setTimeout(() => { zooming.value = false; snapshot() }, 140)
+}
+const visibleDots = computed(() => {
+  const all = props.places
+  if (!isDense.value) return all
+  const hi = props.highlightIds
+  if (zooming.value || !fitScale.value || seen.value.s < fitScale.value * DOT_ZOOM) {
+    return hi && hi.size <= DENSE ? all.filter(p => hi.has(p.id)) : []
+  }
+  // Zoomed in: places within a screen of the viewport (so a drag doesn't outrun them).
+  const { tx: x0, ty: y0, s: sc, vw, vh } = seen.value
+  const w = W.value * sc, h = H.value * sc
+  return all.filter((p) => {
+    const px = p.x * w + x0, py = p.y * h + y0
+    return px > -vw && px < vw * 2 && py > -vh && py < vh * 2
+  })
+})
 
 // screen = translate(tx, ty) · scale(s) · image px
 const s = ref(1), tx = ref(0), ty = ref(0)
@@ -179,6 +220,7 @@ function fitView(): View | null {
   const v = viewport()
   if (!v) return null
   minS = v.fitS * 0.8
+  fitScale.value = v.fitS
   maxS = Math.max(v.fitS * 12, 2)
   return { s: v.fitS, tx: v.l + (v.cw - W.value * v.fitS) / 2, ty: v.t + (v.ch - H.value * v.fitS) / 2 }
 }
@@ -200,13 +242,14 @@ function animateTo(to: View | null, ms = 650) {
   const token = ++anim
   const from = { s: s.value, tx: tx.value, ty: ty.value }
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  if (reduce || !loaded.value) { s.value = to.s; tx.value = to.tx; ty.value = to.ty; return }
+  if (reduce || !loaded.value) { s.value = to.s; tx.value = to.tx; ty.value = to.ty; snapshot(); return }
   const t0 = performance.now()
   const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
   const step = (now: number) => {
     if (token !== anim) return
     const k = ease(Math.min(1, (now - t0) / ms))
     s.value = from.s * Math.pow(to.s / from.s, k)
+    zoomingNow()
     tx.value = from.tx + (to.tx - from.tx) * k
     ty.value = from.ty + (to.ty - from.ty) * k
     if (k < 1) requestAnimationFrame(step)
@@ -223,6 +266,7 @@ function onImgLoad() {
   loaded.value = true
   const f = fitView()
   if (f) { s.value = f.s; tx.value = f.tx; ty.value = f.ty }
+  snapshot()
   if (pendingFocus) { const run = pendingFocus; pendingFocus = null; requestAnimationFrame(run) }
 }
 /** Runs once the plan has loaded (immediately if it already has). */
@@ -242,6 +286,7 @@ function zoomAt(factor: number, cx: number, cy: number) {
   ty.value = cy - (cy - ty.value) * k
   s.value = next
   clamp()
+  zoomingNow()
 }
 function zoomBy(f: number) {
   const el = rootEl.value
@@ -295,12 +340,13 @@ function onPointerMove(e: PointerEvent) {
     tx.value = (a.x + b.x) / 2 - pinch.px * s.value
     ty.value = (a.y + b.y) / 2 - pinch.py * s.value
     clamp()
+    zoomingNow()
   }
 }
 function onPointerUp(e: PointerEvent) {
   const had = pointers.delete(e.pointerId)
   if (pointers.size < 2) pinch = null
-  if (pointers.size === 0) dragging.value = false
+  if (pointers.size === 0) { dragging.value = false; if (moved) snapshot() }
   if (!had || moved || pointers.size) return
   const now = performance.now()
   const p = rel(e)
@@ -322,11 +368,11 @@ onMounted(() => {
   if (imgEl.value?.complete && imgEl.value.naturalWidth && !loaded.value) onImgLoad()
   if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
     let first = true
-    ro = new ResizeObserver(() => { if (first) { first = false; return } if (loaded.value) clamp() })
+    ro = new ResizeObserver(() => { if (first) { first = false; return } if (loaded.value) { clamp(); snapshot() } })
     ro.observe(rootEl.value)
   }
 })
-onBeforeUnmount(() => { ro?.disconnect(); anim++ })
+onBeforeUnmount(() => { ro?.disconnect(); anim++; clearTimeout(settleTimer) })
 </script>
 
 <style scoped>
