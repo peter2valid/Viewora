@@ -77,6 +77,21 @@
     </template>
     </div>
 
+    <!-- Dense floor, zoomed out: shops aren't marked yet. A small nudge, gone once they are. -->
+    <Transition name="vc-hint">
+      <button
+        v-if="showZoomHint"
+        type="button"
+        class="vc-hint"
+        :style="{ bottom: `calc(${(insets?.bottom ?? 0) + 18}px + env(safe-area-inset-bottom, 0px))` }"
+        @pointerdown.stop
+        @click="zoomToDots"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+        <span>Zoom in to see shops</span>
+      </button>
+    </Transition>
+
     <div class="vc-zoom" :style="{ bottom: `calc(${(insets?.bottom ?? 0) + 14}px + env(safe-area-inset-bottom, 0px))` }" @pointerdown.stop>
       <button type="button" aria-label="Zoom in" @click="zoomBy(1.5)">+</button>
       <button type="button" aria-label="Zoom out" @click="zoomBy(1 / 1.5)">−</button>
@@ -152,6 +167,21 @@ function zoomingNow() {
   zooming.value = true
   clearTimeout(settleTimer)
   settleTimer = window.setTimeout(() => { zooming.value = false; snapshot() }, 140)
+}
+/** Zoomed out on a dense floor, with no highlighted dots showing: tell the visitor to zoom in. */
+const showZoomHint = computed(() => {
+  if (!loaded.value || !isDense.value || !fitScale.value) return false
+  if (s.value >= fitScale.value * DOT_ZOOM) return false
+  if (routePoints.value.length > 1 || props.dimOthers) return false // a route / place is in focus
+  const hi = props.highlightIds
+  return !(hi && hi.size > 0 && hi.size <= DENSE) // highlighted dots are already showing
+})
+function zoomToDots() {
+  const el = rootEl.value
+  if (!el || !fitScale.value) return
+  const k = (fitScale.value * DOT_ZOOM * 1.2) / s.value
+  const cx = el.clientWidth / 2, cy = el.clientHeight / 2
+  animateTo({ s: s.value * k, tx: cx - (cx - tx.value) * k, ty: cy - (cy - ty.value) * k }, 450)
 }
 const visibleDots = computed(() => {
   const all = props.places
@@ -419,6 +449,12 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++; clearTimeout(settleTimer) })
 .vc-connector { position: absolute; transform: var(--at) translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 0; border-radius: 999px; background: #111827; color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,0.3); }
 .vc-connector__icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e11d48; font-size: 13px; }
 
+.vc-hint { position: absolute; left: 50%; transform: translateX(-50%); z-index: 3; display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); padding: 9px 16px 9px 12px; border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; background: rgba(17, 20, 28, 0.86); color: #fff; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; box-shadow: 0 6px 22px rgba(0,0,0,0.28); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.vc-hint svg { flex: none; animation: vc-hint-nudge 1.8s ease-in-out infinite; }
+@keyframes vc-hint-nudge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
+.vc-hint-enter-active, .vc-hint-leave-active { transition: opacity 0.25s, transform 0.25s; }
+.vc-hint-enter-from, .vc-hint-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+@media (prefers-reduced-motion: reduce) { .vc-hint svg { animation: none; } .vc-hint-enter-active, .vc-hint-leave-active { transition: none; } }
 .vc-zoom { position: absolute; right: calc(14px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.18); z-index: 3; }
 .vc-zoom button { width: 40px; height: 40px; border: 0; border-bottom: 1px solid #e5e7eb; background: #fff; color: #111827; font-size: 20px; cursor: pointer; display: grid; place-items: center; }
 .vc-zoom button:last-child { border-bottom: 0; }
