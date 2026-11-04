@@ -31,6 +31,7 @@ import {
 } from './landMarkers'
 import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON, floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
 import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, floorSpotPosition, supportsFloorCursor } from './floorCursor'
+import { installPerfRecorder } from './perfRecorder'
 
 /** Master Handle: Unified state for a single viewer instance */
 export interface PsvViewerHandle {
@@ -1035,6 +1036,7 @@ export async function initViewer(
   const baseRatio = Math.min(window.devicePixelRatio, 2)
   viewer.renderer.renderer.setPixelRatio(baseRatio)
   installDynamicResolution(viewer, baseRatio)
+  installPerfRecorder(viewer)
   useDevicePixelsForTileLevels(viewer)
 
   // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.
@@ -1811,6 +1813,7 @@ export async function initVirtualTourViewer(
   const baseRatio = Math.min(window.devicePixelRatio, 2)
   viewer.renderer.renderer.setPixelRatio(baseRatio)
   installDynamicResolution(viewer, baseRatio)
+  installPerfRecorder(viewer)
   useDevicePixelsForTileLevels(viewer)
 
   // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.
