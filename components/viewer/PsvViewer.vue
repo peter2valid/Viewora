@@ -3414,6 +3414,24 @@ watch(() => vtTransitioning.value, (loading) => {
   }
 }
 
+/* Raised-slab edge (viewer dock only): rounder corners, a bright lip along the top
+   and a soft inner shade along the bottom, plus a tight contact shadow so it sits
+   on the scene like an object on a table. Fill, blur and border colour unchanged. */
+:global(.dock-glass-superdark.dock-magnet) {
+  border-radius: 26px !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 14px 30px rgba(0, 0, 0, 0.34),
+    inset 0 2px 1px rgba(255, 255, 255, 0.42),
+    inset 1px 0 1px rgba(255, 255, 255, 0.14),
+    inset -1px 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+@media (max-width: 640px) {
+  :global(.dock-glass-superdark.dock-magnet) { border-radius: 22px !important; }
+}
+
 /* ── Plain-DOM hotspot styles ───────────────────────────── */
 
 /* ── NAV hotspot: indigo circle + pulse ring + label ──── */
