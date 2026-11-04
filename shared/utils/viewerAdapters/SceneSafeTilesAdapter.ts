@@ -20,6 +20,56 @@ import { MeshBasicMaterial } from 'three'
  * drawn onto, the sphere of the panorama they belong to. Everything else is
  * PSV's own code.
  */
+/** Small pool of tile decode workers. Resolves null when workers are unavailable
+ *  or the tile failed there, so the caller falls back to the main-thread path. */
+const DECODE_WORKERS = 2
+let decodePool: Worker[] | null | undefined
+let decodeNext = 0
+let decodeSeq = 0
+const decodePending = new Map<number, (bitmap: ImageBitmap | null) => void>()
+
+/** Debug switch for A/B tests: ?tiledecode=main (bitmap on the main thread) or =img (plain image). */
+const decodeMode = (): string => {
+  try { return new URLSearchParams(location.search).get('tiledecode') || '' } catch { return '' }
+}
+
+function getDecodePool(): Worker[] | null {
+  if (decodePool !== undefined) return decodePool
+  decodePool = null
+  if (decodeMode()) return null
+  if (typeof Worker === 'undefined' || typeof createImageBitmap !== 'function') return null
+  try {
+    const pool: Worker[] = []
+    for (let k = 0; k < DECODE_WORKERS; k++) {
+      const w = new Worker(new URL('./tileDecode.worker.ts', import.meta.url), { type: 'module' })
+      w.onmessage = (e: MessageEvent<{ id: number; bitmap?: ImageBitmap; error?: string }>) => {
+        const done = decodePending.get(e.data.id)
+        if (!done) { e.data.bitmap?.close(); return }
+        decodePending.delete(e.data.id)
+        done(e.data.bitmap ?? null)
+      }
+      w.onerror = () => {
+        // Worker died: fail what it was doing and stop using the pool.
+        decodePool = null
+        for (const [id, done] of decodePending) { decodePending.delete(id); done(null) }
+      }
+      pool.push(w)
+    }
+    decodePool = pool
+  } catch { decodePool = null }
+  return decodePool
+}
+
+function decodeTileInWorker(url: string): Promise<ImageBitmap | null> {
+  const pool = getDecodePool()
+  if (!pool) return Promise.resolve(null)
+  return new Promise(resolve => {
+    const id = ++decodeSeq
+    decodePending.set(id, resolve)
+    pool[decodeNext++ % pool.length]!.postMessage({ id, url })
+  })
+}
+
 export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   /** Panorama of the sphere tiles are currently drawn onto (state.geom). */
   protected vwPanorama: unknown = undefined
@@ -101,30 +151,30 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   __loadTile(tile: any, task: any): Promise<void> {
     // @ts-ignore
     const viewer = this.viewer
-    return viewer.textureLoader.loadImage(tile.url, null, viewer.state.textureData?.cacheKey).then(async (image: any) => {
-      // Decode off the render thread. Handed over as an <img>, the browser decodes the
-      // WebP inside texSubImage2D, in the render loop (~13 ms a tile, 41% of main-thread
-      // time while a room streams in), which stalls a drag. An ImageBitmap is decoded
-      // by createImageBitmap on a worker, in the form the upload wants (flipped here
-      // because WebGL ignores UNPACK_FLIP_Y for bitmaps), so the upload is a copy.
-      let bitmap: ImageBitmap | null = null
-      if (typeof createImageBitmap === 'function') {
-        try {
-          bitmap = await createImageBitmap(image, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' })
-        } catch { bitmap = null }
-      }
+    const finish = (source: any, bitmap: ImageBitmap | null) => {
       if (task.isCancelled()) { bitmap?.close(); return }
       // @ts-ignore
       const mipmaps = this.config.antialias && tile.config.level > 0
-      const texture = utils.createTexture(bitmap ?? image, mipmaps)
+      const texture = utils.createTexture(source, mipmaps)
       if (bitmap) {
+        // WebGL ignores UNPACK_FLIP_Y for bitmaps: they were flipped when created.
         texture.flipY = false
-        const bm = bitmap
-        texture.addEventListener('dispose', () => { try { bm.close() } catch { /* already closed */ } })
+        texture.addEventListener('dispose', () => { try { bitmap.close() } catch { /* already closed */ } })
       }
-      const material = new MeshBasicMaterial({ map: texture })
-      this.__swapMaterial(tile, material, false)
+      this.__swapMaterial(tile, new MeshBasicMaterial({ map: texture }), false)
       viewer.needsUpdate()
+    }
+    // Preferred: fetched and decoded in a worker, so no decode runs on the main thread.
+    return decodeTileInWorker(tile.url).then(async (bitmap) => {
+      if (bitmap) return finish(bitmap, bitmap)
+      // Fallback: PSV's loader, then a main-thread bitmap (or the plain image).
+      const image: any = await viewer.textureLoader.loadImage(tile.url, null, viewer.state.textureData?.cacheKey)
+      if (task.isCancelled()) return
+      let bm: ImageBitmap | null = null
+      if (typeof createImageBitmap === 'function' && decodeMode() !== 'img') {
+        try { bm = await createImageBitmap(image, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' }) } catch { bm = null }
+      }
+      finish(bm ?? image, bm)
     }).catch((err: unknown) => {
       if (!task.isCancelled() && utils.isAbortError(err)) this.forgetTile(tile)
     })
