@@ -100,7 +100,7 @@
                   </svg>
                 </span>
                 <NuxtImg
-                  v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl)"
+                  v-if="item.imageUrl && !failedThumbUrls.has(item.imageUrl) && showThumb(item.id)"
                   :src="item.imageUrl"
                   :alt="''"
                   class="glass-dock__thumbImg"
@@ -258,6 +258,8 @@ const props = withDefaults(defineProps<{
   addDisabled?: boolean
   sortable?: boolean
   glassClass?: string
+  /** Only keep <img> thumbnails for cards near the visible part of the strip (public viewer). */
+  windowThumbs?: boolean
   bottomPx?: number
   edgeInsetPx?: number
   maxStripVw?: number
@@ -323,6 +325,28 @@ onMounted(() => {
 const dockEl = ref<HTMLElement | null>(null)
 const stripEl = ref<HTMLElement | null>(null)
 let sortableInstances: Sortable[] = []
+// Windowed thumbnails: with ~70 scenes the dock held ~70 live <img>s that the browser
+// kept repainting (and re-decoding as the dock magnifies) over the moving panorama.
+// With `windowThumbs`, only cards within ~240px of the strip's visible part keep one.
+const nearIds = reactive(new Set<string>())
+let thumbIO: IntersectionObserver | null = null
+function showThumb(id: string): boolean {
+  return !props.windowThumbs || typeof IntersectionObserver === 'undefined' || nearIds.has(id)
+}
+function observeThumbs() {
+  thumbIO?.disconnect()
+  thumbIO = null
+  const strip = stripEl.value
+  if (!props.windowThumbs || !strip || typeof IntersectionObserver === 'undefined') return
+  thumbIO = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const id = (e.target as HTMLElement).dataset.dockId
+      if (!id) continue
+      if (e.isIntersecting) nearIds.add(id); else nearIds.delete(id)
+    }
+  }, { root: strip, rootMargin: '0px 240px 0px 240px' })
+  strip.querySelectorAll<HTMLElement>('.glass-dock__item[data-dock-id]').forEach(el => thumbIO!.observe(el))
+}
 const loadedThumbUrls = reactive(new Set<string>())
 const failedThumbUrls = reactive(new Set<string>())
 
@@ -504,8 +528,10 @@ function initSortables() {
 
 const sectionKeys = computed(() => sections.value.map(s => s.key).join('|'))
 watch([stripEl, sectionKeys], () => nextTick(initSortables))
+watch([stripEl, () => props.items, () => props.windowThumbs], () => nextTick(observeThumbs), { flush: 'post' })
 
 onBeforeUnmount(() => {
+  thumbIO?.disconnect()
   destroySortables()
   if (stripEl.value) {
     stripEl.value.removeEventListener('touchstart', onStripTouchStart)

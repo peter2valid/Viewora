@@ -609,6 +609,7 @@
       :items="dockItems"
       :active-id="dockActiveId"
       :glass-class="MAGNET_DOCK ? 'dock-glass-superdark dock-magnet' : 'dock-glass-superdark'"
+      window-thumbs
       :sortable="false"
       :bottom-px="20"
       :edge-inset-px="16"
@@ -1345,7 +1346,12 @@ onMounted(() => { if (venueInitial.value.to && venueFloors.value.length) showVen
 // A/B switch: ?glass=off removes every backdrop blur over the panorama, to measure
 // what the glass costs the GPU while the view moves.
 onMounted(() => {
-  try { if (new URLSearchParams(location.search).get('glass') === 'off') document.documentElement.dataset.glass = 'off' } catch { /* ignore */ }
+  try {
+    const q = new URLSearchParams(location.search)
+    if (q.get('glass') === 'off') document.documentElement.dataset.glass = 'off'
+    // ?dockimgs=off: no scene thumbnails in the dock, to measure what they cost.
+    if (q.get('dockimgs') === 'off') document.documentElement.dataset.dockimgs = 'off'
+  } catch { /* ignore */ }
 })
 function openVenue() {
   venueInitial.value = { to: null, from: null }
@@ -3452,6 +3458,9 @@ watch(() => vtTransitioning.value, (loading) => {
 @media (max-width: 640px) {
   :global(.dock-glass-superdark.dock-magnet) { border-radius: 22px !important; }
 }
+
+/* ?dockimgs=off (measurement switch): no dock thumbnails. */
+:global(html[data-dockimgs="off"] .glass-dock img) { display: none !important; }
 
 /* ?glass=off (measurement switch): no backdrop blur anywhere. */
 :global(html[data-glass="off"] *) {
