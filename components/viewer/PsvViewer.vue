@@ -4011,7 +4011,13 @@ watch(() => vtTransitioning.value, (loading) => {
 
 /* ── Magnet floor tabs (experiment; MAGNET_DOCK) ──
    Slot = the other magnet (recessed, follows a beat late); pill = floats above it. */
-.dock-floors--magnet { position: relative; padding: 5px 5px; margin: -5px -5px; }
+.dock-floors--magnet {
+  position: relative; padding: 4px; margin: 0; width: max-content; max-width: 100%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
 .dock-floors--magnet .dock-floors__btn { z-index: 2; transition: color 0.25s ease; }
 .dock-floors--magnet .dock-floors__btn:not(.dock-floors__btn--on):hover,
 .dock-floors--magnet .dock-floors__btn--on { background: transparent; border-color: transparent; }
@@ -4023,19 +4029,13 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 .dock-floors--magnet[data-sync] .dock-floors__slot,
 .dock-floors--magnet[data-sync] .dock-floors__magnet { opacity: 1; }
-.dock-floors__slot {
-  top: 1px; height: 34px; z-index: 0;
-  width: calc(var(--mag-w, 0px) + 10px);
-  transform: translateX(calc(var(--mag-x, 0px) - 5px));
-  background: rgba(0, 0, 0, 0.30);
-  box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 0 rgba(255, 255, 255, 0.10);
-}
+.dock-floors__slot { display: none; }
 .dock-floors__magnet {
-  top: 5px; height: 26px; z-index: 1;
+  top: 4px; height: 26px; z-index: 1;
   width: var(--mag-w, 0px);
-  transform: translateX(var(--mag-x, 0px)) translateY(-1.5px);
+  transform: translateX(var(--mag-x, 0px));
   background: #fff;
-  box-shadow: 0 7px 12px rgba(0, 0, 0, 0.38), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
 }
 .dock-floors--magnet[data-ready] .dock-floors__magnet {
   transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
