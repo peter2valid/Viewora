@@ -3406,6 +3406,14 @@ watch(() => vtTransitioning.value, (loading) => {
     inset 0 -1px 0 rgba(255, 255, 255, 0.05) !important;
 }
 
+/* Legibility step: a faint dark film under the glass (blur/fill/border unchanged).
+   Skipped on touch, where the solid fallback below already applies. */
+@media (hover: hover) {
+  :global(.dock-glass-superdark.dock-magnet) {
+    background: linear-gradient(rgba(8, 10, 16, 0.14), rgba(8, 10, 16, 0.14)), rgba(255, 255, 255, 0.10) !important;
+  }
+}
+
 /* ── Plain-DOM hotspot styles ───────────────────────────── */
 
 /* ── NAV hotspot: indigo circle + pulse ring + label ──── */
@@ -4018,7 +4026,8 @@ watch(() => vtTransitioning.value, (loading) => {
   border: 1px solid rgba(255, 255, 255, 0.20);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
 }
-.dock-floors--magnet .dock-floors__btn { z-index: 2; transition: color 0.25s ease; }
+.dock-floors--magnet .dock-floors__btn { z-index: 2; transition: color 0.25s ease; color: rgba(255,255,255,0.88); text-shadow: 0 1px 1px rgba(0,0,0,0.16); }
+.dock-floors--magnet .dock-floors__btn--on { text-shadow: none; }
 .dock-floors--magnet .dock-floors__btn:not(.dock-floors__btn--on):hover,
 .dock-floors--magnet .dock-floors__btn--on { background: transparent; border-color: transparent; }
 .dock-floors--magnet .dock-floors__btn--on { color: #0b0d12; }

@@ -1078,4 +1078,8 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 @media (prefers-reduced-motion: reduce) {
   .dock-magnet .glass-dock__item, .dock-magnet .glass-dock__thumb { transition: none; }
 }
+
+/* Legibility step (viewer dock only): slightly brighter text, hairline shadow. */
+.dock-magnet .glass-dock__item { color: rgba(255,255,255,0.92); }
+.dock-magnet .glass-dock__label { text-shadow: 0 1px 1px rgba(0,0,0,0.16); }
 </style>
