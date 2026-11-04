@@ -608,7 +608,7 @@
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
       :active-id="dockActiveId"
-      glass-class="dock-glass-superdark"
+      :glass-class="MAGNET_DOCK ? 'dock-glass-superdark dock-magnet' : 'dock-glass-superdark'"
       :sortable="false"
       :bottom-px="20"
       :edge-inset-px="16"
@@ -622,7 +622,12 @@
     >
       <!-- Floor tabs (tours with floor plans): browse a floor without moving -->
       <template v-if="dockFloors.length" #header>
-        <div class="dock-floors" role="tablist" aria-label="Floors">
+        <div ref="dockFloorsEl" class="dock-floors" :class="{ 'dock-floors--magnet': MAGNET_DOCK }" role="tablist" aria-label="Floors">
+          <!-- Magnet effect: a recessed slot, and the white pill floating above it -->
+          <template v-if="MAGNET_DOCK">
+            <span class="dock-floors__slot" aria-hidden="true" />
+            <span class="dock-floors__magnet" aria-hidden="true" />
+          </template>
           <button
             v-for="f in dockFloors"
             :key="f.id"
@@ -1011,6 +1016,35 @@ const dockCollapsedLabel = computed(() => {
 
 // Dock tab or minimap floor button: browse that floor in both, without
 // moving. "Other" has no plan, so the minimap stays where it is.
+// ── Magnet dock (experiment, Session 18) ─────────────────────────────────
+// The active floor tab is a white pill floating above a recessed slot; both
+// glide to the next tab (the slot a beat behind). Active scenes in the dock
+// lift out of a recessed slot too (.dock-magnet in GlassDock.vue).
+// To turn it all off: set MAGNET_DOCK to false (or revert the commit).
+const MAGNET_DOCK = true
+const dockFloorsEl = ref<HTMLElement | null>(null)
+function syncFloorMagnet() {
+  const row = dockFloorsEl.value
+  const on = row?.querySelector<HTMLElement>('.dock-floors__btn--on')
+  if (!row || !on) return
+  row.style.setProperty('--mag-x', `${on.offsetLeft}px`)
+  row.style.setProperty('--mag-w', `${on.offsetWidth}px`)
+  if (!row.dataset.sync) {
+    // First placement: appear in place, and only animate from the next move.
+    row.dataset.sync = '1'
+    requestAnimationFrame(() => { row.dataset.ready = '1' })
+  }
+}
+if (MAGNET_DOCK) {
+  watch([dockFloorsEl, dockFloorId, dockFloors, dockCollapsed], () => { void nextTick(syncFloorMagnet) }, { flush: 'post' })
+  onMounted(() => {
+    window.addEventListener('resize', syncFloorMagnet, { passive: true })
+    // Tab widths change when the web font arrives.
+    void document.fonts?.ready.then(syncFloorMagnet)
+  })
+  onUnmounted(() => window.removeEventListener('resize', syncFloorMagnet))
+}
+
 function browseDockFloor(floorId: string) {
   if (floorId !== OTHER_FLOOR_ID) floorMapCtl.value?.showFloor(floorId)
   if (floorId === dockFloorId.value) return
@@ -3974,6 +4008,45 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 .dock-floors__btn:not(.dock-floors__btn--on):hover { background: rgba(255,255,255,0.12); color: #fff; }
 .dock-floors__btn--on { background: #fff; color: #0b0d12; border-color: #fff; }
+
+/* ── Magnet floor tabs (experiment; MAGNET_DOCK) ──
+   Slot = the other magnet (recessed, follows a beat late); pill = floats above it. */
+.dock-floors--magnet { position: relative; padding: 5px 5px; margin: -5px -5px; }
+.dock-floors--magnet .dock-floors__btn { z-index: 2; transition: color 0.25s ease; }
+.dock-floors--magnet .dock-floors__btn:not(.dock-floors__btn--on):hover,
+.dock-floors--magnet .dock-floors__btn--on { background: transparent; border-color: transparent; }
+.dock-floors--magnet .dock-floors__btn--on { color: #0b0d12; }
+.dock-floors--magnet .dock-floors__btn:not(.dock-floors__btn--on) { background: transparent; border-color: transparent; }
+.dock-floors__slot, .dock-floors__magnet {
+  position: absolute; left: 0; border-radius: 999px; pointer-events: none;
+  opacity: 0;
+}
+.dock-floors--magnet[data-sync] .dock-floors__slot,
+.dock-floors--magnet[data-sync] .dock-floors__magnet { opacity: 1; }
+.dock-floors__slot {
+  top: 1px; height: 34px; z-index: 0;
+  width: calc(var(--mag-w, 0px) + 10px);
+  transform: translateX(calc(var(--mag-x, 0px) - 5px));
+  background: rgba(0, 0, 0, 0.30);
+  box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+.dock-floors__magnet {
+  top: 5px; height: 26px; z-index: 1;
+  width: var(--mag-w, 0px);
+  transform: translateX(var(--mag-x, 0px)) translateY(-1.5px);
+  background: #fff;
+  box-shadow: 0 7px 12px rgba(0, 0, 0, 0.38), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+.dock-floors--magnet[data-ready] .dock-floors__magnet {
+  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dock-floors--magnet[data-ready] .dock-floors__slot {
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1), width 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-floors--magnet[data-ready] .dock-floors__magnet,
+  .dock-floors--magnet[data-ready] .dock-floors__slot { transition: none; }
+}
 /* Browsing another floor: a dot marks the floor the visitor is on. */
 .dock-floors__btn--here { padding-left: 22px; }
 .dock-floors__btn--here::before {

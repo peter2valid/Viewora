@@ -1056,4 +1056,26 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 .glass-dock__thumbBack { background: rgba(255, 255, 255, 0.1); color: #fff; }
 .glass-dock__item--back .glass-dock__label { font-weight: 800; }
+
+/* ── Magnet scenes (opt-in: glass-class "dock-magnet", the public viewer) ──
+   The active scene lifts out of a recessed slot. */
+.dock-magnet .glass-dock__item {
+  transition: background 500ms ease, border-color 500ms ease, box-shadow 500ms ease, color 140ms ease;
+}
+.dock-magnet .glass-dock__item--active {
+  background: rgba(0, 0, 0, 0.20);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.38), inset 0 -1px 0 rgba(255, 255, 255, 0.10);
+}
+.dock-magnet .glass-dock__thumb {
+  transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 300ms ease, border-color 140ms ease;
+}
+.dock-magnet .glass-dock__item--active .glass-dock__thumb {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 16px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-magnet .glass-dock__item, .dock-magnet .glass-dock__thumb { transition: none; }
+}
 </style>
