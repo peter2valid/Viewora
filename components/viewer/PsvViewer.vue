@@ -2647,7 +2647,14 @@ watch(() => vtTransitioning.value, (loading) => {
   justify-content: center;
   cursor: pointer;
   transition: transform 140ms ease, background 140ms ease, color 140ms ease, border-color 140ms ease;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  /* Raised-slab edge, same recipe as the dock, scaled down. */
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 8px 18px rgba(0, 0, 0, 0.32),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.34),
+    inset 1px 0 1px rgba(255, 255, 255, 0.10),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.18);
 }
 
 .viewer-rail__btn svg {
@@ -3865,10 +3872,13 @@ watch(() => vtTransitioning.value, (loading) => {
   background: rgba(255, 255, 255, 0.10);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.20);
+  /* Raised-slab edge, same recipe as the dock, scaled down. */
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 10px 22px rgba(0, 0, 0, 0.32),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.40),
+    inset 1px 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.16);
   transition: background 0.2s ease;
 }
 .venue-map-btn:hover { background: rgba(255, 255, 255, 0.16); }
