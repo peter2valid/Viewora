@@ -1036,7 +1036,16 @@ function syncFloorMagnet() {
   }
 }
 if (MAGNET_DOCK) {
-  watch([dockFloorsEl, dockFloorId, dockFloors, dockCollapsed], () => { void nextTick(syncFloorMagnet) }, { flush: 'post' })
+  watch([dockFloorsEl, dockFloorId, visitorFloorId, dockFloors, dockCollapsed], () => { void nextTick(syncFloorMagnet) }, { flush: 'post' })
+  // Any tab resizing (the "you are here" dot pads a tab, font load, etc.) re-measures the pill.
+  let floorRO: ResizeObserver | null = null
+  watch(dockFloorsEl, (el) => {
+    floorRO?.disconnect()
+    if (!el || typeof ResizeObserver === 'undefined') return
+    floorRO = new ResizeObserver(syncFloorMagnet)
+    el.querySelectorAll('.dock-floors__btn').forEach(b => floorRO!.observe(b))
+  }, { flush: 'post' })
+  onUnmounted(() => floorRO?.disconnect())
   onMounted(() => {
     window.addEventListener('resize', syncFloorMagnet, { passive: true })
     // Tab widths change when the web font arrives.
@@ -3571,11 +3580,12 @@ watch(() => vtTransitioning.value, (loading) => {
 :global(.vhs-info:hover .vhs-info__trigger-icon) { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.7)) brightness(1.08); }
 
 :global(.vhs-info__pin-dot) {
-  width: 14px;
-  height: 14px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   box-shadow: 0 0 12px var(--vhs-color, #6366f1), 0 2px 6px rgba(0,0,0,0.5);
-  border: 2.5px solid rgba(255,255,255,0.95);
+  border: 3px solid rgba(255,255,255,0.97);
+  background-clip: padding-box;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 :global(.vhs-info--active .vhs-info__pin-dot) {

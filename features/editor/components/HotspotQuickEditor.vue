@@ -289,21 +289,50 @@ const selectedScene = computed(() =>
   props.otherScenes.find(s => s.id === props.draft.targetSceneId)
 )
 
+// Real card height (it grows with the icon grid and shrinks with browser zoom).
+const cardH = ref(480)
+let cardRO: ResizeObserver | null = null
+watch(cardEl, (el) => {
+  cardRO?.disconnect()
+  if (!el || typeof ResizeObserver === 'undefined') return
+  cardRO = new ResizeObserver(() => { cardH.value = el.offsetHeight || cardH.value })
+  cardRO.observe(el)
+}, { flush: 'post' })
+onBeforeUnmount(() => cardRO?.disconnect())
+
+// Place the card beside the hotspot, never over it: try below/above (centred),
+// then right, then left; keep whichever candidate stays on screen and clear of the point.
 const posStyle = computed(() => {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
   const margin = 12
   const topClear = 60
-  const CARD_H = 480
+  const gap = 36 // clearance around the hotspot
+  const H = Math.min(cardH.value, vh - topClear - margin * 2)
+  const x = props.screenX
+  const y = props.screenY
+  const clampL = (l: number) => Math.max(margin, Math.min(l, vw - CARD_W - margin))
+  const clampT = (t: number) => Math.max(topClear + margin, Math.min(t, vh - H - margin))
+  const covers = (l: number, t: number) =>
+    x > l - gap && x < l + CARD_W + gap && y > t - gap && y < t + H + gap
 
-  let left = props.screenX - CARD_W / 2
-  let top = props.screenY + 50
-
-  if (top + CARD_H > vh - margin) top = props.screenY - CARD_H - 50
-  left = Math.max(margin, Math.min(left, vw - CARD_W - margin))
-  top = Math.max(topClear + margin, Math.min(top, vh - CARD_H - margin))
-
-  return { position: 'fixed' as const, left: `${left}px`, top: `${top}px`, width: `${CARD_W}px` }
+  const candidates: Array<[number, number]> = [
+    [clampL(x - CARD_W / 2), y + gap],
+    [clampL(x - CARD_W / 2), y - H - gap],
+    [x + gap, clampT(y - H / 2)],
+    [x - CARD_W - gap, clampT(y - H / 2)],
+  ]
+  let pick: [number, number] | null = null
+  for (const [l, t] of candidates) {
+    if (l < margin || l + CARD_W > vw - margin || t < topClear + margin || t + H > vh - margin) continue
+    if (!covers(l, t)) { pick = [l, t]; break }
+  }
+  if (!pick) {
+    // Nothing fits cleanly (tiny viewport): take the side with the most room.
+    const right = vw - x > x
+    pick = [clampL(right ? x + gap : x - CARD_W - gap), clampT(y - H / 2)]
+  }
+  return { position: 'fixed' as const, left: `${pick[0]}px`, top: `${pick[1]}px`, width: `${CARD_W}px` }
 })
 
 /** Large drag-to-look-around preview of the destination photos. */
