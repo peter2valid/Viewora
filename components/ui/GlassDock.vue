@@ -1105,4 +1105,9 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 @media (prefers-reduced-motion: reduce) {
   .dock-magnet .glass-dock__item:not(.glass-dock__item--active):hover { transform: none; }
 }
+
+/* The strip scrolls sideways, which clips it vertically too, so a card's hover
+   shadow and lift were cut off at its box. Room inside the clip box, cancelled
+   by the negative margin so the layout does not move. */
+.dock-magnet .glass-dock__strip { padding-block: 8px 14px; margin-block: -8px -14px; }
 </style>
