@@ -36,11 +36,14 @@
       v-if="venueFloors.length && !chromeHidden && !showVenue && !showAerial"
       type="button"
       class="plot-map-btn venue-map-btn"
-      :style="{ top: aerialMaps.length && hasTourData ? (plotLegend.length ? '146px' : '102px') : (plotLegend.length ? '102px' : '58px') }"
+      :style="{ '--venue-top': aerialMaps.length && hasTourData ? (plotLegend.length ? '146px' : '102px') : (plotLegend.length ? '102px' : '58px') }"
       @click.stop="openVenue"
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      Find a shop
+      <!-- Raised white pill in a glass track (dock style), pin behind it -->
+      <span class="venue-map-btn__face">Find a shop</span>
+      <span class="venue-map-btn__pin" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+      </span>
     </button>
     <VenueMapViewer
       v-if="showVenue || (!hasTourData && venueFloors.length)"
@@ -3792,6 +3795,63 @@ watch(() => vtTransitioning.value, (loading) => {
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
 }
 .plot-map-btn:hover { background: rgba(30, 46, 108, 0.98); }
+
+/* "Find a shop": the dock's glass as a track, the active floor tab's white
+   pill in front, a location pin behind it on the right. On hover the pill
+   leans toward the pin and the pin lifts. */
+.venue-map-btn {
+  top: var(--venue-top, 58px);
+  height: 40px; padding: 4px; gap: 0;
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  transition: background 0.2s ease;
+}
+.venue-map-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.venue-map-btn__face {
+  display: inline-flex; align-items: center; height: 100%;
+  padding: 0 16px; border-radius: 999px;
+  background: #fff; color: #0b0d12;
+  font-size: 13px; font-weight: 800; letter-spacing: 0.01em; white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.venue-map-btn__pin {
+  display: grid; place-items: center;
+  width: 34px; height: 100%;
+  color: rgba(255, 255, 255, 0.9);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
+}
+.venue-map-btn:hover .venue-map-btn__face { transform: translateX(3px); }
+.venue-map-btn:hover .venue-map-btn__pin { transform: translateY(-2px); color: #fff; }
+.venue-map-btn:active .venue-map-btn__face { transform: translateX(3px) scale(0.97); }
+.venue-map-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .venue-map-btn__face, .venue-map-btn__pin { transition: none; }
+}
+/* Phones: the branding card (logo, name, address) fills the top left, so the
+   button moves to the empty top-right corner and gets a little smaller. Under
+   375 px that corner is too tight, so it stays centred and drops below the
+   card (about 128 px tall, 20 px from the top). */
+@media (max-width: 640px) {
+  .venue-map-btn { left: auto; right: 12px; transform: none; height: 36px; }
+  .venue-map-btn__face { padding: 0 13px; font-size: 12px; }
+  .venue-map-btn__pin { width: 30px; }
+}
+@media (max-width: 374px) {
+  .venue-map-btn { left: 50%; right: auto; transform: translateX(-50%); top: calc(var(--venue-top, 58px) + 102px); }
+}
+/* Touch devices: no blur over the moving panorama (same trade-off as the dock). */
+@media (hover: none) and (pointer: coarse) {
+  .venue-map-btn {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: rgba(10, 12, 18, 0.92);
+  }
+}
 
 .plot-legend {
   position: absolute;
