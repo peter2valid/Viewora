@@ -4003,7 +4003,7 @@ watch(() => vtTransitioning.value, (loading) => {
 /* ── Medium-size scene dock (public viewer only; the editor keeps GlassDock's
    full size). About a fifth smaller than the default, so it leaves more of
    the panorama in view. ── */
-.public-viewer :deep(.glass-dock--padded) { padding: 7px; }
+.public-viewer :deep(.glass-dock--padded) { padding: 10px; }
 .public-viewer :deep(.glass-dock--with-header) { gap: 6px; }
 .public-viewer :deep(.glass-dock__strip) { gap: 6px; }
 .public-viewer :deep(.glass-dock__item) {
@@ -4014,7 +4014,7 @@ watch(() => vtTransitioning.value, (loading) => {
 .public-viewer :deep(.glass-dock__section) { --item-w: 88px; }
 .public-viewer :deep(.glass-dock__label) { font-size: 10.5px; }
 @media (min-width: 640px) {
-  .public-viewer :deep(.glass-dock--padded) { padding: 10px; }
+  .public-viewer :deep(.glass-dock--padded) { padding: 14px; }
   .public-viewer :deep(.glass-dock__strip) { gap: 8px; }
   .public-viewer :deep(.glass-dock__item) {
     --thumb-w: 92px; --thumb-h: 50px;
