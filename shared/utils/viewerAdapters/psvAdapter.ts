@@ -752,6 +752,64 @@ export interface InitViewerOptions {
 const MEDIUM_TILE_WIDTH = 4096
 
 /**
+ * Render at a lower resolution while the user drags or zooms, sharp again 200 ms
+ * after the view settles (maps and games do the same). Fewer pixels to shade and
+ * present per frame matters most on integrated GPUs and phones. It only starts
+ * once the view actually moves under a pressed pointer (a plain click never
+ * resizes the canvas), and the tile level keeps using the base ratio.
+ * ?dynres=off turns it off for A/B tests.
+ */
+const DRAG_RES_SCALE = 0.75
+const DRAG_RES_FLOOR = 0.6
+const DRAG_RES_SETTLE_MS = 200
+
+function installDynamicResolution(viewer: any, baseRatio: number): () => void {
+  viewer.__baseRatio = baseRatio
+  if (typeof window === 'undefined') return () => {}
+  try { if (new URLSearchParams(location.search).get('dynres') === 'off') return () => {} } catch { /* ignore */ }
+  const gl = viewer.renderer?.renderer
+  const low = Math.max(DRAG_RES_FLOOR, baseRatio * DRAG_RES_SCALE)
+  if (!gl || low >= baseRatio - 0.05) return () => {}
+  const el: HTMLElement | null = viewer.container ?? null
+  if (!el) return () => {}
+  let down = false
+  let lowered = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const set = (ratio: number) => {
+    gl.setPixelRatio(ratio)
+    // The resize clears the canvas: draw again right away so no empty frame is shown.
+    try { viewer.renderer.renderer.render(viewer.renderer.scene, viewer.renderer.camera) } catch { /* next frame draws */ }
+    viewer.needsUpdate()
+  }
+  const lower = () => { if (!lowered) { lowered = true; set(low) } }
+  const arm = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => { if (!down && lowered) { lowered = false; set(baseRatio) } }, DRAG_RES_SETTLE_MS)
+  }
+  const onDown = () => { down = true }
+  const onUp = () => { down = false; if (lowered) arm() }
+  const onMove = () => { if (down) lower(); if (lowered) arm() }
+  const onWheel = () => { lower(); arm() }
+  el.addEventListener('pointerdown', onDown, true)
+  window.addEventListener('pointerup', onUp, true)
+  window.addEventListener('pointercancel', onUp, true)
+  el.addEventListener('wheel', onWheel, { passive: true, capture: true })
+  viewer.addEventListener('position-updated', onMove)
+  const stop = () => {
+    clearTimeout(timer)
+    el.removeEventListener('pointerdown', onDown, true)
+    window.removeEventListener('pointerup', onUp, true)
+    window.removeEventListener('pointercancel', onUp, true)
+    el.removeEventListener('wheel', onWheel, true)
+    try { viewer.removeEventListener('position-updated', onMove) } catch { /* viewer destroyed */ }
+    if (lowered) { lowered = false; try { gl.setPixelRatio(baseRatio) } catch { /* destroyed */ } }
+  }
+  const destroy = viewer.destroy?.bind(viewer)
+  if (destroy) viewer.destroy = (...a: any[]) => { stop(); return destroy(...a) }
+  return stop
+}
+
+/**
  * PSV picks the tile level by comparing it with the viewer size in CSS pixels,
  * but the canvas renders at up to 2× that (setPixelRatio), so on Retina screens
  * the default view stayed on medium tiles stretched ~2×. On desktop/laptop this
@@ -769,7 +827,8 @@ function useDevicePixelsForTileLevels(viewer: any): void {
   if (typeof refresh !== 'function') return
   adapter.__refresh = function (this: any) {
     const size = viewer.state.size
-    const ratio = viewer.renderer.renderer.getPixelRatio()
+    // Base ratio: the drag-time resolution drop (installDynamicResolution) must not change the tile level.
+    const ratio = viewer.__baseRatio ?? viewer.renderer.renderer.getPixelRatio()
     if (!size || ratio <= 1) return refresh.call(this)
     viewer.state.size = { width: size.width * ratio, height: size.height * ratio }
     try { return refresh.call(this) } finally { viewer.state.size = size }
@@ -973,7 +1032,9 @@ export async function initViewer(
   // Cap at 2× for all devices — matches native Retina resolution without
   // the 4× pixel count of 3× DPR screens. Previous 1.5 cap caused visible
   // softness on Retina laptops (2× DPR rendered at only 75% of native).
-  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  const baseRatio = Math.min(window.devicePixelRatio, 2)
+  viewer.renderer.renderer.setPixelRatio(baseRatio)
+  installDynamicResolution(viewer, baseRatio)
   useDevicePixelsForTileLevels(viewer)
 
   // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.
@@ -1747,7 +1808,9 @@ export async function initVirtualTourViewer(
 
   // Cap at 2× for all devices — matches native Retina resolution without
   // the 4× pixel count of 3× DPR screens.
-  viewer.renderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  const baseRatio = Math.min(window.devicePixelRatio, 2)
+  viewer.renderer.renderer.setPixelRatio(baseRatio)
+  installDynamicResolution(viewer, baseRatio)
   useDevicePixelsForTileLevels(viewer)
 
   // Warn if device MAX_TEXTURE_SIZE < 4096 — medium tiles would render black.

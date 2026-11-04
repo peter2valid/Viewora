@@ -1333,6 +1333,11 @@ const venueInitial = ref<{ to: string | null; from: string | null; edit?: 'to' |
 })())
 const showVenue = ref(false)
 onMounted(() => { if (venueInitial.value.to && venueFloors.value.length) showVenue.value = true })
+// A/B switch: ?glass=off removes every backdrop blur over the panorama, to measure
+// what the glass costs the GPU while the view moves.
+onMounted(() => {
+  try { if (new URLSearchParams(location.search).get('glass') === 'off') document.documentElement.dataset.glass = 'off' } catch { /* ignore */ }
+})
 function openVenue() {
   venueInitial.value = { to: null, from: null }
   showVenue.value = true
@@ -3437,6 +3442,12 @@ watch(() => vtTransitioning.value, (loading) => {
 }
 @media (max-width: 640px) {
   :global(.dock-glass-superdark.dock-magnet) { border-radius: 22px !important; }
+}
+
+/* ?glass=off (measurement switch): no backdrop blur anywhere. */
+:global(html[data-glass="off"] *) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* ── Plain-DOM hotspot styles ───────────────────────────── */
