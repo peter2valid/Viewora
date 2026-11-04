@@ -1082,4 +1082,27 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 /* Legibility step (viewer dock only): slightly brighter text, hairline shadow. */
 .dock-magnet .glass-dock__item { color: rgba(255,255,255,0.92); }
 .dock-magnet .glass-dock__label { text-shadow: 0 1px 1px rgba(0,0,0,0.16); }
+
+/* Unselected scene cards: a quiet raised tier, about a third of the dock's edge.
+   The selected scene keeps its recessed look. */
+.dock-magnet .glass-dock__item:not(.glass-dock__item--active) {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.07);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 0 -1px 2px rgba(0,0,0,0.08);
+}
+.dock-magnet .glass-dock__item:not(.glass-dock__item--active):hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.12);
+  transform: translateY(-1px);
+  box-shadow:
+    0 3px 6px rgba(0,0,0,0.16),
+    inset 0 1px 0 rgba(255,255,255,0.26),
+    inset 0 -1px 2px rgba(0,0,0,0.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-magnet .glass-dock__item:not(.glass-dock__item--active):hover { transform: none; }
+}
 </style>
