@@ -101,11 +101,28 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   __loadTile(tile: any, task: any): Promise<void> {
     // @ts-ignore
     const viewer = this.viewer
-    return viewer.textureLoader.loadImage(tile.url, null, viewer.state.textureData?.cacheKey).then((image: any) => {
-      if (task.isCancelled()) return
+    return viewer.textureLoader.loadImage(tile.url, null, viewer.state.textureData?.cacheKey).then(async (image: any) => {
+      // Decode off the render thread. Handed over as an <img>, the browser decodes the
+      // WebP inside texSubImage2D, in the render loop (~13 ms a tile, 41% of main-thread
+      // time while a room streams in), which stalls a drag. An ImageBitmap is decoded
+      // by createImageBitmap on a worker, in the form the upload wants (flipped here
+      // because WebGL ignores UNPACK_FLIP_Y for bitmaps), so the upload is a copy.
+      let bitmap: ImageBitmap | null = null
+      if (typeof createImageBitmap === 'function') {
+        try {
+          bitmap = await createImageBitmap(image, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' })
+        } catch { bitmap = null }
+      }
+      if (task.isCancelled()) { bitmap?.close(); return }
       // @ts-ignore
       const mipmaps = this.config.antialias && tile.config.level > 0
-      const material = new MeshBasicMaterial({ map: utils.createTexture(image, mipmaps) })
+      const texture = utils.createTexture(bitmap ?? image, mipmaps)
+      if (bitmap) {
+        texture.flipY = false
+        const bm = bitmap
+        texture.addEventListener('dispose', () => { try { bm.close() } catch { /* already closed */ } })
+      }
+      const material = new MeshBasicMaterial({ map: texture })
       this.__swapMaterial(tile, material, false)
       viewer.needsUpdate()
     }).catch((err: unknown) => {
