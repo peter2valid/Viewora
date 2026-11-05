@@ -37,7 +37,7 @@
           <span v-if="!logoLoaded" class="logo-skeleton" aria-hidden="true"></span>
           <img
             ref="logoRef"
-            src="/globe-icon.png"
+            src="/globe-icon-160.png"
             alt="Viewora"
             class="w-12 h-14 flex-shrink-0 dark:invert mt-1"
             :style="{ opacity: logoLoaded ? 1 : 0, position: logoLoaded ? 'static' : 'absolute' }"
@@ -289,7 +289,7 @@
         <NuxtLink to="/app" class="flex items-center gap-2">
           <span v-if="!logoLoaded" class="logo-skeleton" aria-hidden="true"></span>
           <img
-            src="/globe-icon.png"
+            src="/globe-icon-160.png"
             alt="Viewora"
             class="w-12 h-14 flex-shrink-0 dark:invert mt-1"
             :style="{ opacity: logoLoaded ? 1 : 0, position: logoLoaded ? 'static' : 'absolute' }"

@@ -149,7 +149,11 @@ useHead(computed(() => {
   }
 
   return {
-    link: [{ rel: 'canonical', href: `${runtimeConfig.public.appUrl}/p/${slug}` }],
+    link: [
+      { rel: 'canonical', href: `${runtimeConfig.public.appUrl}/p/${slug}` },
+      // Tiles and thumbnails come from here: open the connection before the first request needs it.
+      { rel: 'preconnect', href: 'https://media.viewora.software', crossorigin: '' },
+    ],
     script: scripts
   }
 }))

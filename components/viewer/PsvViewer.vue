@@ -752,7 +752,13 @@ const props = defineProps<{
 }>()
 
 const img = useImage()
-const optimizedLoadingLogo = computed(() => img('/globe-icon.png', { width: 80, height: 80, format: 'webp' }))
+// Spinner logo. Was the 930 KB original resized in CSS; now a 6 KB 160 px copy. White-label tours
+// show the owner's own logo (or nothing), never the Viewora globe.
+const optimizedLoadingLogo = computed<string | undefined>(() => {
+  if (!whiteLabel.value) return '/globe-icon-160.png'
+  const logo = (props.tour?.space as any)?.logo_url as string | undefined
+  return logo ? img(logo, { width: 160, format: 'webp' }) : undefined
+})
 
 const emit = defineEmits<{
   (e: 'loaded'): void

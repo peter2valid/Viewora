@@ -2,5 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
-  "framework": "nuxtjs"
+  "framework": "nuxtjs",
+  "headers": [
+    {
+      "source": "/globe-icon-160.png",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/embed.js",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=86400" }]
+    }
+  ]
 }

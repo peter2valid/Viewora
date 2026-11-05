@@ -15,7 +15,7 @@
       <div class="tour-page-loading-scrim" aria-hidden="true" />
       <div class="tour-page-loading-center">
         <div class="loading-logo-container">
-          <NuxtImg src="/globe-icon.png" width="76" height="76" class="loading-logo" alt="" />
+          <NuxtImg src="/globe-icon-160.png" width="76" height="76" class="loading-logo" alt="" />
         </div>
         <p class="loading-label">Loading Tour</p>
       </div>
@@ -67,7 +67,7 @@
         title="Viewora Virtual Tours"
       >
         <NuxtImg
-          src="/globe-icon.png"
+          src="/globe-icon-160.png"
           width="76"
           height="76"
           class="viewora-free-brand__logo"
