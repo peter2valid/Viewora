@@ -659,6 +659,7 @@ import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
 import { socialIcons } from '~/shared/utils/socialLinks'
+import { copyText } from '~/shared/utils/copyText'
 import { buildVenueFloors } from '~/shared/utils/venue'
 import {
   BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
@@ -1529,7 +1530,7 @@ const shareEmbedCode = computed(() => {
     ? ''
     : `\n<div style="text-align: center; margin-top: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: #64748b;">\n  Created with <a href="https://viewora.software/?utm_source=embed&utm_medium=virtual_tour&utm_campaign=platform_branding" target="_blank" rel="noopener" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Viewora Virtual Tour Software</a>\n</div>`
   const origin = (() => { try { return new URL(embedUrl.value).origin } catch { return 'https://app.viewora.software' } })()
-  return `<iframe src="${embedUrl.value}" title="${title.replace(/"/g, '&quot;')}" width="100%" height="600" loading="lazy" frameborder="0" allowfullscreen allow="fullscreen; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none; max-width:100%;"></iframe>\n<script async src="${origin}/embed.js"><\/script>${backlink}`
+  return `<iframe src="${embedUrl.value}" title="${title.replace(/"/g, '&quot;')}" width="100%" height="600" loading="lazy" frameborder="0" allowfullscreen allow="fullscreen; clipboard-write; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none; max-width:100%;"></iframe>\n<script async src="${origin}/embed.js"><\/script>${backlink}`
 })
 
 function sceneImageUrl(scene: any): string {
@@ -1555,24 +1556,22 @@ function sceneImageUrl(scene: any): string {
 }
 
 async function copyPublicUrl() {
-  try {
-    await navigator.clipboard.writeText(publicUrl.value)
+  if (await copyText(publicUrl.value)) {
     urlCopied.value = true
     setTimeout(() => { urlCopied.value = false }, 2000)
     analytics.track('tour_shared', { method: 'link', space_id: props.tour?.space?.id })
-  } catch {
-    // no-op: user can copy manually
+  } else {
+    flashToast('Could not copy. Press and hold the link to copy it.', 3500)
   }
 }
 
 async function copyEmbedCode() {
-  try {
-    await navigator.clipboard.writeText(shareEmbedCode.value)
+  if (await copyText(shareEmbedCode.value)) {
     embedCopied.value = true
     setTimeout(() => { embedCopied.value = false }, 2000)
     analytics.track('tour_shared', { method: 'embed', space_id: props.tour?.space?.id })
-  } catch {
-    // no-op: user can copy manually
+  } else {
+    flashToast('Could not copy. Select the code and copy it.', 3500)
   }
 }
 
@@ -2303,6 +2302,7 @@ function toggleAutoRotate() {
 function motionErrorText(err: MotionError): string {
   if (err === 'denied') return 'Motion access is blocked — reload the page and tap “Allow” when asked'
   if (err === 'insecure') return 'Motion control needs a secure (https) link'
+  if (inIframe()) return 'Motion is blocked inside this page. Open the full tour to use VR, or drag to look around'
   return 'No motion sensor found on this device — drag to look around'
 }
 
@@ -2406,8 +2406,25 @@ function toggleStereoView() {
     stopStereo(vtHandle.value)
     return
   }
+  // VR fills the screen. iPhone has no element fullscreen and an iframe can't
+  // outgrow its box, so ask the host page (embed.js) to expand it, or fall back
+  // to the full tour page. Both are synchronous, which iOS requires for the
+  // motion-permission prompt that startStereo() raises.
+  const d = document as any
+  const nativeFs = !!(d.fullscreenEnabled || d.webkitFullscreenEnabled)
+  let askedHost = false
+  if (inIframe() && !nativeFs) {
+    if (hostCanExpand.value) { postToHost('enter'); askedHost = true }
+    else {
+      const url = props.shareUrl || publicUrl.value
+      if (url) { window.open(url, '_blank', 'noopener'); return }
+    }
+  }
   startStereo(vtHandle.value).then((err) => {
-    if (err) flashToast(motionErrorText(err), 4200)
+    if (err) {
+      if (askedHost) postToHost('exit')
+      flashToast(motionErrorText(err), 4200)
+    }
   })
 }
 
@@ -2494,7 +2511,7 @@ function stopVrLoop() {
 
 watch(stereoActive, (on) => {
   stopVrLoop()
-  if (!on) vrFullscreenSeen = false
+  if (!on) { vrFullscreenSeen = false; if (hostExpanded) postToHost('exit') }
   if (on && typeof window !== 'undefined') {
     sceneToastVisible.value = false
     vrRaf = requestAnimationFrame(vrTick)

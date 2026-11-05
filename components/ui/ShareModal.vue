@@ -100,6 +100,7 @@ import QRCode from 'qrcode'
 import type { Space } from '~/composables/useSpaces'
 import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
 import { usePlanStore } from '~/stores/plan'
+import { copyText } from '~/shared/utils/copyText'
 
 const planStore = usePlanStore()
 const canEmbed = computed(() => planStore.can('embeds_enabled'))
@@ -135,23 +136,21 @@ const shareText = computed(() => `Check out this immersive virtual tour created 
 const shareWhatsappHref = computed(() => `https://wa.me/?text=${encodeURIComponent(shareText.value)}`)
 const shareXHref = computed(() => `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText.value)}`)
 const shareGmailHref = computed(() => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Viewora virtual tour')}&body=${encodeURIComponent(shareText.value)}`)
-const shareEmbedCode = computed(() => `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen allow="fullscreen; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none;"></iframe>`)
+const shareEmbedCode = computed(() => `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen allow="fullscreen; clipboard-write; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none;"></iframe>`)
 
 async function copyShareUrl() {
-  try {
-    await navigator.clipboard.writeText(publicUrl.value)
+  if (await copyText(publicUrl.value)) {
     urlCopied.value = true
     setTimeout(() => { urlCopied.value = false }, 2000)
-  } catch {
+  } else {
     toast.error('Could not copy — please copy manually')
   }
 }
 async function copyEmbedCode() {
-  try {
-    await navigator.clipboard.writeText(shareEmbedCode.value)
+  if (await copyText(shareEmbedCode.value)) {
     embedCopied.value = true
     setTimeout(() => { embedCopied.value = false }, 2000)
-  } catch {
+  } else {
     toast.error('Could not copy — please copy manually')
   }
 }

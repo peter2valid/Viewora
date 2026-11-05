@@ -67,7 +67,8 @@ const fetchError = computed(() => {
 
 const tour = computed(() => _payload.value?.tour || _payload.value || null)
 const space = computed(() => tour.value?.space ?? null)
-const shareUrl = computed(() => `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${space.value?.slug || space.value?.id || slug}`)
+// Same value on server and client (no window.location) so SSR hydration can't leave a relative link.
+const shareUrl = computed(() => `${String(runtimeConfig.public.appUrl || 'https://app.viewora.software').replace(/\/+$/, '')}/p/${space.value?.slug || space.value?.id || slug}`)
 
 const watermarkUrl = computed(() => {
   const base = runtimeConfig.public.marketingUrl || 'https://viewora.software'
