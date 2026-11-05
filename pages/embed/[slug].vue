@@ -15,6 +15,7 @@
           :tour="tour"
           :share-url="shareUrl"
           :is-embed="true"
+          @chrome-toggle="chromeHidden = $event"
         />
       </div>
 
@@ -35,6 +36,27 @@
         </div>
       </div>
 
+      <!-- Owner's brand card, same rules as the full tour page (pages/p/[slug].vue):
+           logo / name / contact top-left whenever the owner set any branding. -->
+      <div v-if="hasBrandingDetails && !chromeHidden" class="brand-card" aria-label="Tour branding">
+        <NuxtImg
+          v-if="space.logo_url"
+          :src="space.logo_url"
+          width="140"
+          height="52"
+          fit="contain"
+          class="brand-card__logo"
+          :alt="space.title"
+        />
+        <div class="brand-card__body">
+          <p class="brand-card__name">{{ space.title }}</p>
+          <p v-if="space.description" class="brand-card__desc">{{ space.description }}</p>
+          <p v-if="space.location_text" class="brand-card__line">{{ space.location_text }}</p>
+          <p v-if="space.phone" class="brand-card__line">{{ space.phone }}</p>
+          <p v-if="space.email" class="brand-card__line">{{ space.email }}</p>
+        </div>
+      </div>
+
       <!-- Watermark -->
       <a v-if="!space.branding_enabled" :href="watermarkUrl" @click="trackWatermarkClick" target="_blank" rel="noopener" class="embed-watermark" title="Viewora Virtual Tour Software">
         Viewora
@@ -45,7 +67,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useHead, useSeoMeta } from '#imports'
 
 const { apiFetch } = useApiFetch()
@@ -66,7 +88,13 @@ const fetchError = computed(() => {
 })
 
 const tour = computed(() => _payload.value?.tour || _payload.value || null)
+const chromeHidden = ref(false)
 const space = computed(() => tour.value?.space ?? null)
+// Same test as the full tour page: only real visual branding replaces the watermark.
+const hasBrandingDetails = computed(() => {
+  const sp = space.value
+  return !!(sp && (sp.logo_url || sp.description || sp.location_text || sp.email))
+})
 // Same value on server and client (no window.location) so SSR hydration can't leave a relative link.
 const shareUrl = computed(() => `${String(runtimeConfig.public.appUrl || 'https://app.viewora.software').replace(/\/+$/, '')}/p/${space.value?.slug || space.value?.id || slug}`)
 
@@ -187,6 +215,36 @@ useHead(computed(() => {
 
 .embed-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
 .embed-link { background: #fff; color: #000; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+
+/* Brand card: same look as the full tour page, fitted to an iframe. */
+.brand-card {
+  position: absolute; top: 14px; left: 14px; z-index: 30;
+  display: flex; flex-direction: column; gap: 6px;
+  max-width: min(200px, 46%);
+  pointer-events: none;
+}
+.brand-card__logo {
+  width: auto; max-width: 140px; max-height: 52px;
+  object-fit: contain; object-position: left center;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+}
+.brand-card__body { display: flex; flex-direction: column; gap: 2px; }
+.brand-card__name {
+  margin: 0; font-size: 14px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em;
+  color: #fff; text-shadow: 0 1px 10px rgba(0,0,0,0.8);
+}
+.brand-card__desc {
+  margin: 0; font-size: 10px; font-weight: 500; line-height: 1.45;
+  color: rgba(255,255,255,0.6); text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.brand-card__line {
+  margin: 0; font-size: 11px; font-weight: 500; line-height: 1.4;
+  color: rgba(255,255,255,0.78); text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+}
+/* Narrow iframes (phones): logo + name only, so it never crowds the tour. */
+@media (max-width: 480px) { .brand-card__desc, .brand-card__line { display: none; } }
+@media (max-height: 360px) { .brand-card { top: 8px; left: 8px; } .brand-card__logo { max-height: 34px; } }
 
 .embed-watermark {
   position: absolute;

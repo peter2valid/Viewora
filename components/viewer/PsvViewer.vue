@@ -311,7 +311,7 @@
          logic (measureDockLift) moves them together. -->
     <Transition name="wa-btn">
       <div
-        v-if="(whatsappHref || socialLinks.length) && !chromeHidden && !props.hideOwnChrome"
+        v-if="(whatsappHref || socialLinks.length || leadFormOn) && !chromeHidden && !props.hideOwnChrome"
         class="viewer-contact"
         :class="{ 'viewer-contact--dense': socialLinks.length > 3 }"
       >
@@ -329,6 +329,16 @@
           <path d="M12.04 2C6.49 2 2 6.48 2 12c0 1.89.52 3.66 1.42 5.18L2 22l4.98-1.39A9.96 9.96 0 0 0 12.04 22C17.56 22 22 17.52 22 12S17.56 2 12.04 2Zm5.8 14.16c-.24.68-1.44 1.32-1.98 1.39-.52.07-1.2.1-1.95-.12-.46-.14-1.05-.33-1.81-.66-3.18-1.38-5.24-4.6-5.39-4.81-.14-.21-1.3-1.73-1.3-3.3s.79-2.34 1.07-2.66c.28-.32.61-.4.82-.4h.58c.19 0 .45-.07.7.53.24.6.82 2.07.89 2.22.07.15.12.33.02.54-.1.21-.15.34-.3.52-.15.18-.31.4-.45.53-.15.16-.3.33-.13.63.16.31.71 1.17 1.52 1.9 1.04.92 1.9 1.21 2.22 1.37.31.16.49.14.67-.08.18-.22.77-.9.98-1.2.2-.31.4-.26.67-.16.28.1 1.74.82 2.04.97.3.14.5.22.58.34.08.12.08.74-.17 1.42Z"/>
         </svg>
       </a>
+      <button
+        v-if="leadFormOn"
+        type="button"
+        class="viewer-social-btn viewer-enquiry-btn"
+        aria-label="Send an enquiry"
+        data-tooltip="Send an enquiry"
+        @click.stop="openLeadForm"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+      </button>
       <a
         v-for="sl in socialLinks" :key="sl.key"
         :href="sl.href"
@@ -360,6 +370,20 @@
         {{ ctaButtonText }}
       </a>
     </Transition>
+
+    <!-- Enquiry form (only when the owner's plan includes lead capture; the API says so
+         via lead_form_enabled). Falls back to WhatsApp inside the form when sending fails. -->
+    <LeadForm
+      v-if="showLeadForm && leadFormOn && !props.hideOwnChrome"
+      :space-id="(props.tour?.space as any).id"
+      :space-title="(props.tour?.space as any)?.title || ''"
+      :whatsapp-number="whatsappNumber"
+      :owner-email="(props.tour?.space as any)?.email || null"
+      :share-url="props.shareUrl"
+      :source="props.isEmbed ? 'embed' : 'direct'"
+      :white-label="whiteLabel"
+      @close="showLeadForm = false"
+    />
 
     <!-- Post-guided-tour modal -->
     <Transition name="post-tour">
@@ -660,6 +684,7 @@ import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/compo
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
 import { socialIcons } from '~/shared/utils/socialLinks'
 import { copyText } from '~/shared/utils/copyText'
+import LeadForm from '~/components/viewer/LeadForm.vue'
 import { buildVenueFloors } from '~/shared/utils/venue'
 import {
   BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
@@ -1241,6 +1266,13 @@ const ctaHref = computed(() => {
   if (action === 'phone') return `tel:${dest}`
   return dest.startsWith('http') ? dest : `https://${dest}`
 })
+
+const showLeadForm = ref(false)
+const leadFormOn = computed(() => !!((props.tour?.space as any)?.lead_form_enabled && (props.tour?.space as any)?.id))
+function openLeadForm() {
+  showLeadForm.value = true
+  $posthog?.capture('lead_form_button_click', { space_id: (props.tour?.space as any)?.id })
+}
 
 const whatsappNumber = computed<string | null>(() =>
   toIntlPhoneDigits((props.tour?.space as any)?.phone as string | undefined) || null
@@ -4384,6 +4416,7 @@ watch(() => vtTransitioning.value, (loading) => {
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
   transition: transform 140ms ease, box-shadow 140ms ease;
 }
+.viewer-enquiry-btn { background: #2b2f3a; border: 1px solid rgba(255,255,255,0.18); cursor: pointer; color: #fff; padding: 0; }
 .viewer-social-btn svg { width: calc(var(--soc) * 0.5); height: calc(var(--soc) * 0.5); }
 .viewer-social-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); }
 .viewer-social-btn:active { transform: scale(0.95); }
