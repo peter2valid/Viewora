@@ -70,9 +70,70 @@ function decodeTileInWorker(url: string): Promise<ImageBitmap | null> {
   })
 }
 
+/**
+ * Tiles are put on the sphere a few per frame, not all as they arrive.
+ * Three.js uploads a texture to the GPU in the first frame that draws it, so
+ * tiles finishing together were all uploaded inside one frame (2-5 ms each on
+ * an Intel HD 620), and a frame that already runs near its budget turns into a
+ * 80-120 ms hitch. Steady beats fast: while the view moves, or after a slow
+ * frame, only one tile goes up and the rest wait for the next frame.
+ */
+const FRAME_SLOW_MS = 30      // a frame this long means the GPU/CPU has no spare time
+const MOVING_MS = 150         // the view counts as moving this long after the last camera update
+const STARVE_MS = 200         // never hold a ready tile back longer than this between uploads
+
 export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   /** Panorama of the sphere tiles are currently drawn onto (state.geom). */
   protected vwPanorama: unknown = undefined
+
+  private vwReady: Array<() => void> = []
+  private vwRaf = 0
+  private vwLastFrame = 0
+  private vwLastApply = 0
+  private vwLastMove = 0
+  private vwOnMove = () => { this.vwLastMove = performance.now() }
+
+  // @ts-ignore
+  constructor(viewer: any, config: any) {
+    // @ts-ignore
+    super(viewer, config)
+    try { viewer.addEventListener('position-updated', this.vwOnMove) } catch { /* ignore */ }
+  }
+
+  // @ts-ignore
+  destroy() {
+    cancelAnimationFrame(this.vwRaf); this.vwRaf = 0
+    this.vwReady.length = 0
+    // @ts-ignore
+    try { this.viewer?.removeEventListener('position-updated', this.vwOnMove) } catch { /* ignore */ }
+    // @ts-ignore
+    return super.destroy()
+  }
+
+  /** Run `apply` (puts one decoded tile on the sphere) in a later frame, within the per-frame budget. */
+  private vwEnqueue(apply: () => void) {
+    this.vwReady.push(apply)
+    if (!this.vwRaf) this.vwRaf = requestAnimationFrame(this.vwPump)
+  }
+
+  private vwPump = (t: number) => {
+    this.vwRaf = 0
+    const dt = this.vwLastFrame ? t - this.vwLastFrame : 0
+    this.vwLastFrame = t
+    const moving = t - this.vwLastMove < MOVING_MS
+    const starved = t - this.vwLastApply > STARVE_MS
+    if (dt > FRAME_SLOW_MS && !starved) {
+      // Last frame was slow: let the GPU catch up before adding more upload work.
+    } else {
+      const n = moving || dt > FRAME_SLOW_MS ? 1 : 3
+      for (let i = 0; i < n && this.vwReady.length; i++) {
+        try { this.vwReady.shift()!() } catch { /* one bad tile must not stop the queue */ }
+        this.vwLastApply = t
+      }
+    }
+    if (this.vwReady.length) this.vwRaf = requestAnimationFrame(this.vwPump)
+    else this.vwLastFrame = 0
+  }
 
   /**
    * The panorama spheres are never hit-tested. PSV finds the point under the
@@ -153,6 +214,12 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
     const viewer = this.viewer
     const finish = (source: any, bitmap: ImageBitmap | null) => {
       if (task.isCancelled()) { bitmap?.close(); return }
+      this.vwEnqueue(() => {
+        if (task.isCancelled()) { bitmap?.close(); return }
+        place(source, bitmap)
+      })
+    }
+    const place = (source: any, bitmap: ImageBitmap | null) => {
       // @ts-ignore
       const mipmaps = this.config.antialias && tile.config.level > 0
       const texture = utils.createTexture(source, mipmaps)
