@@ -161,7 +161,31 @@ export class VieworaGyroscopePlugin extends GyroscopePlugin {
     this.m.primed = false
   }
   private onVisibility = () => {
-    if (document.visibilityState === 'visible') this.m.primed = false
+    if (document.visibilityState === 'visible') {
+      this.m.primed = false
+      // The browser drops a wake lock whenever the tab is hidden.
+      if (this.m.enabled) void this.acquireWake()
+    }
+  }
+
+  // Motion control means the buyer isn't touching the screen, so without this
+  // the phone dims and locks mid-tour. Best effort: needs https, and inside an
+  // iframe the host must allow "screen-wake-lock".
+  private wake: any = null
+  private async acquireWake() {
+    try {
+      const wl = (navigator as any).wakeLock
+      if (!wl || this.wake) return
+      const lock = await wl.request('screen')
+      if (!this.m.enabled) { lock.release?.().catch?.(() => {}); return }
+      this.wake = lock
+      lock.addEventListener?.('release', () => { if (this.wake === lock) this.wake = null })
+    } catch { /* unsupported, blocked or low battery: carry on without it */ }
+  }
+  private releaseWake() {
+    const lock = this.wake
+    this.wake = null
+    try { lock?.release?.().catch?.(() => {}) } catch { /* noop */ }
   }
 
   override isSupported(): Promise<boolean> {
@@ -236,6 +260,7 @@ export class VieworaGyroscopePlugin extends GyroscopePlugin {
       this.m.primed = false
       this.m.align = null
       this.m.enabled = true
+      void this.acquireWake()
       this.dispatchEvent(new (gyroEvents.GyroscopeUpdatedEvent as any)(true))
     })
   }
@@ -244,6 +269,7 @@ export class VieworaGyroscopePlugin extends GyroscopePlugin {
     if (!this.m.enabled) return
     this.m.enabled = false
     this.listen(false)
+    this.releaseWake()
     const v: any = this.viewer
     v.config.moveInertia = this.m.savedInertia
     try { v.dynamics.roll.goto(0, 30) } catch { /* noop */ }
@@ -283,6 +309,7 @@ export class VieworaGyroscopePlugin extends GyroscopePlugin {
   override destroy(): void {
     this.m.enabled = false
     this.listen(false)
+    this.releaseWake()
     this.viewer.removeEventListener(events.BeforeAnimateEvent.type, this as any)
     super.destroy()
   }
@@ -495,7 +522,7 @@ export class VieworaStereoPlugin extends StereoPlugin {
   private enterFs() {
     const el: any = this.fullscreenTarget || this.viewer.container
     try {
-      if (document.fullscreenElement) return
+      if (document.fullscreenElement || (document as any).webkitFullscreenElement) return
       const r = el.requestFullscreen?.({ navigationUI: 'hide' }) ?? el.webkitRequestFullscreen?.()
       r?.catch?.(() => { /* iPhone: no element fullscreen — CSS covers the screen instead */ })
     } catch { /* noop */ }

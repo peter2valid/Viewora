@@ -2300,10 +2300,10 @@ function toggleAutoRotate() {
 // ── Phone motion & VR ───────────────────────────────────────────────────────
 // No await before start*(): iOS only shows its motion prompt inside the tap.
 function motionErrorText(err: MotionError): string {
-  if (err === 'denied') return 'Motion access is blocked — reload the page and tap “Allow” when asked'
+  if (err === 'denied') return 'Motion access is blocked. Reload and tap “Allow” when asked. If it doesn’t ask, close and reopen your browser'
   if (err === 'insecure') return 'Motion control needs a secure (https) link'
-  if (inIframe()) return 'Motion is blocked inside this page. Open the full tour to use VR, or drag to look around'
-  return 'No motion sensor found on this device — drag to look around'
+  if (inIframe()) return 'Motion is blocked inside this page. Open the full tour to use it, or drag to look around'
+  return 'Couldn’t read your motion sensors. Allow “Motion sensors” for this site in your browser settings, or drag to look around'
 }
 
 function flashToast(text: string, ms = 3200) {
