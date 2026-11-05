@@ -178,6 +178,12 @@ export default defineNuxtConfig({
       ].join('; '),
     }},
     // Embed pages — intentionally cross-origin embeddable, no X-Frame-Options
+    // Host-site helper script (fullscreen for iframes). Short cache so fixes roll out within a day.
+    '/embed.js': { headers: {
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+    }},
     '/embed/**': { ssr: true, headers: {
       'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
       'X-Content-Type-Options': 'nosniff',

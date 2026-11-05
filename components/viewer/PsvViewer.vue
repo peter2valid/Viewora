@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive, 'public-viewer--map-crowded': floorMapCrowded, 'public-viewer--rail-lifted': dockLift.rail !== null, 'public-viewer--wa-lifted': dockLift.wa !== null, 'public-viewer--rail-tight': dockLift.railTight }" :style="dockLiftStyle" @click="onViewerClick">
+  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive, 'public-viewer--pseudo-fs': pseudoFullscreen, 'public-viewer--map-crowded': floorMapCrowded, 'public-viewer--rail-lifted': dockLift.rail !== null, 'public-viewer--wa-lifted': dockLift.wa !== null, 'public-viewer--rail-tight': dockLift.railTight }" :style="dockLiftStyle" @click="onViewerClick">
 
     <!-- Loading progress bar -->
     <Transition name="viewer-progress">
@@ -1528,7 +1528,8 @@ const shareEmbedCode = computed(() => {
   const backlink = brandingEnabled
     ? ''
     : `\n<div style="text-align: center; margin-top: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: #64748b;">\n  Created with <a href="https://viewora.software/?utm_source=embed&utm_medium=virtual_tour&utm_campaign=platform_branding" target="_blank" rel="noopener" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Viewora Virtual Tour Software</a>\n</div>`
-  return `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen allow="fullscreen; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none;"></iframe>${backlink}`
+  const origin = (() => { try { return new URL(embedUrl.value).origin } catch { return 'https://app.viewora.software' } })()
+  return `<iframe src="${embedUrl.value}" title="${title.replace(/"/g, '&quot;')}" width="100%" height="600" loading="lazy" frameborder="0" allowfullscreen allow="fullscreen; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none; max-width:100%;"></iframe>\n<script async src="${origin}/embed.js"><\/script>${backlink}`
 })
 
 function sceneImageUrl(scene: any): string {
@@ -2094,14 +2095,26 @@ onMounted(() => {
   }
   if (typeof document !== 'undefined') {
     const onFullscreenChange = () => {
-      isFullscreenActive.value = !!document.fullscreenElement
+      const fsEl = nativeFsElement()
+      isFullscreenActive.value = !!fsEl || pseudoFullscreen.value || hostExpanded
       // Leaving fullscreen during VR (Android back gesture, Esc) leaves VR too.
-      if (document.fullscreenElement) vrFullscreenSeen = stereoActive.value
+      if (fsEl) vrFullscreenSeen = stereoActive.value
       else if (stereoActive.value && vrFullscreenSeen) { vrFullscreenSeen = false; stopStereo(vtHandle.value) }
     }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && pseudoFullscreen.value) setPseudoFullscreen(false) }
     document.addEventListener('fullscreenchange', onFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange)
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('message', onHostMessage)
+    if (inIframe()) postToHost('exit') // cheap ping: embed.js answers with a hello
     onFullscreenChange()
-    _removeFullscreenListener = () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+    _removeFullscreenListener = () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('message', onHostMessage)
+      document.documentElement.style.overflow = ''
+    }
   }
 
   if (typeof window !== 'undefined') {
@@ -2315,20 +2328,71 @@ function shareTour() {
   showShareModal.value = true
 }
 
+// ── Fullscreen ─────────────────────────────────────────────────────────────
+// iPhone Safari has no element Fullscreen API, and an iframe can't leave its
+// own box. Order of attempts:
+//   1. native (standard, then webkit-prefixed — iPad / older Safari)
+//   2. top-level page without the API → CSS pseudo-fullscreen (fixed, 100dvh)
+//   3. inside a host page's iframe → ask the host (embed.js) to expand the
+//      iframe over the page; if no host script announced itself, open the
+//      full tour in a new tab (synchronously, so iOS doesn't block it).
+const pseudoFullscreen = ref(false)
+const hostCanExpand = ref(false)
+let hostExpanded = false
+
+function nativeFsElement(): Element | null {
+  const d = document as any
+  return d.fullscreenElement || d.webkitFullscreenElement || null
+}
+function inIframe(): boolean {
+  try { return window.self !== window.top } catch { return true }
+}
+function postToHost(action: 'enter' | 'exit') {
+  try { window.parent.postMessage({ source: 'viewora', type: 'fullscreen', action }, '*') } catch { /* ignore */ }
+}
+function setPseudoFullscreen(on: boolean) {
+  pseudoFullscreen.value = on
+  isFullscreenActive.value = on || !!nativeFsElement()
+  document.documentElement.style.overflow = on ? 'hidden' : ''
+}
+function onHostMessage(e: MessageEvent) {
+  if (e.source !== window.parent) return
+  const d = e.data
+  if (!d || d.source !== 'viewora-host') return
+  if (d.type === 'hello') hostCanExpand.value = true
+  if (d.type === 'fullscreen-state') {
+    hostExpanded = !!d.expanded
+    isFullscreenActive.value = hostExpanded || !!nativeFsElement()
+  }
+}
+
 async function toggleFullscreen() {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
   try {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen()
+    if (nativeFsElement()) {
+      const d = document as any
+      await (document.exitFullscreen?.() ?? d.webkitExitFullscreen?.())
       return
     }
+    if (pseudoFullscreen.value) { setPseudoFullscreen(false); return }
+    if (hostExpanded) { postToHost('exit'); return }
 
-    const target = viewerRootEl.value?.parentElement || viewerRootEl.value
-    if (target?.requestFullscreen) {
-      await target.requestFullscreen()
+    const target: any = viewerRootEl.value?.parentElement || viewerRootEl.value
+    const request = target?.requestFullscreen || target?.webkitRequestFullscreen
+    if (request) {
+      await request.call(target)
+      return
     }
+    if (!inIframe()) { setPseudoFullscreen(true); return }
+    if (hostCanExpand.value) { postToHost('enter'); return }
+    // Plain iframe on a page without embed.js: only the full page can go fullscreen.
+    const url = props.shareUrl || publicUrl.value
+    if (url) window.open(url, '_blank', 'noopener')
   } catch {
-    // silent by design
+    // Native fullscreen can be refused (permissions policy, no user gesture).
+    // Fall back rather than leaving a dead button.
+    if (!inIframe()) setPseudoFullscreen(true)
+    else if (hostCanExpand.value) postToHost('enter')
   }
 }
 
@@ -2562,6 +2626,17 @@ watch(() => vtTransitioning.value, (loading) => {
   background: #0a0a0a;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/* Pseudo-fullscreen: iPhone and any browser without the element Fullscreen API. */
+.public-viewer--pseudo-fs {
+  position: fixed !important;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 2147482000;
+  padding-top: env(safe-area-inset-top);
 }
 
 /* ── VR ── covers the whole screen even where element fullscreen doesn't
