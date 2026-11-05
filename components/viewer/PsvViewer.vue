@@ -2417,7 +2417,9 @@ async function toggleFullscreen() {
     if (pseudoFullscreen.value) { setPseudoFullscreen(false); return }
     if (hostExpanded) { postToHost('exit'); return }
 
-    const target: any = viewerRootEl.value?.parentElement || viewerRootEl.value
+    // Fullscreen the whole page container (brand card, watermark and the viewer), not just
+    // the viewer wrapper, or the siblings outside it vanish when fullscreen starts.
+    const target: any = viewerRootEl.value?.closest?.("[data-fullscreen-root]") || viewerRootEl.value?.parentElement || viewerRootEl.value
     const request = target?.requestFullscreen || target?.webkitRequestFullscreen
     if (request) {
       await request.call(target)

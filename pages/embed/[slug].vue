@@ -1,5 +1,5 @@
 <template>
-  <div class="embed-viewer">
+  <div class="embed-viewer" data-fullscreen-root>
     <div v-if="pending" class="embed-center">
       <div class="embed-loader"></div>
     </div>
