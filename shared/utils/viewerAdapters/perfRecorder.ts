@@ -37,17 +37,17 @@ export function installPerfRecorder(viewer: any): void {
   const tick = () => { const n = performance.now(); frames.push([now(), Math.round((n - lastFrame) * 10) / 10]); lastFrame = n; raf = requestAnimationFrame(tick) }
   raf = requestAnimationFrame(tick)
 
-  // ── main-thread stalls (a ping-pong that only runs when the thread is free) ──
-  const ch = new MessageChannel()
+  // ── main-thread stalls: a light 10 ms timer; lateness = time the thread was blocked.
+  // (A MessageChannel ping-pong was used first, but it spins the event loop and
+  // itself starved Firefox's refresh driver, pinning rAF at ~12 fps.)
   let lastPing = performance.now()
   let alive = true
-  ch.port1.onmessage = () => {
+  const stallTimer = setInterval(() => {
     const n = performance.now()
-    if (n - lastPing > 20) stalls.push([now(), Math.round(n - lastPing)])
+    const late = n - lastPing - 10
+    if (late > 20) stalls.push([now(), Math.round(late)])
     lastPing = n
-    if (alive) ch.port2.postMessage(0)
-  }
-  ch.port2.postMessage(0)
+  }, 10)
 
   // ── three.js render() cost and texture uploads ─────────────────────────
   const three = viewer.renderer?.renderer
@@ -198,7 +198,7 @@ export function installPerfRecorder(viewer: any): void {
 
   const destroy = viewer.destroy?.bind(viewer)
   if (destroy) viewer.destroy = (...a: any[]) => {
-    alive = false; cancelAnimationFrame(raf); po?.disconnect(); box.remove(); css.remove(); clearInterval(fpsTimer); setNoUi(false)
+    alive = false; cancelAnimationFrame(raf); po?.disconnect(); box.remove(); css.remove(); clearInterval(fpsTimer); clearInterval(stallTimer); setNoUi(false)
     window.removeEventListener('keydown', onKey); window.removeEventListener('pointerup', onUp, true)
     el?.removeEventListener('pointerdown', onDown, true)
     restore.forEach(f => f()); if (origRender) three.render = origRender
