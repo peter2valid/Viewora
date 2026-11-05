@@ -86,9 +86,15 @@ function trackWatermarkClick() {
   }
 }
 
+// White-label tours carry no Viewora name in the title or description.
+const whiteLabel = computed(() => !!space.value?.branding_enabled)
 useSeoMeta({
-  title: computed(() => space.value?.title ? `${space.value.title} — Viewora` : 'Virtual Tour — Viewora'),
-  description: computed(() => space.value?.description || 'Experience this immersive virtual tour on Viewora.'),
+  title: computed(() => {
+    const t = space.value?.title
+    if (whiteLabel.value) return t || 'Virtual Tour'
+    return t ? `${t} — Viewora` : 'Virtual Tour — Viewora'
+  }),
+  description: computed(() => space.value?.description || (whiteLabel.value ? 'Explore this immersive virtual tour.' : 'Experience this immersive virtual tour on Viewora.')),
   robots: 'index, follow',
 })
 
@@ -122,6 +128,8 @@ useHead(computed(() => {
 </script>
 
 <style scoped>
+/* Black behind the tour so nothing flashes white while an embed resizes or goes full screen. */
+:global(html), :global(body) { background: #000; }
 .embed-viewer {
   width: 100%;
   width: 100svw;     /* small viewport width — excludes scrollbar */

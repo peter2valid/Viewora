@@ -24,25 +24,47 @@
     try { frame.contentWindow.postMessage(Object.assign({ source: 'viewora-host' }, msg), origin); } catch (e) { /* ignore */ }
   }
 
+  var MS = 240;
+  function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
+  function vh() { return window.innerHeight + 'px'; }
+  function px(r) { return { top: r.top + 'px', left: r.left + 'px', width: r.width + 'px', height: r.height + 'px' }; }
+  function set(el, o) { for (var k in o) el.style[k] = o[k]; }
+
+  // Grow the iframe from where it sits to the full screen. A placeholder keeps
+  // the host page from jumping, and the black backdrop means no white flash
+  // while the tour re-lays out.
   function expand(f) {
     if (expanded) return;
-    var el = f.el;
-    expanded = { frame: f, style: el.getAttribute('style') || '', scrollY: window.scrollY };
-    el.setAttribute('style',
-      'position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;max-width:none;' +
-      'z-index:2147483647;border:0;border-radius:0;background:#000;margin:0;');
+    var el = f.el, r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    var ph = document.createElement('div');
+    ph.setAttribute('aria-hidden', 'true');
+    set(ph, { width: r.width + 'px', height: r.height + 'px', margin: cs.margin, display: cs.display === 'inline' ? 'inline-block' : cs.display, verticalAlign: cs.verticalAlign, flex: '0 0 auto' });
+    el.parentNode.insertBefore(ph, el);
+    expanded = { frame: f, style: el.getAttribute('style') || '', scrollY: window.scrollY, ph: ph, radius: cs.borderRadius };
+    set(el, px(r));
+    set(el, { position: 'fixed', margin: '0', maxWidth: 'none', zIndex: '2147483647', border: '0', background: '#000', borderRadius: expanded.radius, transition: 'none', willChange: 'top,left,width,height' });
     document.documentElement.style.overflow = 'hidden';
+    void el.offsetWidth; // commit the starting box before animating
+    if (!reduced()) el.style.transition = 'top ' + MS + 'ms ease, left ' + MS + 'ms ease, width ' + MS + 'ms ease, height ' + MS + 'ms ease, border-radius ' + MS + 'ms ease';
+    set(el, { top: '0px', left: '0px', width: '100vw', height: vh(), borderRadius: '0px' });
     reply(el, f.origin, { type: 'fullscreen-state', expanded: true });
   }
 
   function collapse() {
     if (!expanded) return;
-    var f = expanded.frame, y = expanded.scrollY;
-    f.el.setAttribute('style', expanded.style);
-    document.documentElement.style.overflow = '';
+    var st = expanded, el = st.frame.el;
     expanded = null;
-    window.scrollTo(0, y);
-    reply(f.el, f.origin, { type: 'fullscreen-state', expanded: false });
+    function finish() {
+      el.setAttribute('style', st.style);
+      if (st.ph.parentNode) st.ph.parentNode.removeChild(st.ph);
+      document.documentElement.style.overflow = '';
+      window.scrollTo(0, st.scrollY);
+    }
+    reply(el, st.frame.origin, { type: 'fullscreen-state', expanded: false });
+    if (reduced()) return finish();
+    set(el, px(st.ph.getBoundingClientRect()));
+    el.style.borderRadius = st.radius;
+    setTimeout(finish, MS + 40);
   }
 
   window.addEventListener('message', function (e) {
@@ -74,5 +96,6 @@
   if (document.readyState !== 'complete') window.addEventListener('load', announce);
 
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') collapse(); });
-  window.addEventListener('orientationchange', function () { if (expanded) { var el = expanded.frame.el; el.style.height = '100dvh'; } });
+  window.addEventListener('orientationchange', function () { if (expanded) setTimeout(function () { if (expanded) expanded.frame.el.style.height = vh(); }, 120); });
+  window.addEventListener('resize', function () { if (expanded) expanded.frame.el.style.height = vh(); });
 })();

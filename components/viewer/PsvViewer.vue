@@ -1258,8 +1258,8 @@ const whatsappHref = computed(() => {
   const title = ((props.tour?.space as any)?.title as string) || 'this property'
   const link = props.shareUrl || ''
   const msg = link
-    ? `Hi, I just viewed "${title}" on Viewora and I'm interested.\n\nTour link: ${link}\n\nCould you please share more details?`
-    : `Hi, I just viewed "${title}" on Viewora and I'm interested. Could you please share more details?`
+    ? `Hi, I just viewed "${title}"${whiteLabel.value ? "" : " on Viewora"} and I'm interested.\n\nTour link: ${link}\n\nCould you please share more details?`
+    : `Hi, I just viewed "${title}"${whiteLabel.value ? "" : " on Viewora"} and I'm interested. Could you please share more details?`
   return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
 })
 
@@ -1507,7 +1507,11 @@ const publicUrl = computed(() => {
   return typeof window !== 'undefined' ? window.location.href : ''
 })
 
-const shareText = computed(() => `Check out this immersive virtual tour created with Viewora: ${publicUrl.value}`)
+// White-label tours (branding_enabled) must not name Viewora anywhere a visitor can read.
+const whiteLabel = computed(() => !!props.tour?.space?.branding_enabled)
+const shareText = computed(() => whiteLabel.value
+  ? `Take a look at this virtual tour: ${publicUrl.value}`
+  : `Check out this immersive virtual tour created with Viewora: ${publicUrl.value}`)
 const shareWhatsappHref = computed(() => `https://wa.me/?text=${encodeURIComponent(shareText.value)}`)
 const shareXHref = computed(() => `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText.value)}`)
 const shareFacebookHref = computed(() => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicUrl.value)}`)
@@ -1524,7 +1528,7 @@ const embedUrl = computed(() => {
   }
 })
 const shareEmbedCode = computed(() => {
-  const title = props.tour?.space?.title || 'Viewora tour'
+  const title = props.tour?.space?.title || (props.tour?.space?.branding_enabled ? 'Virtual tour' : 'Viewora tour')
   const brandingEnabled = props.tour?.space?.branding_enabled || false
   const backlink = brandingEnabled
     ? ''
@@ -2100,7 +2104,11 @@ onMounted(() => {
       if (fsEl) vrFullscreenSeen = stereoActive.value
       else if (stereoActive.value && vrFullscreenSeen) { vrFullscreenSeen = false; stopStereo(vtHandle.value) }
     }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && pseudoFullscreen.value) setPseudoFullscreen(false) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (pseudoFullscreen.value) setPseudoFullscreen(false)
+      else if (hostExpanded) postToHost('exit') // focus is in the iframe, so the host never sees this key
+    }
     document.addEventListener('fullscreenchange', onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', onFullscreenChange)
     document.addEventListener('keydown', onKey)
