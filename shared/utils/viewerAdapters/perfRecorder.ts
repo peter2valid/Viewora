@@ -2,7 +2,8 @@
  * ?perf=1 — a built-in recorder for diagnosing drag/scene-load smoothness on a
  * real device, without the browser profiler (which crashes on some laptops).
  *
- * Adds a small "REC" pill (bottom-left). Click it, or press Shift+P, to download
+ * Adds a small panel (bottom-left): live fps, switches that turn blur / animations /
+ * hotspots / the rest of the UI / canvas resolution off, and a SAVE button (or Shift+P) to download
  * a JSON file with everything needed to see where time goes:
  *   - frame gaps (requestAnimationFrame) and main-thread stalls (message-channel heartbeat)
  *   - three.js render() CPU time per frame
@@ -138,23 +139,66 @@ export function installPerfRecorder(viewer: any): void {
     flash('saved')
   }
 
-  // ── tiny overlay ───────────────────────────────────────────────────────
-  const pill = document.createElement('button')
-  pill.type = 'button'
-  pill.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:99999;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(190,30,30,.85);color:#fff;font:600 11px system-ui,sans-serif;cursor:pointer'
-  const label = 'REC · click or Shift+P to save · Shift+M = mark'
-  pill.textContent = label
-  pill.addEventListener('click', save)
-  document.body.appendChild(pill)
-  let flashT: ReturnType<typeof setTimeout> | undefined
-  function flash(msg: string) { pill.textContent = msg; clearTimeout(flashT); flashT = setTimeout(() => { pill.textContent = label }, 1500) }
+  // ── overlay: live fps + switches to find what the page costs ───────────
+  // Each switch turns one part of the page off while you watch the fps number.
+  // Toggles are logged as timeline events, so a saved report shows the effect too.
+  const css = document.createElement('style')
+  css.textContent = `
+    html[data-perf-noblur] *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    html[data-perf-noanim] *,html[data-perf-noanim] *::before,html[data-perf-noanim] *::after{animation:none!important;transition:none!important}
+    html[data-perf-nomarkers] .psv-markers{display:none!important}`
+  document.head.appendChild(css)
+  const hiddenByUi: Array<[HTMLElement, string]> = []
+  const setNoUi = (on: boolean) => {
+    if (on) {
+      let node: HTMLElement | null = el
+      while (node && node !== document.body) {
+        const parent: HTMLElement | null = node.parentElement
+        parent?.childNodes.forEach((c) => {
+          if (c !== node && c instanceof HTMLElement && c !== box && c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE') { hiddenByUi.push([c, c.style.display]); c.style.display = 'none' }
+        })
+        node = parent
+      }
+    } else { for (const [c, d] of hiddenByUi) c.style.display = d; hiddenByUi.length = 0 }
+  }
+  const baseRatio = viewer.__baseRatio ?? devicePixelRatio
+  const state: Record<string, boolean> = {}
+  const switches: Array<[string, string, (on: boolean) => void]> = [
+    ['blur', 'no blur', on => { document.documentElement.toggleAttribute('data-perf-noblur', on) }],
+    ['anim', 'no animations', on => { document.documentElement.toggleAttribute('data-perf-noanim', on) }],
+    ['markers', 'no hotspots', on => { document.documentElement.toggleAttribute('data-perf-nomarkers', on) }],
+    ['ui', 'no UI', setNoUi],
+    ['half', 'canvas ½ res', on => { try { three.setPixelRatio(on ? baseRatio * 0.5 : baseRatio); three.render(viewer.renderer.scene, viewer.renderer.camera); viewer.needsUpdate() } catch { /* ignore */ } }],
+  ]
+  const box = document.createElement('div')
+  box.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:99999;display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:94vw;padding:8px;border-radius:12px;background:rgba(15,15,20,.88);color:#fff;font:600 11px system-ui,sans-serif;animation:none'
+  const fps = document.createElement('span')
+  fps.style.cssText = 'min-width:62px;font:700 13px ui-monospace,monospace;color:#7CFC9A'
+  box.appendChild(fps)
+  const btn = (text: string, onClick: () => void) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = text
+    b.style.cssText = 'padding:5px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font:600 11px system-ui,sans-serif;cursor:pointer;transition:none'
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick() }); box.appendChild(b); return b
+  }
+  for (const [key, text, fn] of switches) {
+    const b = btn(text, () => { state[key] = !state[key]; fn(state[key]!); events.push([now(), `toggle:${key}`, state[key] ? 1 : 0]); b.style.background = state[key] ? 'rgba(46,160,67,.9)' : 'rgba(255,255,255,.1)' })
+  }
+  btn('mark', () => mark())
+  const saveBtn = btn('SAVE report', () => save()); saveBtn.style.background = 'rgba(190,30,30,.9)'
+  document.body.appendChild(box)
+  const fpsTimer = setInterval(() => {
+    const cut = now() - 1000
+    let n = 0; for (let i = frames.length - 1; i >= 0 && frames[i]![0] >= cut; i--) n++
+    fps.textContent = `${n} fps`
+  }, 500)
+  function flash(msg: string) { const o = saveBtn.textContent; saveBtn.textContent = msg; setTimeout(() => { saveBtn.textContent = o }, 1400) }
   const onKey = (e: KeyboardEvent) => { if (!e.shiftKey) return; if (e.key === 'P') save(); else if (e.key === 'M') mark() }
   window.addEventListener('keydown', onKey)
   ;(window as any).__vwPerf = { save, mark, report }
 
   const destroy = viewer.destroy?.bind(viewer)
   if (destroy) viewer.destroy = (...a: any[]) => {
-    alive = false; cancelAnimationFrame(raf); po?.disconnect(); pill.remove()
+    alive = false; cancelAnimationFrame(raf); po?.disconnect(); box.remove(); css.remove(); clearInterval(fpsTimer); setNoUi(false)
     window.removeEventListener('keydown', onKey); window.removeEventListener('pointerup', onUp, true)
     el?.removeEventListener('pointerdown', onDown, true)
     restore.forEach(f => f()); if (origRender) three.render = origRender
