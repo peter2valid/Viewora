@@ -2,11 +2,18 @@
 // Uses dynamic import with any-typing so the build works without @sentry/vue installed.
 import { errorLogger } from '~/utils/errorLogger'
 
-export default defineNuxtPlugin(async (nuxtApp) => {
+// Loads in the background: awaiting the Sentry import here would hold up app start
+// (Nuxt waits for async plugins) on every page. On public tours it also waits for
+// the page to load and go idle, so it never competes with the panorama.
+export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const dsn = (config.public as any).sentryDsn as string | undefined
   if (!dsn) return
 
+  const route = useRoute()
+  const isPublicViewer = route.path.startsWith('/p/') || route.path.startsWith('/embed/')
+
+  const boot = async () => {
   try {
     // Dynamic import — TypeScript resolves as any so the build succeeds without the package
     const Sentry: any = await import('@sentry/vue' as any)
@@ -59,5 +66,16 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     if (process.env.NODE_ENV === 'development') {
       console.warn('Sentry not configured. Run: npm install @sentry/vue')
     }
+  }
+  }
+
+  if (isPublicViewer && typeof window !== 'undefined') {
+    const idle = (cb: () => void) =>
+      'requestIdleCallback' in window ? (window as any).requestIdleCallback(cb, { timeout: 3000 }) : setTimeout(cb, 2000)
+    const go = () => idle(() => { void boot() })
+    if (document.readyState === 'complete') go()
+    else window.addEventListener('load', go, { once: true })
+  } else {
+    void boot()
   }
 })
