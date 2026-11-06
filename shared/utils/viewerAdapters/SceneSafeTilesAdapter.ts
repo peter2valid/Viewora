@@ -104,6 +104,7 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   destroy() {
     cancelAnimationFrame(this.vwRaf); this.vwRaf = 0
     this.vwReady.length = 0
+    this.vwInflight.clear()
     // @ts-ignore
     try { this.viewer?.removeEventListener('position-updated', this.vwOnMove) } catch { /* ignore */ }
     // @ts-ignore
@@ -206,10 +207,35 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
     return super.__swapMaterial(tile, material, isError)
   }
 
-  /** Same as PSV's, plus: an aborted download is retried later instead of
-   *  being marked done; a failed one leaves the preview photo showing (no ⚠ tile). */
+  /**
+   * One load per tile at a time. PSV's queue (shared/Queue.ts, 5.14) restarts
+   * tiles that are already downloading: every view refresh sets all tasks,
+   * running ones included, to "disabled", and the tiles still in view are then
+   * set back to "pending" and started again. A drag refreshes every frame, so
+   * the same tile was fetched, decoded and uploaded to the GPU up to 4 times
+   * (1,400 uploads in two minutes on a 2-room run), which was most of the
+   * stutter while dragging and for seconds after. Keyed by URL so a tile of the
+   * next scene with the same row/col is never mistaken for one of this scene.
+   */
+  private vwInflight = new Map<string, { p: Promise<void>; task: any }>()
+
   // @ts-ignore
   __loadTile(tile: any, task: any): Promise<void> {
+    const key = String(tile.url)
+    const running = this.vwInflight.get(key)
+    // A load whose task was cancelled (scene left and re-entered) won't draw: start a fresh one.
+    if (running && !running.task.isCancelled()) return running.p
+    const entry = { p: Promise.resolve(), task }
+    entry.p = this.vwLoadTile(tile, task).finally(() => {
+      if (this.vwInflight.get(key) === entry) this.vwInflight.delete(key)
+    })
+    this.vwInflight.set(key, entry)
+    return entry.p
+  }
+
+  /** Same as PSV's, plus: an aborted download is retried later instead of
+   *  being marked done; a failed one leaves the preview photo showing (no ⚠ tile). */
+  private vwLoadTile(tile: any, task: any): Promise<void> {
     // @ts-ignore
     const viewer = this.viewer
     const finish = (source: any, bitmap: ImageBitmap | null) => {
