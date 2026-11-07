@@ -642,7 +642,7 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
     youtube: { tag: 'YouTube',color: '#ef4444' },
   }
   const meta = typeMap[hotspot.type] ?? typeMap['info']
-  // Info hotspots without a custom icon: white disc with a red "i", matching the red-and-white navigation pins.
+  // Info hotspots without a custom icon: a red "i" outlined in white, like the red-and-white navigation pins.
   const badge = !iconUrl && (hotspot.type === 'info' || !typeMap[hotspot.type])
 
   const wrap = document.createElement('div')
@@ -661,11 +661,11 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
 
   wrap.innerHTML = `
     <div class="vhs-info__trigger">
-      <div class="vhs-info__pin-ring" style="--vhs-color:${badge ? '#ffffff' : meta.color}"></div>
+      ${badge ? '' : `<div class="vhs-info__pin-ring" style="--vhs-color:${meta.color}"></div>`}
       ${iconUrl
         ? `<img class="vhs-info__trigger-icon" src="${iconUrl}" alt="" draggable="false" />`
         : badge
-          ? `<svg class="vhs-info__badge" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11.5" fill="#fff"/><text x="12.4" y="18.2" text-anchor="middle" font-family="Georgia, 'Times New Roman', Times, serif" font-style="italic" font-weight="700" font-size="17" fill="${INFO_RED}">i</text></svg>`
+          ? `<svg class="vhs-info__badge" viewBox="0 0 26 42" aria-hidden="true"><g stroke="#fff" fill="#fff" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="8" r="4.2" stroke-width="5"/><path d="M16.2 17.5 L11.6 32 Q10.6 35.6 14.6 33.8" fill="none" stroke-width="11.5"/></g><g stroke="${INFO_RED}" fill="${INFO_RED}" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="8" r="4.2" stroke="none"/><path d="M16.2 17.5 L11.6 32 Q10.6 35.6 14.6 33.8" fill="none" stroke-width="6.5"/></g></svg>`
           : `<div class="vhs-info__pin-dot" style="background:${meta.color}"></div>`
       }
     </div>
