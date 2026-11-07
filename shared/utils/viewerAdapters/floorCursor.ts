@@ -27,6 +27,7 @@
 //     discs are rebuilt and the chevrons re-hidden on every node change;
 //   - a click on a 3D marker fires `select-marker` (psvAdapter ignores these ids).
 
+import { Quaternion, Vector3 } from 'three'
 import type { PsvViewerHandle } from './psvAdapter'
 import type { FloorGlyph } from '~/shared/utils/hotspotIcons'
 
@@ -111,7 +112,7 @@ function glPinConfig(id: string, spot: { yaw: number; pitch: number; glyph: Floo
     id,
     imageLayer: glyphImageCached(spot.glyph),
     position,
-    size: { width: GL_W * k, height: (GL_H * k) / Math.max(0.35, Math.cos(position.pitch)) },
+    size: { width: GL_W * k, height: GL_H * k },
     // Glyph bottom (its tip) on the disc, like the page pin's 'bottom center'.
     anchor: { x: 0.5, y: (PIN_HEIGHT + GL_PAD) / GL_H },
     style: { cursor: 'pointer' },
@@ -308,6 +309,7 @@ export function attachFloorCursor(
       markers.addMarker(pin)
     }
     hoveredPin = null
+    if (gl) { pinBase.clear(); safely(fitGlPins); viewer.needsUpdate() }
     if (!cursor) return
     ensureCursorMarkers()
     schedule()
@@ -449,34 +451,78 @@ export function attachFloorCursor(
     const id = String(e?.marker?.id ?? '')
     return id.startsWith(PIN_PREFIX) ? links.find(l => PIN_PREFIX + l.hotspotId === id) ?? null : null
   }
-  /** Scene-drawn pin at its size for the current zoom (and hover). */
-  const resizeGlPin = (link: FloorCursorLink) => {
-    const id = PIN_PREFIX + link.hotspotId
-    if (!hasMarker(id)) return
-    const c = glPinConfig(id, link, viewer, hoveredPin === link ? link.hoverScale : 1)
-    markers.updateMarker({ id, size: c.size })
+  /**
+   * Scene-drawn pins keep the page pin's look: the same pixel size and
+   * upright anywhere on screen. Without this, perspective made a pin at the
+   * screen edge grow and lean like the furniture around it. Runs after the
+   * camera moves and before that frame is drawn (position/zoom/size events
+   * fire inside PSV's update, ahead of the render), scaling and turning each
+   * pin about its tip, so the tip stays exactly on its disc.
+   */
+  const pinBase = new Map<string, Quaternion>()
+  const v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3(), v4 = new Vector3()
+  const fitGlPins = () => {
+    if (!gl || !links.length) return
+    const cam = viewer.renderer?.camera
+    const W = viewer.state?.size?.width, H = viewer.state?.size?.height
+    if (!cam || !W || !H) return
+    cam.updateMatrixWorld()
+    const toPx = (v: Vector3) => { v.project(cam); v.set((v.x + 1) / 2 * W, (1 - v.y) / 2 * H, v.z); return v }
+    for (const link of links) {
+      let m: any
+      try { m = markers.getMarker(PIN_PREFIX + link.hotspotId) } catch { continue }
+      const group = m?.threeElement, mesh = m?.threeMesh
+      if (!group || !mesh) continue
+      // Upright facing the camera axis, as MarkersPlugin set it (re-taken if the marker was rebuilt).
+      let base = pinBase.get(m.id)
+      if (!base || group.userData.vwPinFit !== base) {
+        base = group.quaternion.clone() as Quaternion
+        pinBase.set(m.id, base)
+        group.userData.vwPinFit = base
+      }
+      group.quaternion.copy(base)
+      group.scale.set(1, 1, 1)
+      group.updateMatrixWorld(true)
+      // Tip (group origin), top centre and right edge of the plane, on screen.
+      const ay = 0.5 - (m.state?.anchor?.y ?? 0.5)
+      const tip = toPx(mesh.localToWorld(v0.set(0, ay, 0)))
+      if (tip.z > 1) continue // behind the camera
+      const top = toPx(mesh.localToWorld(v1.set(0, 0.5, 0)))
+      const lft = toPx(mesh.localToWorld(v2.set(-0.5, ay, 0)))
+      const rgt = toPx(mesh.localToWorld(v3.set(0.5, ay, 0)))
+      const h = Math.hypot(top.x - tip.x, top.y - tip.y) / (0.5 - ay)
+      const w = Math.hypot(rgt.x - lft.x, rgt.y - lft.y)
+      if (!(h > 0.01) || !(w > 0.01)) continue
+      const grow = (hoveredPin === link ? link.hoverScale : 1) * link.scale
+      const sx = Math.min(4, Math.max(0.15, (GL_W * grow) / w))
+      const sy = Math.min(4, Math.max(0.15, (GL_H * grow) / h))
+      // Lean on screen (perspective tilts verticals off-centre): turn it back upright.
+      const lean = Math.atan2(top.x - tip.x, tip.y - top.y)
+      group.rotateZ(lean)
+      group.scale.set(sx, sy, 1)
+      // Rotating about Z can flip the measured direction; re-check once and undo if it got worse.
+      group.updateMatrixWorld(true)
+      const t2 = toPx(mesh.localToWorld(v4.set(0, 0.5, 0)))
+      const tip2 = toPx(mesh.localToWorld(v0.set(0, ay, 0)))
+      if (Math.abs(t2.x - tip2.x) > Math.abs(top.x - tip.x) + 0.5) group.rotateZ(-2 * lean)
+    }
   }
   const onEnterMarker = (e: any) => {
     const link = pinLink(e)
     if (!link) return
     pinned = link
-    if (gl) { const was = hoveredPin; hoveredPin = link; if (was && was !== link) safely(() => resizeGlPin(was)); safely(() => resizeGlPin(link)) }
+    if (gl) { hoveredPin = link; safely(fitGlPins); viewer.needsUpdate() }
     schedule()
   }
   const onLeaveMarker = (e: any) => {
     const link = pinLink(e)
     if (!link) return
     pinned = null
-    if (gl && hoveredPin === link) { hoveredPin = null; safely(() => resizeGlPin(link)) }
+    if (gl && hoveredPin === link) { hoveredPin = null; safely(fitGlPins); viewer.needsUpdate() }
     schedule()
   }
-  // Page pins keep their pixel size on zoom by themselves; scene pins are resized
-  // (after zoom or a window resize only, never while autorotating).
-  let resizeFrame = 0
-  const onZoomOrResize = () => {
-    if (!gl || resizeFrame) return
-    resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; safely(() => { for (const l of links) resizeGlPin(l) }) })
-  }
+  const onViewChangedGl = () => safely(fitGlPins)
+
   // The camera turning (drag glide, autorotate, keys) moves the floor under a
   // still mouse. Placing the cursor costs a raycast and marker updates, so it
   // is hidden while the view moves and placed once it settles.
@@ -558,8 +604,9 @@ export function attachFloorCursor(
   markers.addEventListener('select-marker', onSelect)
   vt.addEventListener('node-changed', onNodeChanged)
   if (gl) {
-    viewer.addEventListener('zoom-updated', onZoomOrResize)
-    viewer.addEventListener('size-updated', onZoomOrResize)
+    viewer.addEventListener('position-updated', onViewChangedGl)
+    viewer.addEventListener('zoom-updated', onViewChangedGl)
+    viewer.addEventListener('size-updated', onViewChangedGl)
   }
   if (cursor) {
     container.addEventListener('pointerdown', onPointerDown, true)
@@ -570,9 +617,9 @@ export function attachFloorCursor(
     destroy() {
       destroyed = true
       if (frame) cancelAnimationFrame(frame)
-      if (resizeFrame) cancelAnimationFrame(resizeFrame)
-      viewer.removeEventListener('zoom-updated', onZoomOrResize)
-      viewer.removeEventListener('size-updated', onZoomOrResize)
+      viewer.removeEventListener('position-updated', onViewChangedGl)
+      viewer.removeEventListener('zoom-updated', onViewChangedGl)
+      viewer.removeEventListener('size-updated', onViewChangedGl)
       clearTimeout(settle)
       container.removeEventListener('mousemove', onMouseMove)
       container.removeEventListener('mouseleave', onMouseLeave)
