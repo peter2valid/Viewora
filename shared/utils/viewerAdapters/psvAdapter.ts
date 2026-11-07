@@ -715,7 +715,11 @@ function infoBadgeImage(): string {
   const k = 26 / BADGE_GLYPH_W // viewBox units per px
   const pad = BADGE_PAD * k
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(BADGE_W * SPRITE_RES)}" height="${Math.round(BADGE_H * SPRITE_RES)}" viewBox="${-pad} ${-pad} ${26 + 2 * pad} ${42 + 2 * pad}" preserveAspectRatio="none">`
-    + '<defs><filter id="s" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.55"/><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#000" flood-opacity="0.25"/></filter></defs>'
+    // Shadow region = the whole image. The default is a margin around the shape's
+    // centre line (strokes not counted), which clipped the thick white outline
+    // where the tail curls out, bottom-left.
+    + `<defs><filter id="s" filterUnits="userSpaceOnUse" x="${-pad}" y="${-pad}" width="${26 + 2 * pad}" height="${42 + 2 * pad}">`
+    + '<feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.55"/><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#000" flood-opacity="0.25"/></filter></defs>'
     + `<g filter="url(#s)">${infoBadgeInner()}</g></svg>`
   badgeImageUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
   return badgeImageUrl

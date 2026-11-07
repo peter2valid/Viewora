@@ -92,7 +92,9 @@ const glH = (touch: boolean) => PIN_HEIGHT + 2 * glPad(touch)
 function glyphImage(glyph: FloorGlyph, touch: boolean): string {
   const pad = glPad(touch), w = glW(touch), h = glH(touch)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w * GL_RES}" height="${h * GL_RES}" viewBox="${-pad} ${-pad} ${w} ${h}">`
-    + '<defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity="0.45"/></filter></defs>'
+    // Shadow region = the whole image (the default ignores strokes and can clip them).
+    + `<defs><filter id="s" filterUnits="userSpaceOnUse" x="${-pad}" y="${-pad}" width="${w}" height="${h}">`
+    + '<feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity="0.45"/></filter></defs>'
     + `<g filter="url(#s)">${GLYPH_PATHS[glyph]}</g></svg>`
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
