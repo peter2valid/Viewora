@@ -66,6 +66,59 @@ const GLYPH_PATHS: Record<FloorGlyph, string> = {
   up: '<path d="M15 2L28 17.5H20.5V38H9.5V17.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
   down: '<path d="M15 39L28 23.5H20.5V2H9.5V23.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
 }
+/**
+ * ?pins=gl: draw the pins inside the 3D scene, like the floor discs, instead
+ * of as page elements over it. A page element is composited separately from
+ * the WebGL canvas, and Firefox sometimes shows it a frame ahead of or behind
+ * the panorama: during slow autorotate the pin then shivers on its disc
+ * (which, being in the scene, never does). In the scene they can't drift.
+ */
+export function glPins(): boolean {
+  try { return new URLSearchParams(location.search).get('pins') === 'gl' } catch { return false }
+}
+
+/** Room around the glyph for its shadow, in glyph units (1 unit = 1 px at scale 1). */
+const GL_PAD = 4
+/** Texture pixels per glyph unit: sharp up to 2× hover on hi-dpi screens. */
+const GL_RES = 4
+const GL_W = PIN_WIDTH + 2 * GL_PAD
+const GL_H = PIN_HEIGHT + 2 * GL_PAD
+/** Same look as glyphHtml (shadow included), as an image the scene can draw. */
+function glyphImage(glyph: FloorGlyph): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${GL_W * GL_RES}" height="${GL_H * GL_RES}" viewBox="${-GL_PAD} ${-GL_PAD} ${GL_W} ${GL_H}">`
+    + '<defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity="0.45"/></filter></defs>'
+    + `<g filter="url(#s)">${GLYPH_PATHS[glyph]}</g></svg>`
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+}
+const GL_IMAGES: Partial<Record<FloorGlyph, string>> = {}
+function glyphImageCached(glyph: FloorGlyph): string {
+  return (GL_IMAGES[glyph] ??= glyphImage(glyph))
+}
+
+/**
+ * MarkersPlugin size (units: 100 = 1 world unit at the sphere's radius 10)
+ * that shows `px` screen pixels at the current zoom. The pin is an upright
+ * plane, seen from above at the disc's pitch, so its height is stretched to
+ * still look `px` tall.
+ */
+function glPinConfig(id: string, spot: { yaw: number; pitch: number; glyph: FloorGlyph; scale: number }, viewer: any, hover = 1) {
+  const position = floorSpotPosition(spot.yaw, spot.pitch)
+  const vFov = ((viewer?.state?.vFov ?? 60) * Math.PI) / 180
+  const height = viewer?.state?.size?.height || 800
+  const unitsPerPx = (2000 * Math.tan(vFov / 2)) / height
+  const k = spot.scale * hover * unitsPerPx
+  return {
+    id,
+    imageLayer: glyphImageCached(spot.glyph),
+    position,
+    size: { width: GL_W * k, height: (GL_H * k) / Math.max(0.35, Math.cos(position.pitch)) },
+    // Glyph bottom (its tip) on the disc, like the page pin's 'bottom center'.
+    anchor: { x: 0.5, y: (PIN_HEIGHT + GL_PAD) / GL_H },
+    style: { cursor: 'pointer' },
+    zIndex: 5,
+  }
+}
+
 function glyphHtml(glyph: FloorGlyph): string {
   return '<svg width="100%" height="100%" viewBox="0 0 30 40" aria-hidden="true" style="display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">'
     + GLYPH_PATHS[glyph] + '</svg>'
@@ -180,6 +233,9 @@ export function attachFloorCursor(
   const container: HTMLElement | undefined = viewer?.container
   if (!viewer || !markers || !vt || !container) return null
 
+  const gl = glPins()
+  /** Pin (scene-drawn) currently grown by hover. */
+  let hoveredPin: FloorCursorLink | null = null
   let links: FloorCursorLink[] = []
   let mouse: { x: number; y: number } | null = null
   let target: FloorCursorLink | null = null
@@ -245,10 +301,13 @@ export function attachFloorCursor(
       const disc = { ...floorDiscMarker(SPOT_PREFIX + link.hotspotId, link), visible: true, data }
       if (hasMarker(disc.id)) markers.updateMarker(disc)
       else markers.addMarker(disc)
-      const pin = { ...floorPinMarker(PIN_PREFIX + link.hotspotId, link, touch), data }
+      const pin = gl
+        ? { ...glPinConfig(PIN_PREFIX + link.hotspotId, link, viewer), data }
+        : { ...floorPinMarker(PIN_PREFIX + link.hotspotId, link, touch), data }
       if (hasMarker(pin.id)) markers.removeMarker(pin.id)
       markers.addMarker(pin)
     }
+    hoveredPin = null
     if (!cursor) return
     ensureCursorMarkers()
     schedule()
@@ -390,8 +449,34 @@ export function attachFloorCursor(
     const id = String(e?.marker?.id ?? '')
     return id.startsWith(PIN_PREFIX) ? links.find(l => PIN_PREFIX + l.hotspotId === id) ?? null : null
   }
-  const onEnterMarker = (e: any) => { const link = pinLink(e); if (link) { pinned = link; schedule() } }
-  const onLeaveMarker = (e: any) => { if (pinLink(e)) { pinned = null; schedule() } }
+  /** Scene-drawn pin at its size for the current zoom (and hover). */
+  const resizeGlPin = (link: FloorCursorLink) => {
+    const id = PIN_PREFIX + link.hotspotId
+    if (!hasMarker(id)) return
+    const c = glPinConfig(id, link, viewer, hoveredPin === link ? link.hoverScale : 1)
+    markers.updateMarker({ id, size: c.size })
+  }
+  const onEnterMarker = (e: any) => {
+    const link = pinLink(e)
+    if (!link) return
+    pinned = link
+    if (gl) { const was = hoveredPin; hoveredPin = link; if (was && was !== link) safely(() => resizeGlPin(was)); safely(() => resizeGlPin(link)) }
+    schedule()
+  }
+  const onLeaveMarker = (e: any) => {
+    const link = pinLink(e)
+    if (!link) return
+    pinned = null
+    if (gl && hoveredPin === link) { hoveredPin = null; safely(() => resizeGlPin(link)) }
+    schedule()
+  }
+  // Page pins keep their pixel size on zoom by themselves; scene pins are resized
+  // (after zoom or a window resize only, never while autorotating).
+  let resizeFrame = 0
+  const onZoomOrResize = () => {
+    if (!gl || resizeFrame) return
+    resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; safely(() => { for (const l of links) resizeGlPin(l) }) })
+  }
   // The camera turning (drag glide, autorotate, keys) moves the floor under a
   // still mouse. Placing the cursor costs a raycast and marker updates, so it
   // is hidden while the view moves and placed once it settles.
@@ -472,6 +557,10 @@ export function attachFloorCursor(
   }
   markers.addEventListener('select-marker', onSelect)
   vt.addEventListener('node-changed', onNodeChanged)
+  if (gl) {
+    viewer.addEventListener('zoom-updated', onZoomOrResize)
+    viewer.addEventListener('size-updated', onZoomOrResize)
+  }
   if (cursor) {
     container.addEventListener('pointerdown', onPointerDown, true)
     viewer.addEventListener('click', onClick)
@@ -481,6 +570,9 @@ export function attachFloorCursor(
     destroy() {
       destroyed = true
       if (frame) cancelAnimationFrame(frame)
+      if (resizeFrame) cancelAnimationFrame(resizeFrame)
+      viewer.removeEventListener('zoom-updated', onZoomOrResize)
+      viewer.removeEventListener('size-updated', onZoomOrResize)
       clearTimeout(settle)
       container.removeEventListener('mousemove', onMouseMove)
       container.removeEventListener('mouseleave', onMouseLeave)
