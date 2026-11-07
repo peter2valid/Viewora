@@ -622,6 +622,9 @@ function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   return wrap
 }
 
+/** Red of the info badge's "i" (same family as the navigation pins). */
+const INFO_RED = '#e5252a'
+
 function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || ''
   const label = esc(hotspot.label || 'Point of Interest')
@@ -633,12 +636,14 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   const labelFontWeight = hotspot.labelBold ? '800' : '600'
 
   const typeMap: Record<string, { tag: string; color: string }> = {
-    info:    { tag: 'Info',    color: '#6366f1' },
+    info:    { tag: 'Info',    color: INFO_RED },
     url:     { tag: 'Link',   color: '#10b981' },
     video:   { tag: 'Video',  color: '#ef4444' },
     youtube: { tag: 'YouTube',color: '#ef4444' },
   }
   const meta = typeMap[hotspot.type] ?? typeMap['info']
+  // Info hotspots without a custom icon: white disc with a red "i", matching the red-and-white navigation pins.
+  const badge = !iconUrl && (hotspot.type === 'info' || !typeMap[hotspot.type])
 
   const wrap = document.createElement('div')
   wrap.className = 'vhs-info'
@@ -656,10 +661,12 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
 
   wrap.innerHTML = `
     <div class="vhs-info__trigger">
-      <div class="vhs-info__pin-ring" style="--vhs-color:${meta.color}"></div>
+      <div class="vhs-info__pin-ring" style="--vhs-color:${badge ? '#ffffff' : meta.color}"></div>
       ${iconUrl
         ? `<img class="vhs-info__trigger-icon" src="${iconUrl}" alt="" draggable="false" />`
-        : `<div class="vhs-info__pin-dot" style="background:${meta.color}"></div>`
+        : badge
+          ? `<svg class="vhs-info__badge" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11.5" fill="#fff"/><text x="12.4" y="18.2" text-anchor="middle" font-family="Georgia, 'Times New Roman', Times, serif" font-style="italic" font-weight="700" font-size="17" fill="${INFO_RED}">i</text></svg>`
+          : `<div class="vhs-info__pin-dot" style="background:${meta.color}"></div>`
       }
     </div>
     <span class="vhs-info__hover-label" style="color:${labelColor};font-weight:${labelFontWeight};text-shadow:${labelShadow}">${label}</span>
