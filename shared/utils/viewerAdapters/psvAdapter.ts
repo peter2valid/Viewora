@@ -281,6 +281,16 @@ interface MarkerSmoother {
   setSmoothing: (on: boolean) => void
 }
 
+/**
+ * Test switch: ?markersmooth=off leaves markers exactly where PSV puts them
+ * during autorotate. Suspected cause of the autorotate "shiver": the smoother
+ * rounds to whole pixels and trails by an amount that varies with frame time,
+ * while the WebGL floor disc under each pin moves smoothly and exactly.
+ */
+function markerSmoothingOn(): boolean {
+  try { return new URLSearchParams(location.search).get('markersmooth') !== 'off' } catch { return true }
+}
+
 function installMarkerSmoother(container: HTMLElement): MarkerSmoother {
   const state = new Map<HTMLElement, { x: number; y: number }>()
   let active = true
@@ -1959,7 +1969,7 @@ export async function initVirtualTourViewer(
     const handleAutorotateEv = (e: any) => {
       const isActive = e.autorotateEnabled ?? false
       container.classList.toggle('psv--autorotating', isActive)
-      smoother.setSmoothing(isActive)
+      smoother.setSmoothing(isActive && markerSmoothingOn())
       onAutorotateChange?.(isActive)
     }
     autorotatePl.addEventListener('autorotate', handleAutorotateEv)
