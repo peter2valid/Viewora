@@ -401,17 +401,47 @@ export function attachFloorCursor(
     clearTimeout(settle)
     settle = window.setTimeout(() => { settle = 0; schedule() }, VIEW_SETTLE_MS)
   }
+  // What the arrow meant when the button went down. A click used to walk only
+  // if PSV's hit test found the arrow marker at mouse-up, but PSV skips hidden
+  // markers and the arrow hides on any mouse move with the button down (a
+  // 1-2 px twitch, still a click for PSV) and while the view settles. So the
+  // first click often did nothing and a second, stiller one walked. Now the
+  // walk is decided from the press, whether or not the arrow is still drawn.
+  let pressed: FloorCursorLink | null = null
+  const onPointerDown = (e: PointerEvent) => {
+    pressed = null
+    if (!cursor || e.button !== 0 || e.pointerType === 'touch' || opts.isBlocked() || pinned) return
+    if (!(e.target as Element | null)?.closest?.('.psv-canvas-container')) return
+    if (target) { pressed = target; return }
+    // Arrow hidden (view still settling): work out what it would point at here.
+    const rect = container.getBoundingClientRect()
+    const pos = viewer.dataHelper.viewerCoordsToSphericalCoords({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    if (pos && pos.pitch < MAX_PITCH) pressed = pick(pos.yaw, pos.pitch)?.link ?? null
+  }
+  const walk = (link: FloorCursorLink, via: 'floor-pin' | 'floor-cursor') => {
+    pressed = null
+    pinned = null
+    hide()
+    opts.onWalk(link.targetSceneId, link.yaw, via)
+  }
   const onSelect = (e: any) => {
     const id = String(e?.marker?.id ?? '')
     if (!id.startsWith(FLOOR_CURSOR_PREFIX)) return
     // A hotspot disc or pin clicked directly, or the cursor while it points at one.
     const link = id.startsWith(SPOT_PREFIX) || id.startsWith(PIN_PREFIX)
       ? links.find(l => SPOT_PREFIX + l.hotspotId === id || PIN_PREFIX + l.hotspotId === id) ?? null
-      : (id === ARROW_ID ? target : null)
+      : (id === ARROW_ID ? (pressed ?? target) : null)
     if (!link) return
-    pinned = null
-    hide()
-    opts.onWalk(link.targetSceneId, link.yaw, id === ARROW_ID ? 'floor-cursor' : 'floor-pin')
+    walk(link, id === ARROW_ID ? 'floor-cursor' : 'floor-pin')
+  }
+  // A click (PSV: no drag past its threshold) on the panorama that hit no
+  // marker: the arrow had been hidden. MarkersPlugin stops this event when a
+  // marker was hit, so a click is handled here or in onSelect, never both.
+  const onClick = (e: any) => {
+    const link = pressed
+    pressed = null
+    if (!link || e?.data?.rightclick || opts.isBlocked()) return
+    walk(link, 'floor-cursor')
   }
   // PSV cancels every image download in flight when a panorama starts
   // loading, and the MarkersPlugin leaves that rejection unhandled. So the
@@ -442,6 +472,10 @@ export function attachFloorCursor(
   }
   markers.addEventListener('select-marker', onSelect)
   vt.addEventListener('node-changed', onNodeChanged)
+  if (cursor) {
+    container.addEventListener('pointerdown', onPointerDown, true)
+    viewer.addEventListener('click', onClick)
+  }
 
   return {
     destroy() {
@@ -453,6 +487,8 @@ export function attachFloorCursor(
       viewer.removeEventListener('position-updated', onViewMoved)
       viewer.removeEventListener('zoom-updated', onViewMoved)
       markers.removeEventListener('select-marker', onSelect)
+      container.removeEventListener('pointerdown', onPointerDown, true)
+      viewer.removeEventListener('click', onClick)
       markers.removeEventListener('enter-marker', onEnterMarker)
       markers.removeEventListener('leave-marker', onLeaveMarker)
       vt.removeEventListener('node-changed', onNodeChanged)
