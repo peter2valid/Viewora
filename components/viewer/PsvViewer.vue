@@ -565,7 +565,7 @@
         class="vt-canvas"
         :class="{
           'vt-canvas--ready': vtReady,
-          'vt-canvas--focused': vtFocusing,
+          'vt-canvas--focused': vtBlur,
           'hide-nav-arrows': !dockCollapsed || props.hideNavArrows || compactNavActive
         }"
       />
@@ -710,6 +710,7 @@ import {
   vtWalkToNode,
   vtToggleMarkerActive,
   focusHotspot,
+  cameraMoveMs,
   destroy,
   detectViewerPerformanceMode,
   toggleAutorotate,
@@ -839,6 +840,9 @@ const vtFailedSceneName = computed(() => {
   return sc?.name || sc?.title || ''
 })
 const vtFocusing = ref(false)
+/** Background blur behind an open info card: on only once the camera has landed
+ *  (a full-screen blur on every frame of the turn made it stutter). */
+const vtBlur = ref(false)
 const vtTransitioning = ref(false)
 const vtActiveNodeId = ref('')
 // The dock starts open so visitors see every scene straight away. With
@@ -1712,6 +1716,7 @@ async function initVT() {
   vtReady.value = false
   vtError.value = ''
   vtFocusing.value = false
+  vtBlur.value = false
 
   // Kick off the same progress bar used during scene switches so the
   // initial black screen gets a consistent loading treatment.
@@ -1776,6 +1781,7 @@ async function initVT() {
           if (version !== vtInitVersion) return
           vtTransitioning.value = false
           vtFocusing.value = false
+          vtBlur.value = false
           vtError.value = ''
           vtFailedNodeId.value = null
           vtRetrying.value = false
@@ -1943,6 +1949,7 @@ let preFocusPosition: { yaw: number; pitch: number; zoom: number } | null = null
 
 function dismissInfoCard(handle: PsvViewerHandle) {
   vtFocusing.value = false
+  vtBlur.value = false
   activeInfoMarkerId = ''
   const allHS = buildAllHotspots()
   for (const hotspots of Object.values(allHS)) {
@@ -1953,7 +1960,7 @@ function dismissInfoCard(handle: PsvViewerHandle) {
     const pos = preFocusPosition
     preFocusPosition = null
     try {
-      handle.viewer.animate({ yaw: pos.yaw, pitch: pos.pitch, zoom: pos.zoom, speed: '4rpm' })
+      handle.viewer.animate({ yaw: pos.yaw, pitch: pos.pitch, zoom: pos.zoom, speed: cameraMoveMs(handle, pos) })
     } catch { /* noop */ }
   } else {
     preFocusPosition = null
@@ -1986,6 +1993,7 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
     vtFocusing.value = true
     vtToggleMarkerActive(handle, markerId, true)
     await focusHotspot(handle, markerId)
+    if (vtFocusing.value && activeInfoMarkerId === markerId) vtBlur.value = true
     return
   }
 
@@ -3344,7 +3352,10 @@ watch(() => vtTransitioning.value, (loading) => {
      unnecessary EXTRA compositor layer on top, wasting mobile GPU memory. */
 }
 .vt-canvas--ready { opacity: 1; }
-.vt-canvas--focused :deep(.psv-canvas-container) { filter: blur(3px) brightness(0.7); }
+/* Fades in once the camera has landed; off at once when the card closes, so the
+   return move never runs under a blur. */
+.vt-canvas--focused :deep(.psv-canvas-container) { filter: blur(3px) brightness(0.7); transition: filter 0.2s ease-out; }
+@media (prefers-reduced-motion: reduce) { .vt-canvas--focused :deep(.psv-canvas-container) { transition: none; } }
 
 .vt-canvas :deep(.psv-container) {
   width: 100% !important;

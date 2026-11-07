@@ -1409,16 +1409,35 @@ export function toggleHotspotActive(handle: PsvViewerHandle | null, id: string, 
   } catch { /* marker not in scene — safe to ignore */ }
 }
 
+/**
+ * How long a camera move to `to` should take (ms). A fixed rotation speed made
+ * a hotspot at the screen edge take ~2.5 s to reach while a centred one took a
+ * fraction of a second; a short move with a mild stretch for the angle feels
+ * the same wherever the hotspot is.
+ */
+export function cameraMoveMs(handle: PsvViewerHandle | null, to: { yaw: number; pitch: number }): number {
+  const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  if (reduce) return 250
+  const pos = handle?.viewer?.getPosition?.() ?? to
+  let dy = to.yaw - pos.yaw
+  dy = Math.atan2(Math.sin(dy), Math.cos(dy))
+  const angle = Math.hypot(dy, to.pitch - pos.pitch) // radians
+  return Math.round(Math.min(900, 450 + angle * 320))
+}
+
 export async function focusHotspot(handle: PsvViewerHandle | null, id: string): Promise<void> {
   if (!handle?.viewer || !handle?.markers) return
   const marker = handle.markers.getMarker(id)
   if (!marker) return
-  await handle.viewer.animate({
-    yaw:   marker.config.position.yaw,
-    pitch: marker.config.position.pitch,
-    zoom:  70,
-    speed: '4rpm',
-  })
+  const to = { yaw: marker.config.position.yaw, pitch: marker.config.position.pitch }
+  // Areas swept past during the move aren't worth sharp tiles; load once we land.
+  const adapter: any = (handle.viewer as any).adapter
+  adapter?.vwHoldTiles?.(true)
+  try {
+    await handle.viewer.animate({ ...to, zoom: 70, speed: cameraMoveMs(handle, to) })
+  } finally {
+    adapter?.vwHoldTiles?.(false)
+  }
 }
 
 export function nudgeRender(handle: PsvViewerHandle | null): void {

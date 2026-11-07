@@ -92,6 +92,19 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   private vwLastApply = 0
   private vwLastMove = 0
   private vwOnMove = () => { this.vwLastMove = performance.now() }
+  /** True while walking out of the room: no new tiles are requested or drawn. */
+  private vwHeld = false
+
+  /** Hold tile loading while leaving a room; on release, catch up with the current view. */
+  vwHoldTiles(on: boolean) {
+    if (this.vwHeld === on) return
+    this.vwHeld = on
+    if (!on) {
+      // @ts-ignore
+      try { this.__refresh() } catch { /* viewer gone */ }
+      if (this.vwReady.length && !this.vwRaf) this.vwRaf = requestAnimationFrame(this.vwPump)
+    }
+  }
 
   // @ts-ignore
   constructor(viewer: any, config: any) {
@@ -119,6 +132,7 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
 
   private vwPump = (t: number) => {
     this.vwRaf = 0
+    if (this.vwHeld) return // resumed by vwHoldTiles(false)
     const dt = this.vwLastFrame ? t - this.vwLastFrame : 0
     this.vwLastFrame = t
     const moving = t - this.vwLastMove < MOVING_MS
@@ -175,6 +189,7 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
     // own tiles. Synchronous swap, restored straight after.
     // @ts-ignore
     const config = this.viewer.config
+    if (this.vwHeld) return
     const next = config.panorama
     if (this.vwPanorama === undefined || this.vwPanorama === next) {
       // @ts-ignore
