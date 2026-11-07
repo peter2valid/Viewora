@@ -633,7 +633,6 @@
       :items="dockItems"
       :active-id="dockActiveId"
       :glass-class="MAGNET_DOCK ? 'dock-glass-superdark dock-magnet' : 'dock-glass-superdark'"
-      window-thumbs
       :sortable="false"
       :bottom-px="20"
       :edge-inset-px="16"
