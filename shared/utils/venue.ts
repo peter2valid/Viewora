@@ -536,6 +536,71 @@ export function sceneGraphAlong(sg: SceneGraph, floors: VenueFloor[], route: Ven
   return { links, pins }
 }
 
+// ── A tidy line to draw ─────────────────────────────────────────
+// The walkway network comes from imported plans, so its points wobble a
+// little, and a route stitched through 360 stops pokes out to each stop's pin
+// (just off the walkway) and back: spurs and hooks. For drawing only, drop
+// those out-and-back spikes and straighten the wobble. Ends stay where they
+// are (the visitor's dot, the destination pin).
+
+/** A turn sharper than this (between the way in and the way out) is an out-and-back spike. */
+const SPIKE_ANGLE = (35 * Math.PI) / 180
+/** …but only when the spike is this short (plan widths): a real U-turn round a block stays. */
+const SPIKE_MAX = 0.04
+/** Wobble smaller than this (plan widths) is straightened. */
+const STRAIGHTEN = 0.006
+
+function tidyPoints(points: RoutePoint[], ay: number): RoutePoint[] {
+  const d = (a: RoutePoint, b: RoutePoint) => Math.hypot(a.x - b.x, (a.y - b.y) * ay)
+  // 1. Same point twice in a row.
+  let pts = points.filter((p, i) => i === 0 || d(p, points[i - 1]) > 1e-6)
+  // 2. Out-and-back spikes, repeated until none are left.
+  for (let changed = true; changed && pts.length > 2;) {
+    changed = false
+    for (let i = 1; i < pts.length - 1; i++) {
+      const a = pts[i - 1], b = pts[i], c = pts[i + 1]
+      const ab = d(a, b), bc = d(b, c)
+      if (Math.min(ab, bc) > SPIKE_MAX) continue
+      const v1x = a.x - b.x, v1y = (a.y - b.y) * ay, v2x = c.x - b.x, v2y = (c.y - b.y) * ay
+      const cos = (v1x * v2x + v1y * v2y) / ((ab * bc) || 1)
+      if (Math.acos(Math.max(-1, Math.min(1, cos))) < SPIKE_ANGLE) {
+        pts.splice(i, 1)
+        if (i < pts.length - 1 && i > 0 && d(pts[i - 1], pts[i]) < 1e-6) pts.splice(i, 1)
+        changed = true
+        break
+      }
+    }
+  }
+  // 3. Straighten small wobble (Ramer–Douglas–Peucker), in plan-width units.
+  const off = (p: RoutePoint, a: RoutePoint, b: RoutePoint) => {
+    const sa = { x: a.x, y: a.y * ay }, sb = { x: b.x, y: b.y * ay }, sp = { x: p.x, y: p.y * ay }
+    return distToSegment(sp, sa, sb)
+  }
+  const keep = new Uint8Array(pts.length)
+  keep[0] = 1; keep[pts.length - 1] = 1
+  const stack: Array<[number, number]> = [[0, pts.length - 1]]
+  while (stack.length) {
+    const [i, j] = stack.pop()!
+    let best = -1, bestD = STRAIGHTEN
+    for (let k = i + 1; k < j; k++) { const o = off(pts[k], pts[i], pts[j]); if (o > bestD) { bestD = o; best = k } }
+    if (best >= 0) { keep[best] = 1; stack.push([i, best], [best, j]) }
+  }
+  pts = pts.filter((_, i) => keep[i])
+  return pts
+}
+
+/** The same route with every leg's line tidied for drawing (lengths and steps unchanged). */
+function tidyRoute(route: VenueRoute, floors: VenueFloor[]): VenueRoute {
+  return {
+    ...route,
+    legs: route.legs.map((leg) => {
+      const f = floors.find(fl => fl.id === leg.floorId)
+      const ay = f && f.width ? f.height / f.width : 1
+      return { ...leg, points: leg.points.length > 2 ? tidyPoints(leg.points, ay) : leg.points }
+    }),
+  }
+}
+
 export interface RoutePlan {
   /** The red line on the map. */
   route: VenueRoute | null
@@ -560,17 +625,17 @@ export function planRoute(
     const along = routeThroughScenes(g, sg, from, to, walk.sceneIds, opts)
     if (along) {
       const ok = !direct || along.length <= direct.length * DETOUR_RATIO || along.length - direct.length <= DETOUR_MIN_EXTRA
-      if (ok) return { route: along, walk, skippedDetour: false }
+      if (ok) return { route: tidyRoute(along, g.floors), walk, skippedDetour: false }
     }
   }
   if (!direct) return { route: null, walk, skippedDetour: false }
 
   // Hotspots lead the long way (or nowhere): keep only the 360 views on the direct line.
   const onRoute = planWalk(sceneGraphAlong(sg, g.floors, direct), g.floors, from, to, startSceneId)
-  if (onRoute.sceneIds.length > 1) return { route: direct, walk: onRoute, skippedDetour: walk.sceneIds.length > 1 }
+  if (onRoute.sceneIds.length > 1) return { route: tidyRoute(direct, g.floors), walk: onRoute, skippedDetour: walk.sceneIds.length > 1 }
   const hadDetour = walk.sceneIds.length > 1
   return {
-    route: direct,
+    route: tidyRoute(direct, g.floors),
     walk: { status: 'none', sceneIds: [], reason: hadDetour ? 'detour' : (walk.reason ?? 'start') },
     skippedDetour: hadDetour,
   }

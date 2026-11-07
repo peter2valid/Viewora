@@ -30,10 +30,10 @@
 
     <svg v-if="loaded" class="vc-svg" aria-hidden="true">
       <template v-if="routePoints.length > 1">
-        <polyline :points="pts(routePoints)" class="vc-route-casing" />
-        <polyline
+        <path :d="roundedPath(routePoints)" class="vc-route-casing" />
+        <path
           :key="routeKey"
-          :points="pts(routePoints)"
+          :d="roundedPath(routePoints)"
           class="vc-route"
           :style="{ '--len': `${routeLen}px` }"
         />
@@ -66,6 +66,13 @@
       </button>
 
       <span v-if="startPoint" class="vc-start" :style="at(startPoint)"><i /></span>
+
+      <!-- "You are here": the visitor's 360 view. Always drawn, at any zoom,
+           also on dense floors where the other dots are culled. -->
+      <span v-if="herePoint" class="vc-here" :style="at(herePoint)">
+        <i />
+        <b v-if="herePoint.label">{{ herePoint.label }}</b>
+      </span>
 
       <div v-for="m in markers" :key="m.id" class="vc-marker" :class="`vc-marker--${m.tone}`" :style="at(m)">
         <span class="vc-marker__label">{{ m.label }}</span>
@@ -117,6 +124,8 @@ const props = defineProps<{
   /** This floor's part of the route (plan fractions). */
   routePoints?: RoutePoint[]
   startPoint?: RoutePoint | null
+  /** The visitor's position ("You are here"); never hidden by dot culling. */
+  herePoint?: (RoutePoint & { label?: string }) | null
   markers?: VenueCanvasMarker[]
   connectors?: VenueCanvasConnector[]
   /** Fade the other places' dots (a route or a place is in focus). */
@@ -212,7 +221,26 @@ function ly(y: number) { return y * H.value * s.value }
 // On screen (hit-testing taps).
 function sx(x: number) { return lx(x) + tx.value }
 function sy(y: number) { return ly(y) + ty.value }
-function pts(list: RoutePoint[]) { return list.map(p => `${lx(p.x).toFixed(1)},${ly(p.y).toFixed(1)}`).join(' ') }
+/** Corner radius of the route line, in screen pixels. */
+const ROUTE_CORNER = 14
+/** The route as an SVG path with rounded corners (a polyline's sharp elbows look jagged). */
+function roundedPath(list: RoutePoint[]): string {
+  const p = list.map(q => ({ x: lx(q.x), y: ly(q.y) }))
+  if (p.length < 2) return ''
+  const f = (n: number) => n.toFixed(1)
+  let d = `M${f(p[0].x)},${f(p[0].y)}`
+  for (let i = 1; i < p.length - 1; i++) {
+    const a = p[i - 1], b = p[i], c = p[i + 1]
+    const ab = Math.hypot(b.x - a.x, b.y - a.y), bc = Math.hypot(c.x - b.x, c.y - b.y)
+    const r = Math.min(ROUTE_CORNER, ab / 2, bc / 2)
+    if (r < 0.5) { d += `L${f(b.x)},${f(b.y)}`; continue }
+    const p1 = { x: b.x + ((a.x - b.x) * r) / ab, y: b.y + ((a.y - b.y) * r) / ab }
+    const p2 = { x: b.x + ((c.x - b.x) * r) / bc, y: b.y + ((c.y - b.y) * r) / bc }
+    d += `L${f(p1.x)},${f(p1.y)}Q${f(b.x)},${f(b.y)} ${f(p2.x)},${f(p2.y)}`
+  }
+  const z = p[p.length - 1]
+  return `${d}L${f(z.x)},${f(z.y)}`
+}
 // Plan pixels only — independent of zoom, so pins never re-render while zooming.
 function at(p: { x: number; y: number }) { return { '--x': p.x * W.value, '--y': p.y * H.value } }
 
@@ -411,7 +439,7 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++; clearTimeout(settleTimer) })
 .vc-stage { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
 .vc-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--s)); max-width: none; pointer-events: none; }
 /* Anything placed with at(): its plan pixel × the current zoom, sub-pixel exact. */
-.vc-dot, .vc-start, .vc-marker, .vc-connector { left: 0; top: 0; --at: translate(calc(var(--x) * var(--s) * 1px), calc(var(--y) * var(--s) * 1px)); transform: var(--at); }
+.vc-dot, .vc-start, .vc-here, .vc-marker, .vc-connector { left: 0; top: 0; --at: translate(calc(var(--x) * var(--s) * 1px), calc(var(--y) * var(--s) * 1px)); transform: var(--at); }
 .vc-svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; pointer-events: none; overflow: visible; }
 .vc-route-casing { fill: none; stroke: #fff; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
 .vc-route {
@@ -439,6 +467,14 @@ onBeforeUnmount(() => { ro?.disconnect(); anim++; clearTimeout(settleTimer) })
 .vc-start i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
 .vc-start::before { content: ''; position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; background: rgba(37,99,235,0.22); animation: vc-pulse 2s ease-out infinite; }
 @keyframes vc-pulse { from { transform: scale(0.4); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
+
+/* "You are here": bigger than the route's start dot, with a soft halo, a pulse and a label. */
+.vc-here { position: absolute; width: 0; height: 0; pointer-events: none; z-index: 1; }
+.vc-here::before { content: ''; position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%; background: rgba(37,99,235,0.22); animation: vc-pulse 2.2s ease-out infinite; }
+.vc-here::after { content: ''; position: absolute; left: -20px; top: -20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(37,99,235,0.16); }
+.vc-here i { position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; background: #2563eb; border: 4px solid #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.4); z-index: 1; }
+.vc-here b { position: absolute; left: 0; top: 20px; transform: translateX(-50%); padding: 3px 9px; border-radius: 999px; background: #2563eb; color: #fff; font-size: 11.5px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 1; }
+@media (prefers-reduced-motion: reduce) { .vc-here::before { animation: none; } }
 
 .vc-marker { position: absolute; width: 0; height: 0; pointer-events: none; }
 .vc-marker svg { position: absolute; left: -15px; top: -40px; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.35)); }

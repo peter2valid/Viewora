@@ -10,6 +10,7 @@
       :places="floor.venue.places"
       :route-points="legOnFloor?.points"
       :start-point="startOnFloor"
+      :here-point="hereOnFloor"
       :markers="markers"
       :connectors="connectorsOnFloor"
       :dim-others="!!route || !!selected"
@@ -490,10 +491,17 @@ const legIndex = computed(() => route.value?.legs.findIndex(l => l.floorId === f
 const legOnFloor = computed(() => (legIndex.value >= 0 ? route.value!.legs[legIndex.value] : null))
 const startOnFloor = computed(() => {
   if (route.value) {
+    // A route from "Your 360° view" starts at the You-are-here dot: don't draw a second dot on it.
+    if (route.value.from.id === HERE_ID && legIndex.value === 0 && hereOnFloor.value) return null
     const first = route.value.legs[legIndex.value]
     return first?.points[0] ?? null
   }
   return null
+})
+/** "You are here" on the floor being shown (the visitor's 360 view). */
+const hereOnFloor = computed(() => {
+  const h = herePlace.value
+  return h && h.floorId === floor.value?.id ? { x: h.x, y: h.y, label: 'You are here' } : null
 })
 
 const KIND_ICON: Record<VenueLinkKind | 'any', string> = { lift: '⇅', escalator: '⤴', stairs: '⌸', ramp: '⟋', any: '⇅' }
