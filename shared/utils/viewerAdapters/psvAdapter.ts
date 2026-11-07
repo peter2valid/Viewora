@@ -30,7 +30,8 @@ import {
   PLOT_POLY_SUFFIX,
 } from './landMarkers'
 import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON, floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
-import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, floorSpotPosition, supportsFloorCursor } from './floorCursor'
+import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, floorSpotPosition, glPins, supportsFloorCursor } from './floorCursor'
+import { screenFitPass, screenSizeUnits } from './screenSprites'
 import { installPerfRecorder } from './perfRecorder'
 
 /** Master Handle: Unified state for a single viewer instance */
@@ -327,6 +328,48 @@ function installMarkerSmoother(container: HTMLElement): MarkerSmoother {
   return {
     disconnect: () => { active = false; cancelAnimationFrame(rafId) },
     setSmoothing: (on: boolean) => { smoothing = on; if (!on) state.clear() },
+  }
+}
+
+// ── Scene-drawn info badges: keep them screen-sized and upright ──────────────
+function installScreenSprites(viewer: any, markers: any): () => void {
+  let hovered = ''
+  const fitAll = () => {
+    const all = Object.values(markers?.markers ?? {}) as any[]
+    let pass: ReturnType<typeof screenFitPass> | undefined
+    for (const m of all) {
+      const d = m?.config?.data
+      if (d?.type !== 'screen-sprite' || !m.config.visible) continue
+      pass ??= screenFitPass(viewer)
+      if (!pass) return
+      const mesh = m.threeMesh
+      // Only the page marker on top takes clicks and hover.
+      if (mesh && !mesh.userData.vwNoHit) { mesh.raycast = () => {}; mesh.userData.vwNoHit = true }
+      const grow = d.hover && hovered === d.hotspotId ? d.hover : 1
+      pass.fit(m, d.w * grow, d.h * grow)
+    }
+  }
+  const safeFit = () => { try { fitAll() } catch (err) { console.warn('[Viewora] Info badge fit failed', err) } }
+  const refit = () => { safeFit(); viewer.needsUpdate() }
+  const onEnter = (e: any) => { const id = String(e?.marker?.id ?? ''); if (markers.markers?.[id + INFO_SPRITE_SUFFIX]) { hovered = id; refit() } }
+  const onLeave = (e: any) => { if (String(e?.marker?.id ?? '') === hovered) { hovered = ''; refit() } }
+  const vt: any = viewer.getPlugin?.(VirtualTourPlugin)
+  const onNode = () => { hovered = ''; refit() }
+  viewer.addEventListener('position-updated', safeFit)
+  viewer.addEventListener('zoom-updated', safeFit)
+  viewer.addEventListener('size-updated', safeFit)
+  markers.addEventListener('enter-marker', onEnter)
+  markers.addEventListener('leave-marker', onLeave)
+  markers.addEventListener('set-markers', refit)
+  vt?.addEventListener('node-changed', onNode)
+  return () => {
+    viewer.removeEventListener('position-updated', safeFit)
+    viewer.removeEventListener('zoom-updated', safeFit)
+    viewer.removeEventListener('size-updated', safeFit)
+    markers.removeEventListener('enter-marker', onEnter)
+    markers.removeEventListener('leave-marker', onLeave)
+    markers.removeEventListener('set-markers', refit)
+    vt?.removeEventListener('node-changed', onNode)
   }
 }
 
@@ -635,6 +678,111 @@ function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
 /** Red of the info badge's "i" (same family as the navigation pins). */
 const INFO_RED = '#e5252a'
 
+/** The info badge: a red "i" outlined in white (viewBox 0 0 26 42; shown ≈20×32 px in its trigger slot). */
+function infoBadgeInner(): string {
+  return `<g stroke="#fff" fill="#fff" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="8" r="4.2" stroke-width="5"/><path d="M16.2 17.5 L11.6 32 Q10.6 35.6 14.6 33.8" fill="none" stroke-width="11.5"/></g><g stroke="${INFO_RED}" fill="${INFO_RED}" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="8" r="4.2" stroke="none"/><path d="M16.2 17.5 L11.6 32 Q10.6 35.6 14.6 33.8" fill="none" stroke-width="6.5"/></g>`
+}
+
+/** Info hotspots shown with the badge (no custom icon, info or unknown type). */
+function usesInfoBadge(hotspot: Hotspot): boolean {
+  const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || ''
+  return !iconUrl && !['url', 'video', 'youtube', 'scene_link'].includes(hotspot.type)
+}
+
+// ── Info badge drawn in the scene (public viewer) ────────────────────────────
+// Like the floor pins (floorCursor.ts): the visible "i" and its name label are
+// imageLayer markers fitted to the screen every frame (screenSprites.ts), so
+// they can't shiver during autorotate. The page marker stays on top, invisible
+// (.vhs-info--gl), for click, hover and the info card; while the card is open
+// the page badge shows instead (the camera is still then, and the scene one
+// would be blurred with the background).
+export const INFO_SPRITE_SUFFIX = '::gl-i'
+export const INFO_LABEL_SUFFIX = '::gl-label'
+/** Badge on screen as the page shows it: its 20 px-wide trigger slot fits the
+ *  26×42 drawing to 20 px wide (≈20×32 px), + room for its shadow (px at scale 1). */
+const BADGE_PAD = 6
+const BADGE_GLYPH_W = 20
+const BADGE_GLYPH_H = (20 * 42) / 26
+const BADGE_W = BADGE_GLYPH_W + 2 * BADGE_PAD
+const BADGE_H = BADGE_GLYPH_H + 2 * BADGE_PAD
+/** Label's top edge below the hotspot point (px at scale 1), as on the page marker. */
+const LABEL_OFFSET = 28
+const SPRITE_RES = 4
+
+let badgeImageUrl = ''
+function infoBadgeImage(): string {
+  if (badgeImageUrl) return badgeImageUrl
+  const k = 26 / BADGE_GLYPH_W // viewBox units per px
+  const pad = BADGE_PAD * k
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(BADGE_W * SPRITE_RES)}" height="${Math.round(BADGE_H * SPRITE_RES)}" viewBox="${-pad} ${-pad} ${26 + 2 * pad} ${42 + 2 * pad}" preserveAspectRatio="none">`
+    + '<defs><filter id="s" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.55"/><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#000" flood-opacity="0.25"/></filter></defs>'
+    + `<g filter="url(#s)">${infoBadgeInner()}</g></svg>`
+  badgeImageUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+  return badgeImageUrl
+}
+
+/** Name label as an image: same font, colour and shadow as the page label. */
+function infoLabelImage(text: string, color: string, bold: boolean): { url: string; w: number; h: number; pad: number } | null {
+  if (typeof document === 'undefined' || !text) return null
+  const pad = 10
+  const family = (() => { try { return getComputedStyle(document.body).fontFamily || 'sans-serif' } catch { return 'sans-serif' } })()
+  const font = `${bold ? 800 : 600} ${11 * SPRITE_RES}px ${family}`
+  const c = document.createElement('canvas')
+  const ctx = c.getContext('2d')
+  if (!ctx) return null
+  ctx.font = font
+  const textW = Math.ceil(ctx.measureText(text).width / SPRITE_RES + 0.22 * text.length) // + letter-spacing 0.02em
+  const lineH = 14
+  const w = textW + 2 * pad, h = lineH + 2 * pad
+  c.width = w * SPRITE_RES; c.height = h * SPRITE_RES
+  ctx.font = font
+  ctx.textBaseline = 'top'
+  ctx.textAlign = 'center'
+  try { (ctx as any).letterSpacing = `${0.02 * 11 * SPRITE_RES}px` } catch { /* older browsers */ }
+  ctx.fillStyle = color
+  const x = c.width / 2, y = (pad + 1) * SPRITE_RES
+  const dark = color.toLowerCase() === '#000000'
+  const shadows: Array<[string, number, number]> = dark
+    ? [['rgba(255,255,255,0.5)', 4, 1]]
+    : [['rgba(0,0,0,0.8)', 4, 1], ['rgba(0,0,0,0.5)', 8, 0]]
+  for (const [col, blur, dy] of shadows) {
+    ctx.shadowColor = col; ctx.shadowBlur = blur * SPRITE_RES; ctx.shadowOffsetY = dy * SPRITE_RES
+    ctx.fillText(text, x, y)
+  }
+  ctx.shadowColor = 'transparent'
+  ctx.fillText(text, x, y)
+  return { url: c.toDataURL('image/png'), w, h, pad }
+}
+
+/** Scene markers for one info hotspot's badge and label (public viewer). */
+function infoSpriteMarkers(h: Hotspot, viewer?: any): any[] {
+  const scale = Number(h.scale || 1)
+  const position = { yaw: h.yaw, pitch: h.pitch }
+  const out: any[] = [{
+    id: h.id + INFO_SPRITE_SUFFIX,
+    imageLayer: infoBadgeImage(),
+    position,
+    size: screenSizeUnits(viewer, BADGE_W * scale, BADGE_H * scale),
+    anchor: 'center center',
+    zIndex: 6,
+    data: { type: 'screen-sprite', hotspotId: h.id, w: BADGE_W * scale, h: BADGE_H * scale, hover: 1.25 },
+  }]
+  const label = infoLabelImage(h.label || 'Point of Interest', h.labelColor || '#ffffff', !!h.labelBold)
+  if (label) {
+    out.push({
+      id: h.id + INFO_LABEL_SUFFIX,
+      imageLayer: label.url,
+      position,
+      size: screenSizeUnits(viewer, label.w * scale, label.h * scale),
+      // The hotspot point sits LABEL_OFFSET px above the text's top edge.
+      anchor: { x: 0.5, y: (label.pad - LABEL_OFFSET) / label.h },
+      zIndex: 6,
+      data: { type: 'screen-sprite', hotspotId: h.id, w: label.w * scale, h: label.h * scale },
+    })
+  }
+  return out
+}
+
 function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
   const iconUrl = HOTSPOT_ICONS_BY_KEY[hotspot.icon || ''] || ''
   const label = esc(hotspot.label || 'Point of Interest')
@@ -675,7 +823,7 @@ function buildInfoMarkerEl(hotspot: Hotspot): HTMLElement {
       ${iconUrl
         ? `<img class="vhs-info__trigger-icon" src="${iconUrl}" alt="" draggable="false" />`
         : badge
-          ? `<svg class="vhs-info__badge" viewBox="0 0 26 42" aria-hidden="true"><g stroke="#fff" fill="#fff" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="8" r="4.2" stroke-width="5"/><path d="M16.2 17.5 L11.6 32 Q10.6 35.6 14.6 33.8" fill="none" stroke-width="11.5"/></g><g stroke="${INFO_RED}" fill="${INFO_RED}" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="8" r="4.2" stroke="none"/><path d="M16.2 17.5 L11.6 32 Q10.6 35.6 14.6 33.8" fill="none" stroke-width="6.5"/></g></svg>`
+          ? `<svg class="vhs-info__badge" viewBox="0 0 26 42" aria-hidden="true">${infoBadgeInner()}</svg>`
           : `<div class="vhs-info__pin-dot" style="background:${meta.color}"></div>`
       }
     </div>
@@ -1600,6 +1748,18 @@ function buildTourNodes(
   performanceMode: 'lite' | 'full' = 'full',
   useKtx2 = false,
 ): any[] {
+  // Info badges drawn in the scene, like the floor pins (?pins=dom: page markers).
+  const infoSprites = glPins()
+  const infoSpritesFor = (list: Hotspot[]): { markers: any[]; ids: Set<string> } => {
+    const out = { markers: [] as any[], ids: new Set<string>() }
+    if (!infoSprites) return out
+    for (const h of list) {
+      if (h.type === 'scene_link' || isLandMarker(h) || !usesInfoBadge(h)) continue
+      // On failure the page badge simply stays visible.
+      try { out.markers.push(...infoSpriteMarkers(h)); out.ids.add(h.id) } catch { /* noop */ }
+    }
+    return out
+  }
   const nodes = scenes.map(scene => {
     const hotspots = hotspotsByScene[scene.id] ?? []
 
@@ -1624,6 +1784,7 @@ function buildTourNodes(
     const valid = hotspots.filter(h => typeof h.yaw === 'number' && typeof h.pitch === 'number')
     // Plot polygons go first so every pin/label renders above the shaded areas.
     const plotPolygons = sortShapes(valid.map(buildShapeMarker).filter(Boolean))
+    const sprites = infoSpritesFor(valid)
     const pinMarkers = valid
       .map(h => {
         if (isLandMarker(h)) {
@@ -1638,6 +1799,7 @@ function buildTourNodes(
         }
         const isNav = h.type === 'scene_link'
         const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
+        if (sprites.ids.has(h.id)) el.classList.add('vhs-info--gl')
         const hMarkerSize = isNav ? { width: 120, height: 80 } : { width: 40, height: 40 }
         return {
           id: h.id,
@@ -1658,7 +1820,7 @@ function buildTourNodes(
       name: scene.title,
       thumbnail: scene.imageUrl,
       links,
-      markers: [...plotPolygons, ...pinMarkers],
+      markers: [...plotPolygons, ...pinMarkers, ...sprites.markers],
     }
   })
 
@@ -1959,6 +2121,7 @@ export async function initVirtualTourViewer(
 
   const smoother = installMarkerSmoother(container)
   cleanupFns.push(() => smoother.disconnect())
+  cleanupFns.push(installScreenSprites(viewer, markers))
 
   const arrowTracker = installArrowDirectionTracker(container, viewer)
   cleanupFns.push(() => arrowTracker.disconnect())
@@ -2193,6 +2356,13 @@ export function vtToggleMarkerActive(handle: PsvViewerHandle | null, markerId: s
       el.classList.add('vhs-info--active')
     } else {
       el.classList.remove('vhs-info--active')
+    }
+    // Card open: the page badge shows (sharp above the blur), the scene one hides.
+    for (const suffix of [INFO_SPRITE_SUFFIX, INFO_LABEL_SUFFIX]) {
+      try {
+        const sprite = handle.markers.getMarker(markerId + suffix)
+        if (sprite && sprite.config.visible === active) handle.markers.updateMarker({ id: sprite.id, visible: !active })
+      } catch { /* no scene badge for this hotspot */ }
     }
   } catch { /* noop */ }
 }

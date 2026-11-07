@@ -27,7 +27,7 @@
 //     discs are rebuilt and the chevrons re-hidden on every node change;
 //   - a click on a 3D marker fires `select-marker` (psvAdapter ignores these ids).
 
-import { Vector3 } from 'three'
+import { screenFitPass } from './screenSprites'
 import type { PsvViewerHandle } from './psvAdapter'
 import type { FloorGlyph } from '~/shared/utils/hotspotIcons'
 
@@ -465,56 +465,15 @@ export function attachFloorCursor(
    * fire inside PSV's update, ahead of the render), scaling and turning each
    * pin about its tip, so the tip stays exactly on its disc.
    */
-  const v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3()
   const fitGlPins = () => {
     if (!gl || !links.length) return
-    const cam = viewer.renderer?.camera
-    const W = viewer.state?.size?.width, H = viewer.state?.size?.height
-    if (!cam || !W || !H) return
-    cam.updateMatrixWorld()
-    const toPx = (v: Vector3) => { v.project(cam); v.set((v.x + 1) / 2 * W, (1 - v.y) / 2 * H, v.z); return v }
+    const pass = screenFitPass(viewer)
+    if (!pass) return
     for (const link of links) {
       let m: any
       try { m = markers.getMarker(PIN_PREFIX + link.hotspotId) } catch { continue }
-      const group = m?.threeElement, mesh = m?.threeMesh
-      if (!group || !mesh) continue
-      // Face the camera fully. MarkersPlugin stands the plane upright facing
-      // the vertical axis, so looking steeply down at the floor saw it nearly
-      // edge-on: the pin shrank to a sliver at the top of the screen.
-      group.scale.set(1, 1, 1)
-      group.lookAt(0, 0, 0)
-      group.updateMatrixWorld(true)
-      const ay = 0.5 - (m.state?.anchor?.y ?? 0.5)
-      const tip = toPx(mesh.localToWorld(v0.set(0, ay, 0)))
-      if (tip.z > 1) continue // behind the camera
-      const tx = tip.x, ty = tip.y
-      // Turn upright on screen (perspective tilts verticals off-centre). A
-      // straight line stays straight on screen, so the screen directions of
-      // the plane's up (A) and right (B) at the tip give the exact turn: the
-      // mix cos(a)·up + sin(a)·right that points straight up.
-      const e = 1e-3
-      const up = toPx(mesh.localToWorld(v1.set(0, ay + e, 0)))
-      const rt = toPx(mesh.localToWorld(v2.set((e * mesh.scale.y) / mesh.scale.x, ay, 0)))
-      const ax = up.x - tx, ayS = up.y - ty, bx = rt.x - tx, byS = rt.y - ty
-      let turn = Math.atan2(-ax, bx)
-      if (Math.cos(turn) * ayS + Math.sin(turn) * byS > 0) turn += Math.PI
-      if (Number.isFinite(turn)) group.rotateZ(-turn)
-      group.updateMatrixWorld(true)
-      // Then size it: drawn height and width to the page pin's pixels.
-      // (Checked over 1,000 camera/pin angles incl. looking straight down:
-      // no lean, no squash, tip unmoved.)
-      const t2 = toPx(mesh.localToWorld(v0.set(0, ay, 0)))
-      const t2x = t2.x, t2y = t2.y
-      const top = toPx(mesh.localToWorld(v1.set(0, 0.5, 0)))
-      const lft = toPx(mesh.localToWorld(v2.set(-0.5, ay, 0)))
-      const rgt = toPx(mesh.localToWorld(v3.set(0.5, ay, 0)))
-      const h = Math.hypot(top.x - t2x, top.y - t2y) / (0.5 - ay)
-      const w = Math.hypot(rgt.x - lft.x, rgt.y - lft.y)
-      if (!(h > 0.01) || !(w > 0.01)) continue
       const grow = (hoveredPin === link ? link.hoverScale : 1) * link.scale
-      const sx = Math.min(6, Math.max(0.15, (glW(touch) * grow) / w))
-      const sy = Math.min(6, Math.max(0.15, (glH(touch) * grow) / h))
-      group.scale.set(sx, sy, 1)
+      pass.fit(m, glW(touch) * grow, glH(touch) * grow)
     }
   }
   const onEnterMarker = (e: any) => {

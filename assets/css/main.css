@@ -3935,3 +3935,12 @@ header.nav {
 
 /* The outlined "i" is taller than the old dot: keep its name label clear of it. */
 .vhs-info:has(.vhs-info__badge) .vhs-info__hover-label { top: calc(100% + 8px); }
+
+/* Info badge drawn in the scene (public viewer): the page badge and label stay
+   in place, invisible, for click/hover/card; shown again while the card is open. */
+.vhs-info--gl:not(.vhs-info--active) .vhs-info__badge { opacity: 0; }
+.vhs-info--gl .vhs-info__hover-label { visibility: hidden; }
+/* Its click/hover area must sit on the scene badge, which is centred on the
+   hotspot point (the public layout otherwise leaves the trigger in the top-left
+   quarter of the 40 px box, 10 px up and left of the point). */
+.vhs-info--gl .vhs-info__trigger { position: absolute !important; left: 10px; top: 10px; }
