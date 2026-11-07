@@ -68,53 +68,59 @@ const GLYPH_PATHS: Record<FloorGlyph, string> = {
   down: '<path d="M15 39L28 23.5H20.5V2H9.5V23.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
 }
 /**
- * ?pins=gl: draw the pins inside the 3D scene, like the floor discs, instead
- * of as page elements over it. A page element is composited separately from
- * the WebGL canvas, and Firefox sometimes shows it a frame ahead of or behind
- * the panorama: during slow autorotate the pin then shivers on its disc
- * (which, being in the scene, never does). In the scene they can't drift.
+ * Pins are drawn inside the 3D scene, like the floor discs, instead of as
+ * page elements over it. A page element is composited separately from the
+ * WebGL canvas, and Firefox sometimes showed it a frame ahead of or behind
+ * the panorama: during slow autorotate the pin shivered on its disc (which,
+ * being in the scene, never does). In the scene they can't drift.
+ * ?pins=dom brings back the page pins (for comparison). The editor always
+ * uses page pins (drag to move); both stand on the same floorSpotPosition.
  */
 export function glPins(): boolean {
-  try { return new URLSearchParams(location.search).get('pins') === 'gl' } catch { return false }
+  try { return new URLSearchParams(location.search).get('pins') !== 'dom' } catch { return true }
 }
 
-/** Room around the glyph for its shadow, in glyph units (1 unit = 1 px at scale 1). */
-const GL_PAD = 4
+/** Room around the glyph for its shadow, in glyph units (1 unit = 1 px at scale 1).
+ *  Larger on touch screens: the transparent margin is part of the tap area,
+ *  as the page pin's padding was (TOUCH_PIN_PAD). */
+const glPad = (touch: boolean) => (touch ? TOUCH_PIN_PAD : 4)
 /** Texture pixels per glyph unit: sharp up to 2× hover on hi-dpi screens. */
 const GL_RES = 4
-const GL_W = PIN_WIDTH + 2 * GL_PAD
-const GL_H = PIN_HEIGHT + 2 * GL_PAD
+const glW = (touch: boolean) => PIN_WIDTH + 2 * glPad(touch)
+const glH = (touch: boolean) => PIN_HEIGHT + 2 * glPad(touch)
 /** Same look as glyphHtml (shadow included), as an image the scene can draw. */
-function glyphImage(glyph: FloorGlyph): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${GL_W * GL_RES}" height="${GL_H * GL_RES}" viewBox="${-GL_PAD} ${-GL_PAD} ${GL_W} ${GL_H}">`
+function glyphImage(glyph: FloorGlyph, touch: boolean): string {
+  const pad = glPad(touch), w = glW(touch), h = glH(touch)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w * GL_RES}" height="${h * GL_RES}" viewBox="${-pad} ${-pad} ${w} ${h}">`
     + '<defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity="0.45"/></filter></defs>'
     + `<g filter="url(#s)">${GLYPH_PATHS[glyph]}</g></svg>`
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
-const GL_IMAGES: Partial<Record<FloorGlyph, string>> = {}
-function glyphImageCached(glyph: FloorGlyph): string {
-  return (GL_IMAGES[glyph] ??= glyphImage(glyph))
+const GL_IMAGES = new Map<string, string>()
+function glyphImageCached(glyph: FloorGlyph, touch: boolean): string {
+  const key = `${glyph}:${touch}`
+  let url = GL_IMAGES.get(key)
+  if (!url) { url = glyphImage(glyph, touch); GL_IMAGES.set(key, url) }
+  return url
 }
 
 /**
- * MarkersPlugin size (units: 100 = 1 world unit at the sphere's radius 10)
- * that shows `px` screen pixels at the current zoom. The pin is an upright
- * plane, seen from above at the disc's pitch, so its height is stretched to
- * still look `px` tall.
+ * Scene pin marker. Its starting size (MarkersPlugin units: 100 = 1 world
+ * unit at the sphere's radius 10) is the page pin's pixels at the current
+ * zoom; fitGlPins then corrects size and orientation on every camera move.
  */
-function glPinConfig(id: string, spot: { yaw: number; pitch: number; glyph: FloorGlyph; scale: number }, viewer: any, hover = 1) {
+function glPinConfig(id: string, spot: { yaw: number; pitch: number; glyph: FloorGlyph; scale: number }, viewer: any, touch: boolean) {
   const position = floorSpotPosition(spot.yaw, spot.pitch)
   const vFov = ((viewer?.state?.vFov ?? 60) * Math.PI) / 180
   const height = viewer?.state?.size?.height || 800
-  const unitsPerPx = (2000 * Math.tan(vFov / 2)) / height
-  const k = spot.scale * hover * unitsPerPx
+  const k = spot.scale * (2000 * Math.tan(vFov / 2)) / height
   return {
     id,
-    imageLayer: glyphImageCached(spot.glyph),
+    imageLayer: glyphImageCached(spot.glyph, touch),
     position,
-    size: { width: GL_W * k, height: GL_H * k },
+    size: { width: glW(touch) * k, height: glH(touch) * k },
     // Glyph bottom (its tip) on the disc, like the page pin's 'bottom center'.
-    anchor: { x: 0.5, y: (PIN_HEIGHT + GL_PAD) / GL_H },
+    anchor: { x: 0.5, y: (PIN_HEIGHT + glPad(touch)) / glH(touch) },
     style: { cursor: 'pointer' },
     zIndex: 5,
   }
@@ -303,7 +309,7 @@ export function attachFloorCursor(
       if (hasMarker(disc.id)) markers.updateMarker(disc)
       else markers.addMarker(disc)
       const pin = gl
-        ? { ...glPinConfig(PIN_PREFIX + link.hotspotId, link, viewer), data }
+        ? { ...glPinConfig(PIN_PREFIX + link.hotspotId, link, viewer, touch), data }
         : { ...floorPinMarker(PIN_PREFIX + link.hotspotId, link, touch), data }
       if (hasMarker(pin.id)) markers.removeMarker(pin.id)
       markers.addMarker(pin)
@@ -506,8 +512,8 @@ export function attachFloorCursor(
       const w = Math.hypot(rgt.x - lft.x, rgt.y - lft.y)
       if (!(h > 0.01) || !(w > 0.01)) continue
       const grow = (hoveredPin === link ? link.hoverScale : 1) * link.scale
-      const sx = Math.min(6, Math.max(0.15, (GL_W * grow) / w))
-      const sy = Math.min(6, Math.max(0.15, (GL_H * grow) / h))
+      const sx = Math.min(6, Math.max(0.15, (glW(touch) * grow) / w))
+      const sy = Math.min(6, Math.max(0.15, (glH(touch) * grow) / h))
       group.scale.set(sx, sy, 1)
     }
   }
