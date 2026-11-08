@@ -1,5 +1,5 @@
 <template>
-  <div class="psv-root">
+  <div ref="rootEl" class="psv-root">
     <div ref="containerEl" :class="['psv-canvas', { 'psv-canvas--ready': state === 'ready', 'psv-canvas--focused': isFocusing, 'psv--tracing': isTracing }]" />
 
     <!-- Error -->
@@ -105,6 +105,8 @@ const emit = defineEmits<{
 type State = 'loading' | 'ready' | 'error' | 'empty'
 
 const containerEl = ref<HTMLElement | null>(null)
+/** Wraps the panorama and the action menu layer, so hover tracking sees both. */
+const rootEl = ref<HTMLElement | null>(null)
 const handle = ref<PsvViewerHandle | null>(null)
 const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')
@@ -136,6 +138,17 @@ const menu = reactive({ visible: false, locked: false, hotspotId: null as string
 let menuRaf: number | null = null
 let menuCloseTimer: ReturnType<typeof setTimeout> | null = null
 let menuHovered = false
+/**
+ * The menu stays open while the pointer is within this many px of the point
+ * it circles: the buttons sit 58px out (38px wide), so this covers them and
+ * the gap between them and the pin with room to spare. Without it the gap
+ * was dead space and the menu closed if the pointer took >260ms to cross it.
+ */
+const MENU_KEEP_RADIUS = 110
+/** Screen point the open menu circles (container px). */
+let menuAt: { x: number; y: number } | null = null
+/** Last pointer position over the viewer (container px), null once it leaves. */
+let pointerAt: { x: number; y: number } | null = null
 let hotspotSyncTimer: ReturnType<typeof setTimeout> | null = null
 const isAdapterMismatchError = (err: unknown) => {
   const message = err instanceof Error ? err.message : String(err)
@@ -174,6 +187,7 @@ function trackMenuPosition() {
   if (hs) {
     const pos = menuAnchor(hs)
     if (pos && menuLayerRef.value) {
+      menuAt = pos
       menuLayerRef.value.style.transform = `translate(${pos.x}px, ${pos.y}px)`
     }
   }
@@ -186,6 +200,7 @@ function openMenu(id: string) {
   if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
   const pos = menuAnchor(hs)
   menu.hotspotId = id
+  menuAt = pos
   if (pos && menuLayerRef.value) {
     menuLayerRef.value.style.transform = `translate(${pos.x}px, ${pos.y}px)`
   }
@@ -200,6 +215,40 @@ function closeMenu() {
   menu.locked = false
   menu.hotspotId = null
   menuHovered = false
+  menuAt = null
+}
+
+function pointerNearMenu(): boolean {
+  if (!menuAt || !pointerAt) return false
+  return Math.hypot(pointerAt.x - menuAt.x, pointerAt.y - menuAt.y) <= MENU_KEEP_RADIUS
+}
+
+/** Close the hover menu shortly, unless the pointer is back near it or on a button by then. */
+function scheduleMenuClose(delay: number) {
+  if (menuCloseTimer) return
+  menuCloseTimer = setTimeout(() => {
+    menuCloseTimer = null
+    if (!menu.locked && !menuHovered && !pointerNearMenu()) closeMenu()
+  }, delay)
+}
+
+// Hover menu: kept open while the pointer stays near it, closed once it moves away.
+function onMenuPointerMove(e: PointerEvent) {
+  if (e.pointerType === 'touch') return
+  const rect = containerEl.value?.getBoundingClientRect()
+  if (!rect) return
+  pointerAt = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  if (!menu.visible || menu.locked || dragTracker.active) return
+  if (pointerNearMenu() || menuHovered) {
+    if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
+  } else {
+    scheduleMenuClose(150)
+  }
+}
+
+function onMenuPointerLeave() {
+  pointerAt = null
+  if (menu.visible && !menu.locked) scheduleMenuClose(150)
 }
 
 function onMarkerEnterCb(id: string) {
@@ -211,9 +260,7 @@ function onMarkerEnterCb(id: string) {
 function onMarkerLeaveCb(id: string) {
   if (menu.locked) return
   if (menu.hotspotId !== id) return
-  menuCloseTimer = setTimeout(() => {
-    if (!menuHovered) closeMenu()
-  }, 260)
+  scheduleMenuClose(260)
 }
 
 function onMenuEnter() {
@@ -223,9 +270,7 @@ function onMenuEnter() {
 
 function onMenuLeave() {
   menuHovered = false
-  if (!menu.locked) {
-    menuCloseTimer = setTimeout(() => closeMenu(), 150)
-  }
+  if (!menu.locked) scheduleMenuClose(150)
 }
 
 function onMenuEdit() {
@@ -504,6 +549,8 @@ onMounted(() => {
     resizeObserver.observe(containerEl.value)
     containerEl.value.addEventListener('pointerdown', onPointerDown, { capture: true })
   }
+  rootEl.value?.addEventListener('pointermove', onMenuPointerMove, { passive: true })
+  rootEl.value?.addEventListener('pointerleave', onMenuPointerLeave)
   // passive: true — pointermove does not call preventDefault(), so marking it
   // passive lets the browser pipeline touch updates without waiting for JS.
   window.addEventListener('pointermove', onPointerMove, { capture: true, passive: true })
@@ -515,6 +562,8 @@ onBeforeUnmount(() => {
   if (containerEl.value) {
     containerEl.value.removeEventListener('pointerdown', onPointerDown, { capture: true })
   }
+  rootEl.value?.removeEventListener('pointermove', onMenuPointerMove)
+  rootEl.value?.removeEventListener('pointerleave', onMenuPointerLeave)
   window.removeEventListener('pointermove', onPointerMove, { capture: true })
   window.removeEventListener('pointerup', onPointerUp, { capture: true })
   if (resizeObserver) resizeObserver.disconnect()
