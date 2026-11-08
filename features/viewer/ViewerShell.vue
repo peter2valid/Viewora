@@ -84,7 +84,8 @@ const normalizedHotspots = computed(() => safeHotspots(props.hotspots ?? []))
 // Route to the right viewer based on space type
 const viewerType = computed((): 'panorama' | 'car' | 'empty' => {
   if (!props.activeScene?.imageUrl) return 'empty'
-  if (props.spaceType === 'automotive') return 'car'
+  // A car's interior is an ordinary 360 panorama. The exterior (drag-to-rotate
+  // photos) lives in its own Car Exterior editor tab and on the public page.
   return 'panorama'
 })
 

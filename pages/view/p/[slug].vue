@@ -37,8 +37,13 @@
     <template v-else-if="space">
       <div class="stage" :class="{ 'stage--full': fullscreen }">
         <div ref="viewerPaneEl" class="viewer-pane" :class="{ 'is-resizing': isResizing }" :style="viewerPaneStyle">
+          <VehicleSpinViewer
+            v-if="showExterior"
+            class="pano pano--car"
+            :views="vehicleViews"
+          />
           <ViewerPsvViewer
-            v-if="isPanorama"
+            v-else-if="isPanorama"
             ref="psvViewerRef"
             :tour="tourData"
             :hide-own-chrome="true"
@@ -55,6 +60,12 @@
             @tap="openGallery"
           />
           <div class="pano__scrim" />
+
+          <!-- Exterior (drag-to-rotate photos) / Interior (360° or photos) for a single car. -->
+          <div v-if="hasExterior && (isPanorama || photos.length)" class="carmode" role="tablist" aria-label="Car view">
+            <button type="button" role="tab" class="carmode__btn" :class="{ 'is-active': carMode === 'exterior' }" :aria-selected="carMode === 'exterior'" @click="carMode = 'exterior'">Exterior</button>
+            <button type="button" role="tab" class="carmode__btn" :class="{ 'is-active': carMode === 'interior' }" :aria-selected="carMode === 'interior'" @click="carMode = 'interior'">Interior</button>
+          </div>
 
           <div class="topbar">
             <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
@@ -92,7 +103,7 @@
                opening it hides the in-panorama walk-through arrows via
                hide-nav-arrows above, so the two don't overlap. -->
           <UiGlassDock
-            v-if="heroItems.length > 1 && fullscreen"
+            v-if="heroItems.length > 1 && fullscreen && !showExterior"
             v-model:collapsed="dockCollapsed"
             :items="dockItems"
             :active-id="activeDockId"
@@ -271,6 +282,7 @@ definePageMeta({ layout: false })
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'vue'
 import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtApp, createError, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
+import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatAcres, formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
 import { buildListingJsonLd } from '~/utils/listingJsonLd'
@@ -296,6 +308,11 @@ const photos = ref<Array<{ id: string; name: string; thumbnail_url: string }>>([
 // (same shape it already consumes on pages/p/[slug].vue) when the listing
 // has real 360 scenes.
 const tourData = ref<any>(null)
+// Single-car exterior: normal photos taken around the car (drag to rotate).
+const vehicleViews = ref<any[]>([])
+const hasExterior = computed(() => space.value?.space_type === 'automotive' && vehicleViews.value.length > 0)
+const carMode = ref<'exterior' | 'interior'>('exterior')
+const showExterior = computed(() => hasExterior.value && (carMode.value === 'exterior' || (!isPanorama.value && !photos.value.length)))
 const seller = ref<{ id: string; full_name: string | null; avatar_url: string | null; company_name: string | null } | null>(null)
 
 const { data: tourPayload, error: tourError } = await useAsyncData(
@@ -325,7 +342,8 @@ if (tourError.value) {
   photos.value = (tour?.gallery ?? [])
     .map((g: any, i: number) => ({ id: g.id, name: `Photo ${i + 1}`, thumbnail_url: g.url }))
   seller.value = tour?.seller ?? null
-  state.value = (rooms.value.length > 0 || photos.value.length > 0) ? 'ready' : 'empty'
+  vehicleViews.value = tour?.space?.space_type === 'automotive' ? (tour?.vehicle_views ?? []) : []
+  state.value = (rooms.value.length > 0 || photos.value.length > 0 || vehicleViews.value.length > 0) ? 'ready' : 'empty'
 }
 pending.value = false
 
@@ -340,7 +358,7 @@ const heroImage = computed(() => (isPanorama.value ? null : heroItems.value[acti
 // Unlike heroImage (null for panoramas, since that mode renders its own
 // canvas rather than a background image), SEO/JSON-LD always wants a real
 // image regardless of viewer mode.
-const seoImage = computed(() => heroImage.value || rooms.value[0]?.thumbnail_url || photos.value[0]?.thumbnail_url || null)
+const seoImage = computed(() => vehicleViews.value[0]?.image_url || heroImage.value || rooms.value[0]?.thumbnail_url || photos.value[0]?.thumbnail_url || null)
 
 const psvViewerRef = ref<any>(null)
 
@@ -469,6 +487,7 @@ function onViewerSceneChanged(sceneId: string) {
 // editor (features/editor/EditorShell.vue + PhotosPanel.vue).
 const ownerEditHref = computed(() => {
   if (!space.value?.id) return '/app/spaces'
+  if (hasExterior.value && carMode.value === 'exterior') return `/app/spaces/${space.value.id}?tab=car`
   return isPanorama.value ? `/app/spaces/${space.value.id}` : `/app/spaces/${space.value.id}?tab=photos`
 })
 
@@ -961,6 +980,20 @@ useHead({
    scroll-snap — the base .pano rules above (grab-cursor, vertical-only
    touch-action for the old JS drag-pan) would block that horizontal
    gesture on touch devices. */
+.pano--car { cursor: grab; touch-action: pan-y; }
+.carmode {
+  position: absolute; z-index: 21; left: 16px; top: 64px;
+  display: inline-flex; padding: 3px; border-radius: 999px;
+  background: rgba(0,0,0,0.62); border: 1px solid rgba(255,255,255,0.14);
+}
+.carmode__btn {
+  min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent;
+  color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.carmode__btn.is-active { background: #fff; color: #0b0b0c; }
+.carmode__btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .carmode__btn { transition: none; } }
 .pano--gallery { cursor: default; touch-action: pan-x; user-select: auto; }
 .pano__scrim {
   position: absolute; inset: 0;

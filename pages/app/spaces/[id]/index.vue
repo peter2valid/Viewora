@@ -9,6 +9,14 @@
         @click="setMode('tour')"
       >360° Tour</button>
       <button
+        v-if="isCar"
+        role="tab"
+        :aria-selected="mode === 'car'"
+        class="mode-switch__btn"
+        :class="{ 'mode-switch__btn--active': mode === 'car' }"
+        @click="setMode('car')"
+      >Car Exterior</button>
+      <button
         role="tab"
         :aria-selected="mode === 'photos'"
         class="mode-switch__btn"
@@ -60,6 +68,9 @@
       <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
+      <VehiclePanel v-if="mode === 'car' && isCar" :space-id="spaceId" />
+    </KeepAlive>
+    <KeepAlive>
       <AerialPanel v-if="mode === 'aerial'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
@@ -79,9 +90,11 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { definePageMeta, useSeoMeta, useRoute, useRouter } from '#imports'
+import { useApiFetch } from '~/composables/useApiFetch'
 import EditorShell from '~/features/editor/EditorShell.vue'
 import PhotosPanel from '~/features/editor/PhotosPanel.vue'
 import DetailsPanel from '~/features/editor/DetailsPanel.vue'
+import VehiclePanel from '~/features/editor/VehiclePanel.vue'
 import AerialPanel from '~/features/editor/AerialPanel.vue'
 import FloorPlanPanel from '~/features/editor/FloorPlanPanel.vue'
 import OrganizePanel from '~/features/editor/OrganizePanel.vue'
@@ -93,11 +106,21 @@ const route = useRoute()
 const router = useRouter()
 const spaceId = route.params.id as string
 
-type Mode = 'tour' | 'photos' | 'aerial' | 'floorplan' | 'organize' | 'details'
+type Mode = 'tour' | 'car' | 'photos' | 'aerial' | 'floorplan' | 'organize' | 'details'
 function tabToMode(t: unknown): Mode {
-  return t === 'photos' || t === 'aerial' || t === 'floorplan' || t === 'organize' || t === 'details' ? t : 'tour'
+  return t === 'car' || t === 'photos' || t === 'aerial' || t === 'floorplan' || t === 'organize' || t === 'details' ? t : 'tour'
 }
 const mode = ref<Mode>(tabToMode(route.query.tab))
+
+// The Car Exterior tab only exists for vehicle listings.
+const { apiFetch } = useApiFetch()
+const isCar = ref(false)
+apiFetch<any>(`/spaces/${spaceId}`)
+  .then((s) => { isCar.value = (s?.space_type ?? s?.data?.space_type ?? s?.property_type) === 'automotive'
+    // New car listings open on the exterior photos, the first thing a car needs.
+    if (isCar.value && !route.query.tab) setMode('car')
+  })
+  .catch(() => {})
 
 const editorShellRef = ref<InstanceType<typeof EditorShell> | null>(null)
 
