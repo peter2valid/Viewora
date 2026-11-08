@@ -1,16 +1,7 @@
 import { ref } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
-import { validateVehicleViewFile, sortByAngle, type VehicleView } from '~/shared/utils/vehicleViews'
-
-function readSize(url: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
-    img.onerror = () => reject(new Error('Could not read this image'))
-    img.src = url
-  })
-}
+import { validateVehicleViewFile, resizeVehiclePhoto, sortByAngle, type VehicleView } from '~/shared/utils/vehicleViews'
 
 /** Exterior photos for one car: list, upload at an angle, relabel, replace, delete. */
 export function useVehicleViews(spaceId: string) {
@@ -34,15 +25,14 @@ export function useVehicleViews(spaceId: string) {
     const invalid = validateVehicleViewFile(file)
     if (invalid) throw new Error(invalid)
 
-    const blobUrl = URL.createObjectURL(file)
-    let size: { width: number; height: number }
-    try { size = await readSize(blobUrl) } finally { URL.revokeObjectURL(blobUrl) }
+    // Resize first: a raw phone photo is 5-10 MB, which is slow for buyers on mobile data.
+    const prepared = await resizeVehiclePhoto(file)
 
-    const record: any = await uploadFile(file, 'vehicle_view')
+    const record: any = await uploadFile(prepared.file, 'vehicle_view')
     if (!record?.public_url) throw new Error('Upload failed')
     const res: any = await apiFetch(`/spaces/${spaceId}/vehicle-views`, {
       method: 'POST',
-      body: { image_url: record.public_url, media_id: record.id ?? null, angle, label: label ?? null, width: size.width, height: size.height },
+      body: { image_url: record.public_url, media_id: record.id ?? null, angle, label: label ?? null, width: prepared.width, height: prepared.height },
     })
     const created: VehicleView | undefined = res?.vehicle_view ?? res?.data?.vehicle_view
     if (!created?.id) throw new Error('Could not save the car photo')

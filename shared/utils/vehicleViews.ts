@@ -68,3 +68,55 @@ export function wrapIndex(i: number, n: number): number {
   if (n <= 0) return 0
   return ((i % n) + n) % n
 }
+
+/** Long edge of an uploaded car photo. Plenty for a full-width phone screen at 2x, and ~10x lighter than a raw 12 MP shot. */
+export const VEHICLE_VIEW_MAX_EDGE = 2000
+const VEHICLE_VIEW_QUALITY = 0.85
+const SKIP_RESIZE_BYTES = 1.2 * 1024 * 1024
+
+/**
+ * Downscales a car photo in the browser before upload and bakes in the phone's
+ * rotation (EXIF), re-encoding as JPEG. Small photos are left untouched. If the
+ * browser can't do it, the original file is uploaded as is.
+ */
+export async function resizeVehiclePhoto(file: File): Promise<{ file: File; width: number; height: number }> {
+  const original = async () => ({ file, ...(await readImageSize(file)) })
+  try {
+    if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return await original()
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const longEdge = Math.max(bmp.width, bmp.height)
+    if (longEdge <= VEHICLE_VIEW_MAX_EDGE && file.size <= SKIP_RESIZE_BYTES && file.type === 'image/jpeg') {
+      const out = { file, width: bmp.width, height: bmp.height }
+      bmp.close?.()
+      return out
+    }
+    const scale = Math.min(1, VEHICLE_VIEW_MAX_EDGE / longEdge)
+    const width = Math.max(1, Math.round(bmp.width * scale))
+    const height = Math.max(1, Math.round(bmp.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { bmp.close?.(); return await original() }
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(bmp, 0, 0, width, height)
+    bmp.close?.()
+    const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/jpeg', VEHICLE_VIEW_QUALITY))
+    // Keep the original if re-encoding somehow made it bigger and it was already small enough.
+    if (!blob || (scale === 1 && blob.size >= file.size)) return await original()
+    const name = file.name.replace(/\.[^.]+$/, '') + '.jpg'
+    return { file: new File([blob], name, { type: 'image/jpeg', lastModified: Date.now() }), width, height }
+  } catch {
+    return await original()
+  }
+}
+
+function readImageSize(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => { URL.revokeObjectURL(url); resolve({ width: img.naturalWidth, height: img.naturalHeight }) }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read this image')) }
+    img.src = url
+  })
+}
