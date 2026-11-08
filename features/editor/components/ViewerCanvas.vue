@@ -102,7 +102,7 @@
           v-if="!isDragging"
           class="text-[11px] font-medium text-gray-600 uppercase tracking-widest select-none pointer-events-none"
         >
-          Start by adding your first 360° image
+          {{ spaceType === 'automotive' ? 'Interior 360° is optional' : 'Start by adding your first 360° image' }}
         </p>
 
         <!-- Drop zone card -->
@@ -138,8 +138,9 @@
           </div>
 
           <template v-if="!isDragging">
-            <p class="text-[13px] font-semibold text-gray-100 mb-2">Upload your first 360° image</p>
-            <p class="text-[11px] text-gray-500 leading-relaxed mb-5">Choose an equirectangular panorama (2:1 ratio) to start building your interactive tour.</p>
+            <p class="text-[13px] font-semibold text-gray-100 mb-2">{{ spaceType === 'automotive' ? 'Add the car interior in 360°' : 'Upload your first 360° image' }}</p>
+            <p v-if="spaceType === 'automotive'" class="text-[11px] text-gray-500 leading-relaxed mb-5">Shoot the dashboard and seats with a 360° camera. No 360° camera? Skip this: your exterior photos still publish.</p>
+            <p v-else class="text-[11px] text-gray-500 leading-relaxed mb-5">Choose an equirectangular panorama (2:1 ratio) to start building your interactive tour.</p>
 
             <button
               class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold bg-blue-600 text-white hover:bg-blue-500 hover:scale-[1.03] active:scale-[0.96] transition-all duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 w-full mb-2"
@@ -155,6 +156,11 @@
             <p class="text-[10px] text-gray-600 font-medium">
               Drop a 360° image or click to upload
             </p>
+            <NuxtLink
+              v-if="spaceType === 'automotive'"
+              :to="{ query: { tab: 'car' } }"
+              class="inline-block mt-3 text-[11px] font-semibold text-gray-300 underline underline-offset-2"
+            >Back to Car Exterior photos</NuxtLink>
 
             <NuxtLink
               to="/app/capture"

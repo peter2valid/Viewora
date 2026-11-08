@@ -2,13 +2,6 @@
   <div>
     <div class="mode-switch" role="tablist" aria-label="Editor mode">
       <button
-        role="tab"
-        :aria-selected="mode === 'tour'"
-        class="mode-switch__btn"
-        :class="{ 'mode-switch__btn--active': mode === 'tour' }"
-        @click="setMode('tour')"
-      >360° Tour</button>
-      <button
         v-if="isCar"
         role="tab"
         :aria-selected="mode === 'car'"
@@ -18,12 +11,20 @@
       >Car Exterior</button>
       <button
         role="tab"
+        :aria-selected="mode === 'tour'"
+        class="mode-switch__btn"
+        :class="{ 'mode-switch__btn--active': mode === 'tour' }"
+        @click="setMode('tour')"
+      >{{ isCar ? 'Interior 360°' : '360° Tour' }}</button>
+      <button
+        role="tab"
         :aria-selected="mode === 'photos'"
         class="mode-switch__btn"
         :class="{ 'mode-switch__btn--active': mode === 'photos' }"
         @click="setMode('photos')"
-      >Photos</button>
+      >{{ isCar ? 'Extra Photos' : 'Photos' }}</button>
       <button
+        v-if="!isCar"
         role="tab"
         :aria-selected="mode === 'aerial'"
         class="mode-switch__btn"
@@ -31,6 +32,7 @@
         @click="setMode('aerial')"
       >Aerial Map</button>
       <button
+        v-if="!isCar"
         role="tab"
         :aria-selected="mode === 'floorplan'"
         class="mode-switch__btn"
@@ -38,6 +40,7 @@
         @click="setMode('floorplan')"
       >Floor Plan</button>
       <button
+        v-if="!isCar"
         role="tab"
         :aria-selected="mode === 'organize'"
         class="mode-switch__btn"
@@ -112,13 +115,18 @@ function tabToMode(t: unknown): Mode {
 }
 const mode = ref<Mode>(tabToMode(route.query.tab))
 
-// The Car Exterior tab only exists for vehicle listings.
+// Car listings get a Car Exterior tab first, 360° becomes the optional interior, and the
+// map/floor-plan/organize tabs (meaningless for one car) are hidden.
 const { apiFetch } = useApiFetch()
 const isCar = ref(false)
 apiFetch<any>(`/spaces/${spaceId}`)
   .then((s) => { isCar.value = (s?.space_type ?? s?.data?.space_type ?? s?.property_type) === 'automotive'
     // New car listings open on the exterior photos, the first thing a car needs.
-    if (isCar.value && !route.query.tab) setMode('car')
+    if (isCar.value) {
+      // Aerial Map, Floor Plan and Organize are hidden for a single car, so a link to one lands on the car tab.
+      const t = route.query.tab
+      if (!t || t === 'aerial' || t === 'floorplan' || t === 'organize') setMode('car')
+    }
   })
   .catch(() => {})
 

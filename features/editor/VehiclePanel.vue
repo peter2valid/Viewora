@@ -81,7 +81,7 @@
       <p v-if="errorMsg" class="vp-error" role="alert">{{ errorMsg }}</p>
 
       <div class="vp-next">
-        <NuxtLink :to="{ query: { tab: 'tour' } }" class="vp-link">Next: add the interior as a 360° photo →</NuxtLink>
+        <NuxtLink :to="{ query: { tab: 'tour' } }" class="vp-link">Next: Interior 360° (optional) →</NuxtLink>
         <NuxtLink :to="{ query: { tab: 'details' } }" class="vp-link">Then: Details &amp; Publish →</NuxtLink>
       </div>
     </div>
