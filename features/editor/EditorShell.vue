@@ -1236,7 +1236,9 @@ async function handleReorderScenes(orderedIds: string[]) {
     showToast('Wait for all scenes to finish uploading before reordering.', 'error')
     return
   }
-  const prevScenes = scenes.value.slice()
+  // What to fall back to if saving fails: the order the server last confirmed,
+  // not the one on screen (an earlier drop may still be saving).
+  savedSceneOrder ??= scenes.value.map((s) => s.id)
   const idToScene = new Map(scenes.value.map((s) => [s.id, s]))
   const reordered = orderedIds.map((id, idx) => {
     const scene = idToScene.get(id)
@@ -1249,15 +1251,45 @@ async function handleReorderScenes(orderedIds: string[]) {
   const orderedSet = new Set(orderedIds)
   const extra = scenes.value.filter((s) => !orderedSet.has(s.id))
   scenes.value = [...reordered, ...extra]
+  // Drops made while a save is running wait for it; only the latest order is sent.
+  queuedSceneOrder = orderedIds.slice()
+  if (!sceneOrderSaving) void saveSceneOrder()
+}
+
+/** Order the server has confirmed (null until the first reorder of this session). */
+let savedSceneOrder: string[] | null = null
+let queuedSceneOrder: string[] | null = null
+let sceneOrderSaving = false
+
+/**
+ * One request for the whole order (PUT /spaces/:id/scenes/order). It used to
+ * be one PATCH per scene per drop: on a large tour a few drags went over the
+ * API's 100-requests-a-minute limit, one rejected PATCH reverted the dock,
+ * and parallel PATCHes could clash on the unique order_index while swapping.
+ */
+async function saveSceneOrder() {
+  sceneOrderSaving = true
   try {
-    await Promise.all(
-      orderedIds.map((id, idx) =>
-        apiFetch(`/scenes/${id}`, { method: 'PATCH', body: { order_index: idx } })
-      )
-    )
-  } catch {
-    scenes.value = prevScenes
-    showToast('Failed to save scene order', 'error')
+    while (queuedSceneOrder) {
+      const ids = queuedSceneOrder
+      queuedSceneOrder = null
+      try {
+        await apiFetch(`/spaces/${props.spaceId}/scenes/order`, { method: 'PUT', body: { scene_ids: ids } })
+        savedSceneOrder = ids
+      } catch (e: any) {
+        if (queuedSceneOrder) continue // a newer order is about to be sent anyway
+        const back = new Map(scenes.value.map((s) => [s.id, s]))
+        const restored = (savedSceneOrder ?? []).map((id, idx) => {
+          const s = back.get(id)
+          return s ? { ...s, order_index: idx } : null
+        }).filter(Boolean) as any[]
+        const restoredSet = new Set(savedSceneOrder ?? [])
+        scenes.value = [...restored, ...scenes.value.filter((s) => !restoredSet.has(s.id))]
+        showToast(e?.data?.statusMessage || 'Failed to save scene order', 'error')
+      }
+    }
+  } finally {
+    sceneOrderSaving = false
   }
 }
 
