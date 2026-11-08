@@ -30,7 +30,7 @@ import {
   PLOT_POLY_SUFFIX,
 } from './landMarkers'
 import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON, floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
-import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, floorSpotPosition, glPins, supportsFloorCursor } from './floorCursor'
+import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, glPins, supportsFloorCursor } from './floorCursor'
 import { screenFitPass, screenSizeUnits } from './screenSprites'
 import { installPerfRecorder } from './perfRecorder'
 
@@ -879,9 +879,9 @@ function toMarkerHotspotId(markerId: string): string {
   return markerId.endsWith(FLOOR_DISC_SUFFIX) ? markerId.slice(0, -FLOOR_DISC_SUFFIX.length) : toHotspotId(markerId)
 }
 
-/** Where a hotspot is drawn: scene links sit on the floor, below the horizon. */
+/** Where a hotspot is drawn (a scene link's pin tip stands exactly on it). */
 export function hotspotDrawPosition(hs: Hotspot): { yaw: number; pitch: number } {
-  return hs.type === 'scene_link' ? floorSpotPosition(hs.yaw, hs.pitch) : { yaw: hs.yaw, pitch: hs.pitch }
+  return { yaw: hs.yaw, pitch: hs.pitch }
 }
 
 /** Moves a hotspot's markers while it is dragged in the editor. */
@@ -891,7 +891,8 @@ export function moveHotspotMarkers(handle: PsvViewerHandle | null, hs: Hotspot, 
   handle.markers.updateMarker({ id: hs.id, position: hotspotDrawPosition(moved) })
   if (hs.type !== 'scene_link') return
   const disc = floorDiscMarker(`${hs.id}${FLOOR_DISC_SUFFIX}`, { ...moved, scale: Number(hs.scale || 1) })
-  try { handle.markers.updateMarker({ id: disc.id, position: disc.position, size: disc.size }) } catch { /* noop */ }
+  // The disc hides while the pin is above the floor line and comes back below it.
+  try { handle.markers.updateMarker({ id: disc.id, position: disc.position, size: disc.size, visible: disc.visible }) } catch { /* noop */ }
 }
 
 export function getHotspotScreenPos(

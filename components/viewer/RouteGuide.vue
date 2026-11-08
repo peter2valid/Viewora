@@ -80,7 +80,6 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import type { PsvViewerHandle } from '~/shared/utils/viewerAdapters/psvAdapter'
 import { getHotspotScreenPos } from '~/shared/utils/viewerAdapters/psvAdapter'
-import { floorSpotPosition } from '~/shared/utils/viewerAdapters/floorCursor'
 import { buildSceneGraph, scenePath, type VenueFloor } from '~/shared/utils/venue'
 import type { VenueWalkRoute } from '~/components/viewer/VenueMapViewer.vue'
 
@@ -128,7 +127,7 @@ const nextName = computed(() => sceneName(nextId.value))
 const nextHotspot = computed(() => {
   const here = props.activeSceneId && sceneById.value.get(props.activeSceneId)
   const h = here && (here.hotspots ?? []).find((x: any) => x?.type === 'scene_link' && (x.target_scene_id ?? x.targetSceneId) === nextId.value)
-  return h && typeof h.yaw === 'number' && typeof h.pitch === 'number' ? floorSpotPosition(h.yaw, h.pitch) : null
+  return h && typeof h.yaw === 'number' && typeof h.pitch === 'number' ? { yaw: h.yaw, pitch: h.pitch } : null
 })
 
 function sceneName(id: string | null): string {
