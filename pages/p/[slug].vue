@@ -214,6 +214,12 @@ if (tourError.value) {
   const hasVenueMap = buildVenueFloors(tourData?.floor_plans).length > 0
   state.value = hasRenderableScene || hasAerialMap || hasVenueMap ? 'ready' : 'empty'
 
+  // A car with exterior photos: the Exterior / Interior viewer lives on /view/p, so send every car there
+  // (its interior 360 is shown there too). Otherwise cars with 360 scenes never get the toggle.
+  if (spaceData?.space_type === 'automotive' && Array.isArray(tourData?.vehicle_views) && tourData.vehicle_views.length > 0) {
+    await navigateTo(`/view/p/${encodeURIComponent(slug)}`, { redirectCode: 302, replace: true })
+  }
+
   // Photo-only listing: this page is built around the 360/aerial viewer and
   // would dead-end on "No Scenes Yet" — forward to the gallery listing page
   // on the same domain, so /p/<slug> is the one link that works for everything.
