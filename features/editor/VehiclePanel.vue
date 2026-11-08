@@ -312,10 +312,11 @@ async function init() {
     await load()
     if (!selectedId.value && views.value.length) selectedId.value = views.value[0].id
   } catch (e: any) {
+    // The server says exactly what the database answered (missing table, stale schema cache...).
     const m = errMsg(e, '')
-    setupError.value = /not found|relation|schema|42P01/i.test(m)
-      ? 'The car photo tables are not ready on the server yet. Ask your admin to run the car photo database update, then try again.'
-      : `Could not load the car photos${m ? ` (${m})` : ''}. Check your connection and try again.`
+    setupError.value = m && !/^Failed to fetch$/i.test(m)
+      ? m
+      : 'Could not reach the server. Check your connection and try again.'
   }
 }
 onMounted(() => { init(); window.addEventListener('keydown', onKey) })
