@@ -70,9 +70,11 @@
     <KeepAlive>
       <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
     </KeepAlive>
-    <KeepAlive>
-      <VehiclePanel v-if="mode === 'car' && isCar" :space-id="spaceId" />
-    </KeepAlive>
+    <!-- v-show, not KeepAlive: mounted as soon as we know it is a car, so photos are already loading
+         and the editor is on screen the moment the tab is clicked (same as the 360 tab). -->
+    <div v-if="isCar" v-show="mode === 'car'" class="mode-pane">
+      <VehiclePanel :space-id="spaceId" />
+    </div>
     <KeepAlive>
       <AerialPanel v-if="mode === 'aerial'" :space-id="spaceId" />
     </KeepAlive>

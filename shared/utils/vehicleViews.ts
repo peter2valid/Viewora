@@ -11,6 +11,7 @@ export interface VehicleView {
   height?: number | null
   order_index?: number
   media_id?: string | null
+  hotspots?: VehicleHotspot[]
 }
 
 export interface VehicleSlot {
@@ -50,11 +51,11 @@ export function sortByAngle<T extends { angle: number }>(views: T[]): T[] {
 /** The slot a view sits closest to, for labelling when the owner gave no label. */
 export function nearestSlot(angle: number): VehicleSlot {
   let best = VEHICLE_SLOTS[0]
-  let bestDiff = 361
+  let bestDist = 361
   for (const s of VEHICLE_SLOTS) {
-    const d = Math.abs(((angle - s.angle + 540) % 360) - 180)
-    const diff = 180 - d
-    if (diff < bestDiff) { best = s; bestDiff = diff }
+    const delta = (((angle - s.angle) % 360) + 360) % 360
+    const dist = Math.min(delta, 360 - delta)
+    if (dist < bestDist) { best = s; bestDist = dist }
   }
   return best
 }
@@ -119,4 +120,79 @@ function readImageSize(file: File): Promise<{ width: number; height: number }> {
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read this image')) }
     img.src = url
   })
+}
+
+// ── Hotspots: pins on a single exterior photo ──────────────────────────────
+
+export type VehicleHotspotKind = 'feature' | 'damage' | 'info' | 'link'
+
+export interface VehicleHotspot {
+  id: string
+  view_id: string
+  kind: VehicleHotspotKind
+  /** Fractions (0-1) of the photo's width / height, so a pin stays on the same spot at any size. */
+  x: number
+  y: number
+  title: string
+  body?: string | null
+  url?: string | null
+}
+
+export const HOTSPOT_KINDS: Array<{ kind: VehicleHotspotKind; label: string; hint: string }> = [
+  { kind: 'feature', label: 'Feature', hint: 'Alloy wheels, roof rails, LED lights' },
+  { kind: 'damage', label: 'Mark or damage', hint: 'A scratch or dent. Being upfront builds trust' },
+  { kind: 'info', label: 'Note', hint: 'Anything else a buyer should know' },
+  { kind: 'link', label: 'Link', hint: 'Opens a web page, such as a video or inspection report' },
+]
+
+export const MAX_HOTSPOTS_PER_VIEW = 20
+
+export function hotspotKindLabel(kind: VehicleHotspotKind): string {
+  return HOTSPOT_KINDS.find(k => k.kind === kind)?.label ?? 'Note'
+}
+
+/**
+ * Where the photo is drawn inside its box, for `cover` (fills the box, crops the
+ * overflow: the public viewer) or `contain` (whole photo visible: the editor).
+ * Pins are placed against this rectangle, not the box.
+ */
+export function fitRect(
+  box: { w: number; h: number },
+  img: { w: number; h: number },
+  fit: 'cover' | 'contain',
+): { x: number; y: number; w: number; h: number } {
+  const s = fit === 'contain' ? Math.min(box.w / img.w, box.h / img.h) : Math.max(box.w / img.w, box.h / img.h)
+  const w = img.w * s
+  const h = img.h * s
+  return { x: (box.w - w) / 2, y: (box.h - h) / 2, w, h }
+}
+
+/** A point in the box -> fractions of the photo, or null when it falls outside the photo. */
+export function pointToFraction(
+  px: number, py: number,
+  rect: { x: number; y: number; w: number; h: number },
+): { x: number; y: number } | null {
+  if (rect.w <= 0 || rect.h <= 0) return null
+  const x = (px - rect.x) / rect.w
+  const y = (py - rect.y) / rect.h
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null
+  return { x, y }
+}
+
+/** Angles after swapping two photos' places (drag one onto another). */
+export function swapAngles(
+  a: { id: string; angle: number },
+  b: { id: string; angle: number },
+): Array<{ id: string; angle: number }> {
+  return [{ id: a.id, angle: b.angle }, { id: b.id, angle: a.angle }]
+}
+
+/** Which main slots have no photo and which angles have more than one, for gentle guidance in the editor. */
+export function slotGaps(views: Array<{ angle: number }>): { missing: VehicleSlot[]; duplicates: number[] } {
+  const counts = new Map<number, number>()
+  for (const v of views) counts.set(v.angle, (counts.get(v.angle) ?? 0) + 1)
+  return {
+    missing: VEHICLE_SLOTS.filter(s => !counts.has(s.angle)),
+    duplicates: [...counts.entries()].filter(([, n]) => n > 1).map(([a]) => a).sort((x, y) => x - y),
+  }
 }
