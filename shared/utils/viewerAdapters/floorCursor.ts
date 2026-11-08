@@ -14,10 +14,12 @@
 //
 // There's no depth data, so the floor is assumed flat with the camera one
 // unit above it: a point at pitch p (below the horizon) is 1/tan(−p) away.
-// The cursor only shows below the horizon; hotspots placed higher (e.g. on a
-// door frame) are dropped to SPOT_MAX_PITCH in the same direction. Discs are
-// shrunk toward the horizon to fake distance (on the panorama sphere
-// everything is the same distance away).
+// The cursor only shows below the horizon. A hotspot's pin tip stands exactly
+// where it was placed. Placed low enough to be on the floor (below
+// SPOT_MAX_PITCH) it gets a disc; placed higher (a countertop, a table, a
+// tripod on a bar) it's a bare pin, since a disc there couldn't pass for
+// lying on the floor. Discs are shrunk toward the horizon to fake distance (on
+// the panorama sphere everything is the same distance away).
 //
 // Built on MarkersPlugin 5.14.1 `imageLayer` markers (3D planes with a
 // yaw/pitch/roll rotation), checked against node_modules:
@@ -49,7 +51,7 @@ const MIN_SCALE = 0.4
 const VIEW_SETTLE_MS = 150
 /** No floor above this pitch (radians, ≈ −6°). */
 const MAX_PITCH = -0.1
-/** Hotspot discs sit at least this far below the horizon (radians, ≈ −8°). */
+/** Hotspots placed lower than this get a floor disc; higher ones are a bare pin (radians, ≈ −8°). */
 const SPOT_MAX_PITCH = -0.14
 /** Only hotspots within this yaw of the mouse are candidates (75°). */
 const LINK_RANGE = (75 * Math.PI) / 180
@@ -74,7 +76,7 @@ const GLYPH_PATHS: Record<FloorGlyph, string> = {
  * the panorama: during slow autorotate the pin shivered on its disc (which,
  * being in the scene, never does). In the scene they can't drift.
  * ?pins=dom brings back the page pins (for comparison). The editor always
- * uses page pins (drag to move); both stand on the same floorSpotPosition.
+ * uses page pins (drag to move); both stand on the hotspot's yaw/pitch.
  */
 export function glPins(): boolean {
   try { return new URLSearchParams(location.search).get('pins') !== 'dom' } catch { return true }
@@ -112,7 +114,7 @@ function glyphImageCached(glyph: FloorGlyph, touch: boolean): string {
  * zoom; fitGlPins then corrects size and orientation on every camera move.
  */
 function glPinConfig(id: string, spot: { yaw: number; pitch: number; glyph: FloorGlyph; scale: number }, viewer: any, touch: boolean) {
-  const position = floorSpotPosition(spot.yaw, spot.pitch)
+  const position = { yaw: spot.yaw, pitch: spot.pitch }
   const vFov = ((viewer?.state?.vFov ?? 60) * Math.PI) / 180
   const height = viewer?.state?.size?.height || 800
   const k = spot.scale * (2000 * Math.tan(vFov / 2)) / height
@@ -121,7 +123,7 @@ function glPinConfig(id: string, spot: { yaw: number; pitch: number; glyph: Floo
     imageLayer: glyphImageCached(spot.glyph, touch),
     position,
     size: { width: glW(touch) * k, height: glH(touch) * k },
-    // Glyph bottom (its tip) on the disc, like the page pin's 'bottom center'.
+    // Glyph bottom (its tip) on the spot, like the page pin's 'bottom center'.
     anchor: { x: 0.5, y: (PIN_HEIGHT + glPad(touch)) / glH(touch) },
     style: { cursor: 'pointer' },
     zIndex: 5,
@@ -166,13 +168,14 @@ function sizeAt(base: number, pitch: number): number {
   return base * Math.max(MIN_SCALE, Math.sin(-pitch))
 }
 
+/** Floor spot used to pick a hotspot with the cursor (raised ones count from the floor below them). */
 function spotPitch(link: { pitch: number }): number {
   return Math.min(link.pitch, SPOT_MAX_PITCH)
 }
 
-/** Where a navigation hotspot is drawn: on the floor, below the horizon. */
-export function floorSpotPosition(yaw: number, pitch: number): { yaw: number; pitch: number } {
-  return { yaw, pitch: spotPitch({ pitch }) }
+/** Placed above the floor line (countertop, table…): drawn as a bare pin, no disc. */
+export function isRaisedSpot(pitch: number): boolean {
+  return pitch > SPOT_MAX_PITCH
 }
 
 export function supportsFloorCursor(): boolean {
@@ -182,16 +185,21 @@ export function supportsFloorCursor(): boolean {
 /** Pin hit area on touch screens (the drawn pin stays the same size). */
 const TOUCH_PIN_PAD = 8
 
-/** Disc lying flat on the floor under a navigation hotspot (MarkersPlugin config). */
+/**
+ * Disc lying flat on the floor under a navigation hotspot (MarkersPlugin
+ * config). Hidden for raised hotspots (isRaisedSpot): always built, so the
+ * editor can show/hide it as a pin is dragged across the floor line.
+ */
 export function floorDiscMarker(id: string, spot: { yaw: number; pitch: number; scale: number }) {
-  const position = floorSpotPosition(spot.yaw, spot.pitch)
-  const size = sizeAt(SPOT_SIZE, position.pitch) * spot.scale
+  const position = { yaw: spot.yaw, pitch: spot.pitch }
+  const size = sizeAt(SPOT_SIZE, spotPitch(spot)) * spot.scale
   return {
     id,
     imageLayer: IMG + 'spot.svg',
     position,
     size: { width: size, height: size },
     rotation: { pitch: Math.PI / 2 },
+    visible: !isRaisedSpot(spot.pitch),
     zIndex: 1,
   }
 }
@@ -210,7 +218,7 @@ export function floorPinMarker(
   return {
     id,
     html: glyphHtml(spot.glyph),
-    position: floorSpotPosition(spot.yaw, spot.pitch),
+    position: { yaw: spot.yaw, pitch: spot.pitch },
     size: { width: w + 2 * pad, height: h + 2 * pad },
     anchor: 'bottom center',
     ...(touch ? {} : { hoverScale: { amount: spot.hoverScale, duration: 150 } }),
@@ -307,7 +315,7 @@ export function attachFloorCursor(
       // The chevron (MarkersPlugin marker with the hotspot's id) stays for phones.
       if (hasMarker(link.hotspotId)) markers.updateMarker({ id: link.hotspotId, visible: false })
       const data = { type: 'floor-cursor', targetSceneId: link.targetSceneId }
-      const disc = { ...floorDiscMarker(SPOT_PREFIX + link.hotspotId, link), visible: true, data }
+      const disc = { ...floorDiscMarker(SPOT_PREFIX + link.hotspotId, link), data }
       if (hasMarker(disc.id)) markers.updateMarker(disc)
       else markers.addMarker(disc)
       const pin = gl
@@ -387,16 +395,20 @@ export function attachFloorCursor(
   }
 
   function highlight(link: FloorCursorLink, at: { x: number; y: number }) {
-    const pitch = spotPitch(link)
-    const s = sizeAt(SPOT_SIZE, pitch) * link.scale * 1.15
     ensureCursorMarkers()
-    markers.updateMarker({
-      id: HIGHLIGHT_ID,
-      position: { yaw: link.yaw, pitch },
-      size: { width: s, height: s },
-      visible: true,
-    })
-    highlighted = true
+    if (isRaisedSpot(link.pitch)) {
+      // No disc to outline on a raised pin: just the room name.
+      hideHighlight()
+    } else {
+      const s = sizeAt(SPOT_SIZE, link.pitch) * link.scale * 1.15
+      markers.updateMarker({
+        id: HIGHLIGHT_ID,
+        position: { yaw: link.yaw, pitch: link.pitch },
+        size: { width: s, height: s },
+        visible: true,
+      })
+      highlighted = true
+    }
     label.textContent = link.name
     label.style.left = `${at.x + 18}px`
     label.style.top = `${at.y + 18}px`

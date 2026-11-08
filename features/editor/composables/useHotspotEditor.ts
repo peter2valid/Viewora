@@ -125,7 +125,10 @@ export function useHotspotEditor(
   )
 
   const activeSceneHotspotsWithPreview = computed(() => {
-    const hotspots = activeSceneHotspots.value
+    // The hotspot being moved is taken off the panorama so it can't block a
+    // click right next to (or behind) where it stood.
+    const moving = repositioningHotspotId.value
+    const hotspots = moving ? activeSceneHotspots.value.filter(h => h.id !== moving) : activeSceneHotspots.value
     const selectedId = editorStore.selectedHotspotId
     if (!selectedId) return hotspots
     return hotspots.map(h => {
@@ -496,6 +499,7 @@ export function useHotspotEditor(
 
   function onCancelPlacement() {
     hotspotDraftKind.value = null
+    repositioningHotspotId.value = null
     editorStore.setMode('view')
   }
 
@@ -604,7 +608,7 @@ export function useHotspotEditor(
     }
     repositioningHotspotId.value = id
     editorStore.setMode('hotspot')
-    showToast('Click anywhere to reposition the hotspot')
+    showToast('Click where the hotspot should go')
   }
 
   function repositionHotspot(id: string, yaw: number, pitch: number) {

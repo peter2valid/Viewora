@@ -121,6 +121,10 @@ const dragTracker = {
   startX: 0,
   startY: 0,
   moved: false,
+  // Pointer → hotspot anchor (a scene link's pin tip) at grab time, so the
+  // pin moves with the hand instead of jumping its tip under the pointer.
+  offsetX: 0,
+  offsetY: 0,
   // Cached rect — set once on pointerdown, reused per-frame instead of forcing
   // a synchronous layout reflow via getBoundingClientRect() on every pointermove.
   rect: null as DOMRect | null,
@@ -419,6 +423,18 @@ function onPointerDown(e: PointerEvent) {
   // Cache rect once on pointerdown — avoids getBoundingClientRect() on every
   // pointermove which forces a synchronous layout reflow each frame.
   dragTracker.rect = containerEl.value?.getBoundingClientRect() ?? null
+  dragTracker.offsetX = 0
+  dragTracker.offsetY = 0
+  const hs = props.hotspots?.find(h => h.id === dragTracker.hotspotId)
+  const rect = dragTracker.rect
+  if (hs && rect) {
+    const at = hotspotDrawPosition(hs)
+    const anchor = getHotspotScreenPos(handle.value, at.yaw, at.pitch)
+    if (anchor) {
+      dragTracker.offsetX = anchor.x - (e.clientX - rect.left)
+      dragTracker.offsetY = anchor.y - (e.clientY - rect.top)
+    }
+  }
 
   e.stopPropagation()
 }
@@ -439,8 +455,8 @@ function onPointerMove(e: PointerEvent) {
       const rect = dragTracker.rect
       if (!rect) return
       const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: e.clientX - rect.left + dragTracker.offsetX,
+        y: e.clientY - rect.top + dragTracker.offsetY,
       })
       if (coords) {
         const hs = props.hotspots?.find(h => h.id === dragTracker.hotspotId)
@@ -465,8 +481,8 @@ function onPointerUp(e: PointerEvent) {
     const rect = dragTracker.rect
     if (rect) {
       const coords = handle.value.viewer.dataHelper.viewerCoordsToSphericalCoords({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: e.clientX - rect.left + dragTracker.offsetX,
+        y: e.clientY - rect.top + dragTracker.offsetY,
       })
       if (coords) {
         emit('hotspot-drag-drop', { id: dragTracker.hotspotId, yaw: coords.yaw, pitch: coords.pitch })
