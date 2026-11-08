@@ -217,6 +217,7 @@ export default defineNuxtConfig({
         "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://extension-cdn.getdirecto.com https://app.viewora.software",
         "connect-src 'self' blob: https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com https://open.er-api.com",
         "frame-src 'self' https://www.youtube.com https://youtube.com",
+        "media-src 'self' blob:",
         "worker-src 'self' blob:",
         "upgrade-insecure-requests",
       ].join('; '),

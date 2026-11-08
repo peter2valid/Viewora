@@ -196,3 +196,39 @@ export function slotGaps(views: Array<{ angle: number }>): { missing: VehicleSlo
     duplicates: [...counts.entries()].filter(([, n]) => n > 1).map(([a]) => a).sort((x, y) => x - y),
   }
 }
+
+// ── Smooth spin sets ───────────────────────────────────────────────────────
+// A handful of photos steps from side to side. With this many frames or more the
+// viewer blends neighbours, so the car turns smoothly under a finger.
+
+/** Frames needed before the set is treated as a smooth spin rather than a few angles. */
+export const SPIN_MIN_FRAMES = 12
+
+export function isSpinSet(frameCount: number): boolean {
+  return frameCount >= SPIN_MIN_FRAMES
+}
+
+/**
+ * Angles for n frames shot in one walk around the car, starting at the front.
+ * `rightFirst`: the first side you pass is the car's right side (angles rise 0 -> 90 -> 180...).
+ * Otherwise the left side comes first (0 -> 270 -> 180...). Rounded to whole degrees.
+ */
+export function spinAngles(n: number, rightFirst: boolean): number[] {
+  const step = 360 / n
+  return Array.from({ length: n }, (_, i) => {
+    const a = Math.round(i * step)
+    return rightFirst ? a % 360 : (360 - a) % 360
+  })
+}
+
+/** Largest gap (degrees) between neighbouring frames, going round the car. */
+export function maxGapDegrees(angles: number[]): number {
+  if (angles.length < 2) return 360
+  const s = [...angles].sort((a, b) => a - b)
+  let gap = 0
+  for (let i = 0; i < s.length; i++) {
+    const next = i === s.length - 1 ? s[0] + 360 : s[i + 1]
+    gap = Math.max(gap, next - s[i])
+  }
+  return gap
+}

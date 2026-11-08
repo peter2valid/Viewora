@@ -22,7 +22,8 @@
       :alt="i === index ? `Car, ${viewLabel(v)}` : ''"
       :aria-hidden="i === index ? undefined : 'true'"
       class="vsv__frame"
-      :class="[{ 'is-active': i === index }, fit === 'contain' ? 'is-contain' : '']"
+      :class="{ 'is-contain': fit === 'contain' }"
+      :style="frameStyle(i)"
       :loading="i === 0 ? 'eager' : 'lazy'"
       :fetchpriority="i === 0 ? 'high' : 'low'"
       decoding="async"
@@ -40,7 +41,7 @@
         type="button"
         class="vsv__pin"
         :class="[`vsv__pin--${p.h.kind}`, { 'is-selected': (editable ? selectedHotspotId : activePinId) === p.h.id, 'is-hidden': !p.visible }]"
-        :style="{ left: p.left + 'px', top: p.top + 'px' }"
+        :style="{ left: p.left + 'px', top: p.top + 'px', opacity: p.visible ? p.alpha : 0 }"
         :aria-label="`${p.h.title}, ${hotspotKindLabel(p.h.kind)}`"
         :tabindex="p.visible ? 0 : -1"
         @pointerdown.stop="onPinDown($event, p.h)"
@@ -97,7 +98,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  sortByAngle, viewLabel, wrapIndex, fitRect, pointToFraction, hotspotKindLabel,
+  sortByAngle, viewLabel, wrapIndex, fitRect, pointToFraction, hotspotKindLabel, isSpinSet,
   type VehicleView, type VehicleHotspot,
 } from '~/shared/utils/vehicleViews'
 
@@ -113,7 +114,9 @@ const props = withDefaults(defineProps<{
   /** Controlled frame (index into the angle-sorted list). Omit to let the viewer manage it. */
   index?: number
   hideBar?: boolean
-}>(), { fit: 'cover', editable: false, placing: false, selectedHotspotId: null, hideBar: false })
+  /** Turn once by itself when a smooth set has loaded, so it is obvious the car spins. Stops at the first touch. */
+  autoplay?: boolean
+}>(), { fit: 'cover', editable: false, placing: false, selectedHotspotId: null, hideBar: false, autoplay: true })
 
 const emit = defineEmits<{
   (e: 'update:index', index: number): void
@@ -125,6 +128,9 @@ const emit = defineEmits<{
 const sorted = computed(() => sortByAngle(props.views))
 const idx = ref(0)
 const index = computed(() => idx.value)
+// Enough frames to turn smoothly: neighbours are blended as you drag. A few photos just step.
+const smooth = computed(() => isSpinSet(sorted.value.length))
+const blend = ref({ base: 0, alpha: 0 })
 const currentView = computed(() => sorted.value[idx.value])
 const currentLabel = computed(() => (currentView.value ? viewLabel(currentView.value) : ''))
 
@@ -153,23 +159,45 @@ function rectOf(v: VehicleView) {
   return fitRect(box.value, nat, props.fit)
 }
 
+// In a smooth spin, frames are only ~10° apart, so a pin placed on one frame also shows (fading) on the
+// frames either side. The editor shows just the frame being edited, so what you move is what you see.
+const PIN_REACH_DEG = 14
+function angularDistance(a: number, b: number) {
+  const d = Math.abs(a - b) % 360
+  return Math.min(d, 360 - d)
+}
+
 const pins = computed(() => {
-  const v = currentView.value
-  if (!v?.hotspots?.length || !box.value.w) return []
-  const r = rectOf(v)
-  return v.hotspots.map((h) => {
-    const o = dragOverride.value?.id === h.id ? dragOverride.value : null
-    const left = r.x + (o ? o.x : h.x) * r.w
-    const top = r.y + (o ? o.y : h.y) * r.h
-    const visible = left >= 0 && left <= box.value.w && top >= 0 && top <= box.value.h
-    return { h, left, top, visible }
-  })
+  const cur = currentView.value
+  if (!cur || !box.value.w) return []
+  const sources = props.editable || !smooth.value
+    ? [cur]
+    : sorted.value.filter(v => angularDistance(v.angle, cur.angle) <= PIN_REACH_DEG)
+  const out: Array<{ h: VehicleHotspot; left: number; top: number; visible: boolean; alpha: number }> = []
+  for (const v of sources) {
+    if (!v.hotspots?.length) continue
+    const r = rectOf(v)
+    const alpha = v.id === cur.id ? 1 : Math.max(0.25, 1 - angularDistance(v.angle, cur.angle) / PIN_REACH_DEG)
+    for (const h of v.hotspots) {
+      const o = dragOverride.value?.id === h.id ? dragOverride.value : null
+      const left = r.x + (o ? o.x : h.x) * r.w
+      const top = r.y + (o ? o.y : h.y) * r.h
+      out.push({ h, left, top, alpha, visible: left >= 0 && left <= box.value.w && top >= 0 && top <= box.value.h })
+    }
+  }
+  return out
 })
 
 // Where a pin being dragged is right now; the real data only changes once it is dropped and saved.
 const dragOverride = ref<{ id: string; x: number; y: number } | null>(null)
 const activePinId = ref<string | null>(null)
-const activePin = computed<VehicleHotspot | null>(() => currentView.value?.hotspots?.find(h => h.id === activePinId.value) ?? null)
+const activePin = computed<VehicleHotspot | null>(() => {
+  for (const v of sorted.value) {
+    const h = v.hotspots?.find(x => x.id === activePinId.value)
+    if (h) return h
+  }
+  return null
+})
 
 // ── Rotation ──
 // A full-width drag is one and a half laps' worth less than a lap, which feels natural with 8 frames.
@@ -191,10 +219,29 @@ function framesPerPx() {
   return sorted.value.length / (w * LAP_WIDTHS)
 }
 
+function syncBlend() {
+  const n = sorted.value.length
+  if (!n || !smooth.value) return
+  const fl = Math.floor(pos)
+  blend.value = { base: wrapIndex(fl, n), alpha: pos - fl }
+}
+
+/** Opacity of each frame: the frame we are on, with the next one fading in over it as you drag. */
+function frameStyle(i: number) {
+  if (!smooth.value) return { opacity: i === idx.value ? 1 : 0 }
+  const n = sorted.value.length
+  const { base, alpha } = blend.value
+  if (i === base) return { opacity: 1, zIndex: 1 }
+  // Only blend a neighbour that has arrived; otherwise the car would fade into a blank frame.
+  if (i === (base + 1) % n && alpha > 0.001 && loaded.value.has(i)) return { opacity: alpha, zIndex: 2 }
+  return { opacity: 0 }
+}
+
 function setPos(p: number) {
   const n = sorted.value.length
   if (!n) return
   pos = p
+  syncBlend()
   const next = wrapIndex(Math.round(pos), n)
   if (next !== idx.value) {
     idx.value = next
@@ -208,9 +255,33 @@ function stopInertia() {
   raf = 0
 }
 
+// One slow lap when a smooth set has fully loaded, so it is obvious the car turns. Any touch stops it.
+let autoplayed = false
+function startAutoplay() {
+  const n = sorted.value.length
+  const from = pos
+  const t0 = performance.now()
+  const DURATION_MS = 7000
+  const tick = (t: number) => {
+    const k = Math.min(1, (t - t0) / DURATION_MS)
+    const eased = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k)
+    setPos(from + n * eased)
+    if (k < 1) raf = requestAnimationFrame(tick)
+    else { raf = 0; setPos(Math.round(pos)) }
+  }
+  raf = requestAnimationFrame(tick)
+}
+watch(loadedCount, (c) => {
+  const n = sorted.value.length
+  if (autoplayed || !props.autoplay || props.editable || reduceMotion || !smooth.value || !n || c < n) return
+  autoplayed = true
+  startAutoplay()
+})
+
 function onDown(e: PointerEvent) {
   if (sorted.value.length < 1) return
   stopInertia()
+  autoplayed = true
   dragging = true
   moved = 0
   showHint.value = false
@@ -325,9 +396,9 @@ function onPinUp(e: PointerEvent, h: VehicleHotspot) {
 function onPinCancel() { pinDrag = null; dragOverride.value = null }
 
 function selectPin(h: VehicleHotspot) {
-  const v = currentView.value
-  if (!v) return
-  if (props.editable) emit('select-hotspot', { viewId: v.id, id: h.id })
+  const viewId = h.view_id || currentView.value?.id
+  if (!viewId) return
+  if (props.editable) emit('select-hotspot', { viewId, id: h.id })
   else activePinId.value = activePinId.value === h.id ? null : h.id
 }
 
@@ -335,11 +406,15 @@ function selectPin(h: VehicleHotspot) {
 let hintTimer: ReturnType<typeof setTimeout> | undefined
 onMounted(() => {
   measure()
+  // The page is server-rendered, so frames may finish loading before Vue attaches @load. Count those now.
+  rootEl.value?.querySelectorAll<HTMLImageElement>('img.vsv__frame').forEach((img, i) => {
+    if (img.complete && img.naturalWidth) onFrameLoad(i, { target: img } as unknown as Event)
+  })
   if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
     ro = new ResizeObserver(measure)
     ro.observe(rootEl.value)
   }
-  if (props.index != null) { pos = idx.value = wrapIndex(props.index, sorted.value.length) }
+  if (props.index != null) { pos = idx.value = wrapIndex(props.index, sorted.value.length); syncBlend() }
   hintTimer = setTimeout(() => { showHint.value = false }, 4500)
 })
 
@@ -350,6 +425,7 @@ watch(() => props.index, (i) => {
   if (next === idx.value) return
   stopInertia()
   pos = idx.value = next
+  syncBlend()
   activePinId.value = null
 })
 
@@ -378,7 +454,6 @@ defineExpose({ goTo, index })
   opacity: 0; pointer-events: none;
 }
 .vsv__frame.is-contain { object-fit: contain; }
-.vsv__frame.is-active { opacity: 1; }
 .vsv__empty {
   position: absolute; inset: 0; display: grid; place-items: center;
   color: rgba(255,255,255,0.5); font-size: 13px;

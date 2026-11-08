@@ -3,6 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   fitRect, pointToFraction, swapAngles, slotGaps, nearestSlot, sortByAngle, wrapIndex, viewLabel,
+  spinAngles, isSpinSet, maxGapDegrees,
 } from '../shared/utils/vehicleViews.ts'
 
 test('fitRect cover crops the long side and stays centred', () => {
@@ -69,4 +70,24 @@ test('wrapIndex wraps both ways', () => {
   assert.equal(wrapIndex(-1, 8), 7)
   assert.equal(wrapIndex(8, 8), 0)
   assert.equal(wrapIndex(3, 0), 0)
+})
+
+test('spinAngles spaces frames evenly, in the direction walked', () => {
+  const right = spinAngles(24, true)
+  assert.equal(right.length, 24)
+  assert.equal(right[0], 0)
+  assert.equal(right[6], 90) // a quarter lap: the car's right side
+  assert.equal(right[23], 345)
+  const left = spinAngles(24, false)
+  assert.equal(left[0], 0)
+  assert.equal(left[6], 270) // walked to the left first
+  assert.equal(new Set(left).size, 24) // no two frames share an angle
+})
+
+test('spin sets are 12+ frames and report their largest gap', () => {
+  assert.equal(isSpinSet(8), false)
+  assert.equal(isSpinSet(12), true)
+  assert.equal(maxGapDegrees(spinAngles(36, true)), 10)
+  assert.equal(maxGapDegrees([0, 90, 180, 270]), 90)
+  assert.equal(maxGapDegrees([0, 10, 20]), 340) // a partial set leaves a big hole
 })

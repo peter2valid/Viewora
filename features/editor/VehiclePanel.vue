@@ -2,6 +2,8 @@
   <div ref="rootEl" class="vp" :class="{ 'is-preview': preview }" @dragover.prevent @drop.prevent="onRootDrop">
     <input ref="oneInput" type="file" accept="image/jpeg,image/png,image/webp" class="vp-hidden" @change="onOne" />
     <input ref="manyInput" type="file" accept="image/jpeg,image/png,image/webp" multiple class="vp-hidden" @change="onMany" />
+    <input ref="videoInput" type="file" accept="video/*" class="vp-hidden" @change="onVideoPicked" />
+    <input ref="videoCamInput" type="file" accept="video/*" capture="environment" class="vp-hidden" @change="onVideoPicked" />
 
     <!-- Toolbar: always on screen, so the editor looks and feels ready before the photos arrive. -->
     <header class="vp-bar">
@@ -13,6 +15,7 @@
           <h1 class="vp-h1">Car exterior</h1>
           <p class="vp-sub vp-num">
             <template v-if="!loaded">Loading photos…</template>
+            <template v-else-if="isSpin">Smooth spin · {{ views.length }} frames · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
             <template v-else>{{ views.length }} photo{{ views.length === 1 ? '' : 's' }} · {{ filledSlots }} of {{ VEHICLE_SLOTS.length }} main angles · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
           </p>
         </div>
@@ -23,7 +26,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
           {{ placing ? 'Tap the photo…' : 'Add hotspot' }}
         </button>
-        <button class="vp-btn" :disabled="views.length < 2 || aiBusy === 'sort' || preview" @click="runAiSort">
+        <button class="vp-btn" :disabled="views.length < 2 || aiBusy === 'sort' || preview || isSpin" :title="isSpin ? 'A video spin is already in order' : undefined" @click="runAiSort">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></svg>
           {{ aiBusy === 'sort' ? 'Sorting…' : 'AI sort photos' }}
         </button>
@@ -33,6 +36,10 @@
         </button>
         <button class="vp-btn" :class="{ 'is-on': preview }" :disabled="!views.length" :aria-pressed="preview" @click="togglePreview">
           {{ preview ? 'Back to editing' : 'Preview as buyer' }}
+        </button>
+        <button class="vp-btn" :disabled="busy || preview" @click="openSpinModal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          Smooth spin from video
         </button>
         <button class="vp-btn vp-btn--primary" :disabled="busy || views.length >= VEHICLE_MAX_VIEWS" @click="manyInput?.click()">
           Add photos
@@ -67,8 +74,14 @@
               <ol class="vp-empty__order">
                 <li v-for="s in VEHICLE_SLOTS" :key="s.key">{{ s.label }}</li>
               </ol>
-              <button class="vp-btn vp-btn--primary" :disabled="busy" @click="manyInput?.click()">Add photos</button>
-              <p class="vp-hint">You can also drop photos here. Out of order? <strong>AI sort</strong> fixes it.</p>
+              <div class="vp-row">
+                <button class="vp-btn vp-btn--primary" :disabled="busy" @click="manyInput?.click()">Add photos</button>
+                <button class="vp-btn" :disabled="busy" @click="openSpinModal">Smooth spin from video</button>
+              </div>
+              <p class="vp-hint">
+                <strong>Smoothest result:</strong> record one slow walk around the car and we turn it into a spin that follows your finger.
+                You can also drop photos here. Out of order? <strong>AI sort</strong> fixes it.
+              </p>
             </div>
           </template>
 
@@ -111,7 +124,7 @@
               <img :src="item.view.image_url" :alt="''" loading="lazy" draggable="false" />
               <span v-if="pendingAngles.has(item.view.angle)" class="vp-thumb__busy"><span class="vp-spin vp-spin--sm" /></span>
               <span v-if="item.view.hotspots?.length" class="vp-thumb__count vp-num">{{ item.view.hotspots.length }}</span>
-              <span class="vp-thumb__label">{{ viewLabel(item.view) }}</span>
+              <span class="vp-thumb__label vp-num">{{ isSpin ? `${item.view.angle}°` : viewLabel(item.view) }}</span>
             </button>
             <button
               v-else
@@ -139,11 +152,14 @@
             <h2 class="vp-h2">{{ viewLabel(current) }}</h2>
             <p class="vp-muted vp-num">{{ current.angle }}° around the car</p>
 
-            <label class="vp-label" for="vp-pos">Position</label>
-            <select id="vp-pos" class="vp-select" :value="current.angle" :disabled="busy" @change="onPositionChange(Number(($event.target as HTMLSelectElement).value))">
-              <option v-for="o in positionOptions" :key="o.angle" :value="o.angle">{{ o.text }}</option>
-            </select>
-            <p class="vp-hint">Choose a taken position to swap the two photos.</p>
+            <template v-if="!isSpin">
+              <label class="vp-label" for="vp-pos">Position</label>
+              <select id="vp-pos" class="vp-select" :value="current.angle" :disabled="busy" @change="onPositionChange(Number(($event.target as HTMLSelectElement).value))">
+                <option v-for="o in positionOptions" :key="o.angle" :value="o.angle">{{ o.text }}</option>
+              </select>
+              <p class="vp-hint">Choose a taken position to swap the two photos.</p>
+            </template>
+            <p v-else class="vp-hint">Frames are evenly spaced from your video, so their order is fixed. Pin a hotspot on any frame: it also shows on the frames either side.</p>
 
             <div class="vp-row">
               <button class="vp-btn" :disabled="busy" @click="pick(current.angle, current.id)">Replace photo</button>
@@ -235,6 +251,50 @@
       </aside>
     </div>
 
+    <!-- Smooth spin from a video -->
+    <div v-if="spinOpen" class="vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-spin-title" @keydown.esc="closeSpinModal">
+      <div class="vp-modal__box">
+        <h2 id="vp-spin-title" class="vp-h2">Smooth spin from a video</h2>
+
+        <template v-if="!spinRun">
+          <ol class="vp-steps">
+            <li>Park with room to walk all the way round.</li>
+            <li>Start recording at the front of the car.</li>
+            <li>Walk slowly once around it, same distance, car in the middle of the frame.</li>
+            <li>Stop when you are back at the front. 20 to 30 seconds is ideal.</li>
+          </ol>
+
+          <fieldset class="vp-fieldset">
+            <legend class="vp-label">Which side did you walk to first?</legend>
+            <label class="vp-radio"><input v-model="spinRightFirst" type="radio" :value="true" /> The car's right side</label>
+            <label class="vp-radio"><input v-model="spinRightFirst" type="radio" :value="false" /> The car's left side</label>
+          </fieldset>
+
+          <fieldset class="vp-fieldset">
+            <legend class="vp-label">Smoothness</legend>
+            <label class="vp-radio"><input v-model.number="spinCount" type="radio" :value="24" /> 24 frames: smooth, loads fast</label>
+            <label class="vp-radio"><input v-model.number="spinCount" type="radio" :value="36" /> 36 frames: smoothest, bigger</label>
+          </fieldset>
+
+          <p v-if="views.length" class="vp-gap">This replaces your {{ views.length }} current photo{{ views.length === 1 ? '' : 's' }} and their hotspots.</p>
+          <p v-if="spinError" class="vp-error" role="alert">{{ spinError }}</p>
+
+          <div class="vp-row">
+            <button class="vp-btn vp-btn--primary" @click="videoCamInput?.click()">Record video</button>
+            <button class="vp-btn" @click="videoInput?.click()">Choose a video</button>
+            <button class="vp-btn" @click="closeSpinModal">Cancel</button>
+          </div>
+        </template>
+
+        <template v-else>
+          <p class="vp-muted" aria-live="polite">{{ spinRun.phase === 'reading' ? 'Reading frames from your video' : spinRun.phase === 'clearing' ? 'Clearing the old photos' : 'Uploading frames' }}: <span class="vp-num">{{ spinRun.done }} of {{ spinRun.total }}</span></p>
+          <div class="vp-meter" role="progressbar" :aria-valuenow="spinRun.done" :aria-valuemax="spinRun.total" aria-label="Spin progress"><span :style="{ width: (spinRun.total ? (spinRun.done / spinRun.total) * 100 : 0) + '%' }" /></div>
+          <p class="vp-hint">Keep this tab open. It takes about a minute.</p>
+          <div class="vp-row"><button class="vp-btn" @click="cancelSpin">Cancel</button></div>
+        </template>
+      </div>
+    </div>
+
     <!-- AI sort review -->
     <div v-if="sortReview" class="vp-modal" role="dialog" aria-modal="true" aria-label="Review AI sort" @keydown.esc="sortReview = null">
       <div class="vp-modal__box">
@@ -268,9 +328,10 @@ import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
 import { useVehicleViews, type AngleSuggestion } from '~/features/vehicle/useVehicleViews'
 import {
   VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS,
-  viewLabel, nearestSlot, hotspotKindLabel, slotGaps, swapAngles,
+  viewLabel, nearestSlot, hotspotKindLabel, slotGaps, swapAngles, isSpinSet, spinAngles,
   type VehicleView, type VehicleSlot, type VehicleHotspotKind,
 } from '~/shared/utils/vehicleViews'
+import { extractSpinFrames, validateSpinVideo } from '~/shared/utils/videoFrames'
 
 const props = defineProps<{ spaceId: string }>()
 
@@ -331,10 +392,13 @@ const currentHotspots = computed(() => current.value?.hotspots ?? [])
 const selectedHotspot = computed(() => currentHotspots.value.find(h => h.id === selectedHotspotId.value) ?? null)
 const viewerIndex = computed(() => Math.max(0, views.value.findIndex(v => v.id === selectedId.value)))
 
+// 12+ evenly spaced frames: a smooth spin, so the eight main angles are no longer a checklist.
+const isSpin = computed(() => isSpinSet(views.value.length))
+
 interface DockItem { key: string; angle: number; view?: VehicleView; slot?: VehicleSlot }
 const dockItems = computed<DockItem[]>(() => {
   const items: DockItem[] = views.value.map(v => ({ key: v.id, angle: v.angle, view: v }))
-  for (const s of VEHICLE_SLOTS) if (!views.value.some(v => v.angle === s.angle)) items.push({ key: `slot-${s.key}`, angle: s.angle, slot: s })
+  if (!isSpin.value) for (const s of VEHICLE_SLOTS) if (!views.value.some(v => v.angle === s.angle)) items.push({ key: `slot-${s.key}`, angle: s.angle, slot: s })
   return items.sort((a, b) => a.angle - b.angle || (a.view ? -1 : 1))
 })
 
@@ -360,7 +424,7 @@ const gapText = computed(() => {
   if (!loaded.value || !views.value.length) return ''
   const { missing, duplicates } = slotGaps(views.value)
   const bits: string[] = []
-  if (missing.length) bits.push(`Still missing: ${missing.map(m => m.label.toLowerCase()).join(', ')}. The car still turns without them, just less smoothly.`)
+  if (missing.length && !isSpin.value) bits.push(`Still missing: ${missing.map(m => m.label.toLowerCase()).join(', ')}. The car still turns without them, just less smoothly.`)
   if (duplicates.length) bits.push(`Two photos share ${duplicates.map(d => `${d}°`).join(', ')}. Move one to a free position.`)
   return bits.join(' ')
 })
@@ -672,6 +736,97 @@ async function addDrafts() {
 // Suggestions belong to one photo.
 watch(selectedId, () => { aiDrafts.value = [] })
 
+// ── Smooth spin from a video ──
+const videoInput = ref<HTMLInputElement | null>(null)
+const videoCamInput = ref<HTMLInputElement | null>(null)
+const spinOpen = ref(false)
+const spinRightFirst = ref(true)
+const spinCount = ref(24)
+const spinError = ref('')
+const spinRun = ref<{ phase: 'reading' | 'clearing' | 'uploading'; done: number; total: number } | null>(null)
+let spinSignal = { cancelled: false }
+
+function openSpinModal() { spinError.value = ''; spinRun.value = null; spinOpen.value = true }
+function closeSpinModal() { if (!spinRun.value) spinOpen.value = false }
+function cancelSpin() { spinSignal.cancelled = true }
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+const isRateLimited = (e: any) => (e?.status ?? e?.statusCode ?? e?.response?.status) === 429
+
+async function onVideoPicked(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  const invalid = validateSpinVideo(file)
+  if (invalid) { spinError.value = invalid; return }
+  await makeSpin(file)
+}
+
+async function makeSpin(file: File) {
+  spinError.value = ''
+  spinSignal = { cancelled: false }
+  const signal = spinSignal
+  const count = spinCount.value
+  busy.value = true
+  selectedHotspotId.value = null
+  try {
+    // 1. Read every frame first, so a bad video never costs you your current photos.
+    spinRun.value = { phase: 'reading', done: 0, total: count }
+    const frames = await extractSpinFrames(file, count, (done, total) => { spinRun.value = { phase: 'reading', done, total } }, signal)
+
+    // 2. Clear the old set (a spin needs the whole 360° to itself).
+    const old = [...views.value]
+    if (old.length) {
+      spinRun.value = { phase: 'clearing', done: 0, total: old.length }
+      let cleared = 0
+      for (const v of old) {
+        if (signal.cancelled) throw new Error('Cancelled')
+        await removeView(v.id)
+        spinRun.value = { phase: 'clearing', done: ++cleared, total: old.length }
+      }
+    }
+
+    // 3. Upload, three at a time. The server allows a burst; if it asks us to slow down we wait and retry.
+    const angles = spinAngles(count, spinRightFirst.value)
+    spinRun.value = { phase: 'uploading', done: 0, total: count }
+    let next = 0
+    let done = 0
+    let firstError: any = null
+    const worker = async () => {
+      while (next < frames.length && !signal.cancelled && !firstError) {
+        const i = next++
+        for (let tries = 0; ; tries++) {
+          try { await addView(frames[i].file, angles[i]); break } catch (err: any) {
+            if (isRateLimited(err) && tries < 4) { await sleep(2500 * (tries + 1)); continue }
+            firstError = firstError ?? err
+            return
+          }
+        }
+        spinRun.value = { phase: 'uploading', done: ++done, total: count }
+      }
+    }
+    await Promise.all([worker(), worker(), worker()])
+    if (firstError) throw firstError
+    if (signal.cancelled) throw new Error('Cancelled')
+
+    spinOpen.value = false
+    if (views.value.length) selectedId.value = views.value[0].id
+    setNotice(`Smooth spin ready: ${views.value.length} frames. Drag the car to try it, then pin hotspots on any frame.`)
+  } catch (e: any) {
+    const m = errMsg(e, 'Something went wrong')
+    if (m === 'Cancelled') {
+      setNotice(views.value.length ? `Stopped. ${views.value.length} frame${views.value.length === 1 ? ' was' : 's were'} saved. Run it again to finish the spin.` : 'Stopped.')
+      spinOpen.value = false
+    } else {
+      spinError.value = `${m}${views.value.length ? ` ${views.value.length} frames were saved; run it again to replace them.` : ''}`
+    }
+  } finally {
+    spinRun.value = null
+    busy.value = false
+  }
+}
+
 // ── Keyboard ──
 function typing(t: EventTarget | null) {
   const el = t as HTMLElement | null
@@ -811,6 +966,12 @@ defineExpose({ reload: init })
 .vp-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4; min-height: 44px; padding: 6px 0; cursor: pointer; }
 .vp-check input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: #fff; }
 
+.vp-fieldset { border: 0; padding: 0; margin: 4px 0 0; display: grid; gap: 2px; }
+.vp-radio { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; cursor: pointer; }
+.vp-radio input { width: 20px; height: 20px; accent-color: #fff; flex: none; }
+.vp-meter { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.vp-meter > span { display: block; height: 100%; background: #fff; transition: width 160ms; }
+@media (prefers-reduced-motion: reduce) { .vp-meter > span { transition: none; } }
 .vp-steps { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.75); }
 .vp-gap { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,176,32,0.1); color: #ffd48a; font-size: 12px; line-height: 1.5; }
 .vp-next { display: flex; gap: 8px 18px; flex-wrap: wrap; }
