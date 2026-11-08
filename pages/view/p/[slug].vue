@@ -67,6 +67,12 @@
             <button type="button" role="tab" class="carmode__btn" :class="{ 'is-active': carMode === 'interior' }" :aria-selected="carMode === 'interior'" @click="carMode = 'interior'">Interior</button>
           </div>
 
+          <!-- Walk in / walk out, same as the toggle but where the eye already is. -->
+          <button v-if="hasExterior && (isPanorama || photos.length)" type="button" class="stepbtn" @click="carMode = showExterior ? 'interior' : 'exterior'">
+            <template v-if="showExterior">Step inside <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></template>
+            <template v-else><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg> Back outside</template>
+          </button>
+
           <div class="topbar">
             <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -982,7 +988,7 @@ useHead({
    gesture on touch devices. */
 .pano--car { cursor: grab; touch-action: pan-y; }
 .carmode {
-  position: absolute; z-index: 21; left: 16px; top: 64px;
+  position: absolute; z-index: 21; left: 50%; transform: translateX(-50%); top: 64px;
   display: inline-flex; padding: 3px; border-radius: 999px;
   background: rgba(0,0,0,0.62); border: 1px solid rgba(255,255,255,0.14);
 }
@@ -992,6 +998,13 @@ useHead({
   transition: background 120ms, color 120ms;
 }
 .carmode__btn.is-active { background: #fff; color: #0b0b0c; }
+.stepbtn {
+  position: absolute; z-index: 21; right: 16px; top: 64px;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.66); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.stepbtn:active { background: rgba(0,0,0,0.85); }
+.stepbtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .carmode__btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .carmode__btn { transition: none; } }
 .pano--gallery { cursor: default; touch-action: pan-x; user-select: auto; }
