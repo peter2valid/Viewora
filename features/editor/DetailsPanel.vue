@@ -186,6 +186,40 @@
         </template>
 
         <template v-else-if="space?.space_type === 'automotive'">
+          <div class="df-field">
+            <label class="df-field__label" for="df-vin">VIN or chassis number <span class="df-field__opt">optional</span></label>
+            <div class="df-vin">
+              <input
+                id="df-vin"
+                v-model="draft.vehicleVin"
+                class="df-input df-vin__input"
+                maxlength="25"
+                autocomplete="off"
+                autocapitalize="characters"
+                spellcheck="false"
+                placeholder="e.g. WP0CA2A97MS211234"
+                @blur="draft.vehicleVin = draft.vehicleVin.toUpperCase().replace(/\s+/g, '')"
+              />
+              <button type="button" class="df-ai-btn df-vin__btn" :disabled="decodingVin || !vinLooksDecodable" @click="decodeVin">
+                {{ decodingVin ? 'Looking up…' : 'Fill from VIN' }}
+              </button>
+            </div>
+            <div class="df-hint" :class="{ 'df-warning': vinNote.error }" aria-live="polite">{{ vinNote.text }}</div>
+          </div>
+          <div class="df-field-grid">
+            <div class="df-field">
+              <label class="df-field__label" for="df-make">Make</label>
+              <input id="df-make" v-model="draft.vehicleMake" class="df-input" maxlength="40" placeholder="e.g. Toyota" />
+            </div>
+            <div class="df-field">
+              <label class="df-field__label" for="df-model">Model</label>
+              <input id="df-model" v-model="draft.vehicleModel" class="df-input" maxlength="60" placeholder="e.g. Land Cruiser Prado" />
+            </div>
+          </div>
+          <div class="df-field">
+            <label class="df-field__label" for="df-trim">Trim or version <span class="df-field__opt">optional</span></label>
+            <input id="df-trim" v-model="draft.vehicleTrim" class="df-input" maxlength="60" placeholder="e.g. TX-L, Carrera Cabriolet" />
+          </div>
           <div class="df-field-grid">
             <div class="df-field">
               <label class="df-field__label">Year <span class="df-field__opt">optional</span></label>
@@ -465,6 +499,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import SpacePill from '~/features/editor/components/SpacePill.vue'
 import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
+import { useCarSetup } from '~/features/vehicle/useCarSetup'
 import { toast } from 'vue-sonner'
 import { SOCIAL_KEYS, SOCIAL_LABELS, SOCIAL_PLACEHOLDERS, normalizeSocialLink, type SocialKey } from '~/shared/utils/socialLinks'
 
@@ -521,6 +556,10 @@ const draft = ref({
   vehicleMileageKm: null as number | null,
   vehicleTransmission: '' as '' | 'manual' | 'automatic',
   vehicleFuelType: '' as '' | 'petrol' | 'diesel' | 'electric' | 'hybrid',
+  vehicleVin: '',
+  vehicleMake: '',
+  vehicleModel: '',
+  vehicleTrim: '',
   landAcres: null as number | null,
   landType: '' as '' | 'agricultural' | 'commercial' | 'residential',
   amenities: [] as string[],
@@ -589,6 +628,11 @@ function draftFromSpace(s: any) {
     vehicleMileageKm: s?.vehicle_mileage_km ?? null,
     vehicleTransmission: (s?.vehicle_transmission as '' | 'manual' | 'automatic') ?? '',
     vehicleFuelType: (s?.vehicle_fuel_type as '' | 'petrol' | 'diesel' | 'electric' | 'hybrid') ?? '',
+    // Filled from /car-setup after load (their columns arrive with migration-vehicle-identity.sql).
+    vehicleVin: (s?.vehicle_vin as string) ?? '',
+    vehicleMake: (s?.vehicle_make as string) ?? '',
+    vehicleModel: (s?.vehicle_model as string) ?? '',
+    vehicleTrim: (s?.vehicle_trim as string) ?? '',
     landAcres: s?.land_acres ?? null,
     landType: (s?.land_type as '' | 'agricultural' | 'commercial' | 'residential') ?? '',
     amenities: [...(s?.amenities ?? [])],
@@ -600,7 +644,13 @@ async function loadSpace() {
   try {
     space.value = await fetchSpaceRaw(props.spaceId)
     if (!space.value) { showToast('Failed to load listing details', 'error'); return }
-    draft.value = draftFromSpace(space.value)
+    let identity: Record<string, unknown> = {}
+    if (space.value.space_type === 'automotive') {
+      await carSetup.refresh()
+      const v = carSetup.setup.value?.vehicle
+      if (v) identity = { vehicle_vin: v.vin, vehicle_make: v.make, vehicle_model: v.model, vehicle_trim: v.trim }
+    }
+    draft.value = draftFromSpace({ ...space.value, ...identity })
   } finally {
     pending.value = false
   }
@@ -680,12 +730,68 @@ async function save() {
   try {
     const updated = await apiFetch(`/spaces/${props.spaceId}`, { method: 'PATCH', body: spacePatch })
     space.value = updated
+    const identityError = space.value?.space_type === 'automotive' ? await saveIdentity() : ''
     isDirty.value = false
-    showToast('Details saved')
+    if (identityError) showToast(identityError, 'error')
+    else showToast('Details saved')
+    if (space.value?.space_type === 'automotive') carSetup.refresh()
   } catch (e: any) {
     showToast(e?.data?.statusMessage || 'Failed to save details', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+// ── A car's identity: VIN or chassis number, make, model, trim ─────────────
+// Saved on its own route (server: routes/carTour.ts) so the rest of the details still save
+// on a database that has not had migration-vehicle-identity.sql yet. Returns an error to show, or ''.
+const carSetup = useCarSetup(props.spaceId)
+async function saveIdentity(): Promise<string> {
+  const d = draft.value
+  try {
+    await apiFetch(`/spaces/${props.spaceId}/vehicle-identity`, {
+      method: 'PATCH',
+      body: {
+        vin: d.vehicleVin.trim() || null,
+        make: d.vehicleMake.trim() || null,
+        model: d.vehicleModel.trim() || null,
+        trim: d.vehicleTrim.trim() || null,
+      },
+    })
+    return ''
+  } catch (e: any) {
+    return `Saved, except the VIN, make and model: ${e?.data?.statusMessage || 'try again'}`
+  }
+}
+
+const decodingVin = ref(false)
+const vinNote = ref<{ text: string; error: boolean }>({
+  text: 'A 17-character VIN fills in the make, model, trim and year for you. Japanese imports often have a shorter chassis number: type it and fill the rest in yourself.',
+  error: false,
+})
+const vinLooksDecodable = computed(() => /^[A-HJ-NPR-Z0-9]{17}$/.test(draft.value.vehicleVin.toUpperCase().replace(/\s+/g, '')))
+async function decodeVin() {
+  if (decodingVin.value) return
+  decodingVin.value = true
+  const vin = draft.value.vehicleVin.toUpperCase().replace(/\s+/g, '')
+  try {
+    const res = await apiFetch<{ vehicle: { make: string | null; model: string | null; trim: string | null; year: number | null; fuel_type: string | null; transmission: string | null } }>(`/vehicle/vin/${encodeURIComponent(vin)}`)
+    const v = res.vehicle
+    const d = draft.value
+    d.vehicleVin = vin
+    // The lookup knows the factory facts; anything the owner already typed for year,
+    // fuel and gearbox stays (a converted or re-engined car is theirs to describe).
+    if (v.make) d.vehicleMake = v.make
+    if (v.model) d.vehicleModel = v.model
+    if (v.trim) d.vehicleTrim = v.trim
+    if (v.year && !d.vehicleYear) d.vehicleYear = v.year
+    if (v.fuel_type && !d.vehicleFuelType) d.vehicleFuelType = v.fuel_type as any
+    if (v.transmission && !d.vehicleTransmission) d.vehicleTransmission = v.transmission as any
+    vinNote.value = { text: `Found: ${[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')}. Check it, then save.`, error: false }
+  } catch (e: any) {
+    vinNote.value = { text: e?.data?.statusMessage || 'Could not look up this VIN. Fill in the details yourself.', error: true }
+  } finally {
+    decodingVin.value = false
   }
 }
 
@@ -1101,6 +1207,10 @@ async function handleRemoveBg() {
 .df-card__title { font-size: 15px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
 .df-card__sub { font-size: 12px; color: rgba(255,255,255,0.4); margin: 3px 0 0; }
 
+.df-vin { display: flex; gap: 8px; align-items: stretch; }
+.df-vin__input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.04em; text-transform: uppercase; }
+.df-vin__btn { flex: none; white-space: nowrap; height: auto; min-height: 40px; padding: 0 14px; font-size: 12px; }
+.df-vin__btn:disabled { opacity: 0.5; cursor: default; }
 .df-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
 @media (max-width: 480px) { .df-field-grid { grid-template-columns: 1fr; } }
 

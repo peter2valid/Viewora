@@ -1,7 +1,7 @@
 // Run with: tsx --test tests/carTour.test.ts
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildCarTourItems, spinsFromTour } from '../shared/utils/carTour.ts'
+import { buildCarTourItems, spinsFromTour, vehicleName } from '../shared/utils/carTour.ts'
 
 const v = (id: string, angle: number) => ({ id, image_url: `https://m/${id}.jpg`, label: null, angle })
 
@@ -33,4 +33,10 @@ test('older payloads with one flat list still give one Exterior spin', () => {
   assert.equal(spins[0].title, 'Exterior')
   assert.equal(spins[0].views.length, 2)
   assert.deepEqual(buildCarTourItems({}), [])
+})
+
+test('vehicleName: year, make, model and trim; empty without make or model', () => {
+  assert.equal(vehicleName({ vehicle_year: 2021, vehicle_make: 'Porsche', vehicle_model: '911', vehicle_trim: 'Carrera Cabriolet' }), '2021 Porsche 911 Carrera Cabriolet')
+  assert.equal(vehicleName({ vehicle_year: 2021 }), '')
+  assert.equal(vehicleName(null), '')
 })

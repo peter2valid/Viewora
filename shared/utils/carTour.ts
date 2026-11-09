@@ -59,3 +59,11 @@ export function buildCarTourItems(tour: any, thumb: (url: string) => string = u 
   })
   return out
 }
+
+/** "2021 Porsche 911 Carrera Cabriolet" from the car's details; '' when none are filled. */
+export function vehicleName(space: any): string {
+  if (!space) return ''
+  const model = [space.vehicle_make, space.vehicle_model].filter(Boolean).join(' ')
+  if (!model) return ''
+  return [space.vehicle_year, model, space.vehicle_trim].filter(Boolean).join(' ')
+}

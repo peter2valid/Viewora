@@ -16,6 +16,7 @@
         :tour="tour"
         embed
         :share-url="shareUrl"
+        :title="hasBrandingDetails ? '' : (vehicleName(space) || space.title)"
         :top-offset="hasBrandingDetails ? 'var(--embed-car-top)' : '16px'"
       />
 
@@ -93,7 +94,7 @@ definePageMeta({ layout: false })
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useHead, useSeoMeta } from '#imports'
 import CarTour from '~/features/viewer/car/CarTour.vue'
-import { buildCarTourItems } from '~/shared/utils/carTour'
+import { buildCarTourItems, vehicleName } from '~/shared/utils/carTour'
 
 const { apiFetch } = useApiFetch()
 const runtimeConfig = useRuntimeConfig()

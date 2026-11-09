@@ -25,6 +25,10 @@ export interface JsonLdSpace {
   vehicle_mileage_km: number | null
   vehicle_transmission: string | null
   vehicle_fuel_type: string | null
+  vehicle_vin?: string | null
+  vehicle_make?: string | null
+  vehicle_model?: string | null
+  vehicle_trim?: string | null
   created_at?: string | null
 }
 
@@ -70,6 +74,10 @@ export function buildListingJsonLd(
         : undefined,
       vehicleTransmission: space.vehicle_transmission || undefined,
       fuelType: space.vehicle_fuel_type || undefined,
+      brand: space.vehicle_make ? { '@type': 'Brand', name: space.vehicle_make } : undefined,
+      model: space.vehicle_model || undefined,
+      vehicleConfiguration: space.vehicle_trim || undefined,
+      vehicleIdentificationNumber: space.vehicle_vin || undefined,
       offers,
     }
   }

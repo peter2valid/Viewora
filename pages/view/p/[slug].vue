@@ -201,6 +201,9 @@
                   <span>{{ f.label }}</span>
                 </div>
               </div>
+              <p v-if="space.space_type === 'automotive' && space.vehicle_vin" class="vinline">
+                {{ space.vehicle_vin.length === 17 ? 'VIN' : 'Chassis no.' }} <span>{{ space.vehicle_vin }}</span>
+              </p>
             </template>
 
             <template v-if="space.amenities && space.amenities.length > 0">
@@ -513,6 +516,9 @@ const keyFacts = computed((): Array<{ value: string; label: string; icon: IconNa
   }
   if (s.space_type === 'automotive') {
     const out: Array<{ value: string; label: string; icon: IconName }> = []
+    if (s.vehicle_make) out.push({ value: s.vehicle_make, label: 'Make', icon: 'car' })
+    if (s.vehicle_model) out.push({ value: s.vehicle_model, label: 'Model', icon: 'car' })
+    if (s.vehicle_trim) out.push({ value: s.vehicle_trim, label: 'Version', icon: 'car' })
     if (s.vehicle_year) out.push({ value: String(s.vehicle_year), label: 'Year', icon: 'calendar' })
     if (s.vehicle_mileage_km != null) out.push({ value: `${s.vehicle_mileage_km.toLocaleString('en-KE')} km`, label: 'Mileage', icon: 'gauge' })
     if (s.vehicle_transmission) out.push({ value: s.vehicle_transmission[0].toUpperCase() + s.vehicle_transmission.slice(1), label: 'Transmission', icon: 'manual-gearbox' })
@@ -1036,6 +1042,8 @@ useHead({
 .sheet__pricerow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
 .sheet__price { font-family: var(--font-mono); font-weight: 500; font-size: 1.4rem; letter-spacing: -0.01em; line-height: 1.2; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
 .sheet__price small { font-family: var(--font-display); font-size: 0.66rem; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.vinline { margin: 10px 0 0; font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
+.vinline span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.04em; color: var(--ink); user-select: all; }
 .sheet__facts { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); margin: 6px 0 0; }
 .sheet__pricecol { min-width: 0; }
 

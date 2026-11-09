@@ -59,6 +59,9 @@
       >{{ g.label }}</button>
     </div>
 
+    <!-- The car's name, top-left, where the host page has no title bar of its own (the embed). -->
+    <p v-if="title && !narrow" class="ct__title">{{ title }}</p>
+
     <!-- Several spins (roof up, roof down): switch between them without leaving the exterior. -->
     <div v-if="active?.group === 'exterior' && spinItems.length > 1" class="ct__spins" role="tablist" aria-label="Spins">
       <button
@@ -151,7 +154,9 @@ const props = withDefaults(defineProps<{
   /** Room the host page needs at the top (its own bar), so the controls sit below it. */
   topOffset?: string
   bottomOffset?: string
-}>(), { embed: false, shareUrl: undefined, topOffset: '16px', bottomOffset: '16px' })
+  /** The car's name, shown top-left on wide screens. The listing page has its own title: leave empty. */
+  title?: string
+}>(), { embed: false, shareUrl: undefined, topOffset: '16px', bottomOffset: '16px', title: '' })
 
 const emit = defineEmits<{ (e: 'item-change', item: CarTourItem): void }>()
 
@@ -296,6 +301,12 @@ defineExpose({ go, items })
   display: inline-flex; padding: 3px; border-radius: 999px;
   background: rgba(0,0,0,0.62); border: 1px solid rgba(255,255,255,0.14);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.ct__title {
+  position: absolute; z-index: 20; left: 16px; top: var(--ct-top); margin: 0; max-width: calc(50% - 170px);
+  min-height: 40px; display: flex; align-items: center; padding: 0 14px; border-radius: 999px;
+  background: rgba(0,0,0,0.55); font-size: 13.5px; font-weight: 800; pointer-events: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ct__group {
   min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: transparent;
