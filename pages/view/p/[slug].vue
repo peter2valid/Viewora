@@ -989,7 +989,7 @@ useHead({
 .pano--car { cursor: grab; touch-action: pan-y; }
 /* The car tour keeps its zoom buttons on the right edge: the expand button stays bottom-right. */
 /* The open photo strip stops short of the expand button. */
-.pano--car { --ct-ribbon-right: 64px; }
+.pano--car { --ct-ribbon-right: 64px; --vsv-tl-right: 62px; }
 .stage--car .expandbtn, .stage--car.stage--full .expandbtn { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); transform: none; }
 .pano--gallery { cursor: default; touch-action: pan-x; user-select: auto; }
 .pano__scrim {

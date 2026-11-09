@@ -20,19 +20,6 @@
         :top-offset="hasBrandingDetails ? 'var(--embed-car-top)' : '16px'"
       />
 
-      <button
-        v-if="isCarTour && canFullscreen"
-        type="button"
-        class="embed-fs"
-        :aria-label="isFullscreen ? 'Exit full screen' : 'Full screen'"
-        @click="toggleFullscreen"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path v-if="!isFullscreen" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
-          <path v-else d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>
-        </svg>
-      </button>
-
       <!-- PSV Viewer — Photo Sphere Viewer integration via ViewerPsvViewer -->
       <div v-else-if="tour.scenes?.length" class="relative h-full w-full">
         <ViewerPsvViewer
@@ -59,6 +46,21 @@
           <a :href="`/p/${space.slug}`" target="_blank" class="embed-link">View Full Tour</a>
         </div>
       </div>
+
+      <!-- Car tours: the embed's own full-screen button. Kept outside the v-if / v-else-if chain above,
+           which must stay CarTour → 360 viewer → photo fallback with nothing in between. -->
+      <button
+        v-if="isCarTour && canFullscreen"
+        type="button"
+        class="embed-fs"
+        :aria-label="isFullscreen ? 'Exit full screen' : 'Full screen'"
+        @click="toggleFullscreen"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path v-if="!isFullscreen" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+          <path v-else d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>
+        </svg>
+      </button>
 
       <!-- Owner's brand card, same rules as the full tour page (pages/p/[slug].vue):
            logo / name / contact top-left whenever the owner set any branding. -->
@@ -219,7 +221,7 @@ useHead(computed(() => {
    switch, so the tour's top controls move below it. The open photo strip stops short of the watermark. */
 .embed-viewer { --embed-car-top: 16px; }
 @media (max-width: 640px) { .embed-viewer { --embed-car-top: 104px; } }
-.embed-car { position: absolute; inset: 0; --ct-ribbon-right: 84px; }
+.embed-car { position: absolute; inset: 0; --ct-ribbon-right: 84px; --vsv-tl-right: 70px; }
 .embed-fs {
   position: absolute; z-index: 25; right: 16px; bottom: 40px;
   width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;

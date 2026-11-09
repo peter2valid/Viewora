@@ -2,7 +2,7 @@
   <div
     ref="rootEl"
     class="ct"
-    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed }"
+    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen }"
     :style="{ '--ct-top': topOffset, '--ct-bottom': bottomOffset }"
     @keydown.esc="ribbonOpen = false"
   >
@@ -17,6 +17,7 @@
       :start-angle="active.spin!.start_angle"
       :hide-zoom="compact || (narrow && ribbonOpen)"
       :zoom-bottom="zoomBottom"
+      @popover="pinOpen = $event"
     />
     <!-- Mounted the first time the interior is opened, then kept: going back inside is instant. -->
     <div v-if="panoMounted" v-show="active?.kind === 'pano'" class="ct__layer">
@@ -193,6 +194,9 @@ onMounted(() => {
 onBeforeUnmount(() => { ro?.disconnect(); window.removeEventListener('keydown', onKey); if (fadeTimer) clearTimeout(fadeTimer) })
 
 const ribbonOpen = ref(false)
+/** A hotspot popover is open on the spin: on small screens the tour's own buttons step aside. */
+const pinOpen = ref(false)
+watch(() => active.value?.id, () => { pinOpen.value = false })
 const zoomBottom = computed(() => (ribbonOpen.value ? 'calc(var(--ct-bottom) + 190px)' : '50%'))
 const stripEl = ref<HTMLElement | null>(null)
 watch(ribbonOpen, async (open) => {
@@ -288,6 +292,12 @@ defineExpose({ go, items })
   --ct-top: 16px; --ct-bottom: 16px;
 }
 .ct__layer { position: absolute; inset: 0; }
+/* The spin's turn track keeps clear of the strip button (bottom-left) and the host's expand button
+   (bottom-right). On phones those sit above the track, so it gets the full width, and the first-use
+   hints go above them. */
+.ct { --vsv-tl-side: 196px; }
+.ct.is-pin-open:is(.is-narrow, .is-compact) :is(.ct__ribbon-btn, .ct__step, .ct__spins, .ct__groups) { visibility: hidden; }
+.ct.is-narrow { --vsv-tl-side: 14px; --vsv-hints-bottom: calc(var(--ct-bottom) + 136px); }
 .ct__psv { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ct__empty { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,0.6); font-size: 14px; }
 .ct__fade {
