@@ -9,8 +9,31 @@
     </div>
 
     <template v-else-if="tour && space">
+      <!-- A car: exterior spins, interior 360s and detail photos as one tour, same as /view/p. -->
+      <CarTour
+        v-if="isCarTour"
+        class="embed-car"
+        :tour="tour"
+        embed
+        :share-url="shareUrl"
+        :top-offset="hasBrandingDetails ? 'var(--embed-car-top)' : '16px'"
+      />
+
+      <button
+        v-if="isCarTour && canFullscreen"
+        type="button"
+        class="embed-fs"
+        :aria-label="isFullscreen ? 'Exit full screen' : 'Full screen'"
+        @click="toggleFullscreen"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path v-if="!isFullscreen" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+          <path v-else d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>
+        </svg>
+      </button>
+
       <!-- PSV Viewer — Photo Sphere Viewer integration via ViewerPsvViewer -->
-      <div v-if="tour.scenes?.length" class="relative h-full w-full">
+      <div v-else-if="tour.scenes?.length" class="relative h-full w-full">
         <ViewerPsvViewer
           :tour="tour"
           :share-url="shareUrl"
@@ -67,8 +90,10 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useHead, useSeoMeta } from '#imports'
+import CarTour from '~/features/viewer/car/CarTour.vue'
+import { buildCarTourItems } from '~/shared/utils/carTour'
 
 const { apiFetch } = useApiFetch()
 const runtimeConfig = useRuntimeConfig()
@@ -90,6 +115,8 @@ const fetchError = computed(() => {
 const tour = computed(() => _payload.value?.tour || _payload.value || null)
 const chromeHidden = ref(false)
 const space = computed(() => tour.value?.space ?? null)
+// A car with anything to show (a spin, an interior 360 or a detail photo) embeds as the car tour.
+const isCarTour = computed(() => space.value?.space_type === 'automotive' && buildCarTourItems(tour.value).length > 0)
 // Same test as the full tour page: only real visual branding replaces the watermark.
 const hasBrandingDetails = computed(() => {
   const sp = space.value
@@ -97,6 +124,20 @@ const hasBrandingDetails = computed(() => {
 })
 // Same value on server and client (no window.location) so SSR hydration can't leave a relative link.
 const shareUrl = computed(() => `${String(runtimeConfig.public.appUrl || 'https://app.viewora.software').replace(/\/+$/, '')}/p/${space.value?.slug || space.value?.id || slug}`)
+
+// Car tours have no 360 viewer chrome of their own, so the embed carries the full-screen button.
+const canFullscreen = ref(false)
+const isFullscreen = ref(false)
+function onFsChange() { isFullscreen.value = !!document.fullscreenElement }
+onMounted(() => {
+  canFullscreen.value = !!document.fullscreenEnabled
+  document.addEventListener('fullscreenchange', onFsChange)
+})
+onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFsChange))
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+  else (document.querySelector('[data-fullscreen-root]') as HTMLElement | null)?.requestFullscreen?.().catch(() => {})
+}
 
 const watermarkUrl = computed(() => {
   const base = runtimeConfig.public.marketingUrl || 'https://viewora.software'
@@ -172,6 +213,18 @@ useHead(computed(() => {
   position: relative;
   font-family: sans-serif;
 }
+
+/* Car tour: on narrow embeds the brand card (top-left) would cover the Exterior/Interior/Details
+   switch, so the tour's top controls move below it. The open photo strip stops short of the watermark. */
+.embed-viewer { --embed-car-top: 16px; }
+@media (max-width: 640px) { .embed-viewer { --embed-car-top: 104px; } }
+.embed-car { position: absolute; inset: 0; --ct-ribbon-right: 84px; }
+.embed-fs {
+  position: absolute; z-index: 25; right: 16px; bottom: 40px;
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.18);
+}
+.embed-fs:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .embed-center {
   display: flex;
