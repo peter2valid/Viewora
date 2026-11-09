@@ -71,9 +71,20 @@
               :class="{ 'glass-dock__section--branch': sec.label !== null }"
             >
             <div v-if="sec.label !== null" class="glass-dock__branch">
-              <span class="glass-dock__branchLabel" :title="sec.label">
+              <component
+                :is="combinable && sec.key !== '__none' ? 'button' : 'span'"
+                class="glass-dock__branchLabel"
+                :class="{
+                  'glass-dock__branchLabel--drop': dropTarget?.kind === 'group' && dropTarget.key === sec.key,
+                  'glass-dock__branchLabel--btn': combinable && sec.key !== '__none',
+                }"
+                :type="combinable && sec.key !== '__none' ? 'button' : undefined"
+                :data-dock-group="sec.key"
+                :title="combinable && sec.key !== '__none' ? `${sec.label} — click to rename` : sec.label"
+                @click="combinable && sec.key !== '__none' && emit('rename-group', sec.key)"
+              >
                 <span class="glass-dock__branchName">{{ sec.label }}</span><span class="glass-dock__branchCount">{{ sec.items.length }}</span>
-              </span>
+              </component>
             </div>
             <div class="glass-dock__sectionItems" data-dock-section>
             <button
@@ -86,6 +97,7 @@
                 item.badge === 'warn' ? 'glass-dock__item--warn' : '',
                 item.kind === 'group' ? 'glass-dock__item--group' : '',
                 item.kind === 'back' ? 'glass-dock__item--back' : '',
+                dropTarget?.kind === 'item' && dropTarget.key === item.id ? 'glass-dock__item--drop' : '',
               ]"
               :aria-current="item.id === activeId ? 'true' : 'false'"
               :aria-label="item.tooltip ? `${item.label} — ${item.tooltip}` : item.label"
@@ -142,6 +154,12 @@
               <span class="glass-dock__label" :title="item.label">
                 {{ item.label }}
               </span>
+
+              <span
+                v-if="dropTarget?.kind === 'item' && dropTarget.key === item.id"
+                class="glass-dock__dropHint"
+                aria-hidden="true"
+              >{{ item.group ? `Add to ${item.group}` : 'New category' }}</span>
 
               <span
                 v-if="item.badge"
@@ -271,6 +289,12 @@ const props = withDefaults(defineProps<{
   collapsedLabel?: string
   /** Group cards under their category name (the editor dock). */
   branches?: boolean
+  /**
+   * Drag a card onto the middle of another card (or onto a category name) to
+   * put them in one category. Dropping near a card's left or right edge still
+   * reorders, as before.
+   */
+  combinable?: boolean
 }>(), {
   activeId: '',
   showAdd: false,
@@ -288,6 +312,7 @@ const props = withDefaults(defineProps<{
   showControls: true,
   collapsedLabel: '',
   branches: false,
+  combinable: false,
 })
 
 const emit = defineEmits<{
@@ -296,6 +321,9 @@ const emit = defineEmits<{
   (e: 'reorder', ids: string[]): void
   (e: 'context', id: string): void
   (e: 'update:collapsed', value: boolean): void
+  /** Card `dragId` dropped onto card `targetId`, or onto category `group` (null = "No category"). */
+  (e: 'combine', payload: { dragId: string; targetId?: string; group?: string | null }): void
+  (e: 'rename-group', group: string): void
 }>()
 
 const visible = ref(false)
@@ -478,6 +506,95 @@ function destroySortables() {
   sortableInstances = []
 }
 
+// ── Drop into a category (combinable) ────────────────────────────────────
+// Reorder and combine never compete for the same spot on a card:
+//  • Sortable only reorders when the pointer is in the outer quarter of a card
+//    on either side (invertSwap), so the card slides out of the way there.
+//  • Resting the pointer on the middle half of a card for COMBINE_DWELL_MS
+//    (or anywhere on a card of another category, or on a category name) arms
+//    "drop into": the card lights up and says what will happen.
+// Releasing while armed puts the card back where it started and emits
+// `combine`; otherwise it is an ordinary reorder.
+const COMBINE_DWELL_MS = 280
+type DropTarget = { kind: 'item' | 'group'; key: string }
+const dropTarget = ref<DropTarget | null>(null)
+let dragId: string | null = null
+let dragGroupKey: string | null = null
+let pending: { t: DropTarget; timer: ReturnType<typeof setTimeout> } | null = null
+
+function groupKeyOf(id: string): string {
+  const it = props.items.find(i => i.id === id)
+  return it?.group || '__none'
+}
+
+function hitTarget(x: number, y: number): DropTarget | null {
+  const strip = stripEl.value
+  if (!strip || !dragId) return null
+  const sr = strip.getBoundingClientRect()
+  if (x < sr.left || x > sr.right || y < sr.top - 40 || y > sr.bottom) return null
+  for (const el of strip.querySelectorAll<HTMLElement>('[data-dock-group]')) {
+    const r = el.getBoundingClientRect()
+    if (x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 6 && y <= r.bottom + 6) {
+      const key = el.dataset.dockGroup!
+      return key === dragGroupKey ? null : { kind: 'group', key }
+    }
+  }
+  for (const el of strip.querySelectorAll<HTMLElement>('[data-dock-id]')) {
+    const id = el.dataset.dockId!
+    if (id === dragId || el.classList.contains('sortable-fallback')) continue
+    const r = el.getBoundingClientRect()
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue
+    const sameSection = groupKeyOf(id) === dragGroupKey
+    // Same category: the whole card can't take it (they're already together)
+    // unless the tour has no categories yet, where the middle starts one.
+    if (sameSection && dragGroupKey !== '__none') return null
+    if (sameSection) {
+      const inner = r.width * 0.25
+      if (x < r.left + inner || x > r.right - inner) return null
+    }
+    return { kind: 'item', key: id }
+  }
+  return null
+}
+
+// While a drop is armed the dragged card (on <body>) shrinks so the target and
+// its "New category" / "Add to …" label show through.
+watch(dropTarget, (t) => { if (typeof document !== 'undefined') document.body.classList.toggle('glass-dock-combining', !!t) })
+
+function clearPending() {
+  if (pending) clearTimeout(pending.timer)
+  pending = null
+}
+
+function onDragPointer(e: Event) {
+  const p = (e as TouchEvent).touches?.[0] ?? (e as PointerEvent)
+  if (p?.clientX === undefined) return
+  const t = hitTarget(p.clientX, p.clientY)
+  const same = (a: DropTarget | null, b: DropTarget | null) => !!a && !!b && a.kind === b.kind && a.key === b.key
+  if (!t) { clearPending(); dropTarget.value = null; return }
+  if (same(t, dropTarget.value) || same(t, pending?.t ?? null)) return
+  clearPending()
+  dropTarget.value = null
+  pending = { t, timer: setTimeout(() => { dropTarget.value = t; pending = null }, COMBINE_DWELL_MS) }
+}
+
+const POINTER_EVENTS = ['pointermove', 'mousemove', 'touchmove'] as const
+function startCombineTracking(id: string) {
+  dragId = id
+  dragGroupKey = groupKeyOf(id)
+  for (const ev of POINTER_EVENTS) document.addEventListener(ev, onDragPointer, { capture: true, passive: true })
+}
+function stopCombineTracking() {
+  for (const ev of POINTER_EVENTS) document.removeEventListener(ev, onDragPointer, { capture: true } as any)
+  clearPending()
+  const t = dropTarget.value
+  dropTarget.value = null
+  const id = dragId
+  dragId = null
+  dragGroupKey = null
+  return t && id ? { t, id } : null
+}
+
 function initSortables() {
   destroySortables()
   const strip = stripEl.value
@@ -486,7 +603,37 @@ function initSortables() {
     sortableInstances.push(Sortable.create(el, {
       animation: 150,
       draggable: '.glass-dock__item',
+      ...(props.combinable
+        ? {
+            // Pointer-driven drag everywhere (not native HTML5 DnD), so the
+            // pointer can be tracked for "drop into" on desktop and touch alike.
+            forceFallback: true,
+            fallbackOnBody: true,
+            fallbackTolerance: 4,
+            fallbackClass: 'glass-dock__item--ghost',
+            ghostClass: 'glass-dock__item--placeholder',
+            invertSwap: true,
+            invertedSwapThreshold: 0.5,
+            onStart: (evt: { item: HTMLElement }) => {
+              const id = evt.item.getAttribute('data-dock-id')
+              if (id) startCombineTracking(id)
+            },
+          }
+        : {}),
       onEnd: (evt) => {
+        const combined = props.combinable ? stopCombineTracking() : null
+        if (combined) {
+          // Undo any slide Sortable made on the way, then hand over to the parent.
+          if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
+            const from = evt.from
+            from.removeChild(evt.item)
+            from.insertBefore(evt.item, from.children[evt.oldIndex] ?? null)
+          }
+          const { t, id } = combined
+          if (t.kind === 'item') emit('combine', { dragId: id, targetId: t.key })
+          else emit('combine', { dragId: id, group: t.key === '__none' ? null : t.key })
+          return
+        }
         if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
 
         // Using the actual DOM order ensures we don't desync if items are added/removed.
@@ -506,6 +653,7 @@ const sectionKeys = computed(() => sections.value.map(s => s.key).join('|'))
 watch([stripEl, sectionKeys], () => nextTick(initSortables))
 
 onBeforeUnmount(() => {
+  if (dragId) stopCombineTracking()
   destroySortables()
   if (stripEl.value) {
     stripEl.value.removeEventListener('touchstart', onStripTouchStart)
@@ -993,6 +1141,51 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
 }
 
 .glass-dock__item--dragging { opacity: 0.35; cursor: grabbing; }
+
+/* ── Drop into a category (combinable) ── */
+.glass-dock__item--placeholder { opacity: 0.3; }
+.glass-dock__item--ghost {
+  opacity: 0.92 !important;
+  background: rgba(15, 18, 28, 0.85);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+  cursor: grabbing;
+}
+.glass-dock__item--ghost { transition: scale 140ms ease, opacity 140ms ease; }
+:global(body.glass-dock-combining .glass-dock__item--ghost) { scale: 0.55; opacity: 0.6 !important; }
+@media (prefers-reduced-motion: reduce) { .glass-dock__item--ghost { transition: none; } }
+.glass-dock__item--drop {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(96, 165, 250, 0.9);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.55), 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+.glass-dock__item--drop .glass-dock__thumb { transform: scale(0.92); }
+.glass-dock__dropHint {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  transform: translateX(-50%);
+  z-index: 4;
+  max-width: calc(100% - 8px);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.glass-dock__branchLabel--btn { cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; }
+.glass-dock__branchLabel--btn:hover { border-color: rgba(255, 255, 255, 0.4); }
+.glass-dock__branchLabel--btn:focus-visible { outline: 2px solid rgba(96, 165, 250, 0.9); outline-offset: 2px; }
+.glass-dock__branchLabel--drop {
+  background: #2563eb;
+  border-color: rgba(147, 197, 253, 0.9);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.35);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .glass-dock__item { transition: none; }

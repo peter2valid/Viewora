@@ -14,10 +14,13 @@
     :sigma-px="92"
     :lift-px="14"
     branches
+    combinable
     @select="onSelect"
     @add="$emit('add-scene')"
     @reorder="$emit('reorder-scenes', $event)"
     @context="$emit('rename-scene', $event)"
+    @combine="$emit('combine-scenes', $event)"
+    @rename-group="$emit('rename-group', $event)"
   />
 </template>
 
@@ -39,6 +42,8 @@ const emit = defineEmits<{
   (e: 'add-scene'): void
   (e: 'reorder-scenes', ids: string[]): void
   (e: 'rename-scene', id: string): void
+  (e: 'combine-scenes', payload: { dragId: string; targetId?: string; group?: string | null }): void
+  (e: 'rename-group', group: string): void
 }>()
 
 // Tapping the scene you're already on opens its name/category editor — the

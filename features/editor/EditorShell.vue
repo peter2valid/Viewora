@@ -158,6 +158,8 @@
       @add-scene="handleAddScene"
       @reorder-scenes="handleReorderScenes"
       @rename-scene="handleRenameScene"
+      @combine-scenes="handleCombineScenes"
+      @rename-group="handleRenameGroup"
     />
 
     <!-- Preview Mode Overlays -->
@@ -260,6 +262,36 @@
                 @click="sceneDeleteConfirm = renameCandidate.id"
               >Delete scene</button>
             </template>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- Name a category made by dropping one scene on another, or rename
+           one by clicking its name above the dock. -->
+      <Transition name="fade-smooth">
+        <div v-if="categoryNaming" class="rename-popover" role="dialog" :aria-label="categoryNaming.mode === 'new' ? 'Name the new category' : 'Rename category'">
+          <span class="rename-popover__label">{{ categoryNaming.mode === 'new' ? 'Name the new category' : 'Rename category' }}</span>
+          <input
+            ref="categoryNameInputRef"
+            v-model="categoryNameDraft"
+            class="rename-popover__input"
+            type="text"
+            maxlength="40"
+            placeholder="e.g. Kitchen"
+            @keydown.enter="saveCategoryName"
+            @keydown.exact.escape="cancelCategoryName"
+          />
+          <div v-if="categoryNaming.mode === 'new'" class="rename-popover__chips">
+            <button
+              v-for="c in categoryNameSuggestions" :key="c" type="button"
+              class="rename-popover__chip" :class="{ 'rename-popover__chip--on': categoryNameDraft === c }"
+              @click="categoryNameDraft = c"
+            >{{ c }}</button>
+          </div>
+          <span class="rename-popover__hint">{{ categoryNaming.ids.length }} scene{{ categoryNaming.ids.length === 1 ? '' : 's' }}<template v-if="categoryNaming.mode === 'new'"> · after saving, drop more scenes onto the category's name to add them</template></span>
+          <div class="rename-popover__actions">
+            <button class="rename-popover__save" :disabled="categorySaving || !categoryNameDraft.trim()" @click="saveCategoryName">Save</button>
+            <button class="rename-popover__cancel" :aria-label="categoryNaming.mode === 'new' ? 'Cancel, keep the scenes separate' : 'Cancel'" @click="cancelCategoryName">✕</button>
           </div>
         </div>
       </Transition>
@@ -522,7 +554,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
 import { resolveStartView } from '~/domain/scene'
 import {
-  BACK_ITEM_ID, CATEGORY_SUGGESTIONS, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, scenesInGroup,
+  BACK_ITEM_ID, CATEGORY_SUGGESTIONS, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, normalizeGroup, scenesInGroup,
   type GroupableScene,
 } from '~/shared/utils/sceneGroups'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
@@ -1154,6 +1186,162 @@ async function saveRenameScene() {
   }
 }
 
+// ── Categories from the dock (drag one scene onto another) ──────────────────
+type CategoryNaming = {
+  mode: 'new' | 'rename'
+  ids: string[]
+  /** The name shown while naming (new) or the current name (rename). */
+  from: string
+  /** Categories to restore if a new category is cancelled. */
+  prev: Record<string, string | null>
+  /** New category: the scene dropped on, and the one dragged onto it. */
+  anchorId?: string
+  dragId?: string
+}
+const categoryNaming = ref<CategoryNaming | null>(null)
+const categoryNameDraft = ref('')
+const categoryNameInputRef = ref<HTMLInputElement | null>(null)
+const categorySaving = ref(false)
+const categoryNameSuggestions = computed(() => {
+  const used = new Set(scenes.value.map((s: any) => normalizeGroup(s.group_name)))
+  return CATEGORY_SUGGESTIONS.filter(c => !used.has(c)).slice(0, 8)
+})
+
+watch(categoryNaming, async (val) => {
+  if (!val) return
+  await nextTick()
+  categoryNameInputRef.value?.focus()
+  categoryNameInputRef.value?.select()
+})
+
+function orderedSceneIds(): string[] {
+  return scenes.value.slice()
+    .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0))
+    .map((s) => s.id)
+}
+
+function setLocalGroups(map: Record<string, string | null>) {
+  scenes.value = scenes.value.map((s) => (s.id in map ? { ...s, group_name: map[s.id] } : s))
+}
+
+/** Last scene (in tour order) whose category is `group` ('' = none), skipping `exclude`. */
+function lastSceneOfGroup(group: string, exclude: string): string | null {
+  const byId = new Map(scenes.value.map((s) => [s.id, s]))
+  const ids = orderedSceneIds().filter((id) => id !== exclude && normalizeGroup(byId.get(id)?.group_name) === group)
+  return ids[ids.length - 1] ?? null
+}
+
+/** Tour order with `moveId` placed straight after `afterId`. */
+function orderWithAfter(moveId: string, afterId: string): string[] | null {
+  const ids = orderedSceneIds().filter((id) => id !== moveId)
+  const at = ids.indexOf(afterId)
+  if (at < 0) return null
+  ids.splice(at + 1, 0, moveId)
+  return ids
+}
+
+function uniqueCategoryName(base: string): string {
+  const used = new Set(scenes.value.map((s: any) => normalizeGroup(s.group_name)))
+  if (!used.has(base)) return base
+  let n = 2
+  while (used.has(`${base} ${n}`)) n++
+  return `${base} ${n}`
+}
+
+async function patchCategory(ids: string[], group: string | null): Promise<boolean> {
+  try {
+    await apiFetch(`/spaces/${props.spaceId}/scenes/category`, { method: 'PATCH', body: { scene_ids: ids, group_name: group } })
+    return true
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || 'Could not save the category', 'error')
+    return false
+  }
+}
+
+/**
+ * A scene card was dropped onto another card or onto a category name.
+ *  • onto a loose scene: the two start a new category, named straight away;
+ *  • onto a scene that has a category, or onto a category name: it joins it;
+ *  • onto "No category": it leaves its category.
+ * The moved scene goes to the end of its new category in the tour order.
+ */
+async function handleCombineScenes(p: { dragId: string; targetId?: string; group?: string | null }) {
+  if (categoryNaming.value || categorySaving.value) return
+  if (isLocalSceneId(p.dragId) || (p.targetId && isLocalSceneId(p.targetId))) {
+    showToast('Wait for all scenes to finish uploading before grouping them.', 'error')
+    return
+  }
+  const drag = scenes.value.find((s) => s.id === p.dragId)
+  if (!drag) return
+  let dest: string | null
+  if (p.targetId) {
+    const target = scenes.value.find((s) => s.id === p.targetId)
+    if (!target) return
+    const tg = normalizeGroup(target.group_name)
+    if (!tg) {
+      const name = uniqueCategoryName('New category')
+      const prev = { [p.dragId]: drag.group_name ?? null, [p.targetId]: target.group_name ?? null }
+      renameCandidate.value = null
+      setLocalGroups({ [p.dragId]: name, [p.targetId]: name })
+      categoryNameDraft.value = name
+      categoryNaming.value = { mode: 'new', ids: [p.targetId, p.dragId], from: name, prev, anchorId: p.targetId, dragId: p.dragId }
+      return
+    }
+    dest = tg
+  } else {
+    dest = p.group ? normalizeGroup(p.group) || null : null
+  }
+  if (normalizeGroup(drag.group_name) === (dest ?? '')) return
+  const prevGroup = drag.group_name ?? null
+  const anchor = lastSceneOfGroup(dest ?? '', p.dragId)
+  setLocalGroups({ [p.dragId]: dest })
+  if (!(await patchCategory([p.dragId], dest))) { setLocalGroups({ [p.dragId]: prevGroup }); return }
+  showToast(dest ? `Added to ${dest}` : 'Removed from category')
+  const order = anchor ? orderWithAfter(p.dragId, anchor) : null
+  if (order) handleReorderScenes(order)
+}
+
+function handleRenameGroup(group: string) {
+  if (categorySaving.value) return
+  const g = normalizeGroup(group)
+  const ids = orderedSceneIds().filter((id) => normalizeGroup(scenes.value.find((s) => s.id === id)?.group_name) === g)
+  if (!g || !ids.length) return
+  if (categoryNaming.value) cancelCategoryName()
+  renameCandidate.value = null
+  categoryNameDraft.value = g
+  categoryNaming.value = { mode: 'rename', ids, from: g, prev: {} }
+}
+
+async function saveCategoryName() {
+  const c = categoryNaming.value
+  if (!c || categorySaving.value) return
+  const name = categoryNameDraft.value.trim().slice(0, 40)
+  if (!name) return
+  if (c.mode === 'rename' && name === c.from) { categoryNaming.value = null; return }
+  categorySaving.value = true
+  setLocalGroups(Object.fromEntries(c.ids.map((id) => [id, name])))
+  const ok = await patchCategory(c.ids, name)
+  categorySaving.value = false
+  if (!ok) {
+    // Keep the box open so the name isn't lost; the dock shows what's saved.
+    setLocalGroups(c.mode === 'new' ? c.prev : Object.fromEntries(c.ids.map((id) => [id, c.from])))
+    return
+  }
+  categoryNaming.value = null
+  showToast(c.mode === 'new' ? `Category "${name}" created` : `Renamed to "${name}"`)
+  if (c.mode === 'new' && c.anchorId && c.dragId) {
+    const order = orderWithAfter(c.dragId, c.anchorId)
+    if (order) handleReorderScenes(order)
+  }
+}
+
+function cancelCategoryName() {
+  const c = categoryNaming.value
+  if (!c || categorySaving.value) return
+  if (c.mode === 'new') setLocalGroups(c.prev)
+  categoryNaming.value = null
+}
+
 async function confirmDeleteScene(id: string) {
   if (deletingScene.value) return
   deletingScene.value = true
@@ -1200,6 +1388,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (deleteCandidate.value) { e.preventDefault(); deleteCandidate.value = null; return }
     if (renameCandidate.value) { e.preventDefault(); renameCandidate.value = null; return }
+    if (categoryNaming.value) { e.preventDefault(); cancelCategoryName(); return }
     if (showSettingsPanel.value) { showSettingsPanel.value = false; return }
     if (showShareModal.value) { showShareModal.value = false; return }
     if (inlineEditMode.value) { e.preventDefault(); inlineEditMode.value = false }
@@ -1821,6 +2010,7 @@ defineExpose({
 .rename-popover__input:focus { border-color: rgba(59, 130, 246, 0.5); }
 .rename-popover__input::placeholder { color: rgba(255, 255, 255, 0.2); }
 .rename-popover__actions { display: flex; gap: 8px; }
+.rename-popover__hint { display: block; margin: 8px 0 10px; font-size: 11px; line-height: 1.35; color: rgba(255, 255, 255, 0.5); }
 .rename-popover__save {
   flex: 1;
   height: 30px;
