@@ -308,10 +308,7 @@
 
         <p v-if="gapText" class="vp-gap">{{ gapText }}</p>
 
-        <div class="vp-next">
-          <NuxtLink :to="{ query: { tab: 'tour' } }" class="vp-link">Next: Interior 360° (optional) →</NuxtLink>
-          <NuxtLink :to="{ query: { tab: 'details' } }" class="vp-link">Then: Details &amp; Publish →</NuxtLink>
-        </div>
+        <CarSetupChecklist ref="checklistRef" :space-id="spaceId" current-tab="car" />
       </aside>
     </div>
 
@@ -406,6 +403,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
+import CarSetupChecklist from '~/features/editor/CarSetupChecklist.vue'
 import { useVehicleViews, type AngleSuggestion } from '~/features/vehicle/useVehicleViews'
 import {
   VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS, VEHICLE_MAX_SPINS, SPIN_PRESETS,
@@ -908,6 +906,15 @@ async function makeSpin(file: File) {
     busy.value = false
   }
 }
+
+// The checklist counts frames and spins: re-check it once a change has settled.
+const checklistRef = ref<InstanceType<typeof CarSetupChecklist> | null>(null)
+let checklistTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => `${views.value.length}|${spins.value.length}|${busy.value}`, () => {
+  if (busy.value) return
+  if (checklistTimer) clearTimeout(checklistTimer)
+  checklistTimer = setTimeout(() => checklistRef.value?.refresh(), 400)
+})
 
 // ── Spins ──
 function onSelectSpin(id: string) {

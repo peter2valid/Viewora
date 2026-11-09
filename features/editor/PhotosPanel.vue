@@ -14,9 +14,20 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       </NuxtLink>
       <div class="photos-header__title">
-        <SpacePill :name="space?.title || 'MY TOUR'" mode="Photos" />
-        <p>Regular photos — no 360° camera needed. Buyers see these as a swipeable gallery.</p>
+        <SpacePill :name="space?.title || 'MY TOUR'" :mode="isCar ? 'Detail photos' : 'Photos'" />
+        <p v-if="isCar">Close-ups buyers flick through after the spin: wheels, dashboard, seats, boot, engine. Give each a short name; it shows under the photo in the tour.</p>
+        <p v-else>Regular photos — no 360° camera needed. Buyers see these as a swipeable gallery.</p>
       </div>
+      <button
+        v-if="isCar && photos.length"
+        class="photos-ai-btn"
+        :disabled="naming || !photos.some(p => !captions[p.id])"
+        :title="photos.some(p => !captions[p.id]) ? 'AI looks at each unnamed photo and names it. You can change any name.' : 'Every photo has a name'"
+        @click="nameWithAi"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"/></svg>
+        {{ naming ? 'Naming…' : 'Name with AI' }}
+      </button>
       <button class="photos-add-btn" :disabled="pending || !space" @click="fileInput?.click()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
         Add Photos
@@ -70,6 +81,20 @@
             loading="lazy"
           />
           <span v-if="p.is_primary" class="photo-card__cover-badge">Cover</span>
+          <input
+            v-if="isCar"
+            class="photo-card__caption"
+            :value="captions[p.id] ?? ''"
+            maxlength="40"
+            placeholder="Name, e.g. Wheels"
+            :aria-label="`Name of photo ${i + 1}`"
+            draggable="false"
+            @click.stop
+            @mousedown.stop
+            @dragstart.prevent.stop
+            @keydown.enter="($event.target as HTMLInputElement).blur()"
+            @change="saveCaption(p.id, ($event.target as HTMLInputElement).value)"
+          />
           <span v-if="p.processing_status !== 'complete'" class="photo-card__badge" :class="`photo-card__badge--${p.processing_status}`">
             {{ p.processing_status === 'failed' ? 'Failed' : 'Processing…' }}
           </span>
@@ -134,6 +159,48 @@ const space = ref<any>(null)
 const pending = ref(true)
 const deletingId = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement>()
+
+// A car's detail photos carry short names ("Wheels") that the car tour shows under each thumbnail.
+const isCar = computed(() => (space.value?.space_type ?? space.value?.property_type) === 'automotive')
+const captions = ref<Record<string, string>>({})
+const naming = ref(false)
+
+async function loadCaptions() {
+  if (!isCar.value) return
+  try {
+    const res: any = await apiFetch(`/spaces/${props.spaceId}/car-setup`)
+    const list = (res?.data ?? res)?.detail_photos ?? []
+    captions.value = Object.fromEntries(list.filter((p: any) => p.caption).map((p: any) => [p.id, p.caption]))
+  } catch { /* names are optional; the photos still work */ }
+}
+
+async function saveCaption(id: string, raw: string) {
+  const caption = raw.trim()
+  const before = captions.value[id] ?? ''
+  if (caption === before) return
+  captions.value = { ...captions.value, [id]: caption }
+  try {
+    await apiFetch(`/spaces/${props.spaceId}/photos/${id}/caption`, { method: 'PATCH', body: { caption: caption || null } })
+  } catch (e: any) {
+    captions.value = { ...captions.value, [id]: before }
+    toast.error(e?.data?.statusMessage || 'Could not save the name')
+  }
+}
+
+async function nameWithAi() {
+  naming.value = true
+  try {
+    const res: any = await apiFetch(`/spaces/${props.spaceId}/photos/ai-captions`, { method: 'POST' })
+    const list: Array<{ id: string; caption: string }> = (res?.data ?? res)?.captions ?? []
+    captions.value = { ...captions.value, ...Object.fromEntries(list.map(c => [c.id, c.caption])) }
+    toast.success(list.length ? `Named ${list.length} photo${list.length === 1 ? '' : 's'}. Change any name by typing over it.` : 'Every photo already has a name.')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'AI could not name the photos right now.')
+  } finally {
+    naming.value = false
+  }
+}
+watch(isCar, (car) => { if (car) loadCaptions() })
 
 const photos = computed(() => {
   const media = (space.value?.property_media ?? []) as any[]
@@ -337,6 +404,21 @@ async function onDragEnd() {
   font-size: 12.5px; font-weight: 800; cursor: pointer;
 }
 .photos-add-btn:hover { background: rgba(255,255,255,0.88); }
+.photos-ai-btn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 14px; margin-top: 4px; border-radius: 10px;
+  background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.14);
+  font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.photos-ai-btn:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
+.photos-ai-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.photo-card__caption {
+  position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 3;
+  height: 34px; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 700;
+  background: rgba(0,0,0,0.72); color: #fff; border: 1px solid rgba(255,255,255,0.16);
+}
+.photo-card__caption::placeholder { color: rgba(255,255,255,0.5); font-weight: 500; }
+.photo-card__caption:focus { outline: 2px solid #fff; outline-offset: 1px; background: rgba(0,0,0,0.85); }
 .photos-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Three unrelated-width items (icon button / running-text title / action
@@ -391,7 +473,7 @@ async function onDragEnd() {
 .photo-card--upload-failed .photo-card__status { color: #f87171; }
 .photo-card__status { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.75); margin: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
 .photo-card__badge {
-  position: absolute; left: 6px; bottom: 6px; z-index: 2;
+  position: absolute; left: 6px; top: 38px; z-index: 2;
   font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
   padding: 3px 7px; border-radius: 5px; background: rgba(0,0,0,0.65); color: rgba(255,255,255,0.85);
 }
@@ -410,7 +492,7 @@ async function onDragEnd() {
 .photo-card--clickable { cursor: pointer; }
 .photo-card[draggable="true"] { cursor: grab; }
 .photo-card__cover-badge {
-  position: absolute; left: 6px; bottom: 6px; z-index: 2;
+  position: absolute; left: 6px; top: 6px; z-index: 2;
   font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
   padding: 3px 7px; border-radius: 5px; background: rgba(255,255,255,0.92); color: #0a0a0b;
 }

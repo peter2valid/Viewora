@@ -216,7 +216,8 @@ if (tourError.value) {
 
   // A car with exterior photos: the Exterior / Interior viewer lives on /view/p, so send every car there
   // (its interior 360 is shown there too). Otherwise cars with 360 scenes never get the toggle.
-  if (spaceData?.space_type === 'automotive' && Array.isArray(tourData?.vehicle_views) && tourData.vehicle_views.length > 0) {
+  const carHasSpin = (tourData?.vehicle_spins?.length ?? 0) > 0 || (tourData?.vehicle_views?.length ?? 0) > 0
+  if (spaceData?.space_type === 'automotive' && carHasSpin) {
     await navigateTo(`/view/p/${encodeURIComponent(slug)}`, { redirectCode: 302, replace: true })
   }
 

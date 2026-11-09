@@ -1,30 +1,48 @@
 <template>
   <div>
-    <div class="mode-switch" role="tablist" aria-label="Editor mode">
+    <!-- A car is set up in order: numbered steps that tick off, then one button to the finished tour. -->
+    <div v-if="isCar" class="mode-switch" role="tablist" aria-label="Car tour setup steps">
       <button
-        v-if="isCar"
+        v-for="st in carTabs"
+        :key="st.tab"
         role="tab"
-        :aria-selected="mode === 'car'"
-        class="mode-switch__btn"
-        :class="{ 'mode-switch__btn--active': mode === 'car' }"
-        @click="setMode('car')"
-      >Car Exterior</button>
+        :aria-selected="mode === st.tab"
+        class="mode-switch__btn mode-switch__btn--step"
+        :class="{ 'mode-switch__btn--active': mode === st.tab, 'is-done': st.done }"
+        :title="st.status"
+        @click="setMode(st.tab)"
+      >
+        <span class="mode-switch__n" aria-hidden="true">
+          <svg v-if="st.done" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7"/></svg>
+          <template v-else>{{ st.n }}</template>
+        </span>
+        {{ st.title }}<span class="sr-only">{{ st.done ? ', done' : st.optional ? ', optional' : '' }}</span>
+      </button>
+      <a
+        v-if="carTourUrl"
+        :href="carTourUrl"
+        target="_blank"
+        rel="noopener"
+        class="mode-switch__btn mode-switch__btn--view"
+      >View car tour ↗</a>
+    </div>
+
+    <div v-else class="mode-switch" role="tablist" aria-label="Editor mode">
       <button
         role="tab"
         :aria-selected="mode === 'tour'"
         class="mode-switch__btn"
         :class="{ 'mode-switch__btn--active': mode === 'tour' }"
         @click="setMode('tour')"
-      >{{ isCar ? 'Interior 360°' : '360° Tour' }}</button>
+      >360° Tour</button>
       <button
         role="tab"
         :aria-selected="mode === 'photos'"
         class="mode-switch__btn"
         :class="{ 'mode-switch__btn--active': mode === 'photos' }"
         @click="setMode('photos')"
-      >{{ isCar ? 'Extra Photos' : 'Photos' }}</button>
+      >Photos</button>
       <button
-        v-if="!isCar"
         role="tab"
         :aria-selected="mode === 'aerial'"
         class="mode-switch__btn"
@@ -32,7 +50,6 @@
         @click="setMode('aerial')"
       >Aerial Map</button>
       <button
-        v-if="!isCar"
         role="tab"
         :aria-selected="mode === 'floorplan'"
         class="mode-switch__btn"
@@ -40,7 +57,6 @@
         @click="setMode('floorplan')"
       >Floor Plan</button>
       <button
-        v-if="!isCar"
         role="tab"
         :aria-selected="mode === 'organize'"
         class="mode-switch__btn"
@@ -93,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { definePageMeta, useSeoMeta, useRoute, useRouter } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import EditorShell from '~/features/editor/EditorShell.vue'
@@ -103,6 +119,7 @@ import VehiclePanel from '~/features/editor/VehiclePanel.vue'
 import AerialPanel from '~/features/editor/AerialPanel.vue'
 import FloorPlanPanel from '~/features/editor/FloorPlanPanel.vue'
 import OrganizePanel from '~/features/editor/OrganizePanel.vue'
+import { useCarSetup } from '~/features/vehicle/useCarSetup'
 
 definePageMeta({ layout: 'editor', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
@@ -133,6 +150,22 @@ apiFetch<any>(`/spaces/${spaceId}`)
   .catch(() => {})
 
 const editorShellRef = ref<InstanceType<typeof EditorShell> | null>(null)
+
+// Car listings: what each step has, refreshed whenever the owner moves between steps
+// (each tab saves as it goes, so switching is the natural moment to re-check).
+const carSetup = useCarSetup(spaceId)
+const carTabs = computed(() => {
+  const byTab = new Map(carSetup.steps.value.filter(s => s.key !== 'publish').map(s => [s.tab, s]))
+  const labels: Record<string, string> = { car: 'Exterior', tour: 'Interior 360°', photos: 'Detail photos', details: 'Details & publish' }
+  return (['car', 'tour', 'photos', 'details'] as const).map((tab, i) => {
+    const st = byTab.get(tab)!
+    const publish = carSetup.steps.value.find(s => s.key === 'publish')
+    const done = tab === 'details' ? !!(st?.done && publish?.done) : !!st?.done
+    return { tab, n: i + 1, title: labels[tab], done, optional: !!st?.optional, status: st?.status ?? '' }
+  })
+})
+const carTourUrl = computed(() => carSetup.tourUrl.value)
+watch([isCar, mode], ([car]) => { if (car) carSetup.refresh() })
 
 function setMode(next: Mode) {
   // The Details form (title, etc.) and EditorShell's own space/title state
@@ -180,12 +213,25 @@ watch(() => route.query.tab, (t) => {
   transition: background 140ms, color 140ms;
 }
 .mode-switch__btn:hover { color: rgba(255,255,255,0.75); }
+.mode-switch__btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .mode-switch__btn--active { background: rgba(255,255,255,0.12); color: #fff; }
+.mode-switch__btn--step { display: inline-flex; align-items: center; gap: 6px; }
+.mode-switch__n {
+  width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; flex: none;
+  font-size: 10px; font-weight: 800; border: 1.5px solid currentColor;
+}
+.mode-switch__btn.is-done .mode-switch__n { background: #3ccf7a; border-color: #3ccf7a; color: #06210f; }
+.mode-switch__btn--view {
+  display: inline-flex; align-items: center; text-decoration: none;
+  background: #fff; color: #0e0e10; margin-left: 4px;
+}
+.mode-switch__btn--view:hover { background: #e6e6e8; color: #0e0e10; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .mode-pane { width: 100%; height: 100%; }
 
 @media (max-width: 640px) {
-  .mode-switch { top: 58px; max-width: calc(100vw - 24px); }
+  .mode-switch { top: 58px; max-width: calc(100vw - 24px); overflow-x: auto; scrollbar-width: none; }
   .mode-switch__btn { padding: 0 10px; font-size: 11px; }
 }
 /* Six tabs on the smallest phones: tighten, and scroll rather than clip. */

@@ -35,12 +35,15 @@
     </div>
 
     <template v-else-if="space">
-      <div class="stage" :class="{ 'stage--full': fullscreen }">
+      <div class="stage" :class="{ 'stage--full': fullscreen, 'stage--car': isCarTour }">
         <div ref="viewerPaneEl" class="viewer-pane" :class="{ 'is-resizing': isResizing }" :style="viewerPaneStyle">
-          <VehicleSpinViewer
-            v-if="showExterior"
+          <!-- A car: spins, interior 360s and detail photos as one tour (features/viewer/car/CarTour.vue). -->
+          <CarTour
+            v-if="isCarTour"
             class="pano pano--car"
-            :views="vehicleViews"
+            :tour="tourData"
+            top-offset="64px"
+            @item-change="carItem = $event"
           />
           <ViewerPsvViewer
             v-else-if="isPanorama"
@@ -60,18 +63,6 @@
             @tap="openGallery"
           />
           <div class="pano__scrim" />
-
-          <!-- Exterior (drag-to-rotate photos) / Interior (360° or photos) for a single car. -->
-          <div v-if="hasExterior && (isPanorama || photos.length)" class="carmode" role="tablist" aria-label="Car view">
-            <button type="button" role="tab" class="carmode__btn" :class="{ 'is-active': carMode === 'exterior' }" :aria-selected="carMode === 'exterior'" @click="carMode = 'exterior'">Exterior</button>
-            <button type="button" role="tab" class="carmode__btn" :class="{ 'is-active': carMode === 'interior' }" :aria-selected="carMode === 'interior'" @click="carMode = 'interior'">Interior</button>
-          </div>
-
-          <!-- Walk in / walk out, same as the toggle but where the eye already is. -->
-          <button v-if="hasExterior && (isPanorama || photos.length)" type="button" class="stepbtn" @click="carMode = showExterior ? 'interior' : 'exterior'">
-            <template v-if="showExterior">Step inside <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></template>
-            <template v-else><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg> Back outside</template>
-          </button>
 
           <div class="topbar">
             <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
@@ -109,7 +100,7 @@
                opening it hides the in-panorama walk-through arrows via
                hide-nav-arrows above, so the two don't overlap. -->
           <UiGlassDock
-            v-if="heroItems.length > 1 && fullscreen && !showExterior"
+            v-if="heroItems.length > 1 && fullscreen && !isCarTour"
             v-model:collapsed="dockCollapsed"
             :items="dockItems"
             :active-id="activeDockId"
@@ -288,7 +279,8 @@ definePageMeta({ layout: false })
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'vue'
 import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtApp, createError, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
-import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
+import CarTour from '~/features/viewer/car/CarTour.vue'
+import { spinsFromTour, type CarTourItem } from '~/shared/utils/carTour'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatAcres, formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
 import { buildListingJsonLd } from '~/utils/listingJsonLd'
@@ -314,11 +306,10 @@ const photos = ref<Array<{ id: string; name: string; thumbnail_url: string }>>([
 // (same shape it already consumes on pages/p/[slug].vue) when the listing
 // has real 360 scenes.
 const tourData = ref<any>(null)
-// Single-car exterior: normal photos taken around the car (drag to rotate).
-const vehicleViews = ref<any[]>([])
-const hasExterior = computed(() => space.value?.space_type === 'automotive' && vehicleViews.value.length > 0)
-const carMode = ref<'exterior' | 'interior'>('exterior')
-const showExterior = computed(() => hasExterior.value && (carMode.value === 'exterior' || (!isPanorama.value && !photos.value.length)))
+// A single car: its spins, interior 360s and detail photos play as one tour (CarTour).
+const carSpins = computed(() => (space.value?.space_type === 'automotive' ? spinsFromTour(tourData.value) : []))
+const isCarTour = computed(() => space.value?.space_type === 'automotive' && (carSpins.value.length > 0 || rooms.value.length > 0 || photos.value.length > 0))
+const carItem = ref<CarTourItem | null>(null)
 const seller = ref<{ id: string; full_name: string | null; avatar_url: string | null; company_name: string | null } | null>(null)
 
 const { data: tourPayload, error: tourError } = await useAsyncData(
@@ -348,8 +339,8 @@ if (tourError.value) {
   photos.value = (tour?.gallery ?? [])
     .map((g: any, i: number) => ({ id: g.id, name: `Photo ${i + 1}`, thumbnail_url: g.url }))
   seller.value = tour?.seller ?? null
-  vehicleViews.value = tour?.space?.space_type === 'automotive' ? (tour?.vehicle_views ?? []) : []
-  state.value = (rooms.value.length > 0 || photos.value.length > 0 || vehicleViews.value.length > 0) ? 'ready' : 'empty'
+  const hasSpins = tour?.space?.space_type === 'automotive' && spinsFromTour(tour).length > 0
+  state.value = (rooms.value.length > 0 || photos.value.length > 0 || hasSpins) ? 'ready' : 'empty'
 }
 pending.value = false
 
@@ -364,7 +355,7 @@ const heroImage = computed(() => (isPanorama.value ? null : heroItems.value[acti
 // Unlike heroImage (null for panoramas, since that mode renders its own
 // canvas rather than a background image), SEO/JSON-LD always wants a real
 // image regardless of viewer mode.
-const seoImage = computed(() => vehicleViews.value[0]?.image_url || heroImage.value || rooms.value[0]?.thumbnail_url || photos.value[0]?.thumbnail_url || null)
+const seoImage = computed(() => carSpins.value[0]?.views[0]?.image_url || heroImage.value || rooms.value[0]?.thumbnail_url || photos.value[0]?.thumbnail_url || null)
 
 const psvViewerRef = ref<any>(null)
 
@@ -493,7 +484,10 @@ function onViewerSceneChanged(sceneId: string) {
 // editor (features/editor/EditorShell.vue + PhotosPanel.vue).
 const ownerEditHref = computed(() => {
   if (!space.value?.id) return '/app/spaces'
-  if (hasExterior.value && carMode.value === 'exterior') return `/app/spaces/${space.value.id}?tab=car`
+  if (isCarTour.value) {
+    const g = carItem.value?.group
+    return `/app/spaces/${space.value.id}?tab=${g === 'interior' ? 'tour' : g === 'details' ? 'photos' : 'car'}`
+  }
   return isPanorama.value ? `/app/spaces/${space.value.id}` : `/app/spaces/${space.value.id}?tab=photos`
 })
 
@@ -987,26 +981,10 @@ useHead({
    touch-action for the old JS drag-pan) would block that horizontal
    gesture on touch devices. */
 .pano--car { cursor: grab; touch-action: pan-y; }
-.carmode {
-  position: absolute; z-index: 21; left: 50%; transform: translateX(-50%); top: 64px;
-  display: inline-flex; padding: 3px; border-radius: 999px;
-  background: rgba(0,0,0,0.62); border: 1px solid rgba(255,255,255,0.14);
-}
-.carmode__btn {
-  min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent;
-  color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 700; cursor: pointer;
-  transition: background 120ms, color 120ms;
-}
-.carmode__btn.is-active { background: #fff; color: #0b0b0c; }
-.stepbtn {
-  position: absolute; z-index: 21; right: 16px; top: 64px;
-  display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 16px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.66); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
-}
-.stepbtn:active { background: rgba(0,0,0,0.85); }
-.stepbtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.carmode__btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .carmode__btn { transition: none; } }
+/* The car tour keeps its zoom buttons on the right edge: the expand button stays bottom-right. */
+/* The open photo strip stops short of the expand button. */
+.pano--car { --ct-ribbon-right: 64px; }
+.stage--car .expandbtn, .stage--car.stage--full .expandbtn { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); transform: none; }
 .pano--gallery { cursor: default; touch-action: pan-x; user-select: auto; }
 .pano__scrim {
   position: absolute; inset: 0;
