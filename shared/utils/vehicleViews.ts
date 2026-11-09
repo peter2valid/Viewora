@@ -11,8 +11,26 @@ export interface VehicleView {
   height?: number | null
   order_index?: number
   media_id?: string | null
+  /** The spin (walk around the car) this photo belongs to. */
+  spin_id?: string | null
   hotspots?: VehicleHotspot[]
 }
+
+/** One walk around the car: "Exterior", "Roof down", "Doors open"... */
+export interface VehicleSpin {
+  id: string
+  title: string
+  /** Degrees around the car of the frame buyers see first. */
+  start_angle: number
+  order_index?: number
+}
+
+/** A spin with its photos, as the public tour payload sends it. */
+export interface VehicleSpinSet extends VehicleSpin { views: VehicleView[] }
+
+export const VEHICLE_MAX_SPINS = 6
+/** One-tap names for a car's extra spins. */
+export const SPIN_PRESETS = ['Roof down', 'Doors open', 'Bonnet open', 'Lights on', 'Night', 'Close-up']
 
 export interface VehicleSlot {
   key: string

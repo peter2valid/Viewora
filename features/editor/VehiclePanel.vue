@@ -15,8 +15,8 @@
           <h1 class="vp-h1">Car exterior</h1>
           <p class="vp-sub vp-num">
             <template v-if="!loaded">Loading photos…</template>
-            <template v-else-if="isSpin">Smooth spin · {{ views.length }} frames · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
-            <template v-else>{{ views.length }} photo{{ views.length === 1 ? '' : 's' }} · {{ filledSlots }} of {{ VEHICLE_SLOTS.length }} main angles · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
+            <template v-else-if="isSpin">{{ activeSpin?.title || 'Exterior' }} · smooth spin · {{ views.length }} frames · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
+            <template v-else>{{ spins.length > 1 ? `${activeSpin?.title || 'Exterior'} · ` : '' }}{{ views.length }} photo{{ views.length === 1 ? '' : 's' }} · {{ filledSlots }} of {{ VEHICLE_SLOTS.length }} main angles · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
           </p>
         </div>
       </div>
@@ -60,13 +60,50 @@
     <div class="vp-main">
       <!-- Canvas -->
       <section class="vp-stage" aria-label="Photo canvas">
+        <!-- Spins: one walk around the car each (roof up, roof down...). Buyers flick between them. -->
+        <div v-if="loaded" class="vp-spins" role="tablist" aria-label="Spins of this car">
+          <button
+            v-for="sp in spins"
+            :key="sp.id"
+            type="button"
+            role="tab"
+            class="vp-spinchip"
+            :class="{ 'is-on': sp.id === activeSpinId }"
+            :aria-selected="sp.id === activeSpinId"
+            :disabled="busy && sp.id !== activeSpinId"
+            @click="onSelectSpin(sp.id)"
+          >
+            {{ sp.title }} <span class="vp-spinchip__n vp-num">{{ frameCounts[sp.id] || 0 }}</span>
+          </button>
+          <button
+            type="button"
+            class="vp-spinchip vp-spinchip--add"
+            :disabled="busy || preview || !spinsReady || spins.length >= VEHICLE_MAX_SPINS"
+            :title="!spinsReady ? 'Needs a one-off database update (migration-vehicle-spins.sql)' : spins.length >= VEHICLE_MAX_SPINS ? `Up to ${VEHICLE_MAX_SPINS} spins` : 'Another walk around the car: roof down, doors open...'"
+            @click="openAddSpin"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Add a spin
+          </button>
+        </div>
+
         <div class="vp-canvas">
           <template v-if="!loaded && !setupError">
             <div class="vp-skeleton" aria-busy="true" aria-label="Loading photos"><span class="vp-spin" /></div>
           </template>
 
           <template v-else-if="!views.length">
-            <div class="vp-empty">
+            <div v-if="spins.length > 1 && activeSpinId !== spins[0]?.id" class="vp-empty">
+              <p class="vp-empty__title">{{ activeSpin?.title }}: walk around the car once more</p>
+              <p class="vp-empty__text">
+                Set the car up the way this spin shows it ({{ (activeSpin?.title || '').toLowerCase() }}), start at the front, and record one slow walk around it, same as the first spin.
+              </p>
+              <div class="vp-row">
+                <button class="vp-btn vp-btn--primary" :disabled="busy" @click="openSpinModal">Smooth spin from video</button>
+                <button class="vp-btn" :disabled="busy" @click="manyInput?.click()">Add photos instead</button>
+              </div>
+            </div>
+            <div v-else class="vp-empty">
               <p class="vp-empty__title">Start with the front of the car</p>
               <p class="vp-empty__text">
                 Normal photos are enough. Walk around the car and take each angle from the same distance, then add them all at once, in this order:
@@ -90,6 +127,7 @@
             :views="views"
             :index="viewerIndex"
             :fit="preview ? 'auto' : 'contain'"
+            :start-angle="activeSpin?.start_angle ?? 0"
             :editable="!preview"
             :placing="placing && !preview"
             :hide-bar="!preview"
@@ -147,6 +185,32 @@
 
       <!-- Side panel -->
       <aside v-if="!preview" class="vp-side" aria-label="Selected photo">
+        <section v-if="activeSpin && spinsReady" class="vp-sec" aria-label="This spin">
+          <div class="vp-sec__head">
+            <h2 class="vp-h2">This spin</h2>
+            <span class="vp-muted vp-num">{{ spins.findIndex(x => x.id === activeSpinId) + 1 }} of {{ spins.length }}</span>
+          </div>
+          <label class="vp-label" for="vp-spin-title">Name buyers see</label>
+          <input
+            id="vp-spin-title"
+            class="vp-input"
+            maxlength="40"
+            :value="activeSpin.title"
+            @keydown.enter="($event.target as HTMLInputElement).blur()"
+            @change="renameSpin(($event.target as HTMLInputElement).value)"
+          />
+          <div class="vp-row">
+            <button
+              class="vp-btn"
+              :disabled="!current || busy || current.angle === activeSpin.start_angle"
+              @click="setStartFrame"
+            >{{ current && current.angle === activeSpin.start_angle ? 'Buyers start on this frame' : 'Start on this frame' }}</button>
+            <button v-if="spins.length > 1" class="vp-btn vp-btn--danger" :disabled="busy" @click="confirmRemoveSpin">
+              {{ removeSpinArmed ? 'Tap again to delete' : 'Delete spin' }}
+            </button>
+          </div>
+        </section>
+
         <template v-if="current">
           <section class="vp-sec">
             <h2 class="vp-h2">{{ viewLabel(current) }}</h2>
@@ -254,7 +318,7 @@
     <!-- Smooth spin from a video -->
     <div v-if="spinOpen" class="vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-spin-title" @keydown.esc="closeSpinModal">
       <div class="vp-modal__box">
-        <h2 id="vp-spin-title" class="vp-h2">Smooth spin from a video</h2>
+        <h2 id="vp-spin-title" class="vp-h2">Smooth spin from a video<template v-if="spins.length > 1">: {{ activeSpin?.title }}</template></h2>
 
         <template v-if="!spinRun">
           <ol class="vp-steps">
@@ -295,6 +359,23 @@
       </div>
     </div>
 
+    <!-- Add a spin -->
+    <div v-if="addSpinOpen" class="vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-addspin-title" @keydown.esc="addSpinOpen = false">
+      <div class="vp-modal__box">
+        <h2 id="vp-addspin-title" class="vp-h2">Add a spin</h2>
+        <p class="vp-muted">Another walk around the same car, set up differently. Buyers switch between spins in the tour.</p>
+        <div class="vp-presets">
+          <button v-for="pr in spinPresets" :key="pr" type="button" class="vp-spinchip" :class="{ 'is-on': newSpinTitle === pr }" @click="newSpinTitle = pr">{{ pr }}</button>
+        </div>
+        <label class="vp-label" for="vp-newspin">Name</label>
+        <input id="vp-newspin" v-model="newSpinTitle" class="vp-input" maxlength="40" placeholder="e.g. Roof down" @keydown.enter="createSpin" />
+        <div class="vp-row">
+          <button class="vp-btn vp-btn--primary" :disabled="busy || !newSpinTitle.trim()" @click="createSpin">Add spin, then record it</button>
+          <button class="vp-btn" @click="addSpinOpen = false">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <!-- AI sort review -->
     <div v-if="sortReview" class="vp-modal" role="dialog" aria-modal="true" aria-label="Review AI sort" @keydown.esc="sortReview = null">
       <div class="vp-modal__box">
@@ -327,7 +408,7 @@ import { toast } from 'vue-sonner'
 import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
 import { useVehicleViews, type AngleSuggestion } from '~/features/vehicle/useVehicleViews'
 import {
-  VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS,
+  VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS, VEHICLE_MAX_SPINS, SPIN_PRESETS,
   viewLabel, nearestSlot, hotspotKindLabel, slotGaps, swapAngles, isSpinSet, spinAngles,
   type VehicleView, type VehicleSlot, type VehicleHotspotKind,
 } from '~/shared/utils/vehicleViews'
@@ -338,6 +419,7 @@ const props = defineProps<{ spaceId: string }>()
 const {
   views, loaded, load, addView, removeView, replaceView, applyAngles,
   createHotspot, updateHotspot, deleteHotspot, aiSortSuggestions, aiHotspotSuggestions,
+  spins, spinsReady, activeSpinId, activeSpin, frameCounts, selectSpin, addSpin, updateSpin, removeSpin,
 } = useVehicleViews(props.spaceId)
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -827,6 +909,62 @@ async function makeSpin(file: File) {
   }
 }
 
+// ── Spins ──
+function onSelectSpin(id: string) {
+  if (id === activeSpinId.value) return
+  selectSpin(id)
+  selectedHotspotId.value = null
+  placing.value = false
+  aiDrafts.value = []
+  clearNotice()
+}
+
+const addSpinOpen = ref(false)
+const newSpinTitle = ref('')
+const spinPresets = computed(() => SPIN_PRESETS.filter(p => !spins.value.some(s => s.title.toLowerCase() === p.toLowerCase())))
+function openAddSpin() { newSpinTitle.value = spinPresets.value[0] ?? ''; addSpinOpen.value = true }
+
+async function createSpin() {
+  const title = newSpinTitle.value.trim()
+  if (!title) return
+  const ok = await withBusy(null, () => addSpin(title), 'Could not add the spin')
+  if (!ok) return
+  addSpinOpen.value = false
+  selectedHotspotId.value = null
+  // Straight on to recording it: the next thing this spin needs.
+  openSpinModal()
+}
+
+async function renameSpin(raw: string) {
+  const sp = activeSpin.value
+  const title = raw.trim()
+  if (!sp || !title || title === sp.title) return
+  await withBusy(null, () => updateSpin(sp.id, { title }), 'Could not rename the spin')
+}
+
+async function setStartFrame() {
+  const sp = activeSpin.value
+  const v = current.value
+  if (!sp || !v) return
+  const ok = await withBusy(null, () => updateSpin(sp.id, { start_angle: v.angle }), 'Could not save the first frame')
+  if (ok) toast.success('Buyers will start on this frame')
+}
+
+const removeSpinArmed = ref(false)
+let removeSpinTimer: ReturnType<typeof setTimeout> | undefined
+function confirmRemoveSpin() {
+  const sp = activeSpin.value
+  if (!sp) return
+  if (!removeSpinArmed.value) {
+    removeSpinArmed.value = true
+    removeSpinTimer = setTimeout(() => { removeSpinArmed.value = false }, 4000)
+    return
+  }
+  removeSpinArmed.value = false
+  if (removeSpinTimer) clearTimeout(removeSpinTimer)
+  withBusy(null, () => removeSpin(sp.id), 'Could not delete the spin')
+}
+
 // ── Keyboard ──
 function typing(t: EventTarget | null) {
   const el = t as HTMLElement | null
@@ -901,6 +1039,19 @@ defineExpose({ reload: init })
 .vp.is-preview .vp-main { grid-template-columns: minmax(0, 1fr); }
 
 .vp-stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.vp-spins { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.vp-spinchip {
+  flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.12);
+}
+.vp-spinchip:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+.vp-spinchip.is-on { background: #fff; color: #0e0e10; border-color: #fff; }
+.vp-spinchip:disabled { opacity: 0.45; cursor: not-allowed; }
+.vp-spinchip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.vp-spinchip__n { font-size: 11px; opacity: 0.65; }
+.vp-spinchip--add { border-style: dashed; background: transparent; }
+.vp-presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
 .vp-canvas {
   position: relative; border-radius: 14px; overflow: hidden; background: #0b0b0c; border: 1px solid rgba(255,255,255,0.08);
   height: 46vh; min-height: 280px;
