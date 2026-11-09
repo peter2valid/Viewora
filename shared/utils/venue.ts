@@ -33,6 +33,45 @@ export interface VenueFloorData {
   nodes: Array<[number, number]>
   edges: Array<[number, number] | [number, number, number]>
   links: Array<{ node: number; group: string; kind?: VenueLinkKind }>
+  /** What the venue is (the same on every floor). Missing = mall: maps made before this existed. */
+  kind?: VenueKind
+}
+
+// ── What kind of venue: decides "shop" vs "place" in what visitors read ──
+export type VenueKind = 'mall' | 'restaurant' | 'hotel' | 'campus' | 'hospital' | 'events' | 'other'
+
+export const VENUE_KINDS: Array<{ value: VenueKind; label: string }> = [
+  { value: 'mall', label: 'Shopping mall' },
+  { value: 'restaurant', label: 'Restaurant / bar' },
+  { value: 'hotel', label: 'Hotel / resort' },
+  { value: 'campus', label: 'School / campus' },
+  { value: 'hospital', label: 'Hospital / clinic' },
+  { value: 'events', label: 'Event / conference venue' },
+  { value: 'other', label: 'Something else' },
+]
+
+export function isVenueKind(v: unknown): v is VenueKind {
+  return VENUE_KINDS.some(k => k.value === v)
+}
+
+/** The venue's kind: the first floor (in order) that names one, else mall. Takes VenueFloors or raw floor_plans rows. */
+export function venueKindOf(floors: Array<{ venue?: any } | null | undefined> | null | undefined): VenueKind {
+  for (const f of floors ?? []) if (isVenueKind(f?.venue?.kind)) return f!.venue.kind
+  return 'mall'
+}
+
+export interface VenueWords {
+  /** The button on the tour: "Find a shop" / "Find a place". */
+  find: string
+  noun: string
+  nouns: string
+}
+
+/** Only a mall talks about shops; every other venue has places. */
+export function venueWords(kind?: VenueKind | null): VenueWords {
+  return !kind || kind === 'mall'
+    ? { find: 'Find a shop', noun: 'shop', nouns: 'shops' }
+    : { find: 'Find a place', noun: 'place', nouns: 'places' }
 }
 
 export interface VenueFloor {

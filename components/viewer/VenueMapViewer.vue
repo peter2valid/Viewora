@@ -16,6 +16,7 @@
       :dim-others="!!route || !!selected"
       :highlight-ids="route || selected ? null : highlightIds"
       :insets="insets"
+      :nouns="words.nouns"
       @place-click="onPlaceClick"
       @connector-click="showFloor"
       @map-click="onMapClick"
@@ -48,7 +49,7 @@
             class="vmv-search__input"
             type="search"
             :placeholder="`Search ${places.length} places`"
-            aria-label="Search shops and places"
+            :aria-label="words.noun === 'shop' ? 'Search shops and places' : 'Search places'"
             @focus="searchFocused = true"
             @keydown.enter="results[0] && pick(results[0])"
             @keydown.esc="clearSearch"
@@ -99,7 +100,7 @@
               <input
                 ref="fromEl"
                 :value="editing === 'from' ? fieldQuery : (fromPlace?.name ?? '')"
-                placeholder="Where are you? (choose a shop near you)"
+                :placeholder="`Where are you? (choose a ${words.noun} near you)`"
                 aria-label="Starting point"
                 @focus="editField('from')"
                 @input="fieldQuery = ($event.target as HTMLInputElement).value"
@@ -153,7 +154,7 @@
             </button>
           </li>
           <li v-if="fieldQuery && !fieldResults.length" class="vmv-results__empty">No places match "{{ fieldQuery }}"</li>
-          <li v-if="!fieldQuery && !fieldCategory" class="vmv-results__hint">Type a shop name, pick a category, or tap a place on the map</li>
+          <li v-if="!fieldQuery && !fieldCategory" class="vmv-results__hint">Type a {{ words.noun }} name, pick a category, or tap a place on the map</li>
         </ul>
 
         <template v-else-if="route">
@@ -277,6 +278,7 @@ import VenueCanvas, { type VenueCanvasConnector, type VenueCanvasMarker } from '
 import VenueChips from '~/features/venue/VenueChips.vue'
 import {
   allPlaces, buildSceneGraph, buildVenueGraph, planRoute, searchPlaces, splitCategories, venueCategories,
+  venueKindOf, venueWords,
   type VenueFloor, type VenuePlaceRef, type VenueLinkKind, type WalkPlan,
   type RoutePlan,
 } from '~/shared/utils/venue'
@@ -309,6 +311,8 @@ const emit = defineEmits<{
 
 const canvasRef = ref<InstanceType<typeof VenueCanvas> | null>(null)
 const places = computed(() => allPlaces(props.floors))
+/** "shop" in a mall, "place" anywhere else (restaurant, hotel, campus…). */
+const words = computed(() => venueWords(venueKindOf(props.floors)))
 const graph = computed(() => buildVenueGraph(props.floors))
 const categories = computed(() => venueCategories(places.value).slice(0, 24))
 const sceneIds = computed(() => new Set((props.scenes ?? []).map((s: any) => s?.id).filter(Boolean)))

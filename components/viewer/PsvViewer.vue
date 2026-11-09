@@ -40,7 +40,7 @@
       @click.stop="openVenue"
     >
       <!-- Raised white pill in a glass track (dock style), pin behind it -->
-      <span class="venue-map-btn__face">Find a shop</span>
+      <span class="venue-map-btn__face">{{ venueFindLabel }}</span>
       <span class="venue-map-btn__pin" aria-hidden="true">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
       </span>
@@ -684,7 +684,7 @@ import RouteGuide from '~/components/viewer/RouteGuide.vue'
 import { socialIcons } from '~/shared/utils/socialLinks'
 import { copyText } from '~/shared/utils/copyText'
 import LeadForm from '~/components/viewer/LeadForm.vue'
-import { buildVenueFloors } from '~/shared/utils/venue'
+import { buildVenueFloors, venueKindOf, venueWords } from '~/shared/utils/venue'
 import {
   BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
   type GroupableScene,
@@ -1377,6 +1377,8 @@ function onAerialEnquire(detail: PlotEnquiryDetail) {
 
 // ── Venue map (mall directory + wayfinding) — floors that carry shops ──
 const venueFloors = computed(() => buildVenueFloors((props.tour as any)?.floor_plans))
+/** "Find a shop" for a mall, "Find a place" for a restaurant, hotel, campus… (set in the editor's Floor Plan tab). */
+const venueFindLabel = computed(() => venueWords(venueKindOf(venueFloors.value)).find)
 // A shared route link (?to=shop&from=shop) opens straight on the map.
 const venueInitial = ref<{ to: string | null; from: string | null; edit?: 'to' | null }>((() => {
   if (typeof window === 'undefined') return { to: null, from: null }

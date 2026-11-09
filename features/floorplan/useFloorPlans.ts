@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import { validateFloorPlanFile, type FloorPlan } from '~/shared/utils/floorPlan'
-import type { VenueFloorData } from '~/shared/utils/venue'
+import { isVenueData, isVenueKind, type VenueFloorData, type VenueKind } from '~/shared/utils/venue'
 
 function readSize(url: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -104,8 +104,20 @@ export function useFloorPlans(spaceId: string) {
 
   /** Save (or with null, remove) a floor's mall directory + walkways. */
   async function setVenue(id: string, venue: VenueFloorData | null) {
+    // The venue's kind belongs to the whole venue: a (re-)import that doesn't
+    // name one keeps the kind already chosen, so "Find a place" stays.
+    if (venue && !isVenueKind(venue.kind)) {
+      const kind = floorPlans.value.map(f => f.venue?.kind).find(isVenueKind)
+      if (kind) venue = { ...venue, kind }
+    }
     await apiFetch(`/floor-plans/${id}/venue`, { method: 'PUT', body: { venue } })
     floorPlans.value = floorPlans.value.map(f => (f.id === id ? { ...f, venue } : f))
+  }
+
+  /** Mall, restaurant, hotel…: saved on every floor that has a venue map. */
+  async function setVenueKind(kind: VenueKind) {
+    const floors = floorPlans.value.filter(f => isVenueData(f.venue))
+    await Promise.all(floors.map(f => setVenue(f.id, { ...(f.venue as VenueFloorData), kind })))
   }
 
   async function deleteFloorPlan(id: string) {
@@ -115,5 +127,5 @@ export function useFloorPlans(spaceId: string) {
     floorPlans.value = floorPlans.value.filter(f => f.id !== id)
   }
 
-  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan, setVenue }
+  return { floorPlans, loading, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan, setVenue, setVenueKind }
 }

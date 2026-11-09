@@ -208,10 +208,17 @@
           </ul>
         </template>
 
-        <p class="fp-section">Shop directory</p>
+        <p class="fp-section">{{ venueText.noun === 'shop' ? 'Shop directory' : 'Directory' }}</p>
         <div class="fp-callout">
+          <label v-if="hasAnyVenue" class="fp-kind">
+            <span class="fp-kind__q">What kind of venue is this?</span>
+            <select class="fp-input fp-select" :value="venueKind" :disabled="savingKind" @change="saveVenueKind(($event.target as HTMLSelectElement).value)">
+              <option v-for="k in VENUE_KINDS" :key="k.value" :value="k.value">{{ k.label }}</option>
+            </select>
+            <small class="fp-muted">Visitors see “{{ venueText.find }}” on the tour.</small>
+          </label>
           <p v-if="currentVenue" class="fp-muted">
-            {{ currentVenue.places.length }} shops · {{ currentVenue.edges.length }} walkway segments · {{ currentVenue.links.length }} lifts / escalators.
+            {{ currentVenue.places.length }} {{ venueText.nouns }} · {{ currentVenue.edges.length }} walkway segments · {{ currentVenue.links.length }} lifts / escalators.
             Visitors can search and get directions on the public tour.
           </p>
           <p v-else class="fp-muted">Malls and big venues: add shops and walkways so visitors can search a shop and get directions across floors.</p>
@@ -269,13 +276,13 @@ import { useImage } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFloorPlans } from '~/features/floorplan/useFloorPlans'
 import VenueImportDialog from '~/features/venue/VenueImportDialog.vue'
-import { isVenueData } from '~/shared/utils/venue'
+import { isVenueData, isVenueKind, venueKindOf, venueWords, VENUE_KINDS } from '~/shared/utils/venue'
 import { clamp01, isPlaced, MAX_FLOOR_PLANS } from '~/shared/utils/floorPlan'
 
 const props = defineProps<{ spaceId: string }>()
 
 const { apiFetch } = useApiFetch()
-const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan, setVenue } = useFloorPlans(props.spaceId)
+const { floorPlans, uploading, load, addFloorPlan, renameFloorPlan, moveFloorPlan, reorderFloorPlans, deleteFloorPlan, setVenue, setVenueKind } = useFloorPlans(props.spaceId)
 const nuxtImg = useImage()
 
 const loading = ref(true)
@@ -359,6 +366,24 @@ async function onFile(e: Event) {
 // ── Shop directory (venue map) ──────────────────────────────
 const showVenueImport = ref(false)
 const currentVenue = computed(() => (isVenueData(current.value?.venue) && current.value!.venue!.places.length ? current.value!.venue! : null))
+
+// Mall → "Find a shop"; restaurant, hotel, campus… → "Find a place".
+const hasAnyVenue = computed(() => floorPlans.value.some(f => isVenueData(f.venue)))
+const venueKind = computed(() => venueKindOf(floorPlans.value))
+const venueText = computed(() => venueWords(venueKind.value))
+const savingKind = ref(false)
+async function saveVenueKind(value: string) {
+  if (!isVenueKind(value) || value === venueKind.value) return
+  savingKind.value = true
+  try {
+    await setVenueKind(value)
+    toast.success(`Visitors now see “${venueWords(value).find}”`)
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || 'Could not save the venue type')
+  } finally {
+    savingKind.value = false
+  }
+}
 function onVenueImported(ids: string[]) {
   if (ids.length && !ids.includes(currentId.value ?? '')) currentId.value = ids[0]
   toast.success(`Shop directory imported on ${ids.length} floor${ids.length === 1 ? '' : 's'}`)
@@ -1051,6 +1076,10 @@ onBeforeUnmount(() => {
 .fp-move:disabled { opacity: 0.3; cursor: default; }
 .fp-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.75); cursor: pointer; }
 .fp-toggle input { width: 15px; height: 15px; accent-color: #22c55e; cursor: pointer; }
+.fp-kind { display: flex; flex-direction: column; gap: 6px; }
+.fp-kind__q { font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,0.85); }
+.fp-select { cursor: pointer; }
+.fp-select option { color: #111; background: #fff; }
 .fp-callout { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
 .fp-callout__title { font-size: 13px; font-weight: 800; }
 .fp-tip { padding: 2px 2px 0; }
