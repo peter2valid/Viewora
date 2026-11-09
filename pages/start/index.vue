@@ -151,7 +151,8 @@ const handleCreateTour = async () => {
 
     // Same editor real accounts use — anonymous sessions pass middleware/auth.ts
     // unchanged, so uploads, publishing, and the claim banner all work here too.
-    navigateTo(`/app/spaces/${space.id}?tab=360`)
+    // A car starts on step 1, its exterior spin; everything else on the 360 upload.
+    navigateTo(`/app/spaces/${space.id}?tab=${selectedType.value === 'automotive' ? 'car' : '360'}`)
   } catch (e: any) {
     errorMsg.value = e.data?.statusMessage ?? e.message ?? 'Failed to start your tour.'
     creating.value = false

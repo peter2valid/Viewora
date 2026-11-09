@@ -195,7 +195,8 @@ const handleCreateTour = async () => {
     analytics.track('space_created', { space_type: selectedType.value })
 
     // Auto route to the UPLOAD SCREEN! (360 Tab within the Editor)
-    navigateTo(`/app/spaces/${space.id}?tab=360`)
+    // A car starts on step 1, its exterior spin; everything else on the 360 upload.
+    navigateTo(`/app/spaces/${space.id}?tab=${selectedType.value === 'automotive' ? 'car' : '360'}`)
   } catch (e: any) {
     errorMsg.value = e.data?.statusMessage ?? e.message ?? 'Failed to create tour.'
     creating.value = false

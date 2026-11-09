@@ -142,9 +142,10 @@ apiFetch<any>(`/spaces/${spaceId}`)
   .then((s) => { isCar.value = (s?.space_type ?? s?.data?.space_type ?? s?.property_type) === 'automotive'
     // New car listings open on the exterior photos, the first thing a car needs.
     if (isCar.value) {
-      // Aerial Map, Floor Plan and Organize are hidden for a single car, so a link to one lands on the car tab.
+      // Aerial Map, Floor Plan and Organize are hidden for a single car, so a link to one lands on the car tab;
+      // so does an old ?tab=360 link (the interior is step 2, the car starts on step 1).
       const t = route.query.tab
-      if (!t || t === 'aerial' || t === 'floorplan' || t === 'organize') setMode('car')
+      if (!t || t === '360' || t === 'aerial' || t === 'floorplan' || t === 'organize') setMode('car')
     }
   })
   .catch(() => {})
