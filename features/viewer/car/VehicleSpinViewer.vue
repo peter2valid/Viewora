@@ -2,38 +2,39 @@
   <div
     ref="rootEl"
     class="vsv"
-    :class="{ 'is-placing': placing, 'is-edit': editable }"
+    :class="{ 'is-placing': placing, 'is-edit': editable, 'is-zoomed': zoomed }"
     role="group"
     tabindex="0"
-    :aria-label="`Exterior view, ${currentLabel}. Drag or use the arrow keys to rotate the car.`"
+    :aria-label="`Exterior view, ${currentLabel}. Drag or use the arrow keys to rotate the car; plus and minus zoom.`"
     @pointerdown="onDown"
     @pointermove="onMove"
     @pointerup="onUp"
     @pointercancel="onUp"
+    @wheel="onWheel"
     @keydown.left.prevent="step(-1)"
     @keydown.right.prevent="step(1)"
+    @keydown="onZoomKey"
     @keydown.esc="activePinId = null"
   >
-    <!-- Every frame stays in the DOM so a step is just an opacity swap: no decode flash while dragging. -->
+    <!-- Blurred copy behind a car shown whole (contain), so a portrait phone has no black bars. -->
+    <div v-if="showBackdrop" class="vsv__backdrop" :style="{ backgroundImage: `url(${backdropUrl})` }" aria-hidden="true" />
+
+    <!-- First frame as a plain image: it is in the server HTML, so the car shows before any script runs. -->
     <img
-      v-for="(v, i) in sorted"
-      :key="v.id"
-      :src="v.image_url"
-      :alt="i === index ? `Car, ${viewLabel(v)}` : ''"
-      :aria-hidden="i === index ? undefined : 'true'"
-      class="vsv__frame"
-      :class="{ 'is-contain': fit === 'contain' }"
-      :style="frameStyle(i)"
-      :loading="i === 0 ? 'eager' : 'lazy'"
-      :fetchpriority="i === 0 ? 'high' : 'low'"
+      v-if="posterUrl && !painted"
+      :src="posterUrl"
+      alt=""
+      class="vsv__poster"
+      :class="{ 'is-contain': fitNow === 'contain' }"
+      fetchpriority="high"
       decoding="async"
       draggable="false"
-      @load="onFrameLoad(i, $event)"
     />
+    <canvas ref="canvasEl" class="vsv__canvas" :aria-label="currentView ? `Car, ${currentLabel}` : undefined" role="img" />
 
     <div v-if="!sorted.length" class="vsv__empty">No exterior photos yet</div>
 
-    <!-- Pins of the photo on screen. Positioned against where the photo is actually drawn, so cropping never shifts them. -->
+    <!-- Pins of the photo on screen. Positioned against where the photo is actually drawn (zoom included). -->
     <div v-if="pins.length" class="vsv__pins">
       <button
         v-for="p in pins"
@@ -69,10 +70,23 @@
       <a v-if="activePin.url" :href="activePin.url" class="vsv__card-link" target="_blank" rel="noopener noreferrer">Open link</a>
     </div>
 
+    <!-- Zoom: buttons for mouse and keyboard users; pinch, wheel and double-tap do the same. -->
+    <div v-if="zoomable && sorted.length && !hideZoom" class="vsv__zoom" :style="{ bottom: zoomBottom }" @pointerdown.stop>
+      <button type="button" class="vsv__zbtn" aria-label="Zoom in" :disabled="zoom.z >= ZOOM_MAX - 0.01" @click="zoomBy(1.6)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button type="button" class="vsv__zbtn" aria-label="Zoom out" :disabled="!zoomed" @click="zoomBy(1 / 1.6)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+      </button>
+      <button v-if="zoomed" type="button" class="vsv__zbtn" aria-label="Show the whole car" @click="resetZoom(true)">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
+      </button>
+    </div>
+
     <div v-if="sorted.length > 1 && !hideBar" class="vsv__ui">
       <p v-if="showHint && !editable && !activePin" class="vsv__hint" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-5 4 5 4M16 8l5 4-5 4M3 12h18"/></svg>
-        Drag to rotate
+        {{ zoomed ? 'Drag to look around' : 'Drag to rotate' }}
       </p>
       <div class="vsv__bar">
         <span class="vsv__label" aria-live="polite">{{ currentLabel }}</span>
@@ -91,17 +105,17 @@
           @input="goTo(Number(($event.target as HTMLInputElement).value), true)"
         />
         <div v-else class="vsv__dots">
-        <button
-          v-for="(v, i) in sorted"
-          :key="v.id"
-          type="button"
-          class="vsv__dot"
-          :class="{ 'is-active': i === index }"
-          :aria-label="viewLabel(v)"
-          :aria-current="i === index ? 'true' : undefined"
-          @pointerdown.stop
-          @click.stop="goTo(i)"
-        />
+          <button
+            v-for="(v, i) in sorted"
+            :key="v.id"
+            type="button"
+            class="vsv__dot"
+            :class="{ 'is-active': i === index }"
+            :aria-label="viewLabel(v)"
+            :aria-current="i === index ? 'true' : undefined"
+            @pointerdown.stop
+            @click.stop="goTo(i)"
+          />
         </div>
       </div>
     </div>
@@ -110,16 +124,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   sortByAngle, viewLabel, wrapIndex, fitRect, pointToFraction, hotspotKindLabel, isSpinSet,
-  type VehicleView, type VehicleHotspot,
+  resolveFit, clampZoom, zoomAt, zoomForward, zoomInverse, spinLoadOrder, indexNearestAngle,
+  ZOOM_MAX, ZOOM_MIN,
+  type VehicleView, type VehicleHotspot, type ZoomState,
 } from '~/shared/utils/vehicleViews'
 
 const props = withDefaults(defineProps<{
   views: VehicleView[]
-  /** `cover` fills the box (buyers); `contain` shows the whole photo (editor, so pins can go anywhere). */
-  fit?: 'cover' | 'contain'
+  /**
+   * `auto` (buyers): fill the box when that crops little, otherwise the whole car over a blurred copy.
+   * `contain`: whole photo (the editor, so pins can go anywhere). `cover`: always fill.
+   */
+  fit?: 'cover' | 'contain' | 'auto'
   /** Editor behaviours: pins can be dragged and selected from outside. */
   editable?: boolean
   /** Next click on the photo places a pin instead of doing nothing. */
@@ -127,54 +146,264 @@ const props = withDefaults(defineProps<{
   selectedHotspotId?: string | null
   /** Controlled frame (index into the angle-sorted list). Omit to let the viewer manage it. */
   index?: number
+  /** First frame shown (degrees around the car), when `index` is not given. */
+  startAngle?: number
   hideBar?: boolean
+  hideZoom?: boolean
+  /** Distance of the zoom buttons from the bottom, so a host page can keep them clear of its own controls. */
+  zoomBottom?: string
+  zoomable?: boolean
   /** Turn once by itself when a smooth set has loaded, so it is obvious the car spins. Stops at the first touch. */
   autoplay?: boolean
-}>(), { fit: 'cover', editable: false, placing: false, selectedHotspotId: null, hideBar: false, autoplay: true })
+}>(), {
+  fit: 'auto', editable: false, placing: false, selectedHotspotId: null, hideBar: false, hideZoom: false,
+  zoomBottom: '50%', zoomable: true, autoplay: true, startAngle: 0,
+})
 
 const emit = defineEmits<{
   (e: 'update:index', index: number): void
   (e: 'place', payload: { viewId: string; x: number; y: number }): void
   (e: 'select-hotspot', payload: { viewId: string; id: string }): void
   (e: 'move-hotspot', payload: { viewId: string; id: string; x: number; y: number }): void
+  (e: 'zoom', zoomed: boolean): void
 }>()
 
 const sorted = computed(() => sortByAngle(props.views))
+const startIndex = computed(() => (props.index != null ? wrapIndex(props.index, sorted.value.length) : indexNearestAngle(sorted.value, props.startAngle)))
 const idx = ref(0)
 const index = computed(() => idx.value)
-// Enough frames to turn smoothly: neighbours are blended as you drag. A few photos just step.
+// Enough frames to turn smoothly: neighbours are blended as you drag. A few photos just step (with a short crossfade).
 const smooth = computed(() => isSpinSet(sorted.value.length))
-const blend = ref({ base: 0, alpha: 0 })
+const blend = { base: 0, alpha: 0 }
 const currentView = computed(() => sorted.value[idx.value])
 const currentLabel = computed(() => (currentView.value ? viewLabel(currentView.value) : ''))
 
 const rootEl = ref<HTMLElement | null>(null)
+const canvasEl = ref<HTMLCanvasElement | null>(null)
 const showHint = ref(true)
-const loaded = ref<Set<number>>(new Set())
-const loadedCount = computed(() => loaded.value.size)
-const natural = ref<Record<string, { w: number; h: number }>>({})
-function onFrameLoad(i: number, e: Event) {
-  loaded.value = new Set(loaded.value).add(i)
-  const img = e.target as HTMLImageElement
-  const v = sorted.value[i]
-  if (v && img.naturalWidth) natural.value = { ...natural.value, [v.id]: { w: img.naturalWidth, h: img.naturalHeight } }
-}
+const painted = ref(false)
 
-// ── Box size, for placing pins ──
+// ── Box size ──
 const box = ref({ w: 0, h: 0 })
 let ro: ResizeObserver | undefined
+let dpr = 1
 function measure() {
   const el = rootEl.value
-  if (el) box.value = { w: el.clientWidth, h: el.clientHeight }
+  const c = canvasEl.value
+  if (!el) return
+  box.value = { w: el.clientWidth, h: el.clientHeight }
+  dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+  if (c) {
+    c.width = Math.max(1, Math.round(box.value.w * dpr))
+    c.height = Math.max(1, Math.round(box.value.h * dpr))
+  }
+  zoom.value = clampZoom(zoom.value, box.value, rectOf(currentView.value))
+  requestDraw()
 }
 
-function rectOf(v: VehicleView) {
-  const nat = natural.value[v.id] ?? (v.width && v.height ? { w: v.width, h: v.height } : { w: 4, h: 3 })
-  return fitRect(box.value, nat, props.fit)
+// ── Frames ──
+// Each frame is fetched as a file and decoded off the main thread to a bitmap sized for this screen,
+// so 64 frames stay within a phone's memory. If the media host refuses a cross-origin fetch, frames
+// fall back to plain images (full size, still drawn on the canvas).
+type Drawable = ImageBitmap | HTMLImageElement | HTMLCanvasElement
+const frames = new Map<string, Drawable>()
+const natural = ref<Record<string, { w: number; h: number }>>({})
+const loadedIds = shallowRef<Set<string>>(new Set())
+const loadedCount = computed(() => sorted.value.filter(v => loadedIds.value.has(v.id)).length)
+let corsOk = true
+let resizeOk = true
+let loadGen = 0
+
+function natOf(v?: VehicleView) {
+  if (!v) return { w: 16, h: 9 }
+  return natural.value[v.id] ?? (v.width && v.height ? { w: v.width, h: v.height } : { w: 16, h: 9 })
+}
+const fitNow = computed(() => resolveFit(props.fit, box.value, natOf(sorted.value[startIndex.value] ?? currentView.value)))
+function rectOf(v?: VehicleView) {
+  return fitRect(box.value, natOf(v), fitNow.value)
+}
+const showBackdrop = computed(() => !props.editable && fitNow.value === 'contain' && !!backdropUrl.value)
+const backdropUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? '')
+const posterUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? '')
+
+/** Long edge of the stored bitmap: what this screen can show, smaller when there are many frames. */
+function bitmapLongEdge(): number {
+  const n = sorted.value.length
+  const screenLong = typeof window !== 'undefined' ? Math.max(window.screen?.width || 1280, window.screen?.height || 720) : 1280
+  const smallScreen = typeof window !== 'undefined' && Math.min(window.screen?.width || 1280, window.screen?.height || 720) < 600
+  const cap = n > 40 ? (smallScreen ? 1024 : 1440) : (smallScreen ? 1280 : 1600)
+  return Math.min(cap, Math.round(screenLong * dpr))
 }
 
-// In a smooth spin, frames are only ~10° apart, so a pin placed on one frame also shows (fading) on the
-// frames either side. The editor shows just the frame being edited, so what you move is what you see.
+async function decodeFrame(v: VehicleView): Promise<Drawable> {
+  if (corsOk) {
+    try {
+      const res = await fetch(v.image_url, { mode: 'cors', credentials: 'omit' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const long = bitmapLongEdge()
+      if (resizeOk && v.width && v.height) {
+        const s = Math.min(1, long / Math.max(v.width, v.height))
+        try {
+          const bmp = await createImageBitmap(blob, s < 1
+            ? { resizeWidth: Math.round(v.width * s), resizeHeight: Math.round(v.height * s), resizeQuality: 'high' }
+            : {})
+          setNatural(v.id, v.width, v.height)
+          return bmp
+        } catch { resizeOk = false }
+      }
+      const full = await createImageBitmap(blob)
+      setNatural(v.id, full.width, full.height)
+      const s = Math.min(1, long / Math.max(full.width, full.height))
+      if (s >= 1) return full
+      // No resize support (older Safari): shrink once through a scratch canvas.
+      const c = document.createElement('canvas')
+      c.width = Math.round(full.width * s)
+      c.height = Math.round(full.height * s)
+      const ctx = c.getContext('2d')
+      if (!ctx) return full
+      ctx.imageSmoothingQuality = 'high'
+      ctx.drawImage(full, 0, 0, c.width, c.height)
+      full.close()
+      try {
+        const small = await createImageBitmap(c)
+        c.width = 0
+        return small
+      } catch { return c }
+    } catch {
+      corsOk = false
+    }
+  }
+  const img = new Image()
+  img.decoding = 'async'
+  img.src = v.image_url
+  await img.decode()
+  setNatural(v.id, img.naturalWidth, img.naturalHeight)
+  return img
+}
+
+function setNatural(id: string, w: number, h: number) {
+  if (natural.value[id]?.w === w && natural.value[id]?.h === h) return
+  natural.value = { ...natural.value, [id]: { w, h } }
+}
+
+function loadAll() {
+  if (typeof window === 'undefined') return
+  const gen = ++loadGen
+  const list = sorted.value
+  const order = spinLoadOrder(list.length, startIndex.value).map(i => list[i]).filter(v => !frames.has(v.id))
+  let next = 0
+  const worker = async () => {
+    while (next < order.length && gen === loadGen) {
+      const v = order[next++]
+      try {
+        const d = await decodeFrame(v)
+        if (gen !== loadGen || !sorted.value.some(x => x.id === v.id)) { closeDrawable(d); continue }
+        frames.set(v.id, d)
+        loadedIds.value = new Set(loadedIds.value).add(v.id)
+        requestDraw()
+      } catch { /* a missing frame is skipped; its neighbours stand in */ }
+    }
+  }
+  for (let k = 0; k < 6; k++) worker()
+}
+
+function closeDrawable(d: Drawable) {
+  if (typeof ImageBitmap !== 'undefined' && d instanceof ImageBitmap) d.close()
+  else if (d instanceof HTMLCanvasElement) d.width = 0
+}
+
+/** The frame to draw for index i: itself if it has arrived, otherwise the nearest one that has. */
+function drawableNear(i: number): { d: Drawable; v: VehicleView } | null {
+  const list = sorted.value
+  const n = list.length
+  for (let k = 0; k <= n / 2; k++) {
+    for (const j of k === 0 ? [i] : [i + k, i - k]) {
+      const v = list[wrapIndex(j, n)]
+      const d = v && frames.get(v.id)
+      if (d) return { d, v }
+    }
+  }
+  return null
+}
+
+// ── Sharp frame while zoomed: the full-size photo for the frame on screen ──
+let sharp: { id: string; img: HTMLImageElement } | null = null
+let sharpTimer: ReturnType<typeof setTimeout> | undefined
+function scheduleSharpen() {
+  if (sharpTimer) clearTimeout(sharpTimer)
+  if (!zoomed.value) return
+  sharpTimer = setTimeout(async () => {
+    const v = currentView.value
+    if (!v || !zoomed.value || sharp?.id === v.id) return
+    const d = frames.get(v.id)
+    if (d instanceof HTMLImageElement) return // already full size
+    const img = new Image()
+    if (corsOk) img.crossOrigin = 'anonymous'
+    img.decoding = 'async'
+    img.src = v.image_url
+    try {
+      await img.decode()
+      if (currentView.value?.id === v.id && zoomed.value) { sharp = { id: v.id, img }; requestDraw() }
+    } catch { /* stay on the screen-sized frame */ }
+  }, 220)
+}
+
+// ── Drawing ──
+let drawRaf = 0
+function requestDraw() {
+  if (typeof window === 'undefined' || drawRaf) return
+  drawRaf = requestAnimationFrame(() => { drawRaf = 0; draw() })
+}
+
+let fade: { fromId: string; t0: number } | null = null
+const FADE_MS = 220
+
+function draw() {
+  const c = canvasEl.value
+  const ctx = c?.getContext('2d')
+  if (!c || !ctx) return
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.clearRect(0, 0, c.width, c.height)
+  const list = sorted.value
+  if (!list.length) return
+  const z = zoom.value
+  const cx = box.value.w / 2
+  const cy = box.value.h / 2
+  ctx.setTransform(dpr * z.z, 0, 0, dpr * z.z, dpr * (cx * (1 - z.z) + z.x), dpr * (cy * (1 - z.z) + z.y))
+  ctx.imageSmoothingQuality = 'high'
+
+  const paint = (d: Drawable, v: VehicleView, alpha: number) => {
+    const r = rectOf(v)
+    ctx.globalAlpha = alpha
+    ctx.drawImage(d, r.x, r.y, r.w, r.h)
+  }
+
+  const baseI = smooth.value ? blend.base : idx.value
+  const base = drawableNear(baseI)
+  if (!base) return
+  const baseSrc = sharp && sharp.id === base.v.id && zoomed.value ? sharp.img : base.d
+  paint(baseSrc, base.v, 1)
+
+  if (smooth.value) {
+    const nextV = list[(blend.base + 1) % list.length]
+    const nd = nextV && frames.get(nextV.id)
+    // Only blend a neighbour that has arrived; otherwise the car would fade into a stand-in frame.
+    if (nd && blend.alpha > 0.001 && base.v.id === list[blend.base].id) paint(nd, nextV, blend.alpha)
+  } else if (fade) {
+    // A few photos: the outgoing photo fades away over the new one.
+    const k = (performance.now() - fade.t0) / FADE_MS
+    const from = list.find(v => v.id === fade!.fromId)
+    const fd = from && frames.get(from.id)
+    if (k < 1 && fd && from) { paint(fd, from, 1 - k); requestDraw() } else fade = null
+  }
+  ctx.globalAlpha = 1
+  if (!painted.value) painted.value = true
+}
+
+// ── Pins ──
+// In a smooth spin, frames are only a few degrees apart, so a pin placed on one frame also shows (fading)
+// on the frames either side. The editor shows just the frame being edited, so what you move is what you see.
 const PIN_REACH_DEG = 14
 function angularDistance(a: number, b: number) {
   const d = Math.abs(a - b) % 360
@@ -194,9 +423,8 @@ const pins = computed(() => {
     const alpha = v.id === cur.id ? 1 : Math.max(0.25, 1 - angularDistance(v.angle, cur.angle) / PIN_REACH_DEG)
     for (const h of v.hotspots) {
       const o = dragOverride.value?.id === h.id ? dragOverride.value : null
-      const left = r.x + (o ? o.x : h.x) * r.w
-      const top = r.y + (o ? o.y : h.y) * r.h
-      out.push({ h, left, top, alpha, visible: left >= 0 && left <= box.value.w && top >= 0 && top <= box.value.h })
+      const p = zoomForward({ x: r.x + (o ? o.x : h.x) * r.w, y: r.y + (o ? o.y : h.y) * r.h }, box.value, zoom.value)
+      out.push({ h, left: p.x, top: p.y, alpha, visible: p.x >= 0 && p.x <= box.value.w && p.y >= 0 && p.y <= box.value.h })
     }
   }
   return out
@@ -213,20 +441,87 @@ const activePin = computed<VehicleHotspot | null>(() => {
   return null
 })
 
+/** A pointer position -> fractions of the current photo, undoing zoom. Null when it misses the photo. */
+function eventToFraction(e: PointerEvent) {
+  const v = currentView.value
+  const el = rootEl.value
+  if (!v || !el) return null
+  const b = el.getBoundingClientRect()
+  const p = zoomInverse({ x: e.clientX - b.left, y: e.clientY - b.top }, box.value, zoom.value)
+  return pointToFraction(p.x, p.y, rectOf(v))
+}
+
+// ── Zoom ──
+const zoom = ref<ZoomState>({ z: 1, x: 0, y: 0 })
+const zoomed = computed(() => zoom.value.z > 1.01)
+watch(zoomed, (z) => { emit('zoom', z); if (!z) sharp = null })
+let zoomAnim = 0
+
+function setZoom(s: ZoomState) {
+  zoom.value = clampZoom(s, box.value, rectOf(currentView.value))
+  requestDraw()
+  scheduleSharpen()
+}
+
+function animateZoom(target: ZoomState) {
+  if (zoomAnim) cancelAnimationFrame(zoomAnim)
+  const from = { ...zoom.value }
+  const to = clampZoom(target, box.value, rectOf(currentView.value))
+  if (reduceMotion) { setZoom(to); return }
+  const t0 = performance.now()
+  const tick = (t: number) => {
+    const k = Math.min(1, (t - t0) / 240)
+    const e = 1 - Math.pow(1 - k, 3)
+    zoom.value = { z: from.z + (to.z - from.z) * e, x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e }
+    requestDraw()
+    if (k < 1) zoomAnim = requestAnimationFrame(tick)
+    else { zoomAnim = 0; setZoom(to) }
+  }
+  zoomAnim = requestAnimationFrame(tick)
+}
+
+function zoomBy(factor: number, sx = box.value.w / 2, sy = box.value.h / 2) {
+  if (!props.zoomable) return
+  stopInertia()
+  autoplayed = true
+  showHint.value = false
+  const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom.value.z * factor))
+  animateZoom(zoomAt(zoom.value, z, sx, sy, box.value))
+}
+
+function resetZoom(animated = false) {
+  if (animated) animateZoom({ z: 1, x: 0, y: 0 })
+  else setZoom({ z: 1, x: 0, y: 0 })
+}
+
+// Wheel zoom inside a tour; inside someone else's page (an iframe) only with ctrl or a trackpad pinch,
+// so scrolling past an embedded car never gets trapped.
+const inIframe = typeof window !== 'undefined' && (() => { try { return window.self !== window.top } catch { return true } })()
+function onWheel(e: WheelEvent) {
+  if (!props.zoomable || !sorted.value.length) return
+  if (inIframe && !e.ctrlKey) return
+  e.preventDefault()
+  const b = rootEl.value!.getBoundingClientRect()
+  const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0018))
+  stopInertia()
+  autoplayed = true
+  setZoom(zoomAt(zoom.value, Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom.value.z * factor)), e.clientX - b.left, e.clientY - b.top, box.value))
+}
+
+function onZoomKey(e: KeyboardEvent) {
+  if (!props.zoomable || e.ctrlKey || e.metaKey || e.altKey) return
+  if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.6) }
+  else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(1 / 1.6) }
+  else if (e.key === '0') { e.preventDefault(); resetZoom(true) }
+}
+
 // ── Rotation ──
 // A full-width drag is one and a half laps' worth less than a lap, which feels natural with 8 frames.
 const LAP_WIDTHS = 1.5
-let dragging = false
-let moved = 0
-let downX = 0
-let downY = 0
-let startPos = 0
 let pos = 0 // continuous frame position, so slow drags still land between frames smoothly
-let lastX = 0
-let lastT = 0
 let velocity = 0 // frames per ms
 let raf = 0
-const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+const reduceMotion = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 function framesPerPx() {
   const w = rootEl.value?.clientWidth || 360
@@ -235,20 +530,10 @@ function framesPerPx() {
 
 function syncBlend() {
   const n = sorted.value.length
-  if (!n || !smooth.value) return
+  if (!n) return
   const fl = Math.floor(pos)
-  blend.value = { base: wrapIndex(fl, n), alpha: pos - fl }
-}
-
-/** Opacity of each frame: the frame we are on, with the next one fading in over it as you drag. */
-function frameStyle(i: number) {
-  if (!smooth.value) return { opacity: i === idx.value ? 1 : 0 }
-  const n = sorted.value.length
-  const { base, alpha } = blend.value
-  if (i === base) return { opacity: 1, zIndex: 1 }
-  // Only blend a neighbour that has arrived; otherwise the car would fade into a blank frame.
-  if (i === (base + 1) % n && alpha > 0.001 && loaded.value.has(i)) return { opacity: alpha, zIndex: 2 }
-  return { opacity: 0 }
+  blend.base = wrapIndex(fl, n)
+  blend.alpha = smooth.value ? pos - fl : 0
 }
 
 function setPos(p: number) {
@@ -258,10 +543,13 @@ function setPos(p: number) {
   syncBlend()
   const next = wrapIndex(Math.round(pos), n)
   if (next !== idx.value) {
+    if (!smooth.value && sorted.value[idx.value] && !reduceMotion) fade = { fromId: sorted.value[idx.value].id, t0: performance.now() }
     idx.value = next
     activePinId.value = null
     emit('update:index', next)
+    scheduleSharpen()
   }
+  requestDraw()
 }
 
 function stopInertia() {
@@ -292,51 +580,114 @@ watch(loadedCount, (c) => {
   startAutoplay()
 })
 
+// ── Pointers: one finger rotates (or pans while zoomed), two fingers pinch ──
+const pointers = new Map<number, { x: number; y: number }>()
+let pinch: { d0: number; z0: ZoomState; mx: number; my: number } | null = null
+let dragging = false
+let panning = false
+let moved = 0
+let downX = 0
+let downY = 0
+let startPos = 0
+let startPosX = 0
+let lastX = 0
+let lastY = 0
+let lastT = 0
+let lastTap = { t: 0, x: 0, y: 0 }
+
+function localXY(e: PointerEvent) {
+  const b = rootEl.value!.getBoundingClientRect()
+  return { x: e.clientX - b.left, y: e.clientY - b.top }
+}
+
 function onDown(e: PointerEvent) {
   if (sorted.value.length < 1) return
   stopInertia()
   autoplayed = true
-  dragging = true
-  moved = 0
   showHint.value = false
+  pointers.set(e.pointerId, localXY(e))
+  rootEl.value?.setPointerCapture?.(e.pointerId)
+  if (pointers.size === 2 && props.zoomable) {
+    const [a, b] = [...pointers.values()]
+    pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: { ...zoom.value }, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
+    dragging = false
+    panning = false
+    moved = 99 // a pinch is never a tap
+    return
+  }
+  if (pointers.size > 1) return
+  dragging = true
+  panning = zoomed.value
+  moved = 0
   downX = startPosX = lastX = e.clientX
-  downY = e.clientY
+  downY = lastY = e.clientY
   startPos = pos
   lastT = performance.now()
   velocity = 0
-  rootEl.value?.setPointerCapture?.(e.pointerId)
 }
-let startPosX = 0
 
 function onMove(e: PointerEvent) {
-  if (!dragging || sorted.value.length < 2) return
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, localXY(e))
+  if (pinch && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()]
+    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1
+    const mx = (a.x + b.x) / 2
+    const my = (a.y + b.y) / 2
+    const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pinch.z0.z * (d / pinch.d0)))
+    const s = zoomAt(pinch.z0, z, pinch.mx, pinch.my, box.value)
+    setZoom({ z, x: s.x + (mx - pinch.mx), y: s.y + (my - pinch.my) })
+    return
+  }
+  if (!dragging) return
   moved = Math.max(moved, Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY))
   const now = performance.now()
+  if (panning) {
+    setZoom({ z: zoom.value.z, x: zoom.value.x + (e.clientX - lastX), y: zoom.value.y + (e.clientY - lastY) })
+    lastX = e.clientX
+    lastY = e.clientY
+    return
+  }
+  if (sorted.value.length < 2) return
   const dt = Math.max(1, now - lastT)
   // Dragging right turns the car towards its left, like pushing the nearest surface.
   setPos(startPos - (e.clientX - startPosX) * framesPerPx())
   velocity = Math.max(-0.02, Math.min(0.02, (-(e.clientX - lastX) * framesPerPx()) / dt))
   lastX = e.clientX
+  lastY = e.clientY
   lastT = now
 }
 
 function onUp(e: PointerEvent) {
+  pointers.delete(e.pointerId)
+  rootEl.value?.releasePointerCapture?.(e.pointerId)
+  if (pinch) {
+    if (pointers.size < 2) pinch = null
+    return
+  }
   if (!dragging) return
   dragging = false
-  rootEl.value?.releasePointerCapture?.(e.pointerId)
 
-  // A tap (not a drag): place a pin in the editor, or dismiss a card for buyers.
+  // A tap (not a drag): double-tap zooms; otherwise place a pin in the editor, or dismiss a card for buyers.
   if (moved < 6) {
+    const p = localXY(e)
+    const now = performance.now()
+    if (props.zoomable && !props.placing && now - lastTap.t < 320 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30) {
+      lastTap = { t: 0, x: 0, y: 0 }
+      if (zoomed.value) resetZoom(true)
+      else animateZoom(zoomAt(zoom.value, 2.5, p.x, p.y, box.value))
+      return
+    }
+    lastTap = { t: now, x: p.x, y: p.y }
     const v = currentView.value
-    if (props.placing && v && rootEl.value) {
-      const b = rootEl.value.getBoundingClientRect()
-      const f = pointToFraction(e.clientX - b.left, e.clientY - b.top, rectOf(v))
+    if (props.placing && v) {
+      const f = eventToFraction(e)
       if (f) emit('place', { viewId: v.id, x: f.x, y: f.y })
     } else {
       activePinId.value = null
     }
     return
   }
+  if (panning) return
 
   if (reduceMotion || Math.abs(velocity) < 0.002 || performance.now() - lastT > 80) {
     setPos(Math.round(pos))
@@ -372,10 +723,11 @@ function goTo(i: number, direct = false) {
 function step(dir: number) {
   stopInertia()
   showHint.value = false
+  autoplayed = true
   setPos(Math.round(pos) + dir)
 }
 
-// ── Pins ──
+// ── Pin dragging (editor) ──
 let pinDrag: { id: string; sx: number; sy: number; moved: boolean } | null = null
 
 function onPinDown(e: PointerEvent, h: VehicleHotspot) {
@@ -387,16 +739,11 @@ function onPinMove(e: PointerEvent) {
   if (!pinDrag || !props.editable) return
   if (!pinDrag.moved && Math.abs(e.clientX - pinDrag.sx) + Math.abs(e.clientY - pinDrag.sy) < 6) return
   pinDrag.moved = true
-  const v = currentView.value
-  const el = rootEl.value
-  if (!v || !el) return
-  const b = el.getBoundingClientRect()
-  const f = pointToFraction(e.clientX - b.left, e.clientY - b.top, rectOf(v))
-  if (!f) return
-  dragOverride.value = { id: pinDrag.id, x: f.x, y: f.y }
+  const f = eventToFraction(e)
+  if (f) dragOverride.value = { id: pinDrag.id, x: f.x, y: f.y }
 }
 
-function onPinUp(e: PointerEvent, h: VehicleHotspot) {
+function onPinUp(_e: PointerEvent, h: VehicleHotspot) {
   const d = pinDrag
   pinDrag = null
   const v = currentView.value
@@ -422,16 +769,14 @@ function selectPin(h: VehicleHotspot) {
 // ── Lifecycle ──
 let hintTimer: ReturnType<typeof setTimeout> | undefined
 onMounted(() => {
+  pos = idx.value = startIndex.value
+  syncBlend()
   measure()
-  // The page is server-rendered, so frames may finish loading before Vue attaches @load. Count those now.
-  rootEl.value?.querySelectorAll<HTMLImageElement>('img.vsv__frame').forEach((img, i) => {
-    if (img.complete && img.naturalWidth) onFrameLoad(i, { target: img } as unknown as Event)
-  })
   if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
     ro = new ResizeObserver(measure)
     ro.observe(rootEl.value)
   }
-  if (props.index != null) { pos = idx.value = wrapIndex(props.index, sorted.value.length); syncBlend() }
+  loadAll()
   hintTimer = setTimeout(() => { showHint.value = false }, 4500)
 })
 
@@ -444,15 +789,38 @@ watch(() => props.index, (i) => {
   pos = idx.value = next
   syncBlend()
   activePinId.value = null
+  requestDraw()
+  scheduleSharpen()
 })
 
-watch(() => sorted.value.length, (n) => {
+// Frames added or removed (the editor): load the new ones, free the gone ones.
+watch(() => sorted.value.map(v => v.id).join(','), () => {
+  const ids = new Set(sorted.value.map(v => v.id))
+  for (const [id, d] of frames) if (!ids.has(id)) { closeDrawable(d); frames.delete(id) }
+  loadedIds.value = new Set([...loadedIds.value].filter(id => ids.has(id)))
+  const n = sorted.value.length
   if (idx.value >= n) { idx.value = Math.max(0, n - 1); pos = idx.value }
+  syncBlend()
+  loadAll()
+  requestDraw()
 })
 
-onBeforeUnmount(() => { stopInertia(); ro?.disconnect(); if (hintTimer) clearTimeout(hintTimer) })
+watch(() => props.fit, () => { zoom.value = { z: 1, x: 0, y: 0 }; requestDraw() })
 
-defineExpose({ goTo, index })
+onBeforeUnmount(() => {
+  loadGen++
+  stopInertia()
+  if (zoomAnim) cancelAnimationFrame(zoomAnim)
+  if (drawRaf) cancelAnimationFrame(drawRaf)
+  ro?.disconnect()
+  if (hintTimer) clearTimeout(hintTimer)
+  if (sharpTimer) clearTimeout(sharpTimer)
+  for (const d of frames.values()) closeDrawable(d)
+  frames.clear()
+  sharp = null
+})
+
+defineExpose({ goTo, index, zoomBy, resetZoom })
 </script>
 
 <style scoped>
@@ -463,14 +831,19 @@ defineExpose({ goTo, index })
   outline: none;
 }
 .vsv:active { cursor: grabbing; }
+.vsv.is-zoomed { cursor: move; touch-action: none; }
 .vsv.is-placing, .vsv.is-placing:active { cursor: crosshair; }
 .vsv:focus-visible { box-shadow: inset 0 0 0 3px #fff; }
-.vsv__frame {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; object-position: center;
-  opacity: 0; pointer-events: none;
+.vsv__backdrop {
+  position: absolute; inset: -40px; background-size: cover; background-position: center;
+  filter: blur(28px) brightness(0.55) saturate(1.1); pointer-events: none;
 }
-.vsv__frame.is-contain { object-fit: contain; }
+.vsv__poster {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center; pointer-events: none;
+}
+.vsv__poster.is-contain { object-fit: contain; }
+.vsv__canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .vsv__empty {
   position: absolute; inset: 0; display: grid; place-items: center;
   color: rgba(255,255,255,0.5); font-size: 13px;
@@ -512,6 +885,18 @@ defineExpose({ goTo, index })
   display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px;
   font-size: 13px; font-weight: 700; color: #111; text-decoration: underline; text-underline-offset: 3px;
 }
+
+.vsv__zoom {
+  position: absolute; right: 12px; transform: translateY(50%); z-index: 3;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.vsv__zbtn {
+  width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.6); color: #fff; display: grid; place-items: center; cursor: pointer;
+}
+.vsv__zbtn:disabled { opacity: 0.4; cursor: default; }
+.vsv__zbtn:not(:disabled):active { background: rgba(0,0,0,0.85); }
+.vsv__zbtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .vsv__ui {
   position: absolute; left: 0; right: 0; bottom: 0;

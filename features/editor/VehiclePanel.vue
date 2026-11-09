@@ -89,7 +89,7 @@
             v-else
             :views="views"
             :index="viewerIndex"
-            :fit="preview ? 'cover' : 'contain'"
+            :fit="preview ? 'auto' : 'contain'"
             :editable="!preview"
             :placing="placing && !preview"
             :hide-bar="!preview"

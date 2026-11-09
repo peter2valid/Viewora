@@ -91,3 +91,49 @@ test('spin sets are 12+ frames and report their largest gap', () => {
   assert.equal(maxGapDegrees([0, 90, 180, 270]), 90)
   assert.equal(maxGapDegrees([0, 10, 20]), 340) // a partial set leaves a big hole
 })
+
+test('resolveFit: cover when it crops little, contain on a portrait phone', async () => {
+  const { resolveFit } = await import('../shared/utils/vehicleViews.ts')
+  assert.equal(resolveFit('auto', { w: 1600, h: 900 }, { w: 1920, h: 1080 }), 'cover')
+  assert.equal(resolveFit('auto', { w: 390, h: 844 }, { w: 1920, h: 1080 }), 'contain')
+  assert.equal(resolveFit('cover', { w: 390, h: 844 }, { w: 1920, h: 1080 }), 'cover')
+})
+
+test('zoomAt keeps the point under the finger still, and zoomInverse undoes zoomForward', async () => {
+  const { zoomAt, zoomForward, zoomInverse } = await import('../shared/utils/vehicleViews.ts')
+  const box = { w: 400, h: 300 }
+  const s0 = { z: 1, x: 0, y: 0 }
+  const s1 = zoomAt(s0, 2.5, 300, 100, box)
+  const p = zoomInverse({ x: 300, y: 100 }, box, s0)
+  const q = zoomForward(p, box, s1)
+  assert.ok(Math.abs(q.x - 300) < 1e-9 && Math.abs(q.y - 100) < 1e-9)
+  const back = zoomInverse(zoomForward({ x: 12, y: 34 }, box, s1), box, s1)
+  assert.ok(Math.abs(back.x - 12) < 1e-9 && Math.abs(back.y - 34) < 1e-9)
+})
+
+test('clampZoom keeps the photo covering the box and recentres at 1x', async () => {
+  const { clampZoom } = await import('../shared/utils/vehicleViews.ts')
+  const box = { w: 400, h: 300 }
+  const rect = { x: 0, y: 0, w: 400, h: 300 }
+  assert.deepEqual(clampZoom({ z: 1, x: 50, y: -20 }, box, rect), { z: 1, x: 0, y: 0 })
+  const s = clampZoom({ z: 2, x: 9999, y: -9999 }, box, rect)
+  assert.equal(s.x, 200) // left edge pinned to the box's left edge
+  assert.equal(s.y, -150)
+  assert.equal(clampZoom({ z: 9, x: 0, y: 0 }, box, rect).z, 4)
+})
+
+test('spinLoadOrder covers every frame once, start first, spread before filling gaps', async () => {
+  const { spinLoadOrder } = await import('../shared/utils/vehicleViews.ts')
+  const o = spinLoadOrder(64, 10)
+  assert.equal(o.length, 64)
+  assert.equal(new Set(o).size, 64)
+  assert.equal(o[0], 10)
+  assert.deepEqual(o.slice(0, 2), [10, 42])
+  assert.deepEqual(spinLoadOrder(5, 0).sort((a, b) => a - b), [0, 1, 2, 3, 4])
+})
+
+test('indexNearestAngle wraps round 360', async () => {
+  const { indexNearestAngle } = await import('../shared/utils/vehicleViews.ts')
+  assert.equal(indexNearestAngle([{ angle: 0 }, { angle: 90 }, { angle: 350 }], 352), 2)
+  assert.equal(indexNearestAngle([{ angle: 0 }, { angle: 90 }, { angle: 340 }], 358), 0)
+})

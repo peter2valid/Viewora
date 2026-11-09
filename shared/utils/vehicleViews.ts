@@ -233,3 +233,96 @@ export function maxGapDegrees(angles: number[]): number {
   }
   return gap
 }
+
+// ── Viewer geometry: fit, zoom and load order ──────────────────────────────
+
+/**
+ * `auto` fills the box (cover) when that crops little, and otherwise shows the whole car
+ * (contain) over a blurred copy, the way CloudPano does on a portrait phone.
+ */
+export const AUTO_COVER_MAX_CROP = 0.2
+
+export function resolveFit(
+  fit: 'cover' | 'contain' | 'auto',
+  box: { w: number; h: number },
+  img: { w: number; h: number },
+): 'cover' | 'contain' {
+  if (fit !== 'auto') return fit
+  if (!box.w || !box.h || !img.w || !img.h) return 'contain'
+  const boxRatio = box.w / box.h
+  const imgRatio = img.w / img.h
+  const kept = Math.min(boxRatio / imgRatio, imgRatio / boxRatio)
+  return 1 - kept <= AUTO_COVER_MAX_CROP ? 'cover' : 'contain'
+}
+
+export interface ZoomState { z: number; x: number; y: number }
+
+export const ZOOM_MIN = 1
+export const ZOOM_MAX = 4
+
+/** Box point -> screen point under zoom `s`, scaling about the box centre then panning. */
+export function zoomForward(p: { x: number; y: number }, box: { w: number; h: number }, s: ZoomState) {
+  const cx = box.w / 2
+  const cy = box.h / 2
+  return { x: (p.x - cx) * s.z + cx + s.x, y: (p.y - cy) * s.z + cy + s.y }
+}
+
+/** Screen point -> box point (the inverse of zoomForward), for taps and pin drags while zoomed. */
+export function zoomInverse(p: { x: number; y: number }, box: { w: number; h: number }, s: ZoomState) {
+  const cx = box.w / 2
+  const cy = box.h / 2
+  return { x: (p.x - cx - s.x) / s.z + cx, y: (p.y - cy - s.y) / s.z + cy }
+}
+
+/** Keeps the zoomed photo covering the box: no dragging it off into empty space. */
+export function clampZoom(s: ZoomState, box: { w: number; h: number }, rect: { x: number; y: number; w: number; h: number }): ZoomState {
+  const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, s.z))
+  const axis = (pan: number, lo: number, size: number, boxSize: number) => {
+    const c = boxSize / 2
+    const left = (lo - c) * z + c
+    const right = (lo + size - c) * z + c
+    if (size * z <= boxSize) return 0 // smaller than the box: stay centred
+    return Math.min(-left, Math.max(boxSize - right, pan))
+  }
+  return { z, x: axis(s.x, rect.x, rect.w, box.w), y: axis(s.y, rect.y, rect.h, box.h) }
+}
+
+/** Zoom to `z` keeping the photo point under (sx, sy) where it is. */
+export function zoomAt(s: ZoomState, z: number, sx: number, sy: number, box: { w: number; h: number }): ZoomState {
+  const cx = box.w / 2
+  const cy = box.h / 2
+  const k = z / s.z
+  return { z, x: sx - cx - (sx - cx - s.x) * k, y: sy - cy - (sy - cy - s.y) * k }
+}
+
+/**
+ * Order to fetch spin frames in: the start frame, then evenly spread frames, then the gaps
+ * between them. The car can be turned all the way round early, getting smoother as the rest arrive.
+ */
+export function spinLoadOrder(n: number, start = 0): number[] {
+  if (n <= 0) return []
+  const out: number[] = []
+  const seen = new Set<number>()
+  let stride = 1
+  while (stride * 2 <= n) stride *= 2
+  for (; stride >= 1; stride = Math.floor(stride / 2)) {
+    for (let k = 0; k < n; k += stride) {
+      const i = wrapIndex(start + k, n)
+      if (!seen.has(i)) { seen.add(i); out.push(i) }
+    }
+    if (stride === 1) break
+  }
+  return out
+}
+
+/** Index of the frame closest to an angle, for a spin's chosen first view. */
+export function indexNearestAngle(views: Array<{ angle: number }>, angle: number): number {
+  let best = 0
+  let bestDist = 361
+  views.forEach((v, i) => {
+    const d = Math.abs(v.angle - angle) % 360
+    const dist = Math.min(d, 360 - d)
+    if (dist < bestDist) { best = i; bestDist = dist }
+  })
+  return best
+}
