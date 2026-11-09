@@ -21,7 +21,8 @@ export interface VehicleSlot {
   hint: string
 }
 
-export const VEHICLE_MAX_VIEWS = 36
+// 72: room for a 64-frame spin (CloudPano-level smoothness) with a few spare.
+export const VEHICLE_MAX_VIEWS = 72
 export const VEHICLE_VIEW_MAX_BYTES = 25 * 1024 * 1024
 export const VEHICLE_VIEW_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 

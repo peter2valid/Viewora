@@ -272,8 +272,8 @@
 
           <fieldset class="vp-fieldset">
             <legend class="vp-label">Smoothness</legend>
-            <label class="vp-radio"><input v-model.number="spinCount" type="radio" :value="24" /> 24 frames: smooth, loads fast</label>
-            <label class="vp-radio"><input v-model.number="spinCount" type="radio" :value="36" /> 36 frames: smoothest, bigger</label>
+            <label class="vp-radio"><input v-model.number="spinCount" type="radio" :value="64" /> 64 frames: smoothest, studio quality (recommended)</label>
+            <label class="vp-radio"><input v-model.number="spinCount" type="radio" :value="36" /> 36 frames: smooth, loads faster on slow data</label>
           </fieldset>
 
           <p v-if="views.length" class="vp-gap">This replaces your {{ views.length }} current photo{{ views.length === 1 ? '' : 's' }} and their hotspots.</p>
@@ -289,7 +289,7 @@
         <template v-else>
           <p class="vp-muted" aria-live="polite">{{ spinRun.phase === 'reading' ? 'Reading frames from your video' : spinRun.phase === 'clearing' ? 'Clearing the old photos' : 'Uploading frames' }}: <span class="vp-num">{{ spinRun.done }} of {{ spinRun.total }}</span></p>
           <div class="vp-meter" role="progressbar" :aria-valuenow="spinRun.done" :aria-valuemax="spinRun.total" aria-label="Spin progress"><span :style="{ width: (spinRun.total ? (spinRun.done / spinRun.total) * 100 : 0) + '%' }" /></div>
-          <p class="vp-hint">Keep this tab open. It takes about a minute.</p>
+          <p class="vp-hint">Keep this tab open. It takes a minute or two.</p>
           <div class="vp-row"><button class="vp-btn" @click="cancelSpin">Cancel</button></div>
         </template>
       </div>
@@ -741,7 +741,7 @@ const videoInput = ref<HTMLInputElement | null>(null)
 const videoCamInput = ref<HTMLInputElement | null>(null)
 const spinOpen = ref(false)
 const spinRightFirst = ref(true)
-const spinCount = ref(24)
+const spinCount = ref(64)
 const spinError = ref('')
 const spinRun = ref<{ phase: 'reading' | 'clearing' | 'uploading'; done: number; total: number } | null>(null)
 let spinSignal = { cancelled: false }
@@ -787,7 +787,7 @@ async function makeSpin(file: File) {
       }
     }
 
-    // 3. Upload, three at a time. The server allows a burst; if it asks us to slow down we wait and retry.
+    // 3. Upload, four at a time. The server allows a burst; if it asks us to slow down we wait and retry.
     const angles = spinAngles(count, spinRightFirst.value)
     spinRun.value = { phase: 'uploading', done: 0, total: count }
     let next = 0
@@ -806,7 +806,7 @@ async function makeSpin(file: File) {
         spinRun.value = { phase: 'uploading', done: ++done, total: count }
       }
     }
-    await Promise.all([worker(), worker(), worker()])
+    await Promise.all([worker(), worker(), worker(), worker()])
     if (firstError) throw firstError
     if (signal.cancelled) throw new Error('Cancelled')
 

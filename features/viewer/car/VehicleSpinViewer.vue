@@ -76,7 +76,21 @@
       </p>
       <div class="vsv__bar">
         <span class="vsv__label" aria-live="polite">{{ currentLabel }}</span>
-        <div class="vsv__dots">
+        <!-- A spin has dozens of frames: one slim turn track instead of a dot per frame (which overflowed phones). -->
+        <input
+          v-if="smooth"
+          class="vsv__scrub"
+          type="range"
+          min="0"
+          :max="sorted.length - 1"
+          step="1"
+          :value="index"
+          aria-label="Turn the car"
+          :aria-valuetext="currentLabel"
+          @pointerdown.stop
+          @input="goTo(Number(($event.target as HTMLInputElement).value), true)"
+        />
+        <div v-else class="vsv__dots">
         <button
           v-for="(v, i) in sorted"
           :key="v.id"
@@ -341,14 +355,17 @@ function onUp(e: PointerEvent) {
   raf = requestAnimationFrame(tick)
 }
 
-function goTo(i: number) {
+function goTo(i: number, direct = false) {
   stopInertia()
   showHint.value = false
-  // Take the short way round the car.
+  autoplayed = true
   const n = sorted.value.length
+  // The turn track maps straight onto the frames; everything else takes the short way round the car.
   let diff = i - wrapIndex(Math.round(pos), n)
-  if (diff > n / 2) diff -= n
-  if (diff < -n / 2) diff += n
+  if (!direct) {
+    if (diff > n / 2) diff -= n
+    if (diff < -n / 2) diff += n
+  }
   setPos(Math.round(pos) + diff)
 }
 
@@ -524,6 +541,19 @@ defineExpose({ goTo, index })
 .vsv__dot.is-active::after { background: #fff; transform: scale(1.35); }
 .vsv__dot:focus-visible { outline: 2px solid #fff; outline-offset: -4px; border-radius: 8px; }
 .vsv__label { color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; }
+/* Turn track: 44px tall hit area, thin visible rail. */
+.vsv__scrub {
+  -webkit-appearance: none; appearance: none; width: min(260px, 60vw); height: 44px; margin: 0;
+  background: transparent; cursor: pointer; touch-action: none;
+}
+.vsv__scrub::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); }
+.vsv__scrub::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); }
+.vsv__scrub::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%;
+  background: #fff; border: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.vsv__scrub::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.vsv__scrub:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 8px; }
 .vsv__progress {
   position: absolute; left: 0; right: 0; top: 0; height: 3px; background: #fff; opacity: 0.8;
   transform-origin: left; transition: transform 160ms;

@@ -4,7 +4,8 @@
 export const SPIN_MAX_VIDEO_BYTES = 600 * 1024 * 1024
 export const SPIN_MIN_SECONDS = 6
 export const SPIN_MAX_SECONDS = 120
-const FRAME_LONG_EDGE = 1600
+// Full HD frames: sharp at full screen and still crisp when the buyer zooms in a little.
+const FRAME_LONG_EDGE = 1920
 const FRAME_QUALITY = 0.82
 
 export interface ExtractedFrame { file: File; index: number }
