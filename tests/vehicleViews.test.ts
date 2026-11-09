@@ -157,3 +157,19 @@ test('spinHints: touch says swipe and pinch, mouse says drag and double-click', 
   assert.deepEqual(spinHints(false, true).map(h => h.key), ['drag', 'dblclick'])
   assert.deepEqual(spinHints(false, false).map(h => h.key), ['drag'])
 })
+
+test('spinRows puts the main spin first, then its rows with frames; heightLabel names them', async () => {
+  const { spinRows, heightLabel } = await import('../shared/utils/vehicleViews.ts')
+  const v = (id: string) => ({ id, angle: 0 }) as any
+  const spin = { id: 'm', title: 'Exterior', start_angle: 0, views: [v('a')], rows: [
+    { id: 'h', title: 'High', elevation: 30, start_angle: 0, views: [v('b')] },
+    { id: 'e', title: 'Empty', elevation: -15, start_angle: 0, views: [] },
+  ] } as any
+  const rows = spinRows(spin)
+  assert.deepEqual(rows.map(r => r.id), ['m', 'h'])
+  assert.equal(rows[0].elevation, 0)
+  assert.equal(heightLabel(30), 'High')
+  assert.equal(heightLabel(60), 'From above')
+  assert.equal(heightLabel(0), 'Eye level')
+  assert.equal(heightLabel(-15), 'Low')
+})

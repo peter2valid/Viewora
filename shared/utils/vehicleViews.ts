@@ -23,10 +23,37 @@ export interface VehicleSpin {
   /** Degrees around the car of the frame buyers see first. */
   start_angle: number
   order_index?: number
+  /** Set when this spin is a camera-height row of another spin (same look, camera higher or lower). */
+  row_of?: string | null
+  /** Camera height in degrees: 0 eye level, positive higher, negative lower. */
+  elevation?: number
 }
 
-/** A spin with its photos, as the public tour payload sends it. */
-export interface VehicleSpinSet extends VehicleSpin { views: VehicleView[] }
+/** One camera height of a spin, as the public payload nests it. */
+export interface VehicleSpinRow { id: string; title: string; elevation: number; start_angle?: number; views: VehicleView[] }
+
+/** A spin with its photos (and any other camera heights), as the public tour payload sends it. */
+export interface VehicleSpinSet extends VehicleSpin { views: VehicleView[]; rows?: VehicleSpinRow[] }
+
+/** Camera heights an owner can add to a spin. */
+export const SPIN_HEIGHTS = [
+  { elevation: 30, label: 'Higher', hint: 'Camera held high, looking down at the roof and bonnet', suffix: 'high' },
+  { elevation: -15, label: 'Lower', hint: 'Camera near the ground: wheels, sills, the car’s stance', suffix: 'low' },
+] as const
+
+/** Every camera height of a spin: the main one first (the viewer opens on it), then its rows. */
+export function spinRows(spin: VehicleSpinSet): VehicleSpinRow[] {
+  const main: VehicleSpinRow = { id: spin.id, title: spin.title, elevation: spin.elevation ?? 0, start_angle: spin.start_angle, views: spin.views }
+  return [main, ...(spin.rows ?? []).filter(r => r.views.length)]
+}
+
+/** Name of a camera height for buyers. */
+export function heightLabel(elevation: number): string {
+  if (elevation >= 45) return 'From above'
+  if (elevation >= 10) return 'High'
+  if (elevation <= -10) return 'Low'
+  return 'Eye level'
+}
 
 export const VEHICLE_MAX_SPINS = 6
 /** One-tap names for a car's extra spins. */
@@ -378,11 +405,14 @@ export function timelineMarks(sorted: VehicleView[]): TimelineMark[] {
   return out
 }
 
+export type SpinHintKey = 'drag' | 'swipe' | 'dblclick' | 'pinch' | 'height'
+
 /** First-use hints: what this device can do. */
-export function spinHints(touch: boolean, zoomable: boolean): Array<{ key: 'drag' | 'swipe' | 'dblclick' | 'pinch'; label: string }> {
-  const out: Array<{ key: 'drag' | 'swipe' | 'dblclick' | 'pinch'; label: string }> = [
+export function spinHints(touch: boolean, zoomable: boolean, heights = false): Array<{ key: SpinHintKey; label: string }> {
+  const out: Array<{ key: SpinHintKey; label: string }> = [
     touch ? { key: 'swipe', label: 'Swipe to rotate' } : { key: 'drag', label: 'Drag to rotate' },
   ]
+  if (heights) out.push({ key: 'height', label: touch ? 'Swipe up or down for height' : 'Drag up or down for height' })
   if (zoomable) out.push(touch ? { key: 'pinch', label: 'Pinch to zoom' } : { key: 'dblclick', label: 'Double-click to zoom' })
   return out
 }

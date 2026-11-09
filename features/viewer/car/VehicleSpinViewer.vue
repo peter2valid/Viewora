@@ -2,7 +2,7 @@
   <div
     ref="rootEl"
     class="vsv"
-    :class="{ 'is-placing': placing, 'is-edit': editable, 'is-zoomed': zoomed, 'has-timeline': showTimeline, 'is-short': short }"
+    :class="{ 'is-placing': placing, 'is-edit': editable, 'is-zoomed': zoomed, 'has-timeline': showTimeline, 'is-short': short, 'is-heights': verticalHeights }"
     role="group"
     tabindex="0"
     :aria-roledescription="smooth ? '360° view' : undefined"
@@ -14,6 +14,8 @@
     @wheel="onWheel"
     @keydown.left.prevent="step(-1)"
     @keydown.right.prevent="step(1)"
+    @keydown.up="onHeightKey($event, -1)"
+    @keydown.down="onHeightKey($event, 1)"
     @keydown="onZoomKey"
     @keydown.esc="activePinId = null"
   >
@@ -103,6 +105,7 @@
       <span v-for="h in hints" :key="h.key" class="vsv__hint">
         <svg v-if="h.key === 'drag'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></svg>
         <svg v-else-if="h.key === 'swipe'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M8 12h8"/></svg>
+        <svg v-else-if="h.key === 'height'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4M8 18l4 4 4-4M12 2v20"/></svg>
         <svg v-else-if="h.key === 'pinch'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/><circle cx="12" cy="12" r="2"/></svg>
         <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 9 5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2"/></svg>
         {{ h.label }}
@@ -125,6 +128,28 @@
       </template>
       <button v-else type="button" class="vsv__zbtn" aria-label="Zoom in" @click="zoomBy(1.6)">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6M10.5 7.5v6M7.5 10.5h6"/></svg>
+      </button>
+    </div>
+
+    <!-- Camera heights (a spin shot at several heights): higher / lower at the same angle. -->
+    <div v-if="rowList && !editable" class="vsv__heights" role="group" aria-label="Camera height" @pointerdown.stop>
+      <button type="button" class="vsv__hbtn" aria-label="Camera higher" :disabled="rowIdx <= 0" @click="setRow(rowIdx - 1)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>
+      </button>
+      <button
+        v-for="(r, i) in rowList"
+        :key="r.id"
+        type="button"
+        class="vsv__hdot"
+        :class="{ 'is-on': i === rowIdx }"
+        :aria-label="`${heightLabel(r.elevation)}${r.title ? `, ${r.title}` : ''}`"
+        :aria-pressed="i === rowIdx"
+        @click="setRow(i)"
+      >
+        <span class="vsv__htip" aria-hidden="true">{{ heightLabel(r.elevation) }}</span>
+      </button>
+      <button type="button" class="vsv__hbtn" aria-label="Camera lower" :disabled="rowIdx >= rowList.length - 1" @click="setRow(rowIdx + 1)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
     </div>
 
@@ -204,13 +229,18 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import {
   sortByAngle, viewLabel, wrapIndex, fitRect, pointToFraction, hotspotKindLabel, isSpinSet,
   resolveFit, clampZoom, zoomAt, zoomForward, zoomInverse, spinLoadOrder, indexNearestAngle,
-  ringPoint, timelineMarks, spinHints,
+  ringPoint, timelineMarks, spinHints, heightLabel,
   ZOOM_MAX, ZOOM_MIN,
-  type VehicleView, type VehicleHotspot, type ZoomState, type TimelineMark,
+  type VehicleView, type VehicleHotspot, type ZoomState, type TimelineMark, type VehicleSpinRow,
 } from '~/shared/utils/vehicleViews'
 
 const props = withDefaults(defineProps<{
   views: VehicleView[]
+  /**
+   * The same spin at several camera heights (the main one first). With two or more, dragging up
+   * and down (or the up / down keys) changes height at the same angle. `views` is then ignored.
+   */
+  rows?: VehicleSpinRow[] | null
   /**
    * `auto` (buyers): fill the box when that crops little, otherwise the whole car over a blurred copy.
    * `contain`: whole photo (the editor, so pins can go anywhere). `cover`: always fill.
@@ -234,7 +264,7 @@ const props = withDefaults(defineProps<{
   autoplay?: boolean
 }>(), {
   fit: 'auto', editable: false, placing: false, selectedHotspotId: null, hideBar: false, hideZoom: false,
-  zoomBottom: '50%', zoomable: true, autoplay: true, startAngle: 0,
+  zoomBottom: '50%', zoomable: true, autoplay: true, startAngle: 0, rows: null,
 })
 
 const emit = defineEmits<{
@@ -247,7 +277,25 @@ const emit = defineEmits<{
   (e: 'popover', open: boolean): void
 }>()
 
-const sorted = computed(() => sortByAngle(props.views))
+// ── Camera heights ──
+/** Heights, highest first; null for an ordinary single-height spin. */
+const rowList = computed<VehicleSpinRow[] | null>(() => {
+  const r = (props.rows ?? []).filter(x => x.views?.length)
+  return r.length > 1 ? [...r].sort((a, b) => b.elevation - a.elevation) : null
+})
+const rowIdx = ref(0)
+function mainRowIndex() {
+  const list = rowList.value
+  if (!list) return 0
+  const i = list.findIndex(r => r.id === props.rows?.[0]?.id)
+  return i >= 0 ? i : 0
+}
+rowIdx.value = mainRowIndex()
+const activeViews = computed(() => (rowList.value ? rowList.value[Math.min(rowIdx.value, rowList.value.length - 1)].views : props.views))
+/** Every frame of every height (for freeing frames that are gone, and fading between heights). */
+const allViews = computed(() => (rowList.value ? rowList.value.flatMap(r => r.views) : props.views))
+const allById = computed(() => new Map(allViews.value.map(v => [v.id, v])))
+const sorted = computed(() => sortByAngle(activeViews.value))
 const startIndex = computed(() => (props.index != null ? wrapIndex(props.index, sorted.value.length) : indexNearestAngle(sorted.value, props.startAngle)))
 const idx = ref(0)
 const index = computed(() => idx.value)
@@ -264,7 +312,10 @@ const painted = ref(false)
 
 // ── Chrome: badge, hints, ring, timeline, popover, spoken updates ──
 const isTouch = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
-const hints = computed(() => spinHints(isTouch, props.zoomable))
+/** Up/down drags change height; on a touch screen only when the viewer fills most of it (no page to scroll). */
+const verticalHeights = computed(() => !!rowList.value && !props.editable
+  && (!isTouch || (typeof window !== 'undefined' && box.value.h > window.innerHeight * 0.7)))
+const hints = computed(() => spinHints(isTouch, props.zoomable, verticalHeights.value))
 /** The middle "360°" badge goes at the first touch, or when the car starts turning by itself. */
 const badgeGone = ref(false)
 const showBadge = computed(() => smooth.value && !props.editable && !badgeGone.value)
@@ -371,7 +422,7 @@ const posterUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? ''
 
 /** Long edge of the stored bitmap: what this screen can show, smaller when there are many frames. */
 function bitmapLongEdge(): number {
-  const n = sorted.value.length
+  const n = allViews.value.length
   const screenLong = typeof window !== 'undefined' ? Math.max(window.screen?.width || 1280, window.screen?.height || 720) : 1280
   const smallScreen = typeof window !== 'undefined' && Math.min(window.screen?.width || 1280, window.screen?.height || 720) < 600
   const cap = n > 40 ? (smallScreen ? 1024 : 1440) : (smallScreen ? 1280 : 1600)
@@ -434,14 +485,24 @@ function loadAll() {
   if (typeof window === 'undefined') return
   const gen = ++loadGen
   const list = sorted.value
-  const order = spinLoadOrder(list.length, startIndex.value).map(i => list[i]).filter(v => !frames.has(v.id))
+  const here = sorted.value[idx.value]?.angle ?? props.startAngle
+  const order = spinLoadOrder(list.length, list.length ? indexNearestAngle(list, here) : 0).map(i => list[i])
+  // Then the other heights, nearest the current angle first, so moving up or down is instant.
+  if (rowList.value && !props.editable) {
+    for (const r of rowList.value) {
+      if (r.views === activeViews.value) continue
+      const rs = sortByAngle(r.views)
+      order.push(...spinLoadOrder(rs.length, indexNearestAngle(rs, here)).map(i => rs[i]))
+    }
+  }
+  const todo = order.filter(v => !frames.has(v.id))
   let next = 0
   const worker = async () => {
-    while (next < order.length && gen === loadGen) {
-      const v = order[next++]
+    while (next < todo.length && gen === loadGen) {
+      const v = todo[next++]
       try {
         const d = await decodeFrame(v)
-        if (gen !== loadGen || !sorted.value.some(x => x.id === v.id)) { closeDrawable(d); continue }
+        if (gen !== loadGen || !allById.value.has(v.id)) { closeDrawable(d); continue }
         frames.set(v.id, d)
         loadedIds.value = new Set(loadedIds.value).add(v.id)
         requestDraw()
@@ -533,10 +594,11 @@ function draw() {
     const nd = nextV && frames.get(nextV.id)
     // Only blend a neighbour that has arrived; otherwise the car would fade into a stand-in frame.
     if (nd && blend.alpha > 0.001 && base.v.id === list[blend.base].id) paint(nd, nextV, blend.alpha)
-  } else if (fade) {
-    // A few photos: the outgoing photo fades away over the new one.
+  }
+  if (fade) {
+    // The outgoing photo fades away over the new one (a few photos, or a change of camera height).
     const k = (performance.now() - fade.t0) / FADE_MS
-    const from = list.find(v => v.id === fade!.fromId)
+    const from = allById.value.get(fade.fromId)
     const fd = from && frames.get(from.id)
     if (k < 1 && fd && from) { paint(fd, from, 1 - k); requestDraw() } else fade = null
   }
@@ -808,6 +870,8 @@ let lastX = 0
 let lastY = 0
 let lastT = 0
 let lastTap = { t: 0, x: 0, y: 0 }
+let dragAxis: 'x' | 'y' | null = null
+let dragStartRow = 0
 
 function localXY(e: PointerEvent) {
   const b = rootEl.value!.getBoundingClientRect()
@@ -833,6 +897,8 @@ function onDown(e: PointerEvent) {
   if (pointers.size > 1) return
   dragging = true
   panning = zoomed.value
+  dragAxis = null
+  dragStartRow = rowIdx.value
   moved = 0
   downX = startPosX = lastX = e.clientX
   downY = lastY = e.clientY
@@ -860,6 +926,16 @@ function onMove(e: PointerEvent) {
     setZoom({ z: zoom.value.z, x: zoom.value.x + (e.clientX - lastX), y: zoom.value.y + (e.clientY - lastY) })
     lastX = e.clientX
     lastY = e.clientY
+    return
+  }
+  // With camera heights, a mostly vertical drag changes height instead of turning the car.
+  if (verticalHeights.value && dragAxis === null && moved > 8) {
+    dragAxis = Math.abs(e.clientY - downY) > Math.abs(e.clientX - downX) * 1.2 ? 'y' : 'x'
+  }
+  if (dragAxis === 'y') {
+    // Pulling down lifts the camera (you see more of the roof), like tilting the car towards you.
+    const stepPx = Math.max(48, Math.min(90, box.value.h / 6))
+    setRow(dragStartRow - Math.round((e.clientY - downY) / stepPx))
     return
   }
   if (sorted.value.length < 2) return
@@ -902,7 +978,7 @@ function onUp(e: PointerEvent) {
     }
     return
   }
-  if (panning) return
+  if (panning || dragAxis === 'y') return
 
   if (reduceMotion || Math.abs(velocity) < 0.002 || performance.now() - lastT > 80) {
     setPos(Math.round(pos))
@@ -943,6 +1019,33 @@ function step(dir: number) {
   autoplayed = true
   setPos(Math.round(pos) + dir)
   announce(currentLabel.value)
+}
+
+// ── Camera height: same angle, another row ──
+function setRow(r: number) {
+  const list = rowList.value
+  if (!list) return
+  const next = Math.max(0, Math.min(list.length - 1, r))
+  if (next === rowIdx.value) return
+  const from = currentView.value
+  if (from && !reduceMotion) fade = { fromId: from.id, t0: performance.now() }
+  rowIdx.value = next
+  const i = indexNearestAngle(sorted.value, from?.angle ?? 0)
+  pos = idx.value = i
+  syncBlend()
+  activePinId.value = null
+  emit('update:index', i)
+  badgeGone.value = true
+  showHint.value = false
+  if (zoomed.value) resetZoom()
+  requestDraw()
+  announce(`${heightLabel(list[next].elevation)} view`)
+}
+function onHeightKey(e: KeyboardEvent, dir: number) {
+  if (!rowList.value || props.editable) return
+  e.preventDefault()
+  stopInertia()
+  setRow(rowIdx.value + dir)
 }
 
 // ── Pin dragging (editor) ──
@@ -1048,11 +1151,14 @@ watch(() => props.index, (i) => {
   scheduleSharpen()
 })
 
-// Frames added or removed (the editor): load the new ones, free the gone ones.
-watch(() => sorted.value.map(v => v.id).join(','), () => {
-  const ids = new Set(sorted.value.map(v => v.id))
+// Frames gone for good (the editor deleted them): free them. Frames of the other heights stay.
+watch(() => allViews.value.map(v => v.id).join(','), () => {
+  const ids = new Set(allViews.value.map(v => v.id))
   for (const [id, d] of frames) if (!ids.has(id)) { closeDrawable(d); frames.delete(id) }
   loadedIds.value = new Set([...loadedIds.value].filter(id => ids.has(id)))
+})
+// Frames added, or another height on screen: load what is missing, nearest first.
+watch(() => sorted.value.map(v => v.id).join(','), () => {
   const n = sorted.value.length
   if (idx.value >= n) { idx.value = Math.max(0, n - 1); pos = idx.value }
   syncBlend()
@@ -1235,6 +1341,38 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__zbtn:disabled { opacity: 0.3; cursor: default; }
 .vsv__zbtn:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: -2px; }
 .vsv__zsep { width: 1px; align-self: stretch; margin: 8px 0; background: rgba(255,255,255,0.18); }
+
+.vsv.is-heights { touch-action: none; }
+.vsv__heights {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%); z-index: 5;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; border-radius: 22px;
+  background: var(--vsv-btn-bg); box-shadow: var(--vsv-shadow);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.vsv__hbtn {
+  width: 36px; height: 36px; border-radius: 50%; border: 0; padding: 0; background: transparent; cursor: pointer;
+  color: var(--vsv-icon); display: grid; place-items: center;
+}
+.vsv__hbtn:hover:not(:disabled) { background: var(--vsv-btn-bg-hover); color: #fff; }
+.vsv__hbtn:disabled { opacity: 0.3; cursor: default; }
+/* A short box (a phone listing card) keeps only the dots, so the control stays clear of the host's buttons. */
+.vsv.is-short .vsv__hbtn { display: none; }
+.vsv.is-short .vsv__heights { padding: 2px 0; left: 10px; }
+.vsv.is-short .vsv__hdot { width: 28px; height: 24px; }
+.vsv__hdot { position: relative; width: 36px; height: 22px; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.vsv__hdot::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+  background: rgba(255,255,255,0.4); transition: transform 150ms ease, background 150ms ease;
+}
+.vsv__hdot.is-on::before { background: var(--vsv-brand); box-shadow: 0 0 0 2px #fff; transform: scale(1.2); }
+.vsv__hbtn:focus-visible, .vsv__hdot:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: -2px; border-radius: 12px; }
+.vsv__htip {
+  position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+  padding: 4px 10px; border-radius: 6px; background: var(--vsv-pop-bg); color: var(--vsv-pop-fg);
+  font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none;
+  opacity: 0; visibility: hidden; transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.vsv__hdot:hover .vsv__htip, .vsv__hdot:focus-visible .vsv__htip { opacity: 1; visibility: visible; }
 
 .vsv__toast {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; margin: 0;

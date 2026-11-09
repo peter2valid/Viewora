@@ -63,16 +63,18 @@
         <!-- Spins: one walk around the car each (roof up, roof down...). Buyers flick between them. -->
         <div v-if="loaded" class="vp-spins" role="tablist" aria-label="Spins of this car">
           <button
-            v-for="sp in spins"
+            v-for="sp in spinChips"
             :key="sp.id"
             type="button"
             role="tab"
             class="vp-spinchip"
-            :class="{ 'is-on': sp.id === activeSpinId }"
+            :class="{ 'is-on': sp.id === activeSpinId, 'is-row': !!sp.row_of }"
             :aria-selected="sp.id === activeSpinId"
+            :aria-label="sp.row_of ? `${sp.title}, camera ${(sp.elevation ?? 0) > 0 ? 'higher' : 'lower'}` : undefined"
             :disabled="busy && sp.id !== activeSpinId"
             @click="onSelectSpin(sp.id)"
           >
+            <svg v-if="sp.row_of" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path v-if="(sp.elevation ?? 0) > 0" d="M12 19V5M6 11l6-6 6 6"/><path v-else d="M12 5v14M6 13l6 6 6-6"/></svg>
             {{ sp.title }} <span class="vp-spinchip__n vp-num">{{ frameCounts[sp.id] || 0 }}</span>
           </button>
           <button
@@ -360,10 +362,28 @@
     <div v-if="addSpinOpen" class="vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-addspin-title" @keydown.esc="addSpinOpen = false">
       <div class="vp-modal__box">
         <h2 id="vp-addspin-title" class="vp-h2">Add a spin</h2>
-        <p class="vp-muted">Another walk around the same car, set up differently. Buyers switch between spins in the tour.</p>
-        <div class="vp-presets">
-          <button v-for="pr in spinPresets" :key="pr" type="button" class="vp-spinchip" :class="{ 'is-on': newSpinTitle === pr }" @click="newSpinTitle = pr">{{ pr }}</button>
-        </div>
+        <p class="vp-muted">Another walk around the same car. What is different this time?</p>
+        <fieldset class="vp-seg" aria-label="What is different">
+          <button type="button" class="vp-seg__btn" :class="{ 'is-on': newSpinKind === 'look' }" :aria-pressed="newSpinKind === 'look'" @click="setNewSpinKind('look')">The car (roof, doors…)</button>
+          <button type="button" class="vp-seg__btn" :class="{ 'is-on': newSpinKind === 'height' }" :aria-pressed="newSpinKind === 'height'" :disabled="!heightParents.length" @click="setNewSpinKind('height')">Camera height</button>
+        </fieldset>
+        <template v-if="newSpinKind === 'look'">
+          <p class="vp-hint">Buyers switch between spins with chips in the tour.</p>
+          <div class="vp-presets">
+            <button v-for="pr in spinPresets" :key="pr" type="button" class="vp-spinchip" :class="{ 'is-on': newSpinTitle === pr }" @click="newSpinTitle = pr">{{ pr }}</button>
+          </div>
+        </template>
+        <template v-else>
+          <p class="vp-hint">Same car, same walk, the camera higher or lower. Buyers drag up and down to change height at the same angle.</p>
+          <label class="vp-label" for="vp-rowof">Height of</label>
+          <select id="vp-rowof" v-model="newRowOf" class="vp-input" @change="suggestRowTitle">
+            <option v-for="sp in heightParents" :key="sp.id" :value="sp.id">{{ sp.title }}</option>
+          </select>
+          <div class="vp-presets">
+            <button v-for="h in SPIN_HEIGHTS" :key="h.elevation" type="button" class="vp-spinchip" :class="{ 'is-on': newElevation === h.elevation }" :title="h.hint" @click="newElevation = h.elevation; suggestRowTitle()">{{ h.label }}</button>
+          </div>
+          <p class="vp-hint">{{ SPIN_HEIGHTS.find(h => h.elevation === newElevation)?.hint }}</p>
+        </template>
         <label class="vp-label" for="vp-newspin">Name</label>
         <input id="vp-newspin" v-model="newSpinTitle" class="vp-input" maxlength="40" placeholder="e.g. Roof down" @keydown.enter="createSpin" />
         <div class="vp-row">
@@ -406,7 +426,7 @@ import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
 import CarSetupChecklist from '~/features/editor/CarSetupChecklist.vue'
 import { useVehicleViews, type AngleSuggestion } from '~/features/vehicle/useVehicleViews'
 import {
-  VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS, VEHICLE_MAX_SPINS, SPIN_PRESETS,
+  VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS, VEHICLE_MAX_SPINS, SPIN_PRESETS, SPIN_HEIGHTS,
   viewLabel, nearestSlot, hotspotKindLabel, slotGaps, swapAngles, isSpinSet, spinAngles,
   type VehicleView, type VehicleSlot, type VehicleHotspotKind,
 } from '~/shared/utils/vehicleViews'
@@ -929,12 +949,42 @@ function onSelectSpin(id: string) {
 const addSpinOpen = ref(false)
 const newSpinTitle = ref('')
 const spinPresets = computed(() => SPIN_PRESETS.filter(p => !spins.value.some(s => s.title.toLowerCase() === p.toLowerCase())))
-function openAddSpin() { newSpinTitle.value = spinPresets.value[0] ?? ''; addSpinOpen.value = true }
+/** Main spins first, each followed by its camera-height rows. */
+const spinChips = computed(() => {
+  const mains = spins.value.filter(s => !s.row_of)
+  const out = mains.flatMap(m => [m, ...spins.value.filter(r => r.row_of === m.id).sort((a, b) => (b.elevation ?? 0) - (a.elevation ?? 0))])
+  // Rows whose main spin is gone (should not happen) still show.
+  return [...out, ...spins.value.filter(s => !out.includes(s))]
+})
+// A height row needs a main spin that already has frames (it is matched to it angle by angle).
+const heightParents = computed(() => spins.value.filter(s => !s.row_of && (frameCounts.value[s.id] || 0) > 0))
+const newSpinKind = ref<'look' | 'height'>('look')
+const newRowOf = ref('')
+const newElevation = ref<number>(SPIN_HEIGHTS[0].elevation)
+function suggestRowTitle() {
+  const parent = spins.value.find(s => s.id === newRowOf.value)
+  const h = SPIN_HEIGHTS.find(x => x.elevation === newElevation.value)
+  if (parent && h) newSpinTitle.value = `${parent.title} · ${h.suffix}`.slice(0, 40)
+}
+function setNewSpinKind(kind: 'look' | 'height') {
+  newSpinKind.value = kind
+  if (kind === 'height') {
+    const active = spins.value.find(s => s.id === activeSpinId.value)
+    newRowOf.value = (active?.row_of ? active.row_of : active?.id) && heightParents.value.some(p => p.id === (active?.row_of || active?.id))
+      ? (active!.row_of || active!.id)
+      : heightParents.value[0]?.id ?? ''
+    suggestRowTitle()
+  } else {
+    newSpinTitle.value = spinPresets.value[0] ?? ''
+  }
+}
+function openAddSpin() { newSpinKind.value = 'look'; newSpinTitle.value = spinPresets.value[0] ?? ''; addSpinOpen.value = true }
 
 async function createSpin() {
   const title = newSpinTitle.value.trim()
   if (!title) return
-  const ok = await withBusy(null, () => addSpin(title), 'Could not add the spin')
+  const height = newSpinKind.value === 'height' && newRowOf.value ? { row_of: newRowOf.value, elevation: newElevation.value } : undefined
+  const ok = await withBusy(null, () => addSpin(title, height), 'Could not add the spin')
   if (!ok) return
   addSpinOpen.value = false
   selectedHotspotId.value = null
@@ -1046,6 +1096,7 @@ defineExpose({ reload: init })
 .vp.is-preview .vp-main { grid-template-columns: minmax(0, 1fr); }
 
 .vp-stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.vp-spinchip.is-row { font-style: normal; opacity: 0.92; }
 .vp-spins { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
 .vp-spinchip {
   flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer;

@@ -60,8 +60,9 @@ export function useVehicleViews(spaceId: string) {
   }
 
   // ── Spins ──
-  async function addSpin(title: string): Promise<VehicleSpin> {
-    const res = unwrap<any>(await apiFetch(`/spaces/${spaceId}/vehicle-spins`, { method: 'POST', body: { title } }))
+  /** A new spin; with `row_of` it is another camera height of that spin. */
+  async function addSpin(title: string, height?: { row_of: string; elevation: number }): Promise<VehicleSpin> {
+    const res = unwrap<any>(await apiFetch(`/spaces/${spaceId}/vehicle-spins`, { method: 'POST', body: { title, ...(height ?? {}) } }))
     const spin: VehicleSpin | undefined = res?.vehicle_spin
     if (!spin?.id) throw new Error('Could not add the spin')
     spins.value = [...spins.value, spin]
@@ -85,9 +86,11 @@ export function useVehicleViews(spaceId: string) {
   async function removeSpin(id: string) {
     const res = unwrap<any>(await apiFetch(`/vehicle-spins/${id}`, { method: 'DELETE' }))
     for (const mediaId of res?.media_ids ?? []) apiFetch(`/uploads/${mediaId}`, { method: 'DELETE' }).catch(() => {})
-    spins.value = spins.value.filter(s => s.id !== id)
-    allViews.value = allViews.value.filter(v => v.spin_id !== id)
-    if (activeSpinId.value === id) activeSpinId.value = spins.value[0]?.id ?? null
+    // Its camera-height rows were deleted with it.
+    const gone = new Set([id, ...spins.value.filter(s => s.row_of === id).map(s => s.id)])
+    spins.value = spins.value.filter(s => !gone.has(s.id))
+    allViews.value = allViews.value.filter(v => !gone.has(v.spin_id ?? ''))
+    if (activeSpinId.value && gone.has(activeSpinId.value)) activeSpinId.value = spins.value[0]?.id ?? null
   }
 
   /** Throws with a user-facing message on validation or upload failure. */

@@ -14,6 +14,7 @@
       :key="active.id"
       class="ct__layer"
       :views="active.spin!.views"
+      :rows="active.spin!.rows?.length ? spinRows(active.spin!) : null"
       :start-angle="active.spin!.start_angle"
       :hide-zoom="compact || (narrow && ribbonOpen)"
       :zoom-bottom="zoomBottom"
@@ -145,7 +146,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useImage } from '#imports'
 import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
 import { buildCarTourItems, CAR_GROUP_LABELS, type CarTourItem, type CarGroup } from '~/shared/utils/carTour'
-import type { VehicleView } from '~/shared/utils/vehicleViews'
+import { spinRows, type VehicleView } from '~/shared/utils/vehicleViews'
 
 const props = withDefaults(defineProps<{
   /** The public tour payload (space, scenes, gallery, vehicle_spins). */

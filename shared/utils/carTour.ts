@@ -22,7 +22,14 @@ export function spinsFromTour(tour: any): VehicleSpinSet[] {
   if (sets.length) {
     return sets
       .filter(s => Array.isArray(s?.views) && s.views.length > 0)
-      .map(s => ({ id: String(s.id), title: s.title || 'Exterior', start_angle: Number(s.start_angle) || 0, views: s.views as VehicleView[] }))
+      .map(s => ({
+        id: String(s.id), title: s.title || 'Exterior', start_angle: Number(s.start_angle) || 0, views: s.views as VehicleView[],
+        elevation: Number(s.elevation) || 0,
+        // Camera heights of this spin (same car, camera higher or lower).
+        rows: (Array.isArray(s.rows) ? s.rows : [])
+          .filter((r: any) => r?.id && Array.isArray(r.views) && r.views.length > 0)
+          .map((r: any) => ({ id: String(r.id), title: r.title || '', elevation: Number(r.elevation) || 0, start_angle: Number(r.start_angle) || 0, views: r.views as VehicleView[] })),
+      }))
   }
   const flat: VehicleView[] = Array.isArray(tour?.vehicle_views) ? tour.vehicle_views : []
   return flat.length ? [{ id: 'exterior', title: 'Exterior', start_angle: 0, views: flat }] : []

@@ -40,3 +40,13 @@ test('vehicleName: year, make, model and trim; empty without make or model', () 
   assert.equal(vehicleName({ vehicle_year: 2021 }), '')
   assert.equal(vehicleName(null), '')
 })
+
+test('camera-height rows come through with the spin; empty rows are dropped', () => {
+  const spins = spinsFromTour({ vehicle_spins: [{ id: 'a', title: 'Exterior', start_angle: 0, elevation: 0, views: [v('x', 0)], rows: [
+    { id: 'r1', title: 'High', elevation: 30, start_angle: 0, views: [v('y', 0)] },
+    { id: 'r2', title: 'Low', elevation: -15, start_angle: 0, views: [] },
+  ] }] })
+  assert.deepEqual(spins[0].rows!.map(r => `${r.id}:${r.elevation}`), ['r1:30'])
+  // Payloads from before the migration have no rows at all.
+  assert.deepEqual(spinsFromTour({ vehicle_spins: [{ id: 'b', views: [v('x', 0)] }] })[0].rows, [])
+})
