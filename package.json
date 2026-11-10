@@ -9,6 +9,7 @@
     "postinstall": "node scripts/patch-pinia-nuxt.js"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.14",
     "@nuxt/image": "^2.0.0",
     "@nuxtjs/google-fonts": "^3.2.0",
     "@nuxtjs/supabase": "^2.0.4",

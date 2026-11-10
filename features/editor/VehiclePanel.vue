@@ -355,7 +355,7 @@
         </template>
 
         <template v-else>
-          <p class="vp-muted" aria-live="polite">{{ spinRun.phase === 'reading' ? 'Reading frames from your video' : spinRun.phase === 'clearing' ? 'Clearing the old photos' : 'Uploading frames' }}: <span class="vp-num">{{ spinRun.done }} of {{ spinRun.total }}</span></p>
+          <p class="vp-muted" aria-live="polite">{{ SPIN_PHASE_TEXT[spinRun.phase] }}: <span class="vp-num">{{ spinRun.done }} of {{ spinRun.total }}</span></p>
           <div class="vp-meter" role="progressbar" :aria-valuenow="spinRun.done" :aria-valuemax="spinRun.total" aria-label="Spin progress"><span :style="{ width: (spinRun.total ? (spinRun.done / spinRun.total) * 100 : 0) + '%' }" /></div>
           <p class="vp-hint">Keep this tab open. It takes a minute or two.</p>
           <div class="vp-row"><button class="vp-btn" @click="cancelSpin">Cancel</button></div>
@@ -435,7 +435,7 @@ import {
   viewLabel, nearestSlot, hotspotKindLabel, slotGaps, swapAngles, isSpinSet, spinAngles,
   type VehicleView, type VehicleSlot, type VehicleHotspotKind,
 } from '~/shared/utils/vehicleViews'
-import { extractSpinFrames, validateSpinVideo } from '~/shared/utils/videoFrames'
+import { extractSpinFrames, validateSpinVideo, type SpinPhase } from '~/shared/utils/videoFrames'
 
 const props = defineProps<{ spaceId: string }>()
 
@@ -848,7 +848,14 @@ const spinOpen = ref(false)
 const spinRightFirst = ref(true)
 const spinCount = ref(64)
 const spinError = ref('')
-const spinRun = ref<{ phase: 'reading' | 'clearing' | 'uploading'; done: number; total: number } | null>(null)
+const spinRun = ref<{ phase: SpinPhase | 'clearing' | 'uploading'; done: number; total: number } | null>(null)
+const SPIN_PHASE_TEXT: Record<SpinPhase | 'clearing' | 'uploading', string> = {
+  reading: 'Reading frames from your video',
+  finding: 'Finding the car in each frame',
+  centring: 'Centring the car',
+  clearing: 'Clearing the old photos',
+  uploading: 'Uploading frames',
+}
 let spinSignal = { cancelled: false }
 
 function openSpinModal() { spinError.value = ''; spinRun.value = null; spinOpen.value = true }
@@ -878,7 +885,7 @@ async function makeSpin(file: File) {
   try {
     // 1. Read every frame first, so a bad video never costs you your current photos.
     spinRun.value = { phase: 'reading', done: 0, total: count }
-    const frames = await extractSpinFrames(file, count, (done, total) => { spinRun.value = { phase: 'reading', done, total } }, signal)
+    const { frames, report } = await extractSpinFrames(file, count, (done, total, phase) => { spinRun.value = { phase, done, total } }, signal)
 
     // 2. Clear the old set (a spin needs the whole 360° to itself).
     const old = [...views.value]
@@ -917,7 +924,8 @@ async function makeSpin(file: File) {
 
     spinOpen.value = false
     if (views.value.length) selectedId.value = views.value[0].id
-    setNotice(`Smooth spin ready: ${views.value.length} frames. Drag the car to try it, then pin hotspots on any frame.`)
+    const centred = report.centred ? ' The car is centred and the same size in every frame.' : ''
+    setNotice(`Smooth spin ready: ${views.value.length} frames.${centred} Drag the car to try it, then pin hotspots on any frame.${report.tips.length ? ` Tip: ${report.tips[0]}` : ''}`)
   } catch (e: any) {
     const m = errMsg(e, 'Something went wrong')
     if (m === 'Cancelled') {

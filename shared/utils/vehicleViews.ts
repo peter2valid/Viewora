@@ -416,3 +416,16 @@ export function spinHints(touch: boolean, zoomable: boolean, heights = false): A
   if (zoomable) out.push(touch ? { key: 'pinch', label: 'Pinch to zoom' } : { key: 'dblclick', label: 'Double-click to zoom' })
   return out
 }
+
+/**
+ * How much of the next frame to show at a point between two frames (0..1 → 0..1). The first and
+ * last part of each step show one sharp frame; the middle `width` dissolves smoothly between them.
+ * width 1 is the plain linear mix.
+ */
+export function crispBlend(f: number, width = 0.4): number {
+  if (!(f > 0)) return 0
+  if (f >= 1) return 1
+  const w = Math.min(1, Math.max(0.01, width))
+  const t = Math.min(1, Math.max(0, (f - (0.5 - w / 2)) / w))
+  return t * t * (3 - 2 * t)
+}

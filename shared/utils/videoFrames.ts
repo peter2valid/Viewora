@@ -1,5 +1,10 @@
 // Turns one walk-around video of a car into evenly spaced still frames, in the browser.
 // No server work: the video is read with a <video> element and each frame is drawn to a canvas.
+// When the car can be found in the frames, each one is then re-cut from the full-size video so the
+// car keeps one place and one size all the way round (see spinStabilize.ts).
+
+import { planStabilization, type Box } from './spinStabilize'
+import { loadCarDetector, DETECT_EDGE } from './carDetector'
 
 export const SPIN_MAX_VIDEO_BYTES = 600 * 1024 * 1024
 export const SPIN_MIN_SECONDS = 6
@@ -56,18 +61,78 @@ export function frameTimes(duration: number, count: number): number[] {
   return Array.from({ length: count }, (_, i) => Math.min(usable, (i / count) * usable))
 }
 
+export type SpinPhase = 'reading' | 'finding' | 'centring'
+
+/** What we learnt about the recording, for the owner. */
+export interface SpinReport {
+  /** Frames were re-cut so the car keeps one place and size. */
+  centred: boolean
+  /** Share of frames where the car was found (0..1), or null when the finder could not run. */
+  carFound: number | null
+  /** How much bigger the car looked at its closest than at its furthest, as recorded (0.35 = 35%). */
+  sizeChange: number | null
+  duration: number
+  /** Short side of the video in pixels (1080 for Full HD). */
+  shortEdge: number
+  tips: string[]
+}
+
+/** Plain advice from the recording (the spin is made anyway). */
+export function spinTips(r: Omit<SpinReport, 'tips'>): string[] {
+  const tips: string[] = []
+  if (r.carFound != null && r.carFound < 0.6) tips.push('We could not find the car in many frames, so it was left as recorded. Keep the whole car in the picture as you walk.')
+  if (r.sizeChange != null && r.sizeChange > 0.25) {
+    tips.push(r.centred
+      ? 'You were closer to the car on some sides. We evened out its size; keeping the same distance all the way round gives an even sharper spin.'
+      : 'You were closer to the car on some sides, so it grows and shrinks as it turns. Keep the same distance all the way round.')
+  }
+  if (r.duration < 15) tips.push(`You walked round quickly (${Math.round(r.duration)} s). 20 to 40 seconds gives smoother, sharper turns.`)
+  if (r.shortEdge < 720) tips.push(`This video is low resolution (${r.shortEdge}p). Record in 1080p or 4K for a sharper car.`)
+  return tips
+}
+
+/** True when two thumbnails are the same picture (a repeated frame), allowing for compression noise. */
+export function sameThumb(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
+  const n = Math.min(a.length, b.length)
+  if (!n) return false
+  let s = 0
+  for (let i = 0; i < n; i++) s += Math.abs(a[i] - b[i])
+  return s / n < 0.5
+}
+
+/** A tiny greyscale copy of the current video picture, to spot repeated frames. */
+function makeThumbReader() {
+  const c = document.createElement('canvas')
+  c.width = 64
+  c.height = 36
+  const x = c.getContext('2d', { willReadFrequently: true })
+  return (video: HTMLVideoElement): Uint8Array => {
+    const g = new Uint8Array(64 * 36)
+    if (!x) return g
+    x.drawImage(video, 0, 0, 64, 36)
+    const d = x.getImageData(0, 0, 64, 36).data
+    for (let k = 0, j = 0; k < d.length; k += 4, j++) g[j] = (d[k] * 77 + d[k + 1] * 150 + d[k + 2] * 29) >> 8
+    return g
+  }
+}
+
 /**
- * Reads `count` frames from the video. Calls onProgress(done, count).
- * Throws with a user-facing message when the video is unusable.
+ * Reads `count` frames from the video, then (when the car can be found) re-cuts each one from the
+ * full-size video so the car stays centred and the same size all the way round.
+ * Calls onProgress(done, total, phase). Throws with a user-facing message when the video is unusable.
  */
 export async function extractSpinFrames(
   file: File,
   count: number,
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, phase: SpinPhase) => void,
   signal?: { cancelled: boolean },
-): Promise<ExtractedFrame[]> {
+  opts: { centre?: boolean } = {},
+): Promise<{ frames: ExtractedFrame[]; report: SpinReport }> {
   const invalid = validateSpinVideo(file)
   if (invalid) throw new Error(invalid)
+
+  // Start fetching the car finder now; it downloads while the frames are read.
+  const detectorP = opts.centre === false ? Promise.resolve(null) : loadCarDetector()
 
   const url = URL.createObjectURL(file)
   const video = document.createElement('video')
@@ -82,38 +147,122 @@ export async function extractSpinFrames(
       throw new Error(`The video is too short (${Number.isFinite(duration) ? Math.round(duration) : 0} s). Walk once around the car slowly: ${SPIN_MIN_SECONDS} seconds or more.`)
     }
     if (duration > SPIN_MAX_SECONDS) throw new Error(`The video is too long (${Math.round(duration)} s). Keep it under ${SPIN_MAX_SECONDS} seconds: one slow walk around the car.`)
-    if (!video.videoWidth || !video.videoHeight) throw new Error('This video has no picture we can read. Try recording it again.')
+    const VW = video.videoWidth
+    const VH = video.videoHeight
+    if (!VW || !VH) throw new Error('This video has no picture we can read. Try recording it again.')
 
-    const scale = Math.min(1, FRAME_LONG_EDGE / Math.max(video.videoWidth, video.videoHeight))
-    const w = Math.round(video.videoWidth * scale)
-    const h = Math.round(video.videoHeight * scale)
+    const scale = Math.min(1, FRAME_LONG_EDGE / Math.max(VW, VH))
+    const w = Math.round(VW * scale)
+    const h = Math.round(VH * scale)
     const canvas = document.createElement('canvas')
     canvas.width = w
     canvas.height = h
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Your browser cannot read frames from video. Try Chrome or Safari.')
+    ctx.imageSmoothingQuality = 'high'
+    const thumb = makeThumbReader()
 
     // The first picture must be decoded before we seek: on a cold 4K HEVC file, seeking to 0 right
     // after the metadata arrives can report "seeked" with nothing decoded yet, giving a black frame 1.
     if (video.readyState < 2) await waitFor(video, 'loadeddata', 20000)
 
-    const out: ExtractedFrame[] = []
     const times = frameTimes(duration, count)
-    for (let i = 0; i < times.length; i++) {
-      if (signal?.cancelled) throw new Error('Cancelled')
+    let last: Uint8Array | null = null
+    /** Seeks to frame i and paints it, re-reading a blank frame or a repeat of the frame before. */
+    const readFrame = async (i: number, paint: () => void) => {
       await seekTo(video, times[i])
-      drawFrame(ctx, video, w, h)
+      paint()
       // Still blank (decoder not ready)? Nudge forward a frame and read it again.
       for (let retry = 0; retry < 3 && isBlank(ctx, w, h); retry++) {
         await seekTo(video, Math.min(duration - 0.05, times[i] + 0.04 * (retry + 1)))
-        drawFrame(ctx, video, w, h)
+        paint()
       }
+      // The same picture as the frame before? Chrome's HEVC decoder sometimes answers a seek with the
+      // previous picture, and the spin would stall there. Seeking away and back fixes it.
+      let g = thumb(video)
+      for (let retry = 0; retry < 3 && last && sameThumb(last, g); retry++) {
+        await seekTo(video, Math.max(0, times[i] - 0.6))
+        await seekTo(video, Math.min(duration - 0.05, times[i] + 0.001 * (retry + 1)))
+        paint()
+        g = thumb(video)
+      }
+      last = g
+    }
+    const toFile = async (i: number) => {
       const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/jpeg', FRAME_QUALITY))
       if (!blob) throw new Error('Could not save a frame from the video.')
-      out.push({ index: i, file: new File([blob], `spin-${String(i + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg', lastModified: Date.now() }) })
-      onProgress?.(i + 1, times.length)
+      return new File([blob], `spin-${String(i + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg', lastModified: Date.now() })
     }
-    return out
+
+    // 1. Read the frames as recorded (also the result when the car cannot be centred), keeping a
+    //    small copy of each for the car finder.
+    const ds = Math.min(1, DETECT_EDGE / Math.max(VW, VH))
+    const small = document.createElement('canvas')
+    small.width = Math.round(VW * ds)
+    small.height = Math.round(VH * ds)
+    const sctx = small.getContext('2d')
+    const smallBlobs: Array<Blob | null> = []
+    const out: ExtractedFrame[] = []
+    for (let i = 0; i < times.length; i++) {
+      if (signal?.cancelled) throw new Error('Cancelled')
+      await readFrame(i, () => drawFrame(ctx, video, w, h))
+      out.push({ index: i, file: await toFile(i) })
+      if (sctx) {
+        sctx.drawImage(canvas, 0, 0, small.width, small.height)
+        smallBlobs.push(await new Promise<Blob | null>(r => small.toBlob(r, 'image/jpeg', 0.8)))
+      }
+      onProgress?.(i + 1, times.length, 'reading')
+    }
+
+    const base = { duration, shortEdge: Math.min(VW, VH) }
+    const asRecorded = (carFound: number | null, sizeChange: number | null) => {
+      const r = { ...base, centred: false, carFound, sizeChange }
+      return { frames: out, report: { ...r, tips: spinTips(r) } }
+    }
+
+    // 2. Find the car in each frame (if the finder loaded; the spin never waits on it to fail).
+    const detector = sctx ? await detectorP : null
+    if (!detector) return asRecorded(null, null)
+    const candidates: Box[][] = []
+    try {
+      for (let i = 0; i < smallBlobs.length; i++) {
+        if (signal?.cancelled) throw new Error('Cancelled')
+        const b = smallBlobs[i]
+        let found: Box[] = []
+        if (b) {
+          const bmp = await createImageBitmap(b)
+          sctx!.drawImage(bmp, 0, 0, small.width, small.height)
+          bmp.close?.()
+          try { found = detector.detect(small) } catch { found = [] }
+        }
+        candidates.push(found)
+        onProgress?.(i + 1, smallBlobs.length, 'finding')
+      }
+    } finally {
+      detector.close()
+    }
+
+    // 3. Re-cut every frame from the full-size video so the car keeps one place and size. Never zoom
+    //    in so far that a frame has fewer real pixels than about 80% of what we save.
+    const maxZoom = Math.min(1.6, Math.max(1, Math.max(VW, VH) / (Math.max(w, h) * 0.8)))
+    const plan = planStabilization(candidates, { aspect: VW / VH, maxZoom })
+    const heights = plan.track.map(p => p.h)
+    const sizeChange = heights.length ? Math.max(...heights) / Math.max(0.01, Math.min(...heights)) - 1 : null
+    if (!plan.usable || maxZoom <= 1.02) return asRecorded(plan.coverage, sizeChange)
+    last = null
+    for (let i = 0; i < times.length; i++) {
+      if (signal?.cancelled) throw new Error('Cancelled')
+      const k = plan.crops[i]
+      await readFrame(i, () => {
+        ctx.fillStyle = '#000'
+        ctx.fillRect(0, 0, w, h)
+        ctx.drawImage(video, k.x * VW, k.y * VH, k.w * VW, k.h * VH, 0, 0, w, h)
+      })
+      out[i] = { index: i, file: await toFile(i) }
+      onProgress?.(i + 1, times.length, 'centring')
+    }
+    const r = { ...base, centred: true, carFound: plan.coverage, sizeChange }
+    return { frames: out, report: { ...r, tips: spinTips(r) } }
   } finally {
     video.removeAttribute('src')
     video.load()

@@ -229,7 +229,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import {
   sortByAngle, viewLabel, wrapIndex, fitRect, pointToFraction, hotspotKindLabel, isSpinSet,
   resolveFit, clampZoom, zoomAt, zoomForward, zoomInverse, spinLoadOrder, indexNearestAngle,
-  ringPoint, timelineMarks, spinHints, heightLabel,
+  ringPoint, timelineMarks, spinHints, heightLabel, crispBlend,
   ZOOM_MAX, ZOOM_MIN,
   type VehicleView, type VehicleHotspot, type ZoomState, type TimelineMark, type VehicleSpinRow,
 } from '~/shared/utils/vehicleViews'
@@ -593,7 +593,10 @@ function draw() {
     const nextV = list[(blend.base + 1) % list.length]
     const nd = nextV && frames.get(nextV.id)
     // Only blend a neighbour that has arrived; otherwise the car would fade into a stand-in frame.
-    if (nd && blend.alpha > 0.001 && base.v.id === list[blend.base].id) paint(nd, nextV, blend.alpha)
+    // A short dissolve in the middle of each step instead of a 50/50 mix all the way: neighbouring
+    // frames are a few degrees apart, so mixing them for long shows two cars (a blurred double image).
+    const a = crispBlend(blend.alpha)
+    if (nd && a > 0.001 && base.v.id === list[blend.base].id) paint(nd, nextV, a)
   }
   if (fade) {
     // The outgoing photo fades away over the new one (a few photos, or a change of camera height).
