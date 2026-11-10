@@ -1,4 +1,5 @@
 import { defineNuxtConfig } from 'nuxt/config'
+import { fileURLToPath } from 'node:url'
 
 export default defineNuxtConfig({
   css: ['@/assets/css/main.css'],
@@ -211,12 +212,11 @@ export default defineNuxtConfig({
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'Content-Security-Policy': [
         "default-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software",
-        // cdn.jsdelivr.net + storage.googleapis.com: the car finder for video spins (MediaPipe, pinned version), editor only.
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com https://cdn.jsdelivr.net",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://extension-cdn.getdirecto.com https://app.viewora.software",
-        "connect-src 'self' blob: https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com https://open.er-api.com https://cdn.jsdelivr.net https://storage.googleapis.com",
+        "connect-src 'self' blob: https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com https://open.er-api.com",
         "frame-src 'self' https://www.youtube.com https://youtube.com",
         "media-src 'self' blob:",
         "worker-src 'self' blob:",
@@ -227,12 +227,22 @@ export default defineNuxtConfig({
     '/api/**': { headers: { 'Cache-Control': 'private, no-store, must-revalidate' } },
     // PostHog proxy — never cache, always pass through to Nitro server handler
     '/ingest/**': { cache: false },
+    // The car finder for video spins (MediaPipe WebAssembly + model). File names carry the version,
+    // so a year's cache is safe: an owner downloads it once.
+    '/mediapipe/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
   },
 
   nitro: {
     prerender: {
       failOnError: false,
     },
+    // Served from our own site (not a third-party CDN): copied from the installed package at build
+    // time, so the WebAssembly always matches the JS that loads it. See shared/utils/carDetector.ts.
+    publicAssets: [{
+      dir: fileURLToPath(new URL('./node_modules/@mediapipe/tasks-vision/wasm', import.meta.url)),
+      baseURL: '/mediapipe/wasm-0.10.14',
+      maxAge: 60 * 60 * 24 * 365,
+    }],
   },
 
   experimental: {

@@ -9,7 +9,7 @@ function walk(n: number, opts: { missing?: number[]; decoy?: boolean } = {}): Bo
   return Array.from({ length: n }, (_, i) => {
     const a = (i / n) * Math.PI * 2
     const h = 0.42 + 0.08 * Math.cos(a) // closer at the front, further at the back
-    const w = h * (1.6 + 0.9 * Math.abs(Math.sin(a))) // longer from the side
+    const w = h * (1.3 + 0.6 * Math.abs(Math.sin(a))) // longer from the side (still inside the picture)
     const cx = 0.5 + 0.05 * Math.sin(a * 3)
     const cy = 0.5 + 0.03 * Math.cos(a * 2)
     const list: Box[] = []
@@ -91,15 +91,76 @@ test('spinTips gives plain advice only when it applies', () => {
   const good = { centred: true, carFound: 0.97, sizeChange: 0.1, duration: 30, shortEdge: 2160 }
   assert.deepEqual(spinTips(good), [])
   const tips = spinTips({ centred: false, carFound: 0.3, sizeChange: 0.4, duration: 9, shortEdge: 480 })
-  assert.equal(tips.length, 4)
+  assert.equal(tips.length, 3) // no size tip: the car was hardly followed, so its "size" means nothing
   assert.match(tips.join(' '), /whole car/)
-  assert.match(tips.join(' '), /same distance/)
   assert.match(tips.join(' '), /quickly \(9 s\)/)
   assert.match(tips.join(' '), /480p/)
+  const uneven = spinTips({ centred: false, carFound: 0.9, sizeChange: 0.4, duration: 30, shortEdge: 1080 })
+  assert.match(uneven.join(' '), /same distance all the way round/)
 })
 
 test('sameThumb spots a repeated frame but not a moved one', () => {
   const a = Array.from({ length: 100 }, (_, i) => (i * 7) % 255)
   assert.equal(sameThumb(a, a.map(v => v + (v % 3 === 0 ? 1 : 0))), true)
   assert.equal(sameThumb(a, a.map(v => (v + 20) % 255)), false)
+})
+
+test('the car finder loads the WebAssembly of the installed MediaPipe version, from our own site', async () => {
+  const fs = await import('node:fs')
+  const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  const version = pkg.dependencies['@mediapipe/tasks-vision']
+  assert.match(version, /^\d+\.\d+\.\d+$/, 'pin an exact version: the WebAssembly folder name depends on it')
+  const src = fs.readFileSync(new URL('../shared/utils/carDetector.ts', import.meta.url), 'utf8')
+  const config = fs.readFileSync(new URL('../nuxt.config.ts', import.meta.url), 'utf8')
+  assert.ok(src.includes(`'/mediapipe/wasm-${version}'`), 'carDetector.ts WASM_BASE matches package.json')
+  assert.ok(config.includes(`baseURL: '/mediapipe/wasm-${version}'`), 'nuxt.config.ts publicAssets matches package.json')
+  assert.ok(!/https?:\/\//.test(src.split('\n').filter(l => /WASM_BASE =|MODEL_URL =/.test(l)).join('\n')), 'no third-party CDN')
+  assert.ok(fs.existsSync(new URL('../public/mediapipe/efficientdet_lite0_f16_v1.tflite', import.meta.url)), 'model file shipped')
+})
+
+test('a phone held upright: the car runs off the picture on its sides, so it is left as recorded', () => {
+  // Portrait frame: from the side the car is far wider than the picture, so its box is cut at both edges.
+  const cands = Array.from({ length: 64 }, (_, i) => {
+    const side = Math.abs(Math.sin((i / 64) * Math.PI * 2))
+    const w = Math.min(1, 0.6 + side * 1.2)
+    return [{ x: 0.5 - w / 2, y: 0.4, w, h: 0.25, score: 0.8 }]
+  })
+  const plan = planStabilization(cands, { aspect: 9 / 16 })
+  assert.ok(plan.clipped > 0.2)
+  assert.equal(plan.usable, false)
+  assert.ok(plan.crops.every(k => k.w === 1))
+})
+
+test('a few frames where the car touches the edge take its place from their neighbours', () => {
+  const cands = walk(64)
+  // Frames 10-12: walked too close, the box is cut off at the left edge and looks much smaller.
+  for (const i of [10, 11, 12]) { const b = cands[i][0]; cands[i] = [{ x: 0, y: b.y, w: b.x + b.w - 0.12, h: b.h * 0.92, score: 0.7 }] }
+  const plan = planStabilization(cands, { sigma: 0 })
+  assert.equal(plan.usable, true)
+  assert.ok(plan.clipped > 0 && plan.clipped < 0.1)
+  const sizes = plan.crops.map(k => k.w)
+  // No sudden zoom-in on the cut-off frames.
+  assert.ok(Math.abs(sizes[11] - sizes[9]) < 0.06, `${sizes[9]} vs ${sizes[11]}`)
+})
+
+test('spinTips explains a car that did not fit', () => {
+  const tips = spinTips({ centred: false, carFound: 0.9, sizeChange: 0.1, duration: 30, shortEdge: 1080, carClipped: 0.4 })
+  assert.match(tips[0], /did not fit in the picture in 40% of the frames, so it was left as recorded\. Hold the phone sideways/)
+})
+
+test('a video of something else (a car only passing by) is reported as not found, not as cut off', () => {
+  const tips = spinTips({ centred: false, carFound: 0.4, sizeChange: 1.8, duration: 30, shortEdge: 1080, carClipped: 0.11 })
+  assert.deepEqual(tips, ['We could not find the car in many frames, so it was left as recorded. Keep the whole car in the picture as you walk.'])
+})
+
+test('a few cut-off frames on a centred spin get the advice without "left as recorded"', () => {
+  const tips = spinTips({ centred: true, carFound: 0.95, sizeChange: 0.1, duration: 30, shortEdge: 1080, carClipped: 0.15 })
+  assert.equal(tips.length, 1)
+  assert.match(tips[0], /did not fit in the picture in 15% of the frames\. Hold/)
+})
+
+test('a car that did not fit is not also reported as not found', () => {
+  const tips = spinTips({ centred: false, carFound: 0.3, sizeChange: 0.1, duration: 30, shortEdge: 1080, carClipped: 0.7 })
+  assert.equal(tips.length, 1)
+  assert.match(tips[0], /did not fit/)
 })

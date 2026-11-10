@@ -29,6 +29,13 @@ export interface StabilizePlan {
   driftAfter: number
   /** False when we could not follow the car well enough: use the frames as recorded. */
   usable: boolean
+  /** Share of frames where the car runs off the edge of the picture (did not fit: too close, or phone held upright). */
+  clipped: number
+}
+
+/** The car touches an edge of the picture: it did not fit, so its box is only part of the car. */
+export function isClipped(p: TrackPoint, edge = 0.006): boolean {
+  return p.cx - p.w / 2 <= edge || p.cx + p.w / 2 >= 1 - edge || p.cy - p.h / 2 <= edge || p.cy + p.h / 2 >= 1 - edge
 }
 
 const wrap = (i: number, n: number) => ((i % n) + n) % n
@@ -160,10 +167,18 @@ export function planStabilization(candidates: Box[][], opts: PlanOptions = {}): 
   const minCoverage = opts.minCoverage ?? 0.6
   const n = candidates.length
   const identity: Crop = { x: 0, y: 0, w: 1, h: 1 }
-  const raw = trackCar(candidates, aspect)
+  const tracked = trackCar(candidates, aspect)
+  // Where the car runs off the picture its box is only part of the car (a door, a bumper): sizing by
+  // it would zoom in on that part. Those frames take the car's place from their neighbours instead.
+  const clippedFlags = tracked.map(p => p.seen && isClipped(p))
+  const clipped = n ? clippedFlags.filter(Boolean).length / n : 0
+  const raw = tracked.length && clippedFlags.some(Boolean) && clippedFlags.some(c => !c)
+    ? fillGaps(tracked.map((p, i) => (clippedFlags[i] ? null : p)))
+    : tracked
   const coverage = raw.length ? raw.filter(p => p.seen).length / n : 0
-  if (raw.length !== n || coverage < minCoverage) {
-    return { track: raw, crops: new Array(n).fill(identity), zoom: 1, coverage, driftBefore: drift(raw, aspect), driftAfter: drift(raw, aspect), usable: false }
+  // If the car often does not fit, there is no whole car to centre on: leave the video as recorded.
+  if (raw.length !== n || coverage < minCoverage || clipped > 0.2) {
+    return { track: raw, crops: new Array(n).fill(identity), zoom: 1, coverage, driftBefore: drift(raw, aspect), driftAfter: drift(raw, aspect), usable: false, clipped }
   }
 
   // Size by height: a car is about as tall from every side, while its width changes as it turns.
@@ -192,5 +207,5 @@ export function planStabilization(candidates: Box[][], opts: PlanOptions = {}): 
     cy: (p.cy - crops[i].y) / crops[i].h,
     h: p.h / crops[i].h,
   }))
-  return { track, crops, zoom: zoomOut, coverage, driftBefore: drift(raw, aspect), driftAfter: drift(after, aspect), usable: true }
+  return { track, crops, zoom: zoomOut, coverage, driftBefore: drift(raw, aspect), driftAfter: drift(after, aspect), usable: true, clipped }
 }

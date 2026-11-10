@@ -326,6 +326,7 @@
         <template v-if="!spinRun">
           <ol class="vp-steps">
             <li>Park with room to walk all the way round.</li>
+            <li>Hold your phone sideways and stand back far enough to see the whole car.</li>
             <li>Start recording at the front of the car.</li>
             <li>Walk slowly once around it, same distance, car in the middle of the frame.</li>
             <li>Stop when you are back at the front. 20 to 30 seconds is ideal.</li>
@@ -357,7 +358,7 @@
         <template v-else>
           <p class="vp-muted" aria-live="polite">{{ SPIN_PHASE_TEXT[spinRun.phase] }}: <span class="vp-num">{{ spinRun.done }} of {{ spinRun.total }}</span></p>
           <div class="vp-meter" role="progressbar" :aria-valuenow="spinRun.done" :aria-valuemax="spinRun.total" aria-label="Spin progress"><span :style="{ width: (spinRun.total ? (spinRun.done / spinRun.total) * 100 : 0) + '%' }" /></div>
-          <p class="vp-hint">Keep this tab open. It takes a minute or two.</p>
+          <p class="vp-hint">Keep this tab open. It takes a minute or two (up to four on an older phone).</p>
           <div class="vp-row"><button class="vp-btn" @click="cancelSpin">Cancel</button></div>
         </template>
       </div>
@@ -436,6 +437,7 @@ import {
   type VehicleView, type VehicleSlot, type VehicleHotspotKind,
 } from '~/shared/utils/vehicleViews'
 import { extractSpinFrames, validateSpinVideo, type SpinPhase } from '~/shared/utils/videoFrames'
+import { preloadCarDetector, releaseCarDetector } from '~/shared/utils/carDetector'
 
 const props = defineProps<{ spaceId: string }>()
 
@@ -486,7 +488,7 @@ async function init() {
   }
 }
 onMounted(() => { init(); window.addEventListener('keydown', onKey) })
-onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); if (removeTimer) clearTimeout(removeTimer) })
+onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); if (removeTimer) clearTimeout(removeTimer); releaseCarDetector() })
 
 // ── Derived ──
 const slotAngles = new Set(VEHICLE_SLOTS.map(s => s.angle))
@@ -851,14 +853,22 @@ const spinError = ref('')
 const spinRun = ref<{ phase: SpinPhase | 'clearing' | 'uploading'; done: number; total: number } | null>(null)
 const SPIN_PHASE_TEXT: Record<SpinPhase | 'clearing' | 'uploading', string> = {
   reading: 'Reading frames from your video',
+  preparing: 'Getting the car finder ready (first time only)',
   finding: 'Finding the car in each frame',
   centring: 'Centring the car',
+  saving: 'Saving the frames',
   clearing: 'Clearing the old photos',
   uploading: 'Uploading frames',
 }
 let spinSignal = { cancelled: false }
 
-function openSpinModal() { spinError.value = ''; spinRun.value = null; spinOpen.value = true }
+function openSpinModal() {
+  spinError.value = ''
+  spinRun.value = null
+  spinOpen.value = true
+  // Download the car finder while the owner picks or records the video.
+  preloadCarDetector()
+}
 function closeSpinModal() { if (!spinRun.value) spinOpen.value = false }
 function cancelSpin() { spinSignal.cancelled = true }
 
@@ -882,6 +892,8 @@ async function makeSpin(file: File) {
   const count = spinCount.value
   busy.value = true
   selectedHotspotId.value = null
+  // Set once the old photos start to go: before that, a failure leaves the current spin as it was.
+  let changed = false
   try {
     // 1. Read every frame first, so a bad video never costs you your current photos.
     spinRun.value = { phase: 'reading', done: 0, total: count }
@@ -889,14 +901,20 @@ async function makeSpin(file: File) {
 
     // 2. Clear the old set (a spin needs the whole 360° to itself).
     const old = [...views.value]
+    changed = true
     if (old.length) {
       spinRun.value = { phase: 'clearing', done: 0, total: old.length }
+      // Four at a time, like the upload below.
       let cleared = 0
-      for (const v of old) {
-        if (signal.cancelled) throw new Error('Cancelled')
-        await removeView(v.id)
-        spinRun.value = { phase: 'clearing', done: ++cleared, total: old.length }
+      let at = 0
+      const clear = async () => {
+        while (at < old.length) {
+          if (signal.cancelled) throw new Error('Cancelled')
+          await removeView(old[at++].id)
+          spinRun.value = { phase: 'clearing', done: ++cleared, total: old.length }
+        }
       }
+      await Promise.all([clear(), clear(), clear(), clear()])
     }
 
     // 3. Upload, four at a time. The server allows a burst; if it asks us to slow down we wait and retry.
@@ -925,14 +943,17 @@ async function makeSpin(file: File) {
     spinOpen.value = false
     if (views.value.length) selectedId.value = views.value[0].id
     const centred = report.centred ? ' The car is centred and the same size in every frame.' : ''
-    setNotice(`Smooth spin ready: ${views.value.length} frames.${centred} Drag the car to try it, then pin hotspots on any frame.${report.tips.length ? ` Tip: ${report.tips[0]}` : ''}`)
+    setNotice(`Smooth spin ready: ${views.value.length} frames.${centred} Drag the car to try it, then pin hotspots on any frame.${report.tips.length ? ` ${report.tips.length > 1 ? 'Tips' : 'Tip'}: ${report.tips.slice(0, 2).join(' ')}` : ''}`)
   } catch (e: any) {
     const m = errMsg(e, 'Something went wrong')
     if (m === 'Cancelled') {
-      setNotice(views.value.length ? `Stopped. ${views.value.length} frame${views.value.length === 1 ? ' was' : 's were'} saved. Run it again to finish the spin.` : 'Stopped.')
+      if (!changed) setNotice('Stopped. Your current photos were not changed.')
+      else setNotice(views.value.length ? `Stopped. ${views.value.length} frame${views.value.length === 1 ? ' was' : 's were'} saved. Run it again to finish the spin.` : 'Stopped.')
       spinOpen.value = false
     } else {
-      spinError.value = `${m}${views.value.length ? ` ${views.value.length} frames were saved; run it again to replace them.` : ''}`
+      spinError.value = !changed
+        ? `${m}${views.value.length ? ' Your current photos were not changed.' : ''}`
+        : `${m}${views.value.length ? ` ${views.value.length} frames were saved; run it again to replace them.` : ''}`
     }
   } finally {
     spinRun.value = null

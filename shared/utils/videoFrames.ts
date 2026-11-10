@@ -4,7 +4,7 @@
 // car keeps one place and one size all the way round (see spinStabilize.ts).
 
 import { planStabilization, type Box } from './spinStabilize'
-import { loadCarDetector, DETECT_EDGE } from './carDetector'
+import { preloadCarDetector, DETECT_EDGE, type CarDetector } from './carDetector'
 
 export const SPIN_MAX_VIDEO_BYTES = 600 * 1024 * 1024
 export const SPIN_MIN_SECONDS = 6
@@ -61,7 +61,10 @@ export function frameTimes(duration: number, count: number): number[] {
   return Array.from({ length: count }, (_, i) => Math.min(usable, (i / count) * usable))
 }
 
-export type SpinPhase = 'reading' | 'finding' | 'centring'
+export type SpinPhase = 'reading' | 'preparing' | 'finding' | 'centring' | 'saving'
+
+/** How long to wait for the car finder to download after the frames are read, before giving up on centring. */
+const FINDER_WAIT_MS = 90000
 
 /** What we learnt about the recording, for the owner. */
 export interface SpinReport {
@@ -74,14 +77,26 @@ export interface SpinReport {
   duration: number
   /** Short side of the video in pixels (1080 for Full HD). */
   shortEdge: number
+  /** The car finder could not be loaded (offline, very slow connection, old browser). */
+  finderMissing?: boolean
+  /** Share of frames where the car did not fit in the picture. */
+  carClipped?: number
   tips: string[]
 }
 
 /** Plain advice from the recording (the spin is made anyway). */
 export function spinTips(r: Omit<SpinReport, 'tips'>): string[] {
   const tips: string[] = []
-  if (r.carFound != null && r.carFound < 0.6) tips.push('We could not find the car in many frames, so it was left as recorded. Keep the whole car in the picture as you walk.')
-  if (r.sizeChange != null && r.sizeChange > 0.25) {
+  if (r.finderMissing) tips.push('We could not load the car finder (slow or no connection), so the car was not centred. Run it again on a better connection to centre it.')
+  const clipped = r.carClipped ?? 0
+  const notFound = r.carFound != null && r.carFound < 0.6
+  // Name the real reason it was left as recorded: a cut-off car (over 20% of frames, the planner's
+  // limit) or a car that was hardly found (e.g. a video of something else, with a car passing by).
+  if (clipped > 0.2) tips.push(`The car did not fit in the picture in ${Math.round(clipped * 100)}% of the frames${r.centred ? '' : ', so it was left as recorded'}. Hold the phone sideways and stay far enough back to see the whole car.`)
+  else if (notFound) tips.push('We could not find the car in many frames, so it was left as recorded. Keep the whole car in the picture as you walk.')
+  else if (clipped > 0.1) tips.push(`The car did not fit in the picture in ${Math.round(clipped * 100)}% of the frames. Hold the phone sideways and stay far enough back to see the whole car.`)
+  // Its size only means something when we actually followed the car.
+  if (!notFound && r.sizeChange != null && r.sizeChange > 0.25) {
     tips.push(r.centred
       ? 'You were closer to the car on some sides. We evened out its size; keeping the same distance all the way round gives an even sharper spin.'
       : 'You were closer to the car on some sides, so it grows and shrinks as it turns. Keep the same distance all the way round.')
@@ -131,8 +146,11 @@ export async function extractSpinFrames(
   const invalid = validateSpinVideo(file)
   if (invalid) throw new Error(invalid)
 
-  // Start fetching the car finder now; it downloads while the frames are read.
-  const detectorP = opts.centre === false ? Promise.resolve(null) : loadCarDetector()
+  // Fetch the car finder now (usually already started when the dialog opened); it downloads while
+  // the frames are read.
+  const detectorP = opts.centre === false ? Promise.resolve(null) : preloadCarDetector()
+  let detectorReady: CarDetector | null | undefined
+  detectorP.then((d) => { detectorReady = d })
 
   const url = URL.createObjectURL(file)
   const video = document.createElement('video')
@@ -194,20 +212,22 @@ export async function extractSpinFrames(
       return new File([blob], `spin-${String(i + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg', lastModified: Date.now() })
     }
 
-    // 1. Read the frames as recorded (also the result when the car cannot be centred), keeping a
-    //    small copy of each for the car finder.
+    // 1. Read the frames. When we will try to centre the car, keep only a small copy of each for the
+    //    car finder: saving full-size JPEGs is the slow part on a cheap phone, so each frame is saved
+    //    once, at the end (centred, or as recorded if centring is not possible).
     const ds = Math.min(1, DETECT_EDGE / Math.max(VW, VH))
     const small = document.createElement('canvas')
     small.width = Math.round(VW * ds)
     small.height = Math.round(VH * ds)
     const sctx = small.getContext('2d')
     const smallBlobs: Array<Blob | null> = []
+    const wantCentre = !!sctx && opts.centre !== false
     const out: ExtractedFrame[] = []
     for (let i = 0; i < times.length; i++) {
       if (signal?.cancelled) throw new Error('Cancelled')
       await readFrame(i, () => drawFrame(ctx, video, w, h))
-      out.push({ index: i, file: await toFile(i) })
-      if (sctx) {
+      if (!wantCentre) out.push({ index: i, file: await toFile(i) })
+      if (sctx && wantCentre) {
         sctx.drawImage(canvas, 0, 0, small.width, small.height)
         smallBlobs.push(await new Promise<Blob | null>(r => small.toBlob(r, 'image/jpeg', 0.8)))
       }
@@ -215,40 +235,60 @@ export async function extractSpinFrames(
     }
 
     const base = { duration, shortEdge: Math.min(VW, VH) }
-    const asRecorded = (carFound: number | null, sizeChange: number | null) => {
-      const r = { ...base, centred: false, carFound, sizeChange }
+    /**
+     * The frames as recorded (read again and saved), when the car is not centred. Always
+     * `return await` it: the finally block below unloads the video as soon as this function returns.
+     */
+    const asRecorded = async (extra: Partial<SpinReport>) => {
+      if (out.length < times.length) {
+        last = null
+        out.length = 0
+        for (let i = 0; i < times.length; i++) {
+          if (signal?.cancelled) throw new Error('Cancelled')
+          await readFrame(i, () => drawFrame(ctx, video, w, h))
+          out.push({ index: i, file: await toFile(i) })
+          onProgress?.(i + 1, times.length, 'saving')
+        }
+      }
+      const r = { ...base, centred: false, carFound: null, sizeChange: null, ...extra }
       return { frames: out, report: { ...r, tips: spinTips(r) } }
     }
+    if (!wantCentre || !sctx) return await asRecorded({})
 
-    // 2. Find the car in each frame (if the finder loaded; the spin never waits on it to fail).
-    const detector = sctx ? await detectorP : null
-    if (!detector) return asRecorded(null, null)
-    const candidates: Box[][] = []
-    try {
-      for (let i = 0; i < smallBlobs.length; i++) {
+    // 2. Find the car in each frame. Still downloading on a slow connection? Say so and wait a while
+    //    (the owner can cancel); after that the spin is kept as recorded rather than lost.
+    if (detectorReady === undefined) {
+      const t0 = Date.now()
+      while (detectorReady === undefined && Date.now() - t0 < FINDER_WAIT_MS) {
         if (signal?.cancelled) throw new Error('Cancelled')
-        const b = smallBlobs[i]
-        let found: Box[] = []
-        if (b) {
-          const bmp = await createImageBitmap(b)
-          sctx!.drawImage(bmp, 0, 0, small.width, small.height)
-          bmp.close?.()
-          try { found = detector.detect(small) } catch { found = [] }
-        }
-        candidates.push(found)
-        onProgress?.(i + 1, smallBlobs.length, 'finding')
+        onProgress?.(0, 1, 'preparing')
+        await new Promise(r => setTimeout(r, 250))
       }
-    } finally {
-      detector.close()
+    }
+    const detector = detectorReady ?? null
+    if (!detector) return await asRecorded({ finderMissing: true })
+    const candidates: Box[][] = []
+    for (let i = 0; i < smallBlobs.length; i++) {
+      if (signal?.cancelled) throw new Error('Cancelled')
+      const b = smallBlobs[i]
+      let found: Box[] = []
+      if (b) {
+        const bmp = await createImageBitmap(b)
+        sctx.drawImage(bmp, 0, 0, small.width, small.height)
+        bmp.close?.()
+        try { found = detector.detect(small) } catch { found = [] }
+      }
+      candidates.push(found)
+      onProgress?.(i + 1, smallBlobs.length, 'finding')
     }
 
-    // 3. Re-cut every frame from the full-size video so the car keeps one place and size. Never zoom
-    //    in so far that a frame has fewer real pixels than about 80% of what we save.
+    // 3. Re-cut every frame (from the full-size video, or the copies) so the car keeps one place and
+    //    size. Never zoom in so far that a frame has fewer real pixels than about 80% of what we save.
     const maxZoom = Math.min(1.6, Math.max(1, Math.max(VW, VH) / (Math.max(w, h) * 0.8)))
     const plan = planStabilization(candidates, { aspect: VW / VH, maxZoom })
     const heights = plan.track.map(p => p.h)
     const sizeChange = heights.length ? Math.max(...heights) / Math.max(0.01, Math.min(...heights)) - 1 : null
-    if (!plan.usable || maxZoom <= 1.02) return asRecorded(plan.coverage, sizeChange)
+    if (!plan.usable || maxZoom <= 1.02) return await asRecorded({ carFound: plan.coverage, sizeChange, carClipped: plan.clipped })
     last = null
     for (let i = 0; i < times.length; i++) {
       if (signal?.cancelled) throw new Error('Cancelled')
@@ -261,7 +301,7 @@ export async function extractSpinFrames(
       out[i] = { index: i, file: await toFile(i) }
       onProgress?.(i + 1, times.length, 'centring')
     }
-    const r = { ...base, centred: true, carFound: plan.coverage, sizeChange }
+    const r = { ...base, centred: true, carFound: plan.coverage, sizeChange, carClipped: plan.clipped }
     return { frames: out, report: { ...r, tips: spinTips(r) } }
   } finally {
     video.removeAttribute('src')
