@@ -1178,7 +1178,6 @@ onBeforeUnmount(() => {
   if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onDocVisibility)
   if (releaseTimer) clearTimeout(releaseTimer)
   if (toastTimer) clearTimeout(toastTimer)
-  if (ringTimer) clearTimeout(ringTimer)
   if (hintTimer) clearTimeout(hintTimer)
   if (sharpTimer) clearTimeout(sharpTimer)
   for (const d of frames.values()) closeDrawable(d)
