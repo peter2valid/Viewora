@@ -2,7 +2,7 @@
   <div
     ref="rootEl"
     class="ct"
-    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen }"
+    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen, 'is-spin': active?.kind === 'spin', 'is-zoomed': zoomedIn }"
     :style="{ '--ct-top': topOffset, '--ct-bottom': bottomOffset }"
     @keydown.esc="ribbonOpen = false"
   >
@@ -16,9 +16,11 @@
       :views="active.spin!.views"
       :rows="active.spin!.rows?.length ? spinRows(active.spin!) : null"
       :start-angle="active.spin!.start_angle"
+      hide-bar
       :hide-zoom="compact || (narrow && ribbonOpen)"
       :zoom-bottom="zoomBottom"
       @popover="pinOpen = $event"
+      @zoom="zoomedIn = $event"
     />
     <!-- Mounted the first time the interior is opened, then kept: going back inside is instant. -->
     <div v-if="panoMounted" v-show="active?.kind === 'pano'" class="ct__layer">
@@ -197,7 +199,8 @@ onBeforeUnmount(() => { ro?.disconnect(); window.removeEventListener('keydown', 
 const ribbonOpen = ref(false)
 /** A hotspot popover is open on the spin: on small screens the tour's own buttons step aside. */
 const pinOpen = ref(false)
-watch(() => active.value?.id, () => { pinOpen.value = false })
+const zoomedIn = ref(false)
+watch(() => active.value?.id, () => { pinOpen.value = false; zoomedIn.value = false })
 const zoomBottom = computed(() => (ribbonOpen.value ? 'calc(var(--ct-bottom) + 190px)' : '50%'))
 const stripEl = ref<HTMLElement | null>(null)
 watch(ribbonOpen, async (open) => {
@@ -298,7 +301,17 @@ defineExpose({ go, items })
    hints go above them. */
 .ct { --vsv-tl-side: 196px; }
 .ct.is-pin-open:is(.is-narrow, .is-compact) :is(.ct__ribbon-btn, .ct__step, .ct__spins, .ct__groups) { visibility: hidden; }
+/* Zoomed in on a phone, the buyer is studying one detail: only the car and the "Zoom out to spin" cue. */
+.ct.is-zoomed.is-spin:is(.is-narrow, .is-compact) :is(.ct__ribbon-btn, .ct__step, .ct__spins, .ct__groups) { visibility: hidden; }
 .ct.is-narrow { --vsv-tl-side: 14px; --vsv-hints-bottom: calc(var(--ct-bottom) + 136px); }
+/* The spin has no turn bar (it turns on its own once, then by drag): its hints and the zoom cue sit on
+   the bottom edge, over the ground, beside the photos button; on a phone just above that row. */
+.ct { --vsv-overlay-bottom: var(--ct-bottom); }
+.ct.is-narrow { --vsv-overlay-bottom: calc(var(--ct-bottom) + 56px); }
+.ct.is-narrow.is-zoomed.is-spin { --vsv-overlay-bottom: var(--ct-bottom); }
+.ct.is-narrow.is-spin .ct__ribbon-btn { bottom: var(--ct-bottom); }
+/* Clear of a host's own corner button (expand, full screen), which --ct-ribbon-right makes room for. */
+.ct.is-narrow.is-spin .ct__step { bottom: var(--ct-bottom); right: max(16px, var(--ct-ribbon-right, 16px)); }
 .ct__psv { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ct__empty { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,0.6); font-size: 14px; }
 .ct__fade {

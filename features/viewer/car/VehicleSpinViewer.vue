@@ -1356,7 +1356,7 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__ring-dot { fill: var(--vsv-brand); stroke: #fff; stroke-width: 1.4; }
 
 .vsv__hints {
-  position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 5;
+  position: absolute; left: 50%; bottom: var(--vsv-overlay-bottom, 20px); transform: translateX(-50%); z-index: 5;
   display: flex; gap: 20px; padding: 10px 20px; border-radius: 20px; pointer-events: none;
   background: var(--vsv-btn-bg); color: var(--vsv-icon); box-shadow: var(--vsv-shadow);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -1417,11 +1417,12 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__hdot:hover .vsv__htip, .vsv__hdot:focus-visible .vsv__htip { opacity: 1; visibility: visible; }
 
 .vsv__zcue {
-  position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 6;
-  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 0; border-radius: 20px; cursor: pointer;
+  /* Small, on the bottom edge: over the ground, never across the car the buyer zoomed in to see. */
+  position: absolute; left: 50%; bottom: var(--vsv-overlay-bottom, 16px); transform: translateX(-50%); z-index: 6;
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: 0; border-radius: 17px; cursor: pointer;
   background: var(--vsv-btn-bg); color: var(--vsv-icon); box-shadow: var(--vsv-shadow);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  font: 500 13px system-ui, -apple-system, sans-serif; white-space: nowrap;
+  font: 500 12.5px system-ui, -apple-system, sans-serif; white-space: nowrap;
   animation: vsv-fade-in 250ms ease;
 }
 .vsv.has-timeline .vsv__zcue { bottom: var(--vsv-hints-bottom, 104px); }
@@ -1522,6 +1523,7 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 480px) {
+  .vsv__zcue-quiet { display: none; }
   .vsv__hints { flex-direction: column; gap: 8px; padding: 12px 16px; border-radius: 12px; font-size: 12px; }
   .vsv.has-timeline .vsv__hints { bottom: var(--vsv-hints-bottom, 98px); }
   .vsv__tl { padding: 22px max(14px, var(--vsv-tl-side, 14px), var(--vsv-tl-right, 0px)) max(12px, env(safe-area-inset-bottom)) max(14px, var(--vsv-tl-side, 14px)); }
