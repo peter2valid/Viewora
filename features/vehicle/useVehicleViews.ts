@@ -6,6 +6,9 @@ import {
   type VehicleView, type VehicleHotspot, type VehicleHotspotKind, type VehicleSpin,
 } from '~/shared/utils/vehicleViews'
 
+/** Same id the API uses for its stand-in spin before the spins migration. */
+const LEGACY_SPIN: VehicleSpin = { id: '00000000-0000-0000-0000-000000000000', title: 'Exterior', start_angle: 0, order_index: 0 }
+
 export interface AngleSuggestion { id: string; angle: number | null; label: string | null }
 export interface HotspotSuggestion { kind: 'feature' | 'damage'; x: number; y: number; title: string; body: string | null }
 export type HotspotDraft = { kind: VehicleHotspotKind; x: number; y: number; title: string; body?: string | null; url?: string | null }
@@ -45,9 +48,12 @@ export function useVehicleViews(spaceId: string) {
     loading.value = true
     try {
       const res = unwrap<any>(await apiFetch(`/spaces/${spaceId}/vehicle-views`))
-      spins.value = res?.vehicle_spins ?? []
-      spinsReady.value = !!res?.spins_ready
-      setViews(res?.vehicle_views ?? [])
+      const list: VehicleSpin[] = Array.isArray(res?.vehicle_spins) ? res.vehicle_spins : []
+      // An API without spins (older deploy) sends photos only. Without a stand-in spin every photo
+      // would be filtered out of `views` and the editor would look empty after a successful upload.
+      spins.value = list.length ? list : [{ ...LEGACY_SPIN }]
+      spinsReady.value = !!res?.spins_ready && list.length > 0
+      setViews((res?.vehicle_views ?? []).map((v: VehicleView) => (list.length ? v : { ...v, spin_id: LEGACY_SPIN.id })))
       if (!spins.value.some(s => s.id === activeSpinId.value)) activeSpinId.value = spins.value[0]?.id ?? null
       loaded.value = true
     } finally {

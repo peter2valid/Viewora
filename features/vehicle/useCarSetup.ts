@@ -45,8 +45,8 @@ export const EXTERIOR_DONE_FRAMES = 8
 export const DETAIL_PHOTOS_GOAL = 3
 
 export function carSteps(s: CarSetup | null): CarStep[] {
-  const frames = s?.spins.reduce((n, sp) => n + sp.frames, 0) ?? 0
-  const spinCount = s?.spins.filter(sp => sp.frames > 0).length ?? 0
+  const frames = s?.spins?.reduce((n, sp) => n + sp.frames, 0) ?? 0
+  const spinCount = s?.spins?.filter(sp => sp.frames > 0).length ?? 0
   const photos = s?.detail_photos ?? []
   const named = photos.filter(p => p.caption).length
   const v = s?.vehicle

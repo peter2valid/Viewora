@@ -21,6 +21,28 @@ function waitFor(el: HTMLVideoElement, event: string, ms: number): Promise<void>
   })
 }
 
+/** Seeks and waits until the new picture is decoded (not just "seeked"). */
+async function seekTo(video: HTMLVideoElement, t: number): Promise<void> {
+  const seeked = waitFor(video, 'seeked', 15000)
+  video.currentTime = t
+  await seeked
+  // "seeked" can arrive before the picture is decoded; wait for it (a blank frame is also re-read below).
+  if (video.readyState < 2) await waitFor(video, 'canplay', 15000).catch(() => {})
+}
+
+function drawFrame(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, w: number, h: number) {
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, w, h)
+  ctx.drawImage(video, 0, 0, w, h)
+}
+
+/** True when the frame is (almost) all black: the decoder had nothing to give yet. One row through the middle is enough. */
+function isBlank(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  const row = ctx.getImageData(0, Math.floor(h / 2), w, 1).data
+  for (let k = 0; k < row.length; k += 4) if (row[k] > 8 || row[k + 1] > 8 || row[k + 2] > 8) return false
+  return true
+}
+
 /** Why a video can't be used, or null when it looks fine (checked before any frames are read). */
 export function validateSpinVideo(file: File): string | null {
   if (!file.type.startsWith('video/')) return `${file.name} isn't a video`
@@ -71,13 +93,21 @@ export async function extractSpinFrames(
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Your browser cannot read frames from video. Try Chrome or Safari.')
 
+    // The first picture must be decoded before we seek: on a cold 4K HEVC file, seeking to 0 right
+    // after the metadata arrives can report "seeked" with nothing decoded yet, giving a black frame 1.
+    if (video.readyState < 2) await waitFor(video, 'loadeddata', 20000)
+
     const out: ExtractedFrame[] = []
     const times = frameTimes(duration, count)
     for (let i = 0; i < times.length; i++) {
       if (signal?.cancelled) throw new Error('Cancelled')
-      video.currentTime = times[i]
-      await waitFor(video, 'seeked', 15000)
-      ctx.drawImage(video, 0, 0, w, h)
+      await seekTo(video, times[i])
+      drawFrame(ctx, video, w, h)
+      // Still blank (decoder not ready)? Nudge forward a frame and read it again.
+      for (let retry = 0; retry < 3 && isBlank(ctx, w, h); retry++) {
+        await seekTo(video, Math.min(duration - 0.05, times[i] + 0.04 * (retry + 1)))
+        drawFrame(ctx, video, w, h)
+      }
       const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/jpeg', FRAME_QUALITY))
       if (!blob) throw new Error('Could not save a frame from the video.')
       out.push({ index: i, file: new File([blob], `spin-${String(i + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg', lastModified: Date.now() }) })

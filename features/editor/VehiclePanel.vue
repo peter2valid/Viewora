@@ -204,7 +204,7 @@
           <div class="vp-row">
             <button
               class="vp-btn"
-              :disabled="!current || busy || current.angle === activeSpin.start_angle"
+              :disabled="!current || busy || !spinsReady || current.angle === activeSpin.start_angle"
               @click="setStartFrame"
             >{{ current && current.angle === activeSpin.start_angle ? 'Buyers start on this frame' : 'Start on this frame' }}</button>
             <button v-if="spins.length > 1" class="vp-btn vp-btn--danger" :disabled="busy" @click="confirmRemoveSpin">
@@ -225,9 +225,13 @@
               </select>
               <p class="vp-hint">Choose a taken position to swap the two photos.</p>
             </template>
-            <p v-else class="vp-hint">Frames are evenly spaced from your video, so their order is fixed. Pin a hotspot on any frame: it also shows on the frames either side.</p>
+            <template v-else>
+              <p class="vp-hint">Frames are evenly spaced from your video, so their order is fixed. Pin a hotspot on any frame: it also shows on the frames either side.</p>
+              <p class="vp-hint">Car turning the wrong way, or this side named wrong? <strong>Flip direction</strong> fixes it without recording again.</p>
+            </template>
 
             <div class="vp-row">
+              <button v-if="isSpin" class="vp-btn" :disabled="busy || preview" @click="flipSpinDirection">Flip direction</button>
               <button class="vp-btn" :disabled="busy" @click="pick(current.angle, current.id)">Replace photo</button>
               <button class="vp-btn vp-btn--danger" :disabled="busy" @click="confirmRemove">{{ removeArmed ? 'Tap again to remove' : 'Remove' }}</button>
             </div>
@@ -329,8 +333,9 @@
 
           <fieldset class="vp-fieldset">
             <legend class="vp-label">Which side did you walk to first?</legend>
-            <label class="vp-radio"><input v-model="spinRightFirst" type="radio" :value="true" /> The car's right side</label>
-            <label class="vp-radio"><input v-model="spinRightFirst" type="radio" :value="false" /> The car's left side</label>
+            <label class="vp-radio"><input v-model="spinRightFirst" type="radio" :value="true" /> The car's right side (driver's side on a Kenyan car)</label>
+            <label class="vp-radio"><input v-model="spinRightFirst" type="radio" :value="false" /> The car's left side (passenger side)</label>
+            <p class="vp-hint">Not sure? Pick either. If the car turns the wrong way afterwards, tap <strong>Flip direction</strong>.</p>
           </fieldset>
 
           <fieldset class="vp-fieldset">
@@ -1005,6 +1010,20 @@ async function setStartFrame() {
   if (!sp || !v) return
   const ok = await withBusy(null, () => updateSpin(sp.id, { start_angle: v.angle }), 'Could not save the first frame')
   if (ok) toast.success('Buyers will start on this frame')
+}
+
+// A spin recorded walking the other way round: mirror every frame's angle (front stays at 0°).
+// Fixes the side names and the drag direction without recording again; hotspots stay on their photos.
+async function flipSpinDirection() {
+  const items = views.value.map(v => ({ id: v.id, angle: (360 - v.angle) % 360, label: null }))
+  if (!items.length) return
+  const keep = current.value?.id
+  const ok = await withBusy(null, () => applyAngles(items), 'Could not flip the spin')
+  if (!ok) return
+  const sp = activeSpin.value
+  if (sp && spinsReady.value && sp.start_angle) await updateSpin(sp.id, { start_angle: (360 - sp.start_angle) % 360 }).catch(() => {})
+  if (keep) selectedId.value = keep
+  toast.success('Flipped. Drag the car to check it turns the right way.')
 }
 
 const removeSpinArmed = ref(false)
