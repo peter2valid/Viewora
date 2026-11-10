@@ -874,7 +874,6 @@ function onDown(e: PointerEvent) {
   if (sorted.value.length < 1) return
   stopInertia()
   autoplayed = true
-  showHint.value = false
   badgeGone.value = true
   pointers.set(e.pointerId, localXY(e))
   rootEl.value?.setPointerCapture?.(e.pointerId)
@@ -914,6 +913,8 @@ function onMove(e: PointerEvent) {
   }
   if (!dragging) return
   moved = Math.max(moved, Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY))
+  // A touch alone keeps the hints up; once the car is being moved they have done their job.
+  if (moved > 6) showHint.value = false
   const now = performance.now()
   if (panning) {
     const dx = e.clientX - lastX
@@ -1117,7 +1118,6 @@ function releaseFrames() {
 function onDocVisibility() { visibilityChanged() }
 
 // ── Lifecycle ──
-let hintTimer: ReturnType<typeof setTimeout> | undefined
 onMounted(() => {
   pos = idx.value = startIndex.value
   syncBlend()
@@ -1127,7 +1127,7 @@ onMounted(() => {
     ro.observe(rootEl.value)
   }
   loadAll()
-  hintTimer = setTimeout(() => { showHint.value = false }, 6000)
+  // The hints stay until the buyer actually moves the car (or zooms): no timer.
   if (typeof IntersectionObserver !== 'undefined' && rootEl.value) {
     io = new IntersectionObserver((entries) => {
       onScreen = entries[entries.length - 1]?.isIntersecting ?? true
@@ -1178,7 +1178,6 @@ onBeforeUnmount(() => {
   if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onDocVisibility)
   if (releaseTimer) clearTimeout(releaseTimer)
   if (toastTimer) clearTimeout(toastTimer)
-  if (hintTimer) clearTimeout(hintTimer)
   if (sharpTimer) clearTimeout(sharpTimer)
   for (const d of frames.values()) closeDrawable(d)
   frames.clear()
