@@ -156,6 +156,21 @@
     <!-- Inside someone else's page the wheel scrolls their page; say how to zoom instead. -->
     <p v-if="toast" class="vsv__toast" role="status">{{ toast }}</p>
 
+    <!-- Zoomed in, a drag looks around this one photo; say how to get the spin back (and do it on a tap). -->
+    <button
+      v-if="showZoomCue"
+      type="button"
+      class="vsv__zcue"
+      :class="{ 'is-nudge': zoomNudge }"
+      aria-label="Zoom out to spin the car"
+      @pointerdown.stop
+      @click="resetZoom(true)"
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+      <span class="vsv__zcue-quiet">Zoomed in</span>
+      <span class="vsv__zcue-main">Zoom out to spin</span>
+    </button>
+
     <!-- Turn track with a mark per hotspot: tap a mark and the car turns to it and opens it. -->
     <div v-if="showTimeline" class="vsv__tl" @pointerdown.stop>
       <span v-if="!short" class="vsv__tl-label">{{ currentLabel }}</span>
@@ -320,6 +335,20 @@ const hints = computed(() => spinHints(isTouch, props.zoomable, verticalHeights.
 const badgeGone = ref(false)
 const showBadge = computed(() => smooth.value && !props.editable && !badgeGone.value)
 const showHints = computed(() => showHint.value && painted.value && sorted.value.length > 1 && !props.editable && !activePinId.value && !zoomed.value)
+/** While zoomed, a drag pans the photo instead of turning the car: keep saying how to spin again. */
+const showZoomCue = computed(() => zoomed.value && !props.editable && sorted.value.length > 1 && !activePinId.value)
+const zoomNudge = ref(false)
+let zoomNudgeTimer: ReturnType<typeof setTimeout> | undefined
+let edgePush = 0
+let cueSpoken = false
+/** Someone dragged sideways at the edge of the zoomed photo, as if to turn the car: make the cue noticed. */
+function nudgeZoomCue() {
+  zoomNudge.value = false
+  requestAnimationFrame(() => { zoomNudge.value = true })
+  if (zoomNudgeTimer) clearTimeout(zoomNudgeTimer)
+  zoomNudgeTimer = setTimeout(() => { zoomNudge.value = false }, 900)
+  if (!cueSpoken) { cueSpoken = true; announce('Zoom out to spin the car') }
+}
 const showTimeline = computed(() => smooth.value && !props.hideBar && sorted.value.length > 1)
 /** A short box (a listing card): the timeline loses its label and the ring is left out. */
 const short = computed(() => box.value.h > 0 && box.value.h < 460)
@@ -670,7 +699,9 @@ const zoomed = computed(() => zoom.value.z > 1.01)
 watch(zoomed, (z) => {
   emit('zoom', z)
   if (!z) sharp = null
-  announce(z ? 'Zoomed in. Drag to look around; press 0 to see the whole car.' : 'Zoomed out')
+  if (z) cueSpoken = false
+  else { edgePush = 0; zoomNudge.value = false }
+  announce(z ? 'Zoomed in. Drag to look around this view; zoom out (or press 0) to spin the car again.' : 'Zoomed out. Drag to spin the car.')
 })
 let zoomAnim = 0
 
@@ -903,6 +934,7 @@ function onDown(e: PointerEvent) {
   dragAxis = null
   dragStartRow = rowIdx.value
   moved = 0
+  edgePush = 0
   downX = startPosX = lastX = e.clientX
   downY = lastY = e.clientY
   startPos = pos
@@ -926,7 +958,14 @@ function onMove(e: PointerEvent) {
   moved = Math.max(moved, Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY))
   const now = performance.now()
   if (panning) {
-    setZoom({ z: zoom.value.z, x: zoom.value.x + (e.clientX - lastX), y: zoom.value.y + (e.clientY - lastY) })
+    const dx = e.clientX - lastX
+    const x0 = zoom.value.x
+    setZoom({ z: zoom.value.z, x: zoom.value.x + dx, y: zoom.value.y + (e.clientY - lastY) })
+    // The photo stopped at its edge but the finger keeps going sideways: they want the car to turn.
+    if (Math.abs(dx) > 0 && Math.abs(zoom.value.x - x0) < Math.abs(dx) * 0.25) {
+      edgePush += Math.abs(dx)
+      if (edgePush > 60) { edgePush = 0; nudgeZoomCue() }
+    } else if (Math.abs(dx) > 0) edgePush = 0
     lastX = e.clientX
     lastY = e.clientY
     return
@@ -1377,6 +1416,29 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 }
 .vsv__hdot:hover .vsv__htip, .vsv__hdot:focus-visible .vsv__htip { opacity: 1; visibility: visible; }
 
+.vsv__zcue {
+  position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 6;
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 0; border-radius: 20px; cursor: pointer;
+  background: var(--vsv-btn-bg); color: var(--vsv-icon); box-shadow: var(--vsv-shadow);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  font: 500 13px system-ui, -apple-system, sans-serif; white-space: nowrap;
+  animation: vsv-fade-in 250ms ease;
+}
+.vsv.has-timeline .vsv__zcue { bottom: var(--vsv-hints-bottom, 104px); }
+.vsv__zcue-quiet { opacity: 0.7; }
+.vsv__zcue-quiet::after { content: '·'; margin-left: 8px; }
+.vsv__zcue-main { color: #fff; font-weight: 700; }
+.vsv__zcue:hover { background: var(--vsv-btn-bg-hover); }
+.vsv__zcue:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: 2px; }
+.vsv__zcue.is-nudge { animation: vsv-zcue-nudge 700ms ease; background: var(--vsv-brand); color: #fff; }
+.vsv__zcue.is-nudge .vsv__zcue-quiet { opacity: 0.9; }
+@keyframes vsv-zcue-nudge {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  20% { transform: translateX(calc(-50% - 6px)) scale(1.06); }
+  40% { transform: translateX(calc(-50% + 6px)) scale(1.06); }
+  60% { transform: translateX(calc(-50% - 3px)) scale(1.03); }
+}
+
 .vsv__toast {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; margin: 0;
   padding: 8px 16px; border-radius: 20px; pointer-events: none;
@@ -1467,6 +1529,6 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 }
 @media (prefers-reduced-motion: reduce) {
   .vsv__pin.is-pulse::after { animation: none; display: none; }
-  .vsv__dot::after, .vsv__pin::before, .vsv__tl-dot::before, .vsv__pop, .vsv__hints, .vsv__toast { transition: none; animation: none; }
+  .vsv__dot::after, .vsv__pin::before, .vsv__tl-dot::before, .vsv__pop, .vsv__hints, .vsv__toast, .vsv__zcue { transition: none; animation: none; }
 }
 </style>
