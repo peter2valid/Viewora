@@ -9,6 +9,22 @@
               <UiIcon name="close" :size="16" :stroke-width="2.4" />
             </button>
           </div>
+          <!-- A car: two links. The listing (spin, price, details) or just the spin to turn. -->
+          <div v-if="isCar" class="share-modal__pick" role="radiogroup" aria-label="What to share">
+            <button
+              v-for="o in carLinkOptions"
+              :key="o.id"
+              type="button"
+              role="radio"
+              class="share-modal__pick-btn"
+              :class="{ 'is-on': carLink === o.id }"
+              :aria-checked="carLink === o.id"
+              @click="carLink = o.id"
+            >
+              <span class="share-modal__pick-title">{{ o.title }}</span>
+              <span class="share-modal__pick-sub">{{ o.sub }}</span>
+            </button>
+          </div>
           <div class="share-modal__tabs" role="tablist">
             <button
               v-for="tab in shareTabs"
@@ -25,8 +41,8 @@
             <div v-if="shareTab === 'link'" class="share-modal__panel" role="tabpanel">
               <p class="share-modal__eyebrow">Link to share</p>
               <div class="share-modal__link-row">
-                <span class="share-modal__link">{{ publicUrl }}</span>
-                <a :href="publicUrl" target="_blank" rel="noopener" class="share-modal__open" title="Open in a new tab" aria-label="Open link in a new tab">
+                <span class="share-modal__link">{{ shareUrl }}</span>
+                <a :href="shareUrl" target="_blank" rel="noopener" class="share-modal__open" title="Open in a new tab" aria-label="Open link in a new tab">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
                 </a>
                 <button class="share-modal__copy" @click="copyShareUrl">
@@ -51,7 +67,7 @@
             </div>
             <div v-else-if="shareTab === 'embed'" class="share-modal__panel" role="tabpanel">
               <template v-if="canEmbed">
-                <p class="share-modal__eyebrow">Embed</p>
+                <p class="share-modal__eyebrow">{{ isCar ? 'Put the spin on your website' : 'Embed' }}</p>
                 <div class="share-modal__link-row share-modal__link-row--code">
                   <code class="share-modal__link share-modal__link--code">{{ shareEmbedCode }}</code>
                   <button class="share-modal__copy" @click="copyEmbedCode">
@@ -80,7 +96,7 @@
                   <div v-else class="share-modal__qr-placeholder"><span class="share-modal__qr-loading" /></div>
                 </div>
                 <p class="share-modal__qr-text">Scan to open the tour on any device.</p>
-                <p class="share-modal__qr-url">{{ publicUrl }}</p>
+                <p class="share-modal__qr-url">{{ shareUrl }}</p>
                 <button v-if="qrDataUrl" type="button" class="share-modal__copy" @click="downloadQrCode">
                   Download PNG
                 </button>
@@ -98,7 +114,7 @@ import { ref, computed, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import QRCode from 'qrcode'
 import type { Space } from '~/composables/useSpaces'
-import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
+import { resolvePublicTourUrl, resolveSpinUrl } from '~/utils/publicTourUrl'
 import { usePlanStore } from '~/stores/plan'
 import { copyText } from '~/shared/utils/copyText'
 
@@ -127,19 +143,30 @@ const shareTabs: Array<{ id: 'link' | 'embed' | 'qr'; label: string }> = [
 ]
 
 const publicUrl = computed(() => (props.space ? resolvePublicTourUrl(props.space, props.context) : ''))
+
+const isCar = computed(() => (props.space as any)?.space_type === 'automotive')
+const carLink = ref<'listing' | 'spin'>('listing')
+const carLinkOptions: Array<{ id: 'listing' | 'spin'; title: string; sub: string }> = [
+  { id: 'listing', title: 'Full listing', sub: 'Spin, price and details' },
+  { id: 'spin', title: 'Spin only', sub: 'Just the car to turn' },
+]
+/** The link being shared: a car can share just its spin. */
+const shareUrl = computed(() => (props.space && isCar.value && carLink.value === 'spin' ? resolveSpinUrl(props.space) : publicUrl.value))
 const embedUrl = computed(() => {
   if (!props.space) return ''
   const base = typeof window !== 'undefined' ? window.location.origin : ''
   return `${base}/embed/${props.space.slug || props.space.id}`
 })
-const shareText = computed(() => `Check out this immersive virtual tour created with Viewora: ${publicUrl.value}`)
+const shareText = computed(() => (isCar.value
+  ? `Have a look at this car: ${shareUrl.value}`
+  : `Check out this immersive virtual tour created with Viewora: ${publicUrl.value}`))
 const shareWhatsappHref = computed(() => `https://wa.me/?text=${encodeURIComponent(shareText.value)}`)
 const shareXHref = computed(() => `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText.value)}`)
 const shareGmailHref = computed(() => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Viewora virtual tour')}&body=${encodeURIComponent(shareText.value)}`)
 const shareEmbedCode = computed(() => `<iframe src="${embedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen allow="fullscreen; clipboard-write; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; screen-wake-lock" style="border-radius:8px; border:none;"></iframe>`)
 
 async function copyShareUrl() {
-  if (await copyText(publicUrl.value)) {
+  if (await copyText(shareUrl.value)) {
     urlCopied.value = true
     setTimeout(() => { urlCopied.value = false }, 2000)
   } else {
@@ -155,29 +182,38 @@ async function copyEmbedCode() {
   }
 }
 
-watch(() => props.space, async (space) => {
+watch(() => props.space, (space) => {
   shareTab.value = 'link'
+  carLink.value = 'listing'
+  makeQr(space)
+})
+watch(carLink, () => makeQr(props.space))
+
+async function makeQr(space: Space | null) {
   qrDataUrl.value = ''
   if (!space) return
+  const url = shareUrl.value
   qrLoading.value = true
   try {
-    qrDataUrl.value = await QRCode.toDataURL(publicUrl.value, {
+    const data = await QRCode.toDataURL(url, {
       width: 512, margin: 2, errorCorrectionLevel: 'M',
       color: { dark: '#111827', light: '#ffffff' },
     })
+    // Switched link while this was drawing: the newer one wins.
+    if (url === shareUrl.value) qrDataUrl.value = data
   } catch {
     qrDataUrl.value = ''
   } finally {
-    qrLoading.value = false
+    if (url === shareUrl.value) qrLoading.value = false
   }
-})
+}
 
 function downloadQrCode() {
   if (!qrDataUrl.value) return
   const slug = publicUrl.value.split('/').filter(Boolean).pop() || 'viewora-tour'
   const link = document.createElement('a')
   link.href = qrDataUrl.value
-  link.download = `${slug}-qr.png`
+  link.download = `${slug}${isCar.value && carLink.value === 'spin' ? '-spin' : ''}-qr.png`
   link.click()
 }
 </script>
@@ -189,6 +225,14 @@ function downloadQrCode() {
 .share-modal__title { font-size: 22px; font-weight: 400; color: #202124; }
 .share-modal__close { width: 28px; height: 28px; border-radius: 50%; background: transparent; border: none; color: #5f6368; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 120ms; }
 .share-modal__close:hover { background: rgba(60,64,67,.08); color: #202124; }
+.share-modal__pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 20px 14px; }
+.share-modal__pick-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 10px 12px; border-radius: 12px; border: 1px solid #dadce0; background: #fff; color: #202124; text-align: left; cursor: pointer; transition: background 120ms, border-color 120ms; }
+.share-modal__pick-btn:hover { background: #f8f9fa; }
+.share-modal__pick-btn:active { background: #f1f3f4; }
+.share-modal__pick-btn:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+.share-modal__pick-btn.is-on { border-color: #1a73e8; background: #eef3fd; }
+.share-modal__pick-title { font-size: 14px; font-weight: 600; }
+.share-modal__pick-sub { font-size: 12px; color: #5f6368; }
 .share-modal__tabs { display: flex; gap: 8px; padding: 0 20px; border-bottom: 1px solid #e8eaed; }
 .share-modal__tab { position: relative; padding: 12px 4px 11px; border: none; background: transparent; color: #5f6368; font-size: 14px; font-weight: 500; cursor: pointer; }
 .share-modal__tab--active { color: #1a73e8; }

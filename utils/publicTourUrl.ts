@@ -18,3 +18,11 @@ export function resolvePublicTourUrl(
 ): string {
   return `${PUBLIC_APP_ORIGIN}/p/${space.slug || space.id}`
 }
+
+/**
+ * Just a car's spin (and its inside view), with no price, details or contact: for sending
+ * the car itself. Served by the embed page (pages/embed/[slug].vue, alias /spin/:slug).
+ */
+export function resolveSpinUrl(space: { slug?: string | null; id: string }): string {
+  return `${PUBLIC_APP_ORIGIN}/spin/${space.slug || space.id}`
+}

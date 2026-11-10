@@ -84,26 +84,35 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           Back
         </button>
-        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-alt text-main rounded-lg text-[13px] font-bold mb-4 border border-border">
-          Creating: {{ selectedOptionData?.title }} {{ selectedOptionData?.emoji }}
-        </div>
-        <h1 class="text-3xl font-bold text-main mb-2 tracking-tight">Basic Setup</h1>
-        <p class="text-base text-dim">Give your tour a name to start building.</p>
+        <template v-if="isCar">
+          <h1 class="text-3xl font-bold text-main mb-2 tracking-tight">Name the car</h1>
+          <p class="text-base text-dim">Buyers see this name. You can change it later.</p>
+        </template>
+        <template v-else>
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-alt text-main rounded-lg text-[13px] font-bold mb-4 border border-border">
+            Creating: {{ selectedOptionData?.title }}
+          </div>
+          <h1 class="text-3xl font-bold text-main mb-2 tracking-tight">Basic Setup</h1>
+          <p class="text-base text-dim">Give your tour a name to start building.</p>
+        </template>
       </div>
 
       <div class="w-full card-glass p-6 md:p-10 rounded-2xl space-y-6">
         <div class="space-y-2">
-          <label class="text-sm font-bold text-main">Tour Name <span class="text-red-500">*</span></label>
+          <label for="create-name" class="text-sm font-bold text-main">{{ isCar ? 'Car' : 'Tour Name' }} <span v-if="!isCar" class="text-red-500">*</span></label>
           <input 
+            id="create-name"
             v-model="tourName" 
             type="text" 
-            placeholder="e.g. 123 Main Street" 
+            :placeholder="isCar ? 'e.g. 2019 Toyota Prado TX' : 'e.g. 123 Main Street'" 
             autofocus
+            @keydown.enter="handleCreateTour"
             class="w-full px-4 py-3.5 bg-surface-alt border border-border rounded-xl text-main text-base outline-none focus:bg-surface focus:border-main focus:ring-1 focus:ring-main transition-all placeholder:text-dim"
           />
         </div>
         
-        <div class="space-y-2">
+        <!-- A car is sold from wherever it is parked: no location to ask for. -->
+        <div v-if="!isCar" class="space-y-2">
           <label class="text-sm font-bold text-main">Location <span class="text-dim font-normal">(Optional)</span></label>
           <input 
             v-model="locationText" 
@@ -124,7 +133,7 @@
             @click="handleCreateTour"
           >
             <div v-if="creating" class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-            {{ creating ? 'Creating Tour...' : 'Create Tour' }}
+            {{ creating ? (isCar ? 'Opening the editor…' : 'Creating Tour...') : (isCar ? 'Start' : 'Create Tour') }}
           </button>
         </div>
       </div>
@@ -165,17 +174,18 @@ const atSpaceLimit = computed(() => {
 })
 
 const typeOptions = [
-  { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels', emoji: '🏠' },
-  { id: 'automotive', title: 'Car / Vehicle', description: 'One car: photos around it, plus 360° interior', emoji: '🚗' },
-  { id: 'commercial', title: 'Business / Institution', description: 'Schools, offices, showrooms, facilities', emoji: '🏢' },
-  { id: 'land', title: 'Land / Plots', description: 'Drone views, plot boundaries, beacons', emoji: '🌍' },
-  { id: 'other', title: 'Multiple Items', description: 'Show multiple tours in one link', emoji: '📦' },
+  { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels' },
+  { id: 'automotive', title: 'Car / Vehicle', description: 'One car: photos around it, plus 360° interior' },
+  { id: 'commercial', title: 'Business / Institution', description: 'Schools, offices, showrooms, facilities' },
+  { id: 'land', title: 'Land / Plots', description: 'Drone views, plot boundaries, beacons' },
+  { id: 'other', title: 'Multiple Items', description: 'Show multiple tours in one link' },
 ]
 
 const selectedOptionData = computed(() => typeOptions.find(o => o.id === selectedType.value))
+const isCar = computed(() => selectedType.value === 'automotive')
 
 const handleCreateTour = async () => {
-  if (!tourName.value.trim() || !selectedType.value) return
+  if (!tourName.value.trim() || !selectedType.value || creating.value) return
 
   if (atSpaceLimit.value) {
     navigateTo('/app/billing')
@@ -189,7 +199,7 @@ const handleCreateTour = async () => {
     const space = await createSpace({
       title: tourName.value,
       space_type: selectedType.value,
-      location_text: locationText.value || undefined
+      location_text: (!isCar.value && locationText.value) || undefined
     })
 
     analytics.track('space_created', { space_type: selectedType.value })

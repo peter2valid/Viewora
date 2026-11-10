@@ -1,7 +1,21 @@
 <template>
   <div>
-    <!-- A car is set up in order: numbered steps that tick off, then one button to the finished tour. -->
-    <div v-if="isCar" class="mode-switch" role="tablist" aria-label="Car tour setup steps">
+    <!-- A car: one glass top bar (back, name, preview, share, publish) for every step, the same
+         bar as the 360° editor, then the steps. No step brings a header of its own. -->
+    <TopBar
+      v-if="isCar"
+      :space-name="carSpace?.title || 'Car'"
+      :mode-label="carStepLabel"
+      :is-published="Boolean(carSpace?.is_published)"
+      :publishing="carPublishing"
+      :has-scene="false"
+      @preview="previewCar"
+      @share="carShareOpen = true"
+      @toggle-publish="toggleCarPublish"
+    />
+    <UiShareModal :space="carShareOpen ? carSpace : null" @close="carShareOpen = false" />
+
+    <div v-if="isCar" class="mode-switch" role="tablist" aria-label="Car steps">
       <button
         v-for="st in carTabs"
         :key="st.tab"
@@ -18,16 +32,10 @@
         </span>
         {{ st.title }}<span class="sr-only">{{ st.done ? ', done' : st.optional ? ', optional' : '' }}</span>
       </button>
-      <a
-        v-if="carTourUrl"
-        :href="carTourUrl"
-        target="_blank"
-        rel="noopener"
-        class="mode-switch__btn mode-switch__btn--view"
-      >View car tour ↗</a>
     </div>
 
-    <div v-else class="mode-switch" role="tablist" aria-label="Editor mode">
+    <!-- Only once we know it is not a car, so a car never flashes the property tabs first. -->
+    <div v-else-if="typeKnown" class="mode-switch" role="tablist" aria-label="Editor mode">
       <button
         role="tab"
         :aria-selected="mode === 'tour'"
@@ -76,7 +84,7 @@
          state; destroying and remounting it on every tab switch would be
          wasteful and would drop in-progress uploads. -->
     <div v-show="mode === 'tour'" class="mode-pane">
-      <EditorShell ref="editorShellRef" :space-id="spaceId" />
+      <EditorShell ref="editorShellRef" :space-id="spaceId" :hide-top-bar="isCar || !typeKnown" />
     </div>
     <!-- KeepAlive — mounts (and fetches) once on first visit, then just
          toggles visibility on every switch after. Without it, v-if alone
@@ -89,7 +97,7 @@
     <!-- v-show, not KeepAlive: mounted as soon as we know it is a car, so photos are already loading
          and the editor is on screen the moment the tab is clicked (same as the 360 tab). -->
     <div v-if="isCar" v-show="mode === 'car'" class="mode-pane">
-      <VehiclePanel :space-id="spaceId" />
+      <VehiclePanel ref="vehiclePanelRef" :space-id="spaceId" />
     </div>
     <KeepAlive>
       <AerialPanel v-if="mode === 'aerial'" :space-id="spaceId" />
@@ -120,6 +128,8 @@ import AerialPanel from '~/features/editor/AerialPanel.vue'
 import FloorPlanPanel from '~/features/editor/FloorPlanPanel.vue'
 import OrganizePanel from '~/features/editor/OrganizePanel.vue'
 import { useCarSetup } from '~/features/vehicle/useCarSetup'
+import TopBar from '~/features/editor/components/TopBar.vue'
+import { toast } from 'vue-sonner'
 
 definePageMeta({ layout: 'editor', middleware: 'auth' })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
@@ -137,9 +147,17 @@ const mode = ref<Mode>(tabToMode(route.query.tab))
 // Car listings get a Car Exterior tab first, 360° becomes the optional interior, and the
 // map/floor-plan/organize tabs (meaningless for one car) are hidden.
 const { apiFetch } = useApiFetch()
-const isCar = ref(false)
+// ?tab=car is only ever a car (the create page opens a new car there), so its editor is on
+// screen from the first frame instead of waiting for the space to load.
+const isCar = ref(route.query.tab === 'car')
+const typeKnown = ref(isCar.value)
+const carSpace = ref<any>(null)
 apiFetch<any>(`/spaces/${spaceId}`)
-  .then((s) => { isCar.value = (s?.space_type ?? s?.data?.space_type ?? s?.property_type) === 'automotive'
+  .then((s) => {
+    const sp = s?.data ?? s
+    isCar.value = (sp?.space_type ?? sp?.property_type) === 'automotive'
+    typeKnown.value = true
+    if (isCar.value) carSpace.value = sp
     // New car listings open on the exterior photos, the first thing a car needs.
     if (isCar.value) {
       // Aerial Map, Floor Plan and Organize are hidden for a single car, so a link to one lands on the car tab;
@@ -148,16 +166,17 @@ apiFetch<any>(`/spaces/${spaceId}`)
       if (!t || t === '360' || t === 'aerial' || t === 'floorplan' || t === 'organize') setMode('car')
     }
   })
-  .catch(() => {})
+  .catch(() => { typeKnown.value = true })
 
 const editorShellRef = ref<InstanceType<typeof EditorShell> | null>(null)
 
 // Car listings: what each step has, refreshed whenever the owner moves between steps
 // (each tab saves as it goes, so switching is the natural moment to re-check).
 const carSetup = useCarSetup(spaceId)
+const CAR_STEP_LABELS: Record<string, string> = { car: 'Exterior', tour: 'Interior', photos: 'Close-ups', details: 'Details' }
 const carTabs = computed(() => {
   const byTab = new Map(carSetup.steps.value.filter(s => s.key !== 'publish').map(s => [s.tab, s]))
-  const labels: Record<string, string> = { car: 'Exterior', tour: 'Interior 360°', photos: 'Detail photos', details: 'Details & publish' }
+  const labels: Record<string, string> = CAR_STEP_LABELS
   return (['car', 'tour', 'photos', 'details'] as const).map((tab, i) => {
     const st = byTab.get(tab)!
     const publish = carSetup.steps.value.find(s => s.key === 'publish')
@@ -166,6 +185,51 @@ const carTabs = computed(() => {
   })
 })
 const carTourUrl = computed(() => carSetup.tourUrl.value)
+const carStepLabel = computed(() => CAR_STEP_LABELS[mode.value] ?? 'Exterior')
+
+// ── The car's top bar: preview, share and publish, the same on every step ──
+const vehiclePanelRef = ref<InstanceType<typeof VehiclePanel> | null>(null)
+const carShareOpen = ref(false)
+const carPublishing = ref(false)
+
+/** Live car: its tour in a new tab. Not live yet: the buyer's view of the spin, here. */
+function previewCar() {
+  if (carTourUrl.value) { window.open(carTourUrl.value, '_blank', 'noopener'); return }
+  if (mode.value !== 'car') setMode('car')
+  vehiclePanelRef.value?.showBuyerView()
+}
+
+async function toggleCarPublish() {
+  const sp = carSpace.value
+  if (carPublishing.value || !sp) return
+  const live = !!sp.is_published
+  // A car tour starts with its outside: send them back to step 1 rather than publish an empty tour.
+  const exterior = carSetup.steps.value.find(st => st.key === 'car')
+  if (!live && carSetup.setup.value && exterior && !exterior.done) {
+    toast.error(exterior.status ? `Exterior: ${exterior.status}` : 'Add the outside of the car first.')
+    setMode('car')
+    return
+  }
+  carPublishing.value = true
+  try {
+    const updated = await apiFetch<any>(`/spaces/${spaceId}/publish`, {
+      method: 'POST',
+      body: { publish: !live, slug: sp.slug, lead_form_enabled: sp.lead_form_enabled, branding_enabled: sp.branding_enabled },
+    })
+    carSpace.value = { ...sp, ...(updated ?? {}) }
+    if (!live) {
+      useAnalytics().track('tour_published', { space_id: spaceId, space_type: 'automotive' })
+      carShareOpen.value = true
+    } else {
+      toast('Unpublished. Buyers can no longer open it.')
+    }
+    carSetup.refresh()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'Could not publish. Check your connection and try again.')
+  } finally {
+    carPublishing.value = false
+  }
+}
 watch([isCar, mode], ([car]) => { if (car) carSetup.refresh() })
 
 function setMode(next: Mode) {
@@ -175,7 +239,10 @@ function setMode(next: Mode) {
   const leavingDetails = mode.value === 'details' && next !== 'details'
   mode.value = next
   router.replace({ query: { ...route.query, tab: next } })
-  if (leavingDetails) editorShellRef.value?.fetchSpace(true)
+  if (leavingDetails) {
+    editorShellRef.value?.fetchSpace(true)
+    if (isCar.value) apiFetch<any>(`/spaces/${spaceId}`).then((s) => { carSpace.value = { ...carSpace.value, ...(s?.data ?? s) } }).catch(() => {})
+  }
 }
 
 // The 360° Tour tab stays mounted with its own copy of the scenes (dock
@@ -222,11 +289,6 @@ watch(() => route.query.tab, (t) => {
   font-size: 10px; font-weight: 800; border: 1.5px solid currentColor;
 }
 .mode-switch__btn.is-done .mode-switch__n { background: #3ccf7a; border-color: #3ccf7a; color: #06210f; }
-.mode-switch__btn--view {
-  display: inline-flex; align-items: center; text-decoration: none;
-  background: #fff; color: #0e0e10; margin-left: 4px;
-}
-.mode-switch__btn--view:hover { background: #e6e6e8; color: #0e0e10; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .mode-pane { width: 100%; height: 100%; }

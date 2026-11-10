@@ -1,322 +1,262 @@
 <template>
-  <div ref="rootEl" class="vp" :class="{ 'is-preview': preview }" @dragover.prevent @drop.prevent="onRootDrop">
+  <div ref="rootEl" class="vp" :class="{ 'is-preview': preview, 'has-side': !preview && !!current }" @dragover.prevent @drop.prevent="onRootDrop">
     <input ref="oneInput" type="file" accept="image/jpeg,image/png,image/webp" class="vp-hidden" @change="onOne" />
     <input ref="manyInput" type="file" accept="image/jpeg,image/png,image/webp" multiple class="vp-hidden" @change="onMany" />
     <input ref="videoInput" type="file" accept="video/*" class="vp-hidden" @change="onVideoPicked" />
     <input ref="videoCamInput" type="file" accept="video/*" capture="environment" class="vp-hidden" @change="onVideoPicked" />
 
-    <!-- Toolbar: always on screen, so the editor looks and feels ready before the photos arrive. -->
-    <header class="vp-bar">
-      <div class="vp-bar__title">
-        <NuxtLink to="/app/spaces" class="vp-back" aria-label="Back to spaces">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        </NuxtLink>
-        <div>
-          <h1 class="vp-h1">Car exterior</h1>
-          <p class="vp-sub vp-num">
-            <template v-if="!loaded">Loading photos…</template>
-            <template v-else-if="isSpin">{{ activeSpin?.title || 'Exterior' }} · smooth spin · {{ views.length }} frames · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
-            <template v-else>{{ spins.length > 1 ? `${activeSpin?.title || 'Exterior'} · ` : '' }}{{ views.length }} photo{{ views.length === 1 ? '' : 's' }} · {{ filledSlots }} of {{ VEHICLE_SLOTS.length }} main angles · {{ hotspotTotal }} hotspot{{ hotspotTotal === 1 ? '' : 's' }}</template>
-          </p>
-        </div>
-      </div>
+    <!-- Tools: a floating glass rail, the same style as the 360° editor's. On phones, one row. -->
+    <nav v-if="!preview" class="vp-rail editor-glass" aria-label="Exterior tools">
+      <button class="vp-tool" :disabled="busy" title="Turn a walk-around video into a smooth spin" @click="openSpinModal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg>
+        <span>Video</span>
+      </button>
+      <button class="vp-tool" :disabled="busy || views.length >= VEHICLE_MAX_VIEWS" title="Add photos of the outside" @click="manyInput?.click()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+        <span>Photos</span>
+      </button>
+      <span class="vp-rail__div" aria-hidden="true" />
+      <button class="vp-tool" :class="{ 'is-on': placing }" :disabled="!current" :aria-pressed="placing" title="Pin a feature or a mark (H)" @click="togglePlacing">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+        <span>{{ placing ? 'Tap car' : 'Hotspot' }}</span>
+      </button>
+      <button class="vp-tool" :disabled="!current || aiBusy === 'hotspots'" title="AI suggests hotspots for this frame. You check them first." @click="runAiHotspots">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"/></svg>
+        <span>{{ aiBusy === 'hotspots' ? 'Looking' : 'Suggest' }}</span>
+      </button>
+      <button v-if="!isSpin" class="vp-tool" :disabled="views.length < 2 || aiBusy === 'sort'" title="AI puts your photos in walk-around order" @click="runAiSort">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h13M3 12h9M3 17h5M17 10v10M14 17l3 3 3-3"/></svg>
+        <span>{{ aiBusy === 'sort' ? 'Sorting' : 'Sort' }}</span>
+      </button>
+    </nav>
 
-      <div class="vp-tools" role="toolbar" aria-label="Car exterior tools">
-        <button class="vp-btn" :class="{ 'is-on': placing }" :disabled="!current || preview" :aria-pressed="placing" @click="togglePlacing" title="Press H">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
-          {{ placing ? 'Tap the photo…' : 'Add hotspot' }}
-        </button>
-        <button class="vp-btn" :disabled="views.length < 2 || aiBusy === 'sort' || preview || isSpin" :title="isSpin ? 'A video spin is already in order' : undefined" @click="runAiSort">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></svg>
-          {{ aiBusy === 'sort' ? 'Sorting…' : 'AI sort photos' }}
-        </button>
-        <button class="vp-btn" :disabled="!current || aiBusy === 'hotspots' || preview" @click="runAiHotspots">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"/></svg>
-          {{ aiBusy === 'hotspots' ? 'Looking…' : 'AI suggest hotspots' }}
-        </button>
-        <button class="vp-btn" :class="{ 'is-on': preview }" :disabled="!views.length" :aria-pressed="preview" @click="togglePreview">
-          {{ preview ? 'Back to editing' : 'Preview as buyer' }}
-        </button>
-        <button class="vp-btn" :disabled="busy || preview" @click="openSpinModal">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
-          Smooth spin from video
-        </button>
-        <button class="vp-btn vp-btn--primary" :disabled="busy || views.length >= VEHICLE_MAX_VIEWS" @click="manyInput?.click()">
-          Add photos
-        </button>
-      </div>
-    </header>
+    <!-- The car -->
+    <section class="vp-stage" aria-label="The car">
+      <p v-if="setupError" class="vp-alert vp-alert--error" role="alert">
+        <span class="vp-alert__t">{{ setupError }}</span>
+        <button class="vp-linkbtn" @click="init">Try again</button>
+      </p>
+      <p v-else-if="notice" class="vp-alert" role="status">
+        <span class="vp-alert__t">{{ notice }}</span>
+        <button v-if="noticeAction" class="vp-linkbtn" @click="noticeAction.run()">{{ noticeAction.label }}</button>
+        <button class="vp-linkbtn" aria-label="Dismiss" @click="clearNotice">OK</button>
+      </p>
 
-    <p v-if="setupError" class="vp-alert vp-alert--error" role="alert">
-      {{ setupError }}
-      <button class="vp-linkbtn" @click="init">Try again</button>
-    </p>
-    <p v-else-if="notice" class="vp-alert" role="status">
-      {{ notice }}
-      <button v-if="noticeAction" class="vp-linkbtn" @click="noticeAction.run()">{{ noticeAction.label }}</button>
-      <button class="vp-linkbtn" @click="clearNotice">Dismiss</button>
-    </p>
+      <button v-if="preview" class="vp-back-edit editor-glass" @click="togglePreview">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Back to editing
+      </button>
 
-    <div class="vp-main">
-      <!-- Canvas -->
-      <section class="vp-stage" aria-label="Photo canvas">
-        <!-- Spins: one walk around the car each (roof up, roof down...). Buyers flick between them. -->
-        <div v-if="loaded" class="vp-spins" role="tablist" aria-label="Spins of this car">
-          <button
-            v-for="sp in spinChips"
-            :key="sp.id"
-            type="button"
-            role="tab"
-            class="vp-spinchip"
-            :class="{ 'is-on': sp.id === activeSpinId, 'is-row': !!sp.row_of }"
-            :aria-selected="sp.id === activeSpinId"
-            :aria-label="sp.row_of ? `${sp.title}, camera ${(sp.elevation ?? 0) > 0 ? 'higher' : 'lower'}` : undefined"
-            :disabled="busy && sp.id !== activeSpinId"
-            @click="onSelectSpin(sp.id)"
-          >
-            <svg v-if="sp.row_of" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path v-if="(sp.elevation ?? 0) > 0" d="M12 19V5M6 11l6-6 6 6"/><path v-else d="M12 5v14M6 13l6 6 6-6"/></svg>
-            {{ sp.title }} <span class="vp-spinchip__n vp-num">{{ frameCounts[sp.id] || 0 }}</span>
-          </button>
-          <button
-            type="button"
-            class="vp-spinchip vp-spinchip--add"
-            :disabled="busy || preview || !spinsReady || spins.length >= VEHICLE_MAX_SPINS"
-            :title="!spinsReady ? 'Needs a one-off database update (migration-vehicle-spins.sql)' : spins.length >= VEHICLE_MAX_SPINS ? `Up to ${VEHICLE_MAX_SPINS} spins` : 'Another walk around the car: roof down, doors open...'"
-            @click="openAddSpin"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-            Add a spin
-          </button>
+      <div class="vp-canvas">
+        <div v-if="!loaded && !setupError" class="vp-skeleton" aria-busy="true" aria-label="Loading the car"><span class="vp-spin" /></div>
+
+        <div v-else-if="!views.length" class="vp-empty">
+          <template v-if="spins.length > 1 && activeSpinId !== spins[0]?.id">
+            <p class="vp-empty__title">{{ activeSpin?.title }}</p>
+            <p class="vp-empty__text">Set the car up this way, then walk around it once more, the same as the first spin.</p>
+          </template>
+          <template v-else>
+            <p class="vp-empty__title">Walk around the car</p>
+            <p class="vp-empty__text">Record one slow walk around it. We turn the video into a spin buyers can drag.</p>
+          </template>
+          <div class="vp-row vp-row--center">
+            <button class="vp-btn vp-btn--primary" :disabled="busy" @click="openSpinModal">Use a video</button>
+            <button class="vp-btn" :disabled="busy" @click="manyInput?.click()">Add photos</button>
+          </div>
         </div>
 
-        <div class="vp-canvas">
-          <template v-if="!loaded && !setupError">
-            <div class="vp-skeleton" aria-busy="true" aria-label="Loading photos"><span class="vp-spin" /></div>
-          </template>
+        <VehicleSpinViewer
+          v-else
+          :views="views"
+          :index="viewerIndex"
+          :fit="preview ? 'auto' : 'contain'"
+          :start-angle="activeSpin?.start_angle ?? 0"
+          :editable="!preview"
+          :placing="placing && !preview"
+          :hide-bar="!preview"
+          :selected-hotspot-id="selectedHotspotId"
+          @update:index="onViewerIndex"
+          @place="onPlace"
+          @select-hotspot="onSelectHotspot"
+          @move-hotspot="onMoveHotspot"
+        />
+      </div>
+    </section>
 
-          <template v-else-if="!views.length">
-            <div v-if="spins.length > 1 && activeSpinId !== spins[0]?.id" class="vp-empty">
-              <p class="vp-empty__title">{{ activeSpin?.title }}: walk around the car once more</p>
-              <p class="vp-empty__text">
-                Set the car up the way this spin shows it ({{ (activeSpin?.title || '').toLowerCase() }}), start at the front, and record one slow walk around it, same as the first spin.
-              </p>
-              <div class="vp-row">
-                <button class="vp-btn vp-btn--primary" :disabled="busy" @click="openSpinModal">Smooth spin from video</button>
-                <button class="vp-btn" :disabled="busy" @click="manyInput?.click()">Add photos instead</button>
-              </div>
-            </div>
-            <div v-else class="vp-empty">
-              <p class="vp-empty__title">Start with the front of the car</p>
-              <p class="vp-empty__text">
-                Normal photos are enough. Walk around the car and take each angle from the same distance, then add them all at once, in this order:
-              </p>
-              <ol class="vp-empty__order">
-                <li v-for="s in VEHICLE_SLOTS" :key="s.key">{{ s.label }}</li>
-              </ol>
-              <div class="vp-row">
-                <button class="vp-btn vp-btn--primary" :disabled="busy" @click="manyInput?.click()">Add photos</button>
-                <button class="vp-btn" :disabled="busy" @click="openSpinModal">Smooth spin from video</button>
-              </div>
-              <p class="vp-hint">
-                <strong>Smoothest result:</strong> record one slow walk around the car and we turn it into a spin that follows your finger.
-                You can also drop photos here. Out of order? <strong>AI sort</strong> fixes it.
-              </p>
-            </div>
-          </template>
+    <!-- Dock: the spins, then every frame in walk-around order. Drop a photo on a slot to fill it, drag one onto another to swap. -->
+    <div v-if="!preview" class="vp-dockbar editor-glass">
+      <div v-if="loaded && (spins.length > 1 || views.length)" class="vp-spins" role="tablist" aria-label="Spins of this car">
+        <button
+          v-for="sp in spinChips"
+          :key="sp.id"
+          type="button"
+          role="tab"
+          class="vp-spinchip"
+          :class="{ 'is-on': sp.id === activeSpinId, 'is-row': !!sp.row_of }"
+          :aria-selected="sp.id === activeSpinId"
+          :aria-label="sp.row_of ? `${sp.title}, camera ${(sp.elevation ?? 0) > 0 ? 'higher' : 'lower'}` : undefined"
+          :disabled="busy && sp.id !== activeSpinId"
+          @click="onSelectSpin(sp.id)"
+        >
+          <svg v-if="sp.row_of" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path v-if="(sp.elevation ?? 0) > 0" d="M12 19V5M6 11l6-6 6 6"/><path v-else d="M12 5v14M6 13l6 6 6-6"/></svg>
+          {{ sp.title }} <span class="vp-spinchip__n vp-num">{{ frameCounts[sp.id] || 0 }}</span>
+        </button>
+        <button
+          type="button"
+          class="vp-spinchip vp-spinchip--add"
+          :disabled="busy || !spinsReady || spins.length >= VEHICLE_MAX_SPINS"
+          :title="!spinsReady ? 'Needs a one-off database update (migration-vehicle-spins.sql)' : spins.length >= VEHICLE_MAX_SPINS ? `Up to ${VEHICLE_MAX_SPINS} spins` : 'Another walk around the car: roof down, doors open...'"
+          @click="openAddSpin"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Spin
+        </button>
+      </div>
 
-          <VehicleSpinViewer
+      <ul class="vp-dock" aria-label="Frames">
+        <template v-if="!loaded">
+          <li v-for="n in 8" :key="n" class="vp-dock__item"><div class="vp-thumb vp-thumb--skeleton" /></li>
+        </template>
+        <li v-for="item in dockItems" v-else :key="item.key" class="vp-dock__item">
+          <button
+            v-if="item.view"
+            class="vp-thumb"
+            :class="{ 'is-active': item.view.id === selectedId, 'is-dragover': dragOverKey === item.key }"
+            draggable="true"
+            :aria-label="`${viewLabel(item.view)}, ${item.view.angle} degrees${(item.view.hotspots?.length ?? 0) ? ', ' + item.view.hotspots!.length + ' hotspots' : ''}`"
+            :aria-current="item.view.id === selectedId ? 'true' : undefined"
+            @click="selectView(item.view.id)"
+            @dragstart="onDragStart($event, item.view.id)"
+            @dragend="dragOverKey = ''"
+            @dragover.prevent="dragOverKey = item.key"
+            @dragleave="dragOverKey = ''"
+            @drop.prevent.stop="onDropOn($event, item)"
+          >
+            <img :src="item.view.image_url" :alt="''" loading="lazy" draggable="false" />
+            <span v-if="pendingAngles.has(item.view.angle)" class="vp-thumb__busy"><span class="vp-spin vp-spin--sm" /></span>
+            <span v-if="item.view.hotspots?.length" class="vp-thumb__count vp-num">{{ item.view.hotspots.length }}</span>
+            <span class="vp-thumb__label vp-num">{{ isSpin ? `${Math.round(item.view.angle)}°` : viewLabel(item.view) }}</span>
+          </button>
+          <button
             v-else
-            :views="views"
-            :index="viewerIndex"
-            :fit="preview ? 'auto' : 'contain'"
-            :start-angle="activeSpin?.start_angle ?? 0"
-            :editable="!preview"
-            :placing="placing && !preview"
-            :hide-bar="!preview"
-            :selected-hotspot-id="selectedHotspotId"
-            @update:index="onViewerIndex"
-            @place="onPlace"
-            @select-hotspot="onSelectHotspot"
-            @move-hotspot="onMoveHotspot"
-          />
-        </div>
+            class="vp-thumb vp-thumb--empty"
+            :class="{ 'is-dragover': dragOverKey === item.key }"
+            :disabled="busy"
+            :aria-label="`Add ${item.slot!.label} photo`"
+            @click="pick(item.slot!.angle)"
+            @dragover.prevent="dragOverKey = item.key"
+            @dragleave="dragOverKey = ''"
+            @drop.prevent.stop="onDropOn($event, item)"
+          >
+            <span v-if="pendingAngles.has(item.slot!.angle)" class="vp-spin vp-spin--sm" />
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span class="vp-thumb__label">{{ item.slot!.label }}</span>
+          </button>
+        </li>
+      </ul>
+    </div>
 
-        <!-- Dock: every angle in walk-around order. Click to open, drop a photo on a slot to fill it, drag one onto another to swap. -->
-        <ul class="vp-dock" aria-label="Photo angles">
-          <template v-if="!loaded">
-            <li v-for="n in 8" :key="n" class="vp-dock__item"><div class="vp-thumb vp-thumb--skeleton" /></li>
-          </template>
-          <li v-for="item in dockItems" v-else :key="item.key" class="vp-dock__item">
-            <button
-              v-if="item.view"
-              class="vp-thumb"
-              :class="{ 'is-active': item.view.id === selectedId, 'is-dragover': dragOverKey === item.key }"
-              draggable="true"
-              :aria-label="`${viewLabel(item.view)}, ${item.view.angle} degrees${(item.view.hotspots?.length ?? 0) ? ', ' + item.view.hotspots!.length + ' hotspots' : ''}`"
-              :aria-current="item.view.id === selectedId ? 'true' : undefined"
-              @click="selectView(item.view.id)"
-              @dragstart="onDragStart($event, item.view.id)"
-              @dragend="dragOverKey = ''"
-              @dragover.prevent="dragOverKey = item.key"
-              @dragleave="dragOverKey = ''"
-              @drop.prevent.stop="onDropOn($event, item)"
-            >
-              <img :src="item.view.image_url" :alt="''" loading="lazy" draggable="false" />
-              <span v-if="pendingAngles.has(item.view.angle)" class="vp-thumb__busy"><span class="vp-spin vp-spin--sm" /></span>
-              <span v-if="item.view.hotspots?.length" class="vp-thumb__count vp-num">{{ item.view.hotspots.length }}</span>
-              <span class="vp-thumb__label vp-num">{{ isSpin ? `${item.view.angle}°` : viewLabel(item.view) }}</span>
-            </button>
-            <button
-              v-else
-              class="vp-thumb vp-thumb--empty"
-              :class="{ 'is-dragover': dragOverKey === item.key }"
-              :disabled="busy"
-              :aria-label="`Add ${item.slot!.label} photo`"
-              @click="pick(item.slot!.angle)"
-              @dragover.prevent="dragOverKey = item.key"
-              @dragleave="dragOverKey = ''"
-              @drop.prevent.stop="onDropOn($event, item)"
-            >
-              <span v-if="pendingAngles.has(item.slot!.angle)" class="vp-spin vp-spin--sm" />
-              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              <span class="vp-thumb__label">{{ item.slot!.label }}</span>
+    <!-- The selected frame: only what can be changed on it. -->
+    <aside v-if="!preview && current" class="vp-side editor-glass" aria-label="Selected frame">
+      <section class="vp-sec">
+        <div class="vp-sec__head">
+          <h2 class="vp-h2">{{ viewLabel(current) }}</h2>
+          <span class="vp-muted vp-num">{{ Math.round(current.angle) }}°</span>
+        </div>
+        <template v-if="!isSpin">
+          <label class="vp-label" for="vp-pos">Position</label>
+          <select id="vp-pos" class="vp-select" :value="current.angle" :disabled="busy" @change="onPositionChange(Number(($event.target as HTMLSelectElement).value))">
+            <option v-for="o in positionOptions" :key="o.angle" :value="o.angle">{{ o.text }}</option>
+          </select>
+        </template>
+        <div class="vp-row">
+          <button v-if="activeSpin && spinsReady" class="vp-btn" :disabled="busy || current.angle === activeSpin.start_angle" :title="current.angle === activeSpin.start_angle ? 'Buyers start on this frame' : 'Buyers see this frame first'" @click="setStartFrame">
+            {{ current.angle === activeSpin.start_angle ? 'First frame' : 'Make first' }}
+          </button>
+          <button v-if="isSpin" class="vp-btn" :disabled="busy" title="The car turns the wrong way, or the sides are named wrong" @click="flipSpinDirection">Flip direction</button>
+          <button v-if="!isSpin" class="vp-btn" :disabled="busy" @click="pick(current.angle, current.id)">Replace</button>
+          <button class="vp-btn vp-btn--danger" :disabled="busy" @click="confirmRemove">{{ removeArmed ? 'Tap again' : 'Remove' }}</button>
+        </div>
+      </section>
+
+      <section class="vp-sec">
+        <div class="vp-sec__head">
+          <h2 class="vp-h2">Hotspots</h2>
+          <span class="vp-muted vp-num">{{ currentHotspots.length }} / {{ MAX_HOTSPOTS_PER_VIEW }}</span>
+        </div>
+        <p v-if="!currentHotspots.length && !aiDrafts.length" class="vp-muted">Tap <strong>Hotspot</strong>, then the part of the car: wheels, roof rails, a scratch.</p>
+        <ul v-if="currentHotspots.length" class="vp-hlist">
+          <li v-for="h in currentHotspots" :key="h.id">
+            <button class="vp-hitem" :class="{ 'is-active': h.id === selectedHotspotId }" @click="selectedHotspotId = h.id">
+              <span class="vp-kind" :class="`vp-kind--${h.kind}`" aria-hidden="true">{{ h.kind === 'damage' ? '!' : h.kind === 'link' ? '↗' : h.kind === 'info' ? 'i' : '+' }}</span>
+              <span class="vp-hitem__t">{{ h.title }}</span>
+              <span class="vp-hitem__k">{{ hotspotKindLabel(h.kind) }}</span>
             </button>
           </li>
         </ul>
+
+        <!-- AI suggestions: review, then add. Nothing is saved until you do. -->
+        <div v-if="aiDrafts.length" class="vp-drafts">
+          <p class="vp-label">Suggested. Check them against the photo.</p>
+          <ul class="vp-hlist">
+            <li v-for="(d, i) in aiDrafts" :key="i" class="vp-draft">
+              <label class="vp-check">
+                <input v-model="d.on" type="checkbox" />
+                <span><strong>{{ d.title }}</strong> <span class="vp-muted">· {{ hotspotKindLabel(d.kind) }}</span><br /><span class="vp-muted">{{ d.body }}</span></span>
+              </label>
+            </li>
+          </ul>
+          <div class="vp-row">
+            <button class="vp-btn vp-btn--primary" :disabled="busy || !aiDrafts.some(d => d.on)" @click="addDrafts">Add selected</button>
+            <button class="vp-btn" @click="aiDrafts = []">Discard</button>
+          </div>
+        </div>
       </section>
 
-      <!-- Side panel -->
-      <aside v-if="!preview" class="vp-side" aria-label="Selected photo">
-        <section v-if="activeSpin && spinsReady" class="vp-sec" aria-label="This spin">
-          <div class="vp-sec__head">
-            <h2 class="vp-h2">This spin</h2>
-            <span class="vp-muted vp-num">{{ spins.findIndex(x => x.id === activeSpinId) + 1 }} of {{ spins.length }}</span>
-          </div>
-          <label class="vp-label" for="vp-spin-title">Name buyers see</label>
-          <input
-            id="vp-spin-title"
-            class="vp-input"
-            maxlength="40"
-            :value="activeSpin.title"
-            @keydown.enter="($event.target as HTMLInputElement).blur()"
-            @change="renameSpin(($event.target as HTMLInputElement).value)"
-          />
-          <div class="vp-row">
-            <button
-              class="vp-btn"
-              :disabled="!current || busy || !spinsReady || current.angle === activeSpin.start_angle"
-              @click="setStartFrame"
-            >{{ current && current.angle === activeSpin.start_angle ? 'Buyers start on this frame' : 'Start on this frame' }}</button>
-            <button v-if="spins.length > 1" class="vp-btn vp-btn--danger" :disabled="busy" @click="confirmRemoveSpin">
-              {{ removeSpinArmed ? 'Tap again to delete' : 'Delete spin' }}
-            </button>
-          </div>
-        </section>
+      <section v-if="selectedHotspot" class="vp-sec" aria-label="Edit hotspot">
+        <div class="vp-sec__head">
+          <h2 class="vp-h2">Edit hotspot</h2>
+          <span class="vp-muted" aria-live="polite">{{ saveState }}</span>
+        </div>
+        <fieldset class="vp-seg" aria-label="Hotspot type">
+          <button v-for="k in HOTSPOT_KINDS" :key="k.kind" type="button" class="vp-seg__btn" :class="{ 'is-on': selectedHotspot.kind === k.kind }" :aria-pressed="selectedHotspot.kind === k.kind" :title="k.hint" @click="editHotspot({ kind: k.kind })">{{ k.label }}</button>
+        </fieldset>
 
-        <template v-if="current">
-          <section class="vp-sec">
-            <h2 class="vp-h2">{{ viewLabel(current) }}</h2>
-            <p class="vp-muted vp-num">{{ current.angle }}° around the car</p>
+        <label class="vp-label" for="vp-h-title">Title</label>
+        <input id="vp-h-title" ref="titleInput" class="vp-input" maxlength="60" :value="selectedHotspot.title" @input="editHotspot({ title: ($event.target as HTMLInputElement).value })" />
 
-            <template v-if="!isSpin">
-              <label class="vp-label" for="vp-pos">Position</label>
-              <select id="vp-pos" class="vp-select" :value="current.angle" :disabled="busy" @change="onPositionChange(Number(($event.target as HTMLSelectElement).value))">
-                <option v-for="o in positionOptions" :key="o.angle" :value="o.angle">{{ o.text }}</option>
-              </select>
-              <p class="vp-hint">Choose a taken position to swap the two photos.</p>
-            </template>
-            <template v-else>
-              <p class="vp-hint">Frames are evenly spaced from your video, so their order is fixed. Pin a hotspot on any frame: it also shows on the frames either side.</p>
-              <p class="vp-hint">Car turning the wrong way, or this side named wrong? <strong>Flip direction</strong> fixes it without recording again.</p>
-            </template>
+        <label class="vp-label" for="vp-h-body">Note <span class="vp-muted">optional</span></label>
+        <textarea id="vp-h-body" class="vp-input vp-textarea" maxlength="400" rows="3" :value="selectedHotspot.body ?? ''" @input="editHotspot({ body: ($event.target as HTMLTextAreaElement).value })" />
 
-            <div class="vp-row">
-              <button v-if="isSpin" class="vp-btn" :disabled="busy || preview" @click="flipSpinDirection">Flip direction</button>
-              <button class="vp-btn" :disabled="busy" @click="pick(current.angle, current.id)">Replace photo</button>
-              <button class="vp-btn vp-btn--danger" :disabled="busy" @click="confirmRemove">{{ removeArmed ? 'Tap again to remove' : 'Remove' }}</button>
-            </div>
-          </section>
+        <label class="vp-label" for="vp-h-url">Link <span class="vp-muted">optional</span></label>
+        <input id="vp-h-url" class="vp-input" type="url" inputmode="url" placeholder="https://" :value="selectedHotspot.url ?? ''" @input="editHotspot({ url: ($event.target as HTMLInputElement).value })" />
+        <p v-if="urlError" class="vp-error">{{ urlError }}</p>
 
-          <section class="vp-sec">
-            <div class="vp-sec__head">
-              <h2 class="vp-h2">Hotspots on this photo</h2>
-              <span class="vp-muted vp-num">{{ currentHotspots.length }} / {{ MAX_HOTSPOTS_PER_VIEW }}</span>
-            </div>
+        <div class="vp-row">
+          <button class="vp-btn vp-btn--danger" @click="removeSelectedHotspot">Delete</button>
+          <button class="vp-btn" @click="selectedHotspotId = null">Done</button>
+        </div>
+      </section>
 
-            <p v-if="!currentHotspots.length && !aiDrafts.length" class="vp-muted">
-              None yet. Press <strong>Add hotspot</strong>, then tap the part of the car. Good ones: alloy wheels, roof rails, a scratch you are upfront about.
-            </p>
+      <section v-if="activeSpin && spinsReady && spins.length > 1" class="vp-sec" aria-label="This spin">
+        <label class="vp-label" for="vp-spin-title">Spin name</label>
+        <input
+          id="vp-spin-title"
+          class="vp-input"
+          maxlength="40"
+          :value="activeSpin.title"
+          @keydown.enter="($event.target as HTMLInputElement).blur()"
+          @change="renameSpin(($event.target as HTMLInputElement).value)"
+        />
+        <div class="vp-row">
+          <button class="vp-btn vp-btn--danger" :disabled="busy" @click="confirmRemoveSpin">
+            {{ removeSpinArmed ? 'Tap again to delete' : 'Delete spin' }}
+          </button>
+        </div>
+      </section>
 
-            <ul v-if="currentHotspots.length" class="vp-hlist">
-              <li v-for="h in currentHotspots" :key="h.id">
-                <button class="vp-hitem" :class="{ 'is-active': h.id === selectedHotspotId }" @click="selectedHotspotId = h.id">
-                  <span class="vp-kind" :class="`vp-kind--${h.kind}`" aria-hidden="true">{{ h.kind === 'damage' ? '!' : h.kind === 'link' ? '↗' : h.kind === 'info' ? 'i' : '+' }}</span>
-                  <span class="vp-hitem__t">{{ h.title }}</span>
-                  <span class="vp-hitem__k">{{ hotspotKindLabel(h.kind) }}</span>
-                </button>
-              </li>
-            </ul>
-
-            <!-- AI suggestions: review, then add. Nothing is saved until you do. -->
-            <div v-if="aiDrafts.length" class="vp-drafts">
-              <p class="vp-label">AI suggestions. Check them against the photo.</p>
-              <ul class="vp-hlist">
-                <li v-for="(d, i) in aiDrafts" :key="i" class="vp-draft">
-                  <label class="vp-check">
-                    <input v-model="d.on" type="checkbox" />
-                    <span><strong>{{ d.title }}</strong> <span class="vp-muted">· {{ hotspotKindLabel(d.kind) }}</span><br /><span class="vp-muted">{{ d.body }}</span></span>
-                  </label>
-                </li>
-              </ul>
-              <div class="vp-row">
-                <button class="vp-btn vp-btn--primary" :disabled="busy || !aiDrafts.some(d => d.on)" @click="addDrafts">Add selected</button>
-                <button class="vp-btn" @click="aiDrafts = []">Discard</button>
-              </div>
-            </div>
-          </section>
-
-          <section v-if="selectedHotspot" class="vp-sec" aria-label="Edit hotspot">
-            <div class="vp-sec__head">
-              <h2 class="vp-h2">Edit hotspot</h2>
-              <span class="vp-muted" aria-live="polite">{{ saveState }}</span>
-            </div>
-            <fieldset class="vp-seg" aria-label="Hotspot type">
-              <button v-for="k in HOTSPOT_KINDS" :key="k.kind" type="button" class="vp-seg__btn" :class="{ 'is-on': selectedHotspot.kind === k.kind }" :aria-pressed="selectedHotspot.kind === k.kind" @click="editHotspot({ kind: k.kind })">{{ k.label }}</button>
-            </fieldset>
-            <p class="vp-hint">{{ HOTSPOT_KINDS.find(k => k.kind === selectedHotspot!.kind)?.hint }}</p>
-
-            <label class="vp-label" for="vp-h-title">Title</label>
-            <input id="vp-h-title" ref="titleInput" class="vp-input" maxlength="60" :value="selectedHotspot.title" @input="editHotspot({ title: ($event.target as HTMLInputElement).value })" />
-
-            <label class="vp-label" for="vp-h-body">Note <span class="vp-muted">optional</span></label>
-            <textarea id="vp-h-body" class="vp-input vp-textarea" maxlength="400" rows="3" :value="selectedHotspot.body ?? ''" @input="editHotspot({ body: ($event.target as HTMLTextAreaElement).value })" />
-
-            <label class="vp-label" for="vp-h-url">Link <span class="vp-muted">optional, https://…</span></label>
-            <input id="vp-h-url" class="vp-input" type="url" inputmode="url" placeholder="https://" :value="selectedHotspot.url ?? ''" @input="editHotspot({ url: ($event.target as HTMLInputElement).value })" />
-            <p v-if="urlError" class="vp-error">{{ urlError }}</p>
-
-            <p class="vp-hint">Drag the pin on the photo to move it.</p>
-            <div class="vp-row">
-              <button class="vp-btn vp-btn--danger" @click="removeSelectedHotspot">Delete hotspot</button>
-              <button class="vp-btn" @click="selectedHotspotId = null">Done</button>
-            </div>
-          </section>
-        </template>
-
-        <section v-else class="vp-sec">
-          <h2 class="vp-h2">How this works</h2>
-          <ol class="vp-steps">
-            <li>Add photos of every side of the car.</li>
-            <li>Buyers drag left and right to turn it.</li>
-            <li>Pin features and marks so buyers know what they are looking at.</li>
-          </ol>
-        </section>
-
-        <p v-if="gapText" class="vp-gap">{{ gapText }}</p>
-
-        <CarSetupChecklist ref="checklistRef" :space-id="spaceId" current-tab="car" />
-      </aside>
-    </div>
+      <p v-if="gapText" class="vp-gap">{{ gapText }}</p>
+    </aside>
 
     <!-- Smooth spin from a video -->
     <div v-if="spinOpen" class="vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-spin-title" @keydown.esc="closeSpinModal">
@@ -429,7 +369,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
-import CarSetupChecklist from '~/features/editor/CarSetupChecklist.vue'
+import { useCarSetup } from '~/features/vehicle/useCarSetup'
 import { useVehicleViews, type AngleSuggestion } from '~/features/vehicle/useVehicleViews'
 import {
   VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS, VEHICLE_MAX_SPINS, SPIN_PRESETS, SPIN_HEIGHTS,
@@ -492,8 +432,6 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); if (remove
 
 // ── Derived ──
 const slotAngles = new Set(VEHICLE_SLOTS.map(s => s.angle))
-const filledSlots = computed(() => VEHICLE_SLOTS.filter(s => views.value.some(v => v.angle === s.angle)).length)
-const hotspotTotal = computed(() => views.value.reduce((n, v) => n + (v.hotspots?.length ?? 0), 0))
 const current = computed<VehicleView | null>(() => views.value.find(v => v.id === selectedId.value) ?? null)
 const currentHotspots = computed(() => current.value?.hotspots ?? [])
 const selectedHotspot = computed(() => currentHotspots.value.find(h => h.id === selectedHotspotId.value) ?? null)
@@ -961,13 +899,13 @@ async function makeSpin(file: File) {
   }
 }
 
-// The checklist counts frames and spins: re-check it once a change has settled.
-const checklistRef = ref<InstanceType<typeof CarSetupChecklist> | null>(null)
+// The step bar ticks off the exterior from the frame count: re-check it once a change has settled.
+const carSetup = useCarSetup(props.spaceId)
 let checklistTimer: ReturnType<typeof setTimeout> | undefined
 watch(() => `${views.value.length}|${spins.value.length}|${busy.value}`, () => {
   if (busy.value) return
   if (checklistTimer) clearTimeout(checklistTimer)
-  checklistTimer = setTimeout(() => checklistRef.value?.refresh(), 400)
+  checklistTimer = setTimeout(() => carSetup.refresh(), 400)
 })
 
 // ── Spins ──
@@ -1091,31 +1029,62 @@ function onKey(e: KeyboardEvent) {
   }
 }
 
-defineExpose({ reload: init })
+/** The top bar's Preview, before the car is live: the spin as buyers will see it. */
+function showBuyerView() {
+  if (!views.value.length) { setNotice('Add the outside of the car first, then preview it.'); return }
+  if (!preview.value) togglePreview()
+}
+
+defineExpose({ reload: init, showBuyerView })
 </script>
 
 <style scoped>
 .vp {
-  /* Starts below the fixed tab bar, so the page scrolls under the bar instead of behind it. */
-  position: absolute; inset: 124px 0 0 0; overflow-y: auto; background: #0e0e10; color: #f2f2f3;
-  padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 12px;
+  /* --vp-top clears the floating top bar and the step bar above this panel. */
+  --vp-top: 132px; --vp-gap: 16px; --vp-rail: 76px; --vp-side: 320px; --vp-dock: 128px;
+  position: absolute; inset: 0; overflow: hidden; background: #0b0b0c; color: #f2f2f3;
 }
-@media (max-width: 640px) { .vp { top: 98px; } }
 .vp-hidden { display: none; }
 .vp-num { font-variant-numeric: tabular-nums; }
 
-.vp-bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; max-width: 1280px; width: 100%; margin: 0 auto; }
-.vp-bar__title { display: flex; gap: 12px; align-items: center; min-width: 0; }
-.vp-back { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,0.08); flex: none; }
-.vp-h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
-.vp-sub { margin: 2px 0 0; font-size: 12px; color: rgba(255,255,255,0.6); }
-.vp-tools { display: flex; flex-wrap: wrap; gap: 8px; }
-/* One scrolling row on phones, so the photo is on screen straight away. */
-@media (max-width: 640px) {
-  .vp-tools { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 4px; scrollbar-width: none; }
-  .vp-tools .vp-btn { flex: none; }
-  .vp-tools .vp-btn--primary { order: -1; }
+/* Tool rail: icon + one word, like the 360° editor's left toolbar. */
+.vp-rail {
+  position: absolute; z-index: 5; left: var(--vp-gap); top: 50%; transform: translateY(-50%);
+  width: var(--vp-rail); padding: 8px 6px; border-radius: 16px; display: flex; flex-direction: column; align-items: stretch; gap: 4px;
 }
+.vp-rail__div { height: 1px; margin: 4px 8px; background: rgba(255,255,255,0.12); }
+.vp-tool {
+  min-height: 56px; border-radius: 11px; border: 0; background: transparent; color: rgba(255,255,255,0.72); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em; transition: background 120ms, color 120ms;
+}
+.vp-tool:hover:not(:disabled) { background: rgba(255,255,255,0.09); color: #fff; }
+.vp-tool:active:not(:disabled) { background: rgba(255,255,255,0.16); }
+.vp-tool:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.vp-tool:disabled { opacity: 0.35; cursor: not-allowed; }
+.vp-tool.is-on { background: #fff; color: #0e0e10; }
+
+.vp-stage {
+  position: absolute; top: var(--vp-top); bottom: calc(var(--vp-dock) + var(--vp-gap) * 2);
+  left: calc(var(--vp-rail) + var(--vp-gap) * 2); right: calc(var(--vp-side) + var(--vp-gap) * 2);
+  display: flex; flex-direction: column;
+}
+/* Nothing selected (no photos yet), or the buyer's view: the car takes the room. */
+.vp:not(.has-side) .vp-stage { right: calc(var(--vp-rail) + var(--vp-gap) * 2); }
+.vp.is-preview .vp-stage { inset: var(--vp-top) var(--vp-gap) var(--vp-gap); }
+
+.vp-dockbar {
+  position: absolute; z-index: 5; bottom: var(--vp-gap);
+  left: calc(var(--vp-rail) + var(--vp-gap) * 2); right: calc(var(--vp-side) + var(--vp-gap) * 2);
+  padding: 8px 10px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0;
+}
+.vp:not(.has-side) .vp-dockbar { right: calc(var(--vp-rail) + var(--vp-gap) * 2); }
+.vp-back-edit {
+  position: absolute; z-index: 6; top: 10px; left: 10px; min-height: 44px; padding: 0 14px; border-radius: 12px;
+  display: inline-flex; align-items: center; gap: 8px; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.vp-back-edit:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 
 .vp-btn {
   min-height: 44px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -1133,21 +1102,20 @@ defineExpose({ reload: init })
 .vp-btn--danger { color: #ff9b9b; }
 .vp-linkbtn { background: none; border: 0; padding: 0 6px; min-height: 44px; color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 13px; }
 
+/* Notices float over the top of the car, so the layout never jumps. */
 .vp-alert {
-  max-width: 1280px; width: 100%; margin: 0 auto; padding: 4px 12px; border-radius: 10px; font-size: 13px;
-  background: rgba(255,255,255,0.08); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  position: absolute; z-index: 6; top: 10px; left: 10px; right: 10px; margin: 0; padding: 4px 6px 4px 14px; border-radius: 12px;
+  font-size: 13px; line-height: 1.45; display: flex; align-items: center; gap: 4px 8px;
+  background: rgba(20,20,23,0.92); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(16px);
 }
-.vp-alert--error { background: rgba(255,90,90,0.14); color: #ffb4b4; }
+.vp-alert__t { flex: 1; min-width: 0; padding: 8px 0; }
+.vp-alert--error { background: rgba(60,18,18,0.94); color: #ffc9c9; border-color: rgba(255,120,120,0.3); }
+@media (max-width: 999px) { .vp-alert { flex-wrap: wrap; } }
 
-.vp-main { max-width: 1280px; width: 100%; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; }
-@media (min-width: 1000px) { .vp-main { grid-template-columns: minmax(0, 1fr) 340px; } }
-.vp.is-preview .vp-main { grid-template-columns: minmax(0, 1fr); }
-
-.vp-stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .vp-spinchip.is-row { font-style: normal; opacity: 0.92; }
 .vp-spins { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
 .vp-spinchip {
-  flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer;
+  flex: none; min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
   background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.12);
 }
@@ -1158,23 +1126,19 @@ defineExpose({ reload: init })
 .vp-spinchip__n { font-size: 11px; opacity: 0.65; }
 .vp-spinchip--add { border-style: dashed; background: transparent; }
 .vp-presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
-.vp-canvas {
-  position: relative; border-radius: 14px; overflow: hidden; background: #0b0b0c; border: 1px solid rgba(255,255,255,0.08);
-  height: 46vh; min-height: 280px;
-}
-@media (min-width: 1000px) { .vp-canvas { height: auto; aspect-ratio: 4 / 3; max-height: calc(100vh - 360px); width: 100%; } }
+.vp-canvas { position: relative; flex: 1; min-height: 0; border-radius: 14px; overflow: hidden; background: #0b0b0c; }
 .vp-skeleton { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(90deg, #111 0, #17171a 50%, #111 100%); background-size: 200% 100%; animation: vp-shimmer 1.4s linear infinite; }
 @keyframes vp-shimmer { to { background-position: -200% 0; } }
 
-.vp-empty { position: absolute; inset: 0; padding: 20px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; overflow-y: auto; }
-.vp-empty__title { margin: 0; font-size: 18px; font-weight: 800; }
-.vp-empty__text { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.7); max-width: 52ch; }
-.vp-empty__order { margin: 0; padding-left: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 20px; font-size: 13px; color: rgba(255,255,255,0.85); }
+.vp-empty { position: absolute; inset: 0; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; overflow-y: auto; }
+.vp-empty__title { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.vp-empty__text { margin: 0 0 6px; font-size: 14px; line-height: 1.5; color: rgba(255,255,255,0.65); max-width: 38ch; }
+.vp-row--center { justify-content: center; }
 
-.vp-dock { list-style: none; margin: 0; padding: 2px 2px 6px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; }
+.vp-dock { list-style: none; margin: 0; padding: 2px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
 .vp-dock__item { flex: none; }
 .vp-thumb {
-  position: relative; display: block; width: 92px; aspect-ratio: 4 / 3; padding: 0; border-radius: 10px; overflow: hidden; cursor: pointer;
+  position: relative; display: block; width: 80px; aspect-ratio: 4 / 3; padding: 0; border-radius: 9px; overflow: hidden; cursor: pointer;
   border: 2px solid rgba(255,255,255,0.12); background: #161619; color: #fff;
 }
 .vp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1191,9 +1155,14 @@ defineExpose({ reload: init })
 .vp-thumb__count { position: absolute; top: 4px; right: 4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #fff; color: #0e0e10; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
 .vp-thumb__busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,0.55); }
 
-.vp-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-@media (min-width: 1000px) { .vp-side { max-height: calc(100vh - 300px); overflow-y: auto; padding-right: 2px; } }
-.vp-sec { padding: 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: #141417; display: flex; flex-direction: column; gap: 8px; }
+.vp-side {
+  position: absolute; z-index: 5; top: var(--vp-top); right: var(--vp-gap); bottom: var(--vp-gap); width: var(--vp-side);
+  border-radius: 16px; overflow-y: auto; display: flex; flex-direction: column;
+}
+/* Sections are divided by a line, not boxed: no cards inside the glass card. */
+.vp-sec { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.vp-sec + .vp-sec { border-top: 1px solid rgba(255,255,255,0.1); }
+.vp-side .vp-gap { margin: 4px 16px 16px; }
 .vp-sec__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .vp-h2 { margin: 0; font-size: 14px; font-weight: 800; }
 .vp-muted { margin: 0; font-size: 12px; line-height: 1.45; color: rgba(255,255,255,0.6); }
@@ -1202,7 +1171,7 @@ defineExpose({ reload: init })
 .vp-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .vp-error { margin: 0; font-size: 12px; color: #ffb4b4; }
 .vp-select, .vp-input {
-  min-height: 44px; padding: 0 10px; border-radius: 10px; background: #0e0e10; color: #fff; border: 1px solid rgba(255,255,255,0.18); font-size: 14px; width: 100%;
+  min-height: 44px; padding: 0 10px; border-radius: 10px; background: rgba(0,0,0,0.35); color: #fff; border: 1px solid rgba(255,255,255,0.18); font-size: 14px; width: 100%;
 }
 .vp-textarea { padding: 10px; min-height: 76px; resize: vertical; font-family: inherit; line-height: 1.4; }
 
@@ -1248,5 +1217,22 @@ defineExpose({ reload: init })
   .vp-spin { animation-duration: 2s; }
   .vp-skeleton, .vp-thumb--skeleton { animation: none; }
   .vp-btn, .vp-thumb { transition: none; }
+}
+
+/* Last, so it wins over the desktop layout above. Phones and narrow windows: one column that scrolls: tools, the car, the frames, the panel. */
+@media (max-width: 999px) {
+  .vp {
+    --vp-top: 104px; --vp-gap: 12px;
+    overflow-y: auto; padding: var(--vp-top) var(--vp-gap) 32px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .vp-rail, .vp-stage, .vp-dockbar, .vp-side, .vp.is-preview .vp-stage { position: static; inset: auto; transform: none; width: auto; }
+  .vp > * { flex: none; }
+  /* The car first, then its frames, then the tools within thumb reach, then the selected frame. */
+  .vp-stage { order: 1; } .vp-dockbar { order: 2; } .vp-rail { order: 3; } .vp-side { order: 4; }
+  .vp-rail { flex-direction: row; padding: 4px; overflow-x: auto; scrollbar-width: none; }
+  .vp-rail__div { width: 1px; height: auto; margin: 8px 2px; }
+  .vp-tool { flex: 1 0 64px; min-height: 52px; }
+  .vp-stage { height: 56vh; min-height: 280px; }
+  .vp.is-preview .vp-stage { height: calc(100vh - var(--vp-top) - 24px); }
 }
 </style>

@@ -92,7 +92,8 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: false })
+// /spin/<slug>: a car's spin on its own page, to send as a link (Share > Spin only).
+definePageMeta({ layout: false, alias: ['/spin/:slug'] })
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useHead, useSeoMeta } from '#imports'
 import CarTour from '~/features/viewer/car/CarTour.vue'
@@ -121,9 +122,11 @@ const space = computed(() => tour.value?.space ?? null)
 // A car with anything to show (a spin, an interior 360 or a detail photo) embeds as the car tour.
 const isCarTour = computed(() => space.value?.space_type === 'automotive' && buildCarTourItems(tour.value).length > 0)
 // Same test as the full tour page: only real visual branding replaces the watermark.
+// /spin/<slug> is the car alone: no description, location or contact card.
+const spinOnly = route.path.startsWith('/spin/')
 const hasBrandingDetails = computed(() => {
   const sp = space.value
-  return !!(sp && (sp.logo_url || sp.description || sp.location_text || sp.email))
+  return !spinOnly && !!(sp && (sp.logo_url || sp.description || sp.location_text || sp.email))
 })
 // Same value on server and client (no window.location) so SSR hydration can't leave a relative link.
 const shareUrl = computed(() => `${String(runtimeConfig.public.appUrl || 'https://app.viewora.software').replace(/\/+$/, '')}/p/${space.value?.slug || space.value?.id || slug}`)

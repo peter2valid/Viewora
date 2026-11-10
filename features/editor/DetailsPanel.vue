@@ -2,7 +2,8 @@
   <div class="details-panel">
     <input ref="logoFileInput" type="file" accept="image/*" class="hidden-input" @change="handleLogoFileChange" />
 
-    <header class="details-header">
+    <!-- A car has one top bar (back, name, share, publish) for all its steps: no second one here. -->
+    <header v-if="space && !isCarSpace" class="details-header">
       <NuxtLink to="/app/spaces" class="details-back" title="Back to spaces">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       </NuxtLink>
@@ -52,7 +53,7 @@
           <span class="df-card__num">1</span>
           <div>
             <h2 class="df-card__title">Listing Basics</h2>
-            <p class="df-card__sub">What buyers see first — title, price, location, and facts.</p>
+            <p class="df-card__sub">{{ isCarSpace ? 'What buyers see first: name, price and facts.' : 'What buyers see first — title, price, location, and facts.' }}</p>
           </div>
         </div>
 
@@ -61,7 +62,7 @@
           <input class="df-input" v-model="draft.title" placeholder="Enter listing name" maxlength="120" />
         </div>
 
-        <div class="df-field">
+        <div v-if="!isCarSpace" class="df-field">
           <label class="df-field__label">Location <span class="df-field__opt">optional</span></label>
           <div class="df-location-wrap">
             <div class="df-location-input-row">
@@ -510,6 +511,7 @@ const { apiFetch } = useApiFetch()
 const { fetchSpace: fetchSpaceRaw } = useSpaces()
 
 const space = ref<any>(null)
+const isCarSpace = computed(() => space.value?.space_type === 'automotive')
 const pending = ref(true)
 const saving = ref(false)
 const isDirty = ref(false)

@@ -102,7 +102,7 @@
           v-if="!isDragging"
           class="text-[11px] font-medium text-gray-600 uppercase tracking-widest select-none pointer-events-none"
         >
-          {{ spaceType === 'automotive' ? 'Interior 360° is optional' : 'Start by adding your first 360° image' }}
+          {{ spaceType === 'automotive' ? 'Optional' : 'Start by adding your first 360° image' }}
         </p>
 
         <!-- Drop zone card -->
@@ -138,8 +138,8 @@
           </div>
 
           <template v-if="!isDragging">
-            <p class="text-[13px] font-semibold text-gray-100 mb-2">{{ spaceType === 'automotive' ? 'Add the car interior in 360°' : 'Upload your first 360° image' }}</p>
-            <p v-if="spaceType === 'automotive'" class="text-[11px] text-gray-500 leading-relaxed mb-5">Shoot the dashboard and seats with a 360° camera. No 360° camera? Skip this: your exterior photos still publish.</p>
+            <p class="text-[13px] font-semibold text-gray-100 mb-2">{{ spaceType === 'automotive' ? 'Inside the car, in 360°' : 'Upload your first 360° image' }}</p>
+            <p v-if="spaceType === 'automotive'" class="text-[11px] text-gray-500 leading-relaxed mb-5">One 360° photo from the driver's seat. No 360° camera? Skip it.</p>
             <p v-else class="text-[11px] text-gray-500 leading-relaxed mb-5">Choose an equirectangular panorama (2:1 ratio) to start building your interactive tour.</p>
 
             <button
@@ -150,7 +150,7 @@
                 <line x1="12" y1="5" x2="12" y2="19"/>
                 <line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
-              Choose File
+              {{ spaceType === 'automotive' ? 'Choose 360° photo' : 'Choose File' }}
             </button>
 
             <p class="text-[10px] text-gray-600 font-medium">
@@ -158,11 +158,12 @@
             </p>
             <NuxtLink
               v-if="spaceType === 'automotive'"
-              :to="{ query: { tab: 'car' } }"
-              class="inline-block mt-3 text-[11px] font-semibold text-gray-300 underline underline-offset-2"
-            >Back to Car Exterior photos</NuxtLink>
+              :to="{ query: { tab: 'photos' } }"
+              class="inline-flex items-center justify-center h-11 mt-2 text-[12px] font-semibold text-gray-300 hover:text-white"
+            >Skip</NuxtLink>
 
             <NuxtLink
+              v-if="spaceType !== 'automotive'"
               to="/app/capture"
               class="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold text-gray-400 border border-white/[0.08] hover:text-gray-100 hover:border-white/20 hover:bg-white/[0.04] transition-all duration-[180ms] w-full mt-1"
             >
@@ -176,7 +177,7 @@
             <!-- No 360 image ready yet? Move on rather than get stuck here —
                  Photos supports regular flat photos, and Details/Publish
                  work fine for a gallery-only listing with zero scenes. -->
-            <div class="flex items-center justify-center gap-3 mt-4 pt-3 border-t border-white/[0.06] w-full text-[11px] font-semibold">
+            <div v-if="spaceType !== 'automotive'" class="flex items-center justify-center gap-3 mt-4 pt-3 border-t border-white/[0.06] w-full text-[11px] font-semibold">
               <NuxtLink :to="{ query: { tab: 'photos' } }" class="text-gray-400 hover:text-gray-100 transition-colors">Next: Add Photos →</NuxtLink>
               <span class="text-gray-700">·</span>
               <NuxtLink :to="{ query: { tab: 'details' } }" class="text-gray-500 hover:text-gray-200 transition-colors">Skip to Details</NuxtLink>

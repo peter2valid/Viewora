@@ -16,7 +16,7 @@
             </svg>
           </NuxtLink>
 
-          <SpacePill :name="spaceName" mode="360°" />
+          <SpacePill :name="spaceName" :mode="modeLabel" />
 
           <Transition name="dot-pop">
             <span
@@ -106,8 +106,11 @@ withDefaults(defineProps<{
   hasScene?: boolean
   spaceId?: string
   slug?: string
+  /** What is being edited, after the name ("360°"; a car shows its step: "Exterior"). */
+  modeLabel?: string
 }>(), {
   hasScene: true,
+  modeLabel: '360°',
 })
 
 defineEmits<{

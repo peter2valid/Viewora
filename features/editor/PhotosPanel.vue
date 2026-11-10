@@ -10,12 +10,14 @@
     />
 
     <header class="photos-header">
-      <NuxtLink to="/app/spaces" class="photos-back" title="Back to spaces">
+      <!-- A car has one top bar (back, name, publish) for all its steps: no second one here. -->
+      <NuxtLink v-if="!isCar" to="/app/spaces" class="photos-back" title="Back to spaces">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       </NuxtLink>
       <div class="photos-header__title">
-        <SpacePill :name="space?.title || 'MY TOUR'" :mode="isCar ? 'Detail photos' : 'Photos'" />
-        <p v-if="isCar">Close-ups buyers flick through after the spin: wheels, dashboard, seats, boot, engine. Give each a short name; it shows under the photo in the tour.</p>
+        <SpacePill v-if="!isCar" :name="space?.title || 'MY TOUR'" mode="Photos" />
+        <h2 v-if="isCar" class="photos-car-title">Close-ups</h2>
+        <p v-if="isCar">Wheels, dashboard, seats, boot, engine.</p>
         <p v-else>Regular photos — no 360° camera needed. Buyers see these as a swipeable gallery.</p>
       </div>
       <button
@@ -28,7 +30,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"/></svg>
         {{ naming ? 'Naming…' : 'Name with AI' }}
       </button>
-      <button class="photos-add-btn" :disabled="pending || !space" @click="fileInput?.click()">
+      <button v-if="!isCar || photos.length || localUploads.length" class="photos-add-btn" :disabled="pending || !space" @click="fileInput?.click()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
         Add Photos
       </button>
@@ -42,8 +44,8 @@
       <div v-else-if="!photos.length && !localUploads.length" class="photos-empty">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         <p>No photos yet</p>
-        <button class="photos-add-btn" :disabled="!space" @click="fileInput?.click()">Add your first photo</button>
-        <NuxtLink :to="{ query: { tab: 'details' } }" class="photos-next-link">Next: Details &amp; Publish →</NuxtLink>
+        <button class="photos-add-btn photos-add-btn--empty" :disabled="!space" @click="fileInput?.click()">{{ isCar ? 'Add close-ups' : 'Add your first photo' }}</button>
+        <NuxtLink :to="{ query: { tab: 'details' } }" class="photos-next-link">{{ isCar ? 'Skip' : 'Next: Details & Publish →' }}</NuxtLink>
       </div>
 
       <div v-else class="photos-grid">
@@ -395,6 +397,8 @@ async function onDragEnd() {
 }
 .photos-back:hover { color: #fff; background: rgba(255,255,255,0.1); }
 .photos-header__title { flex: 1 1 auto; min-width: 0; }
+.photos-car-title { margin: 4px 0 0; font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+.photos-header__title .photos-car-title + p { margin-top: 2px; }
 .photos-header__title p { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin: 8px 0 0; }
 
 .photos-add-btn {
@@ -440,6 +444,9 @@ async function onDragEnd() {
   gap: 12px; padding: 80px 20px; color: rgba(255,255,255,0.35); text-align: center;
 }
 .photos-empty p { font-size: 0.85rem; font-weight: 600; margin: 0; }
+/* Not the header's phone layout (pushed right, after the title): centred, before Skip. */
+.photos-empty .photos-add-btn--empty { order: 0; margin: 0; min-height: 48px; }
+.photos-empty .photos-next-link { min-height: 44px; display: inline-flex; align-items: center; }
 
 .photos-next-link {
   font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,0.5);

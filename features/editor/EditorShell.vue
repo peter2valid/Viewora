@@ -64,7 +64,7 @@
 
     <!-- ── Floating panels (position:fixed, above viewer) ── -->
     <TopBar
-      v-if="editorStore.mode !== 'preview'"
+      v-if="editorStore.mode !== 'preview' && !hideTopBar"
       :space-name="space?.title || 'Edit Tour'"
       :is-published="Boolean(space?.is_published)"
       :publishing="publishing"
@@ -582,6 +582,8 @@ const analytics = useAnalytics()
 
 const props = defineProps<{
   spaceId: string
+  /** A car's interior step: the car editor page shows one top bar for all its steps. */
+  hideTopBar?: boolean
 }>()
 
 const { apiFetch } = useApiFetch()
