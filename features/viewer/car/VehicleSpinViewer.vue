@@ -37,13 +37,6 @@
 
     <div v-if="!sorted.length" class="vsv__empty">No exterior photos yet</div>
 
-    <!-- Ground ring: the "360°" floor line of a product spin. Its dot is where the car's nose points. -->
-    <svg v-if="ring" class="vsv__ring" :class="{ 'is-on': ringOn }" :style="ring.style" viewBox="0 0 200 30" aria-hidden="true">
-      <path d="M119.1 21.8 A96 10 0 1 0 80.9 21.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" vector-effect="non-scaling-stroke" />
-      <text x="100" y="25.5" text-anchor="middle" class="vsv__ring-t">360°</text>
-      <circle :cx="ring.dot.x" :cy="ring.dot.y" r="3.4" class="vsv__ring-dot" />
-    </svg>
-
     <!-- Pins of the photo on screen. Positioned against where the photo is actually drawn (zoom included). -->
     <div v-if="pins.length" class="vsv__pins">
       <button
@@ -89,7 +82,7 @@
       <a v-if="activePin.url" :href="activePin.url" class="vsv__pop-cta" target="_blank" rel="noopener noreferrer">Learn more</a>
     </div>
 
-    <!-- Loading, then "this turns": the 360° badge in the middle until the first touch. -->
+    <!-- While the frames load: the 360° badge in the middle, with how far along it is. -->
     <div v-if="showBadge" class="vsv__badge" aria-hidden="true">
       <svg viewBox="0 0 64 40" width="64" height="40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
         <text x="32" y="19" text-anchor="middle" fill="currentColor" stroke="none" font-size="15" font-weight="800" font-family="system-ui, sans-serif">360°</text>
@@ -100,17 +93,8 @@
       <span v-if="loading" class="vsv__badge-pct">{{ loadPct }}%</span>
     </div>
 
-    <!-- First-use hints, like a product viewer: what you can do here. Gone at the first touch. -->
-    <div v-if="showHints" class="vsv__hints" aria-hidden="true">
-      <span v-for="h in hints" :key="h.key" class="vsv__hint">
-        <svg v-if="h.key === 'drag'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></svg>
-        <svg v-else-if="h.key === 'swipe'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M8 12h8"/></svg>
-        <svg v-else-if="h.key === 'height'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4M8 18l4 4 4-4M12 2v20"/></svg>
-        <svg v-else-if="h.key === 'pinch'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/><circle cx="12" cy="12" r="2"/></svg>
-        <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 9 5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2"/></svg>
-        {{ h.label }}
-      </span>
-    </div>
+    <!-- First-use hint, the same one as the 360° tour: a swiping finger on a phone, a mouse on a computer. Gone at the first touch. -->
+    <ViewerDragHint :show="showHints && !showBadge" :touch="isTouch" />
 
     <!-- Zoom: one button until zoomed, then out / in / whole car. Pinch, ctrl+wheel and double-tap do the same. -->
     <div v-if="zoomable && sorted.length && !hideZoom" class="vsv__zoom" :class="{ 'is-open': zoomed }" :style="{ bottom: zoomBottom }" @pointerdown.stop>
@@ -244,7 +228,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import {
   sortByAngle, viewLabel, wrapIndex, fitRect, pointToFraction, hotspotKindLabel, isSpinSet,
   resolveFit, clampZoom, zoomAt, zoomForward, zoomInverse, spinLoadOrder, indexNearestAngle,
-  ringPoint, timelineMarks, spinHints, heightLabel, crispBlend,
+  timelineMarks, heightLabel, crispBlend,
   ZOOM_MAX, ZOOM_MIN,
   type VehicleView, type VehicleHotspot, type ZoomState, type TimelineMark, type VehicleSpinRow,
 } from '~/shared/utils/vehicleViews'
@@ -325,15 +309,14 @@ const canvasEl = ref<HTMLCanvasElement | null>(null)
 const showHint = ref(true)
 const painted = ref(false)
 
-// ── Chrome: badge, hints, ring, timeline, popover, spoken updates ──
+// ── Chrome: badge, hint, timeline, popover, spoken updates ──
 const isTouch = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
 /** Up/down drags change height; on a touch screen only when the viewer fills most of it (no page to scroll). */
 const verticalHeights = computed(() => !!rowList.value && !props.editable
   && (!isTouch || (typeof window !== 'undefined' && box.value.h > window.innerHeight * 0.7)))
-const hints = computed(() => spinHints(isTouch, props.zoomable, verticalHeights.value))
-/** The middle "360°" badge goes at the first touch, or when the car starts turning by itself. */
+/** The middle "360°" badge, while the frames load; then the drag hint says what to do. Gone at the first touch. */
 const badgeGone = ref(false)
-const showBadge = computed(() => smooth.value && !props.editable && !badgeGone.value)
+const showBadge = computed(() => smooth.value && !props.editable && !badgeGone.value && loading.value)
 const showHints = computed(() => showHint.value && painted.value && sorted.value.length > 1 && !props.editable && !activePinId.value && !zoomed.value)
 /** While zoomed, a drag pans the photo instead of turning the car: keep saying how to spin again. */
 const showZoomCue = computed(() => zoomed.value && !props.editable && sorted.value.length > 1 && !activePinId.value)
@@ -350,34 +333,10 @@ function nudgeZoomCue() {
   if (!cueSpoken) { cueSpoken = true; announce('Zoom out to spin the car') }
 }
 const showTimeline = computed(() => smooth.value && !props.hideBar && sorted.value.length > 1)
-/** A short box (a listing card): the timeline loses its label and the ring is left out. */
+/** A short box (a listing card): the timeline loses its label. */
 const short = computed(() => box.value.h > 0 && box.value.h < 460)
 const marks = computed<TimelineMark[]>(() => (props.editable ? [] : timelineMarks(sorted.value)))
 
-const ring = computed(() => {
-  const v = currentView.value
-  if (!smooth.value || props.editable || zoomed.value || !v || !box.value.w || short.value) return null
-  const r = rectOf(v)
-  // A flat floor line across the lower part of what is on screen (or of the photo, when it is
-  // shown whole), sitting just above the turn track.
-  const visW = Math.min(box.value.w, r.w)
-  const w = Math.min(visW * 0.66, 640)
-  const h = (w * 30) / 200
-  const photoBottom = Math.min(box.value.h, r.y + r.h)
-  const bottom = Math.min(photoBottom - 12, box.value.h - (showTimeline.value ? 100 : 24))
-  return {
-    dot: ringPoint(v.angle),
-    style: { left: `${box.value.w / 2 - w / 2}px`, top: `${bottom - h}px`, width: `${w}px`, height: `${h}px` },
-  }
-})
-/** The ring shows while the car turns (and on the first screen), then fades away. */
-const ringOn = ref(true)
-let ringTimer: ReturnType<typeof setTimeout> | undefined
-function ringPing() {
-  ringOn.value = true
-  if (ringTimer) clearTimeout(ringTimer)
-  ringTimer = setTimeout(() => { ringOn.value = playing.value || showBadge.value }, 1400)
-}
 
 const announcement = ref('')
 function announce(msg: string) {
@@ -800,7 +759,6 @@ function setPos(p: number) {
     idx.value = next
     activePinId.value = null
     emit('update:index', next)
-    ringPing()
     scheduleSharpen()
   }
   requestDraw()
@@ -1254,7 +1212,6 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
   --vsv-badge-bg: rgba(255, 255, 255, 0.15);
   --vsv-toast-bg: rgba(0, 0, 0, 0.7);
   --vsv-track: rgba(255, 255, 255, 0.4);
-  --vsv-ring: rgba(255, 255, 255, 0.55);
   position: absolute; inset: 0; overflow: hidden;
   background: #0b0b0c;
   cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none;
@@ -1347,25 +1304,8 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 }
 .vsv__badge-pct { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0.9; }
 
-.vsv__ring {
-  position: absolute; z-index: 1; color: var(--vsv-ring); pointer-events: none; overflow: visible;
-  opacity: 0; transition: opacity 600ms ease; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
-}
-.vsv__ring.is-on { opacity: 1; transition-duration: 150ms; }
-.vsv__ring-t { font: 700 6.5px system-ui, -apple-system, sans-serif; fill: currentColor; }
-.vsv__ring-dot { fill: var(--vsv-brand); stroke: #fff; stroke-width: 1.4; }
 
-.vsv__hints {
-  position: absolute; left: 50%; bottom: var(--vsv-overlay-bottom, 20px); transform: translateX(-50%); z-index: 5;
-  display: flex; gap: 20px; padding: 10px 20px; border-radius: 20px; pointer-events: none;
-  background: var(--vsv-btn-bg); color: var(--vsv-icon); box-shadow: var(--vsv-shadow);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  font: 500 13px system-ui, -apple-system, sans-serif; white-space: nowrap;
-  animation: vsv-fade-in 300ms ease;
-}
-.vsv.has-timeline .vsv__hints { bottom: var(--vsv-hints-bottom, 104px); }
 .vsv.is-short .vsv__tl { padding-top: 14px; }
-.vsv__hint { display: inline-flex; align-items: center; gap: 8px; }
 @keyframes vsv-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 .vsv__zoom {
@@ -1524,13 +1464,11 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 
 @media (max-width: 480px) {
   .vsv__zcue-quiet { display: none; }
-  .vsv__hints { flex-direction: column; gap: 8px; padding: 12px 16px; border-radius: 12px; font-size: 12px; }
-  .vsv.has-timeline .vsv__hints { bottom: var(--vsv-hints-bottom, 98px); }
   .vsv__tl { padding: 22px max(14px, var(--vsv-tl-side, 14px), var(--vsv-tl-right, 0px)) max(12px, env(safe-area-inset-bottom)) max(14px, var(--vsv-tl-side, 14px)); }
   .vsv__dot { width: 26px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .vsv__pin.is-pulse::after { animation: none; display: none; }
-  .vsv__dot::after, .vsv__pin::before, .vsv__tl-dot::before, .vsv__pop, .vsv__hints, .vsv__toast, .vsv__zcue { transition: none; animation: none; }
+  .vsv__dot::after, .vsv__pin::before, .vsv__tl-dot::before, .vsv__pop, .vsv__toast, .vsv__zcue { transition: none; animation: none; }
 }
 </style>

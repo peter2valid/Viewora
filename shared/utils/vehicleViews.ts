@@ -374,16 +374,6 @@ export function indexNearestAngle(views: Array<{ angle: number }>, angle: number
 
 // ── Spin viewer chrome (the look of a classic product-360 viewer) ──
 
-/**
- * Where the front of the car is on the ground ring drawn under it, in the ring's own
- * 200×30 box (ellipse centre 100,12, radii 96×10). The camera is always at the near side
- * (bottom): at 0° the nose faces the camera, at 90° (the car's right side) it points right.
- */
-export function ringPoint(angle: number): { x: number; y: number } {
-  const t = (angle * Math.PI) / 180
-  return { x: 100 + 96 * Math.sin(t), y: 12 + 10 * Math.cos(t) }
-}
-
 export interface TimelineMark {
   id: string
   /** Frame index (into the angle-sorted list) the hotspot sits on. */
@@ -402,18 +392,6 @@ export function timelineMarks(sorted: VehicleView[]): TimelineMark[] {
   sorted.forEach((v, i) => {
     for (const h of v.hotspots ?? []) out.push({ id: h.id, index: i, at: i / (n - 1), title: h.title, kind: h.kind })
   })
-  return out
-}
-
-export type SpinHintKey = 'drag' | 'swipe' | 'dblclick' | 'pinch' | 'height'
-
-/** First-use hints: what this device can do. */
-export function spinHints(touch: boolean, zoomable: boolean, heights = false): Array<{ key: SpinHintKey; label: string }> {
-  const out: Array<{ key: SpinHintKey; label: string }> = [
-    touch ? { key: 'swipe', label: 'Swipe to rotate' } : { key: 'drag', label: 'Drag to rotate' },
-  ]
-  if (heights) out.push({ key: 'height', label: touch ? 'Swipe up or down for height' : 'Drag up or down for height' })
-  if (zoomable) out.push(touch ? { key: 'pinch', label: 'Pinch to zoom' } : { key: 'dblclick', label: 'Double-click to zoom' })
   return out
 }
 

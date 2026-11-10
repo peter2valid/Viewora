@@ -47,20 +47,6 @@
         </div>
       </div>
 
-      <!-- Car tours: the embed's own full-screen button. Kept outside the v-if / v-else-if chain above,
-           which must stay CarTour → 360 viewer → photo fallback with nothing in between. -->
-      <button
-        v-if="isCarTour && canFullscreen"
-        type="button"
-        class="embed-fs"
-        :aria-label="isFullscreen ? 'Exit full screen' : 'Full screen'"
-        @click="toggleFullscreen"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path v-if="!isFullscreen" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
-          <path v-else d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>
-        </svg>
-      </button>
 
       <!-- Owner's brand card, same rules as the full tour page (pages/p/[slug].vue):
            logo / name / contact top-left whenever the owner set any branding. -->
@@ -94,7 +80,7 @@
 <script setup lang="ts">
 // /spin/<slug>: a car's spin on its own page, to send as a link (Share > Spin only).
 definePageMeta({ layout: false, alias: ['/spin/:slug'] })
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useHead, useSeoMeta } from '#imports'
 import CarTour from '~/features/viewer/car/CarTour.vue'
 import { buildCarTourItems, vehicleName } from '~/shared/utils/carTour'
@@ -129,21 +115,9 @@ const hasBrandingDetails = computed(() => {
   return !spinOnly && !!(sp && (sp.logo_url || sp.description || sp.location_text || sp.email))
 })
 // Same value on server and client (no window.location) so SSR hydration can't leave a relative link.
-const shareUrl = computed(() => `${String(runtimeConfig.public.appUrl || 'https://app.viewora.software').replace(/\/+$/, '')}/p/${space.value?.slug || space.value?.id || slug}`)
+// The spin-only page shares itself; an embed shares the full listing.
+const shareUrl = computed(() => `${String(runtimeConfig.public.appUrl || 'https://app.viewora.software').replace(/\/+$/, '')}/${spinOnly ? 'spin' : 'p'}/${space.value?.slug || space.value?.id || slug}`)
 
-// Car tours have no 360 viewer chrome of their own, so the embed carries the full-screen button.
-const canFullscreen = ref(false)
-const isFullscreen = ref(false)
-function onFsChange() { isFullscreen.value = !!document.fullscreenElement }
-onMounted(() => {
-  canFullscreen.value = !!document.fullscreenEnabled
-  document.addEventListener('fullscreenchange', onFsChange)
-})
-onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFsChange))
-function toggleFullscreen() {
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-  else (document.querySelector('[data-fullscreen-root]') as HTMLElement | null)?.requestFullscreen?.().catch(() => {})
-}
 
 const watermarkUrl = computed(() => {
   const base = runtimeConfig.public.marketingUrl || 'https://viewora.software'
@@ -225,12 +199,6 @@ useHead(computed(() => {
 .embed-viewer { --embed-car-top: 16px; }
 @media (max-width: 640px) { .embed-viewer { --embed-car-top: 104px; } }
 .embed-car { position: absolute; inset: 0; --ct-ribbon-right: 84px; --vsv-tl-right: 70px; }
-.embed-fs {
-  position: absolute; z-index: 25; right: 16px; bottom: 40px;
-  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
-  background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.18);
-}
-.embed-fs:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .embed-center {
   display: flex;

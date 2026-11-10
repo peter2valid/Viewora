@@ -3,7 +3,7 @@
 import { indexNearestAngle, sortByAngle, type VehicleSpinSet, type VehicleView } from './vehicleViews'
 
 export type CarGroup = 'exterior' | 'interior' | 'details'
-export const CAR_GROUP_LABELS: Record<CarGroup, string> = { exterior: 'Exterior', interior: 'Interior', details: 'Details' }
+export const CAR_GROUP_LABELS: Record<CarGroup, string> = { exterior: 'Exterior', interior: 'Interior', details: 'Close-ups' }
 
 export interface CarTourItem {
   id: string

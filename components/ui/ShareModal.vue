@@ -10,7 +10,7 @@
             </button>
           </div>
           <!-- A car: two links. The listing (spin, price, details) or just the spin to turn. -->
-          <div v-if="isCar" class="share-modal__pick" role="radiogroup" aria-label="What to share">
+          <div v-if="isCar && !visitor" class="share-modal__pick" role="radiogroup" aria-label="What to share">
             <button
               v-for="o in carLinkOptions"
               :key="o.id"
@@ -27,7 +27,7 @@
           </div>
           <div class="share-modal__tabs" role="tablist">
             <button
-              v-for="tab in shareTabs"
+              v-for="tab in visibleTabs"
               :key="tab.id"
               type="button"
               class="share-modal__tab"
@@ -126,8 +126,14 @@ const props = withDefaults(defineProps<{
   /** Which editor tab this share/publish action originated from (kept for
    * analytics/compat — the link is always app.viewora.software/p/<slug>). */
   context?: 'tour' | 'details'
+  /** A buyer sharing what they are looking at: just the link and QR code, no embed or plan upsell. */
+  visitor?: boolean
+  /** The link to share, when it is not the listing's own (e.g. the car's spin-only page). */
+  url?: string
 }>(), {
   context: 'details',
+  visitor: false,
+  url: '',
 })
 defineEmits<{ close: [] }>()
 
@@ -151,7 +157,11 @@ const carLinkOptions: Array<{ id: 'listing' | 'spin'; title: string; sub: string
   { id: 'spin', title: 'Spin only', sub: 'Just the car to turn' },
 ]
 /** The link being shared: a car can share just its spin. */
-const shareUrl = computed(() => (props.space && isCar.value && carLink.value === 'spin' ? resolveSpinUrl(props.space) : publicUrl.value))
+const shareUrl = computed(() => {
+  if (props.url) return props.url
+  return props.space && isCar.value && carLink.value === 'spin' ? resolveSpinUrl(props.space) : publicUrl.value
+})
+const visibleTabs = computed(() => (props.visitor ? shareTabs.filter(t => t.id !== 'embed') : shareTabs))
 const embedUrl = computed(() => {
   if (!props.space) return ''
   const base = typeof window !== 'undefined' ? window.location.origin : ''

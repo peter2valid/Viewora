@@ -3,7 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   fitRect, pointToFraction, swapAngles, slotGaps, nearestSlot, sortByAngle, wrapIndex, viewLabel,
-  spinAngles, isSpinSet, maxGapDegrees, ringPoint, timelineMarks, spinHints,
+  spinAngles, isSpinSet, maxGapDegrees, timelineMarks,
 } from '../shared/utils/vehicleViews.ts'
 
 test('fitRect cover crops the long side and stays centred', () => {
@@ -138,24 +138,11 @@ test('indexNearestAngle wraps round 360', async () => {
   assert.equal(indexNearestAngle([{ angle: 0 }, { angle: 90 }, { angle: 340 }], 358), 0)
 })
 
-test('ringPoint: nose towards the camera at 0°, to the right at 90°, away at 180°', () => {
-  const r0 = ringPoint(0), r90 = ringPoint(90), r180 = ringPoint(180)
-  assert.equal(Math.round(r0.x), 100); assert.equal(Math.round(r0.y), 22)
-  assert.equal(Math.round(r90.x), 196); assert.equal(Math.round(r90.y), 12)
-  assert.equal(Math.round(r180.y), 2)
-})
-
 test('timelineMarks: one mark per hotspot at its frame, spread 0..1', () => {
   const v = (id: string, angle: number, hs: any[] = []) => ({ id, image_url: '', label: null, angle, width: 1, height: 1, order_index: 0, hotspots: hs }) as any
   const marks = timelineMarks([v('a', 0), v('b', 120, [{ id: 'h1', view_id: 'b', kind: 'damage', x: 0, y: 0, title: 'Scratch' }]), v('c', 240)])
   assert.deepEqual(marks, [{ id: 'h1', index: 1, at: 0.5, title: 'Scratch', kind: 'damage' }])
   assert.deepEqual(timelineMarks([v('a', 0, [{ id: 'x' }])]), [])
-})
-
-test('spinHints: touch says swipe and pinch, mouse says drag and double-click', () => {
-  assert.deepEqual(spinHints(true, true).map(h => h.key), ['swipe', 'pinch'])
-  assert.deepEqual(spinHints(false, true).map(h => h.key), ['drag', 'dblclick'])
-  assert.deepEqual(spinHints(false, false).map(h => h.key), ['drag'])
 })
 
 test('spinRows puts the main spin first, then its rows with frames; heightLabel names them', async () => {

@@ -2,17 +2,20 @@
   <div
     ref="rootEl"
     class="ct"
-    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen, 'is-spin': active?.kind === 'spin', 'is-zoomed': zoomedIn }"
+    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen, 'is-spin': active?.kind === 'spin', 'is-zoomed': zoomedIn, 'has-dock': embed && items.length > 0 && !dockCollapsed }"
     :style="{ '--ct-top': topOffset, '--ct-bottom': bottomOffset }"
     @keydown.esc="ribbonOpen = false"
   >
     <div v-if="!items.length" class="ct__empty">This car has no photos yet.</div>
 
+    <!-- Standalone: a blurred copy of the view fills the room around it (under the dock), not black. -->
+    <div v-if="embed && active?.thumb" class="ct__backdrop" :style="{ backgroundImage: `url(${active.thumb})` }" aria-hidden="true" />
+
     <!-- Stage: one of a spin, the interior 360 viewer, or a detail photo. -->
     <VehicleSpinViewer
       v-if="active?.kind === 'spin'"
       :key="active.id"
-      class="ct__layer"
+      class="ct__layer ct__layer--flat"
       :views="active.spin!.views"
       :rows="active.spin!.rows?.length ? spinRows(active.spin!) : null"
       :start-angle="active.spin!.start_angle"
@@ -39,7 +42,7 @@
     <VehicleSpinViewer
       v-if="active?.kind === 'photo'"
       :key="active.id"
-      class="ct__layer"
+      class="ct__layer ct__layer--flat"
       :views="[photoAsView(active)]"
       :autoplay="false"
       fit="contain"
@@ -50,7 +53,7 @@
     <div class="ct__fade" :class="{ 'is-on': fading }" aria-hidden="true" />
 
     <!-- Exterior / Interior / Details: jump to the first view of each. -->
-    <div v-if="groups.length > 1" class="ct__groups" role="tablist" aria-label="Part of the car">
+    <div v-if="groups.length > 1 && !embed" class="ct__groups" role="tablist" aria-label="Part of the car">
       <button
         v-for="g in groups"
         :key="g.key"
@@ -67,7 +70,7 @@
     <p v-if="title && !narrow" class="ct__title">{{ title }}</p>
 
     <!-- Several spins (roof up, roof down): switch between them without leaving the exterior. -->
-    <div v-if="active?.group === 'exterior' && spinItems.length > 1" class="ct__spins" role="tablist" aria-label="Spins">
+    <div v-if="active?.group === 'exterior' && spinItems.length > 1 && !embed" class="ct__spins" role="tablist" aria-label="Spins">
       <button
         v-for="it in spinItems"
         :key="it.id"
@@ -81,7 +84,7 @@
     </div>
 
     <!-- Walk in / walk out, where the eye already is. -->
-    <button v-if="stepTarget" type="button" class="ct__step" @click="go(stepTarget.item)">
+    <button v-if="stepTarget && !embed" type="button" class="ct__step" @click="go(stepTarget.item)">
       <template v-if="stepTarget.inside">
         {{ compact ? 'Inside' : 'Step inside' }}
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
@@ -104,7 +107,7 @@
 
     <!-- Every view in one strip, grouped. Starts closed, so the car has the whole screen. -->
     <button
-      v-if="items.length > 1 && !ribbonOpen"
+      v-if="items.length > 1 && !ribbonOpen && !embed"
       type="button"
       class="ct__ribbon-btn"
       :aria-label="`All views, ${items.length}. Now showing ${active?.title}`"
@@ -115,6 +118,41 @@
       <span class="ct__ribbon-btn-t">{{ active?.title }}</span>
       <span class="ct__ribbon-btn-n">{{ activeIndex + 1 }}/{{ items.length }}</span>
     </button>
+    <!-- Standalone (the spin page, a dealer's website): every view in the 360° tour's own glass dock,
+         under Exterior / Interior / Close-ups, and the tour's share and full-screen buttons. -->
+    <template v-if="embed">
+      <GlassDock
+        v-if="items.length"
+        v-model:collapsed="dockCollapsed"
+        :items="dockItems"
+        :active-id="active?.id ?? ''"
+        glass-class="dock-glass-superdark"
+        :sortable="false"
+        :branches="groups.length > 1"
+        :bottom-px="16"
+        :edge-inset-px="16"
+        :max-strip-vw="86"
+        :max-strip-px="860"
+        :max-scale="1.4"
+        :sigma-px="80"
+        :lift-px="10"
+        @select="onDockSelect"
+      />
+      <div class="ct__rail" aria-label="Tour controls">
+        <button type="button" class="ct__rail-btn" aria-label="Share" title="Share" @click="shareOpen = true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 8a3 3 0 1 0-2.83-4" /><path d="M8 12l8-4" /><path d="M8 12l8 4" />
+            <circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" />
+          </svg>
+        </button>
+        <button v-if="canFullscreen" type="button" class="ct__rail-btn" :aria-label="isFullscreen ? 'Exit full screen' : 'Full screen'" :title="isFullscreen ? 'Exit full screen' : 'Full screen'" @click="toggleFullscreen">
+          <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5" /><path d="M16 3h5v5" /><path d="M21 16v5h-5" /><path d="M3 16v5h5" /></svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v5H3" /><path d="M16 3v5h5" /><path d="M21 16h-5v5" /><path d="M3 16h5v5" /></svg>
+        </button>
+      </div>
+      <UiShareModal :space="shareOpen ? tour?.space : null" visitor :url="shareUrl" @close="shareOpen = false" />
+    </template>
+
     <nav v-if="ribbonOpen" class="ct__ribbon" aria-label="All views">
       <div ref="stripEl" class="ct__strip">
         <template v-for="g in groups" :key="g.key">
@@ -147,6 +185,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useImage } from '#imports'
 import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
+import GlassDock from '~/components/ui/GlassDock.vue'
 import { buildCarTourItems, CAR_GROUP_LABELS, type CarTourItem, type CarGroup } from '~/shared/utils/carTour'
 import { spinRows, type VehicleView } from '~/shared/utils/vehicleViews'
 
@@ -287,6 +326,36 @@ function photoAsView(it: CarTourItem): VehicleView {
   return { id: it.id, image_url: it.url!, label: it.title, angle: 0, width: null, height: null, hotspots: [] }
 }
 
+// ── Standalone chrome: the dock, share, full screen ──
+const dockItems = computed(() => items.value.map(it => ({
+  id: it.id,
+  label: it.title,
+  imageUrl: it.thumb || null,
+  ariaLabel: `Show ${it.title}`,
+  group: CAR_GROUP_LABELS[it.group],
+})))
+function onDockSelect(id: string) {
+  const it = items.value.find(i => i.id === id)
+  if (it) go(it)
+}
+const shareOpen = ref(false)
+const dockCollapsed = ref(false)
+
+// iPhone Safari has no element full screen: no button there rather than one that does nothing.
+const canFullscreen = ref(false)
+const isFullscreen = ref(false)
+function onFsChange() { isFullscreen.value = !!document.fullscreenElement }
+onMounted(() => {
+  canFullscreen.value = !!document.fullscreenEnabled
+  document.addEventListener('fullscreenchange', onFsChange)
+})
+onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFsChange))
+function toggleFullscreen() {
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return }
+  const el = (rootEl.value?.closest('[data-fullscreen-root]') as HTMLElement | null) ?? rootEl.value
+  el?.requestFullscreen?.().catch(() => {})
+}
+
 defineExpose({ go, items })
 </script>
 
@@ -296,6 +365,34 @@ defineExpose({ go, items })
   --ct-top: 16px; --ct-bottom: 16px;
 }
 .ct__layer { position: absolute; inset: 0; }
+.ct__backdrop {
+  position: absolute; inset: -40px; background-size: cover; background-position: center;
+  filter: blur(36px) brightness(0.55) saturate(1.1); transform: translateZ(0);
+}
+/* Wide screens: the car and close-ups sit above the open dock instead of under it (a phone shows the
+   car whole, with room above and below, so it keeps the full screen). The 360 inside stays full. */
+.ct.is-embed.has-dock:not(.is-narrow) .ct__layer--flat { bottom: 196px; }
+.ct.is-embed .ct__layer--flat { transition: bottom 180ms ease; }
+@media (prefers-reduced-motion: reduce) { .ct.is-embed .ct__layer--flat { transition: none; } }
+
+/* Standalone: the 360° tour's control buttons, top right. */
+.ct__rail {
+  position: absolute; z-index: 6; top: var(--ct-top); right: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ct__rail-btn {
+  width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.78);
+  background: rgba(10, 12, 20, 0.66); backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: transform 140ms ease, background 140ms ease, color 140ms ease;
+}
+.ct__rail-btn svg { width: 20px; height: 20px; }
+.ct__rail-btn:hover { color: #fff; background: rgba(24, 26, 34, 0.8); }
+.ct__rail-btn:active { transform: scale(0.94); }
+.ct__rail-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .ct__rail-btn { transition: none; } }
 /* The spin's turn track keeps clear of the strip button (bottom-left) and the host's expand button
    (bottom-right). On phones those sit above the track, so it gets the full width, and the first-use
    hints go above them. */
