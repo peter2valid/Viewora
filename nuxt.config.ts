@@ -323,6 +323,15 @@ export default defineNuxtConfig({
       link: [
         { rel: 'dns-prefetch', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        // Favicons: same set as viewora.software, swapped for light/dark browser themes
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon-light.ico', media: '(prefers-color-scheme: light)' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-light-32.png', media: '(prefers-color-scheme: light)' },
+        { rel: 'icon', type: 'image/png', sizes: '512x512', href: '/favicon-light-512.png', media: '(prefers-color-scheme: light)' },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon-dark.ico', media: '(prefers-color-scheme: dark)' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-dark-32.png', media: '(prefers-color-scheme: dark)' },
+        { rel: 'icon', type: 'image/png', sizes: '512x512', href: '/favicon-dark-512.png', media: '(prefers-color-scheme: dark)' },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon-light.ico' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/favicon-light-180.png' },
       ],
     },
   },
