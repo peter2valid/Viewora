@@ -84,6 +84,7 @@ import { computed, ref } from 'vue'
 import { useHead, useSeoMeta } from '#imports'
 import CarTour from '~/features/viewer/car/CarTour.vue'
 import { buildCarTourItems, vehicleName } from '~/shared/utils/carTour'
+import { tourShareImage } from '~/shared/utils/shareImage'
 
 const { apiFetch } = useApiFetch()
 const runtimeConfig = useRuntimeConfig()
@@ -137,14 +138,35 @@ function trackWatermarkClick() {
 
 // White-label tours carry no Viewora name in the title or description.
 const whiteLabel = computed(() => !!space.value?.branding_enabled)
+const seoTitle = computed(() => {
+  const t = (spinOnly && space.value ? vehicleName(space.value) : '') || space.value?.title
+  if (whiteLabel.value) return t || 'Virtual Tour'
+  return t ? `${t} — Viewora` : 'Virtual Tour — Viewora'
+})
+const seoDescription = computed(() => space.value?.description || (spinOnly
+  ? 'Turn the car all the way round, inside and out.'
+  : (whiteLabel.value ? 'Explore this immersive virtual tour.' : 'Experience this immersive virtual tour on Viewora.')))
+const shareImage = computed(() => tourShareImage(tour.value))
 useSeoMeta({
-  title: computed(() => {
-    const t = space.value?.title
-    if (whiteLabel.value) return t || 'Virtual Tour'
-    return t ? `${t} — Viewora` : 'Virtual Tour — Viewora'
-  }),
-  description: computed(() => space.value?.description || (whiteLabel.value ? 'Explore this immersive virtual tour.' : 'Experience this immersive virtual tour on Viewora.')),
+  title: seoTitle,
+  description: seoDescription,
   robots: 'index, follow',
+  // Link previews: the API's cached 1200×630 picture (a car's front exterior frame).
+  ogType: 'website',
+  ogSiteName: computed(() => (whiteLabel.value ? undefined : 'Viewora')),
+  ogUrl: shareUrl,
+  ogTitle: seoTitle,
+  ogDescription: seoDescription,
+  ogImage: computed(() => shareImage.value?.url),
+  ogImageSecureUrl: computed(() => shareImage.value?.url),
+  ogImageType: computed(() => (shareImage.value?.width ? 'image/jpeg' : undefined)),
+  ogImageWidth: computed(() => shareImage.value?.width),
+  ogImageHeight: computed(() => shareImage.value?.height),
+  ogImageAlt: computed(() => vehicleName(space.value) || space.value?.title),
+  twitterCard: 'summary_large_image',
+  twitterTitle: seoTitle,
+  twitterDescription: seoDescription,
+  twitterImage: computed(() => shareImage.value?.url),
 })
 
 useHead(computed(() => {

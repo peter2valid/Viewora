@@ -118,6 +118,7 @@ import { useAsyncData, useHead, useRoute, useSeoMeta, useRuntimeConfig, useSupab
 import { useApiFetch } from '~/composables/useApiFetch'
 import { editorHref } from '~/utils/editorUrl'
 import { buildVenueFloors } from '~/shared/utils/venue'
+import { carFrontFrame, readyShareImage } from '~/shared/utils/shareImage'
 // PsvViewer is auto-imported as LazyPsvViewer by Nuxt when used in template
 
 const { public: { appUrl, marketingUrl, gaMeasurementId } } = useRuntimeConfig()
@@ -320,10 +321,17 @@ const seoDescription = computed(() => {
 // when the env var is missing during SSR.
 const OG_FALLBACK = 'https://app.viewora.software/images/og-default.jpg'
 const $img = useImage()
+// The API's ready-made 1200×630 preview (cached on the media CDN) when it exists;
+// otherwise the listing's own photo resized by IPX. A car uses its front exterior frame.
+const seoReady = computed(() => readyShareImage(tour.value))
+const seoRawImage = computed(() =>
+  carFrontFrame(tour.value)
+  || tour.value?.scenes?.[0]?.thumbnail_url
+  || space.value?.cover_image_url
+  || null)
 const seoImage = computed(() => {
-  const rawUrl =
-    tour.value?.scenes?.[0]?.thumbnail_url
-    || space.value?.cover_image_url
+  if (seoReady.value) return seoReady.value.url
+  const rawUrl = seoRawImage.value
   if (!rawUrl || !rawUrl.startsWith('http')) return OG_FALLBACK
   // Resize to 1200×630 (standard OG aspect ratio) via Nuxt IPX so social crawlers
   // get a fast ~150KB JPEG instead of the raw 1–2MB panorama thumbnail.
@@ -336,15 +344,9 @@ const seoImage = computed(() => {
   }
 })
 
-// Dimensions match the IPX output (1200×630) when we have a real image; omit for fallback.
-const seoImageWidth  = computed(() => {
-  const hasImage = tour.value?.scenes?.[0]?.thumbnail_url || space.value?.cover_image_url
-  return hasImage ? '1200' : undefined
-})
-const seoImageHeight = computed(() => {
-  const hasImage = tour.value?.scenes?.[0]?.thumbnail_url || space.value?.cover_image_url
-  return hasImage ? '630' : undefined
-})
+// Dimensions match the preview / IPX output (1200×630) when we have a real image; omit for fallback.
+const seoImageWidth  = computed(() => (seoReady.value || seoRawImage.value ? '1200' : undefined))
+const seoImageHeight = computed(() => (seoReady.value || seoRawImage.value ? '630' : undefined))
 const seoImageAlt    = computed(() => `360° virtual tour of ${tour.value?.space?.title || 'this property'}`)
 
 const seoKeywords = computed(() => {

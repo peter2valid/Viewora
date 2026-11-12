@@ -284,6 +284,7 @@ import { useAsyncData, useHead, useRoute, useSeoMeta, useSupabaseUser, useNuxtAp
 import { useApiFetch } from '~/composables/useApiFetch'
 import CarTour from '~/features/viewer/car/CarTour.vue'
 import { spinsFromTour, type CarTourItem } from '~/shared/utils/carTour'
+import { tourShareImage } from '~/shared/utils/shareImage'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatAcres, formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
 import { buildListingJsonLd } from '~/utils/listingJsonLd'
@@ -358,6 +359,8 @@ const heroImage = computed(() => (isPanorama.value ? null : heroItems.value[acti
 // Unlike heroImage (null for panoramas, since that mode renders its own
 // canvas rather than a background image), SEO/JSON-LD always wants a real
 // image regardless of viewer mode.
+// Link previews: the API's cached 1200×630 picture, else this listing's own photo.
+const shareImage = computed(() => tourShareImage(tourData.value) ?? (seoImage.value ? { url: seoImage.value } : null))
 const seoImage = computed(() => carSpins.value[0]?.views[0]?.image_url || heroImage.value || rooms.value[0]?.thumbnail_url || photos.value[0]?.thumbnail_url || null)
 
 const psvViewerRef = ref<any>(null)
@@ -823,12 +826,20 @@ useSeoMeta({
   description: seoDescription,
   ogTitle: seoTitle,
   ogDescription: seoDescription,
-  ogImage: heroImage,
+  ogImage: computed(() => shareImage.value?.url),
+  ogImageSecureUrl: computed(() => shareImage.value?.url),
+  ogImageType: computed(() => (shareImage.value?.width ? 'image/jpeg' : undefined)),
+  ogImageWidth: computed(() => shareImage.value?.width),
+  ogImageHeight: computed(() => shareImage.value?.height),
+  ogImageAlt: computed(() => space.value?.title),
+  // The address crawlers end on (/p/<slug> redirects here); a redirecting og:url confuses Facebook.
+  ogUrl: `https://app.viewora.software/view/p/${slug}`,
+  ogSiteName: 'Viewora',
   ogType: 'website',
   twitterCard: 'summary_large_image',
   twitterTitle: seoTitle,
   twitterDescription: seoDescription,
-  twitterImage: heroImage,
+  twitterImage: computed(() => shareImage.value?.url),
 })
 
 // Structured data — this page previously had none at all (the older
