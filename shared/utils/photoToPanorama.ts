@@ -38,6 +38,7 @@ export async function readImageSize(file: File): Promise<{ width: number; height
     const img = await loadImage(file)
     const size = { width: img.naturalWidth, height: img.naturalHeight }
     URL.revokeObjectURL(img.src)
+    img.src = '' // let go of any decoded pixels at once
     return size
   } catch {
     return null

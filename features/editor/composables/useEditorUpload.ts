@@ -121,9 +121,11 @@ export function useEditorUpload(
   async function createPersistedScenePreview(file: File): Promise<string | null> {
     if (typeof window === 'undefined') return null
     const sourceUrl = window.URL.createObjectURL(file)
+    let image: HTMLImageElement | null = null
     try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      image = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image()
+        img.decoding = 'async'
         img.onload = () => resolve(img)
         img.onerror = () => reject(new Error('preview_load_failed'))
         img.src = sourceUrl
@@ -139,10 +141,14 @@ export function useEditorUpload(
       const ctx = canvas.getContext('2d')
       if (!ctx) return null
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-      return canvas.toDataURL('image/jpeg', 0.78)
+      const url = canvas.toDataURL('image/jpeg', 0.78)
+      canvas.width = 0
+      return url
     } catch {
       return null
     } finally {
+      // Drop the full-size decode now (an 8K panorama is ~130 MB once decoded), not at the next GC.
+      if (image) image.src = ''
       window.URL.revokeObjectURL(sourceUrl)
     }
   }
@@ -275,6 +281,7 @@ export function useEditorUpload(
         }
         mapSceneLinkTargets(localSceneId, createdScene.id)
         movePendingScenePreview(localSceneId, createdScene.id)
+        savedSceneIdByLocal.set(localSceneId, createdScene.id)
         moveLocalPanoramaUrl(localSceneId, createdScene.id)
         await syncPendingHotspotsForScene(createdScene.id)
       } else {
@@ -316,6 +323,20 @@ export function useEditorUpload(
     }
   }
 
+  /** Local scene id -> its id once saved, for a thumbnail that finishes after the save. */
+  const savedSceneIdByLocal = new Map<string, string>()
+
+  /** Dock thumbnails, one panorama decoded at a time, so memory stays at one image however many are uploaded. */
+  async function makeThumbnailsOneByOne(items: Array<{ file: File; localSceneId: string }>) {
+    for (const item of items) {
+      const preview = await createPersistedScenePreview(item.file)
+      if (!preview) continue
+      // The scene may already be saved under its server id (its own thumbnail can take a while longer).
+      const id = scenes.value.some(s => s.id === item.localSceneId) ? item.localSceneId : savedSceneIdByLocal.get(item.localSceneId)
+      if (id) setPendingScenePreview(id, preview)
+    }
+  }
+
   async function enqueuePanoramaFiles(rawFiles: File[]) {
     if (!rawFiles.length) return
     const sceneCountBeforeUpload = scenes.value.length
@@ -326,15 +347,16 @@ export function useEditorUpload(
     for (const f of rawFiles) prepared.push(await prepareForPanorama(f))
     const files = prepared.map(p => p.file)
 
-    const queued = await Promise.all(files.map(async (file, idx) => {
-      const previewUrl = URL.createObjectURL(file)
-      const psvBlobUrl = URL.createObjectURL(file)
-      const localSceneId = createOptimisticLocalScene(file, previewUrl, { select: shouldSelectFirst && idx === 0 })
+    // Every scene shows in the dock at once; its small thumbnail follows. The dock used to show the
+    // full-size file and decode every panorama at the same time to make thumbnails: 70 panoramas at
+    // ~130 MB each decoded is gigabytes, and the browser was killed for running out of memory.
+    const queued = files.map((file, idx) => {
+      const psvBlobUrl = URL.createObjectURL(file) // a reference to the file, not a decoded copy
+      const localSceneId = createOptimisticLocalScene(file, undefined, { select: shouldSelectFirst && idx === 0 })
       setLocalPanoramaUrl(localSceneId, psvBlobUrl)
-      const persistedPreview = await createPersistedScenePreview(file)
-      if (persistedPreview) setPendingScenePreview(localSceneId, persistedPreview)
       return { file, localSceneId }
-    }))
+    })
+    void makeThumbnailsOneByOne(queued)
 
     // Max 3 concurrent uploads — each presign hits Redis + 3 Supabase queries.
     // Firing all N at once can OOM-kill the API pod (400-640 MB cap on Railway).
