@@ -28,7 +28,7 @@
       :src="posterUrl"
       alt=""
       class="vsv__poster"
-      :class="{ 'is-contain': fitNow === 'contain' }"
+      :class="{ 'is-contain': fitNow === 'contain', 'is-bottom': fitNow === 'cover' && coverAlign === 'bottom' }"
       fetchpriority="high"
       decoding="async"
       draggable="false"
@@ -289,11 +289,14 @@ const props = withDefaults(defineProps<{
   /** Turn once by itself when a smooth set has loaded, so it is obvious the car spins. Stops at the first touch. */
   autoplay?: boolean
   /**
-   * Studio look (the car tour): a photo shown whole has no blurred copy around it. On a wide screen
-   * its sides fade into the plain background; top and bottom stay straight.
+   * Studio look (the car tour): a photo shown whole sits on the plain background with clean, straight
+   * edges, with no blurred copy around it.
    */
   studio?: boolean
+  /** When filling the box crops top and bottom: `bottom` keeps the bottom of the photo and crops the top. */
+  coverAlign?: 'center' | 'bottom'
 }>(), {
+  coverAlign: 'center',
   studio: false,
   fit: 'auto', editable: false, placing: false, selectedHotspotId: null, hideBar: false, hideZoom: false,
   zoomBottom: '50%', zoomable: true, autoplay: true, startAngle: 0, rows: null,
@@ -452,12 +455,12 @@ function natOf(v?: VehicleView) {
 }
 const fitNow = computed(() => resolveFit(props.fit, box.value, natOf(sorted.value[startIndex.value] ?? currentView.value)))
 function rectOf(v?: VehicleView) {
-  return fitRect(box.value, natOf(v), fitNow.value)
+  const r = fitRect(box.value, natOf(v), fitNow.value)
+  // Filling a box whose bottom is covered by the host's controls: crop the sky, not the car.
+  if (props.coverAlign === 'bottom' && fitNow.value === 'cover') return { ...r, y: box.value.h - r.h }
+  return r
 }
 const showBackdrop = computed(() => !props.editable && !props.studio && fitNow.value === 'contain' && !!backdropUrl.value)
-/** Studio: the photo's side edges that sit inside the box fade out (a share of the photo's height). */
-const FEATHER = 0.14
-const feathered = computed(() => props.studio && !props.editable && fitNow.value === 'contain')
 const backdropUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? '')
 const posterUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? '')
 
@@ -647,27 +650,7 @@ function draw() {
     if (k < 1 && fd && from) { paint(fd, from, 1 - k); requestDraw() } else fade = null
   }
   ctx.globalAlpha = 1
-  if (feathered.value) featherEdges(ctx, rectOf(base.v))
   if (!painted.value) painted.value = true
-}
-
-/** Fades the photo's left and right edges into the background when they sit inside the box (a wide
- *  screen). Top and bottom stay a clean straight line: on a phone the car is a sharp band, not a blur. */
-function featherEdges(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }) {
-  const big = 1e5
-  ctx.globalCompositeOperation = 'destination-in'
-  const pass = (horizontal: boolean) => {
-    const start = horizontal ? r.x : r.y
-    const len = horizontal ? r.w : r.h
-    if (start <= 0.5) return
-    const f = Math.min(0.45, FEATHER * (horizontal ? r.h / r.w : 1)) // the same fade width on both axes
-    const g = horizontal ? ctx.createLinearGradient(r.x, 0, r.x + len, 0) : ctx.createLinearGradient(0, r.y, 0, r.y + len)
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(f, '#000'); g.addColorStop(1 - f, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.fillStyle = g
-    ctx.fillRect(-big, -big, 2 * big, 2 * big)
-  }
-  pass(true)
-  ctx.globalCompositeOperation = 'source-over'
 }
 
 // ── Pins ──
@@ -1347,6 +1330,7 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
   object-fit: cover; object-position: center; pointer-events: none;
 }
 .vsv__poster.is-contain { object-fit: contain; }
+.vsv__poster.is-bottom { object-position: center bottom; }
 .vsv__canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .vsv__empty {
   position: absolute; inset: 0; display: grid; place-items: center;

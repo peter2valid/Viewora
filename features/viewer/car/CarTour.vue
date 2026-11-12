@@ -16,6 +16,8 @@
       :views="active.spin!.views"
       :rows="active.spin!.rows?.length ? spinRows(active.spin!) : null"
       :start-angle="active.spin!.start_angle"
+      :fit="embed && !narrow ? 'cover' : 'auto'"
+      :cover-align="embed && !narrow && items.length > 1 && !dockCollapsed ? 'bottom' : 'center'"
       studio
       hide-bar
       :hide-zoom="compact || (narrow && ribbonOpen)"
@@ -128,7 +130,7 @@
         :active-id="active?.id ?? ''"
         glass-class="dock-glass-superdark"
         :sortable="false"
-        :branches="groups.length > 1"
+        :branches="false"
         :bottom-px="16"
         :edge-inset-px="16"
         :max-strip-vw="86"
@@ -365,16 +367,9 @@ defineExpose({ go, items })
   --ct-top: 16px; --ct-bottom: 16px;
 }
 .ct__layer { position: absolute; inset: 0; }
-/* Wide screens: the car and close-ups sit above the open dock, never under it; their edges fade into
-   the plain background (studio), so there is no frame and no blur. A phone keeps the full screen. */
-.ct.is-embed.has-dock:not(.is-narrow) .ct__layer--flat {
-  bottom: 176px; --vsv-overlay-bottom: 72px;
-  /* The bottom edge then sits mid-screen: it fades out too, the same as the sides. */
-  -webkit-mask-image: linear-gradient(#000 calc(100% - 72px), transparent);
-  mask-image: linear-gradient(#000 calc(100% - 72px), transparent);
-}
-.ct.is-embed .ct__layer--flat { transition: bottom 180ms ease; }
-@media (prefers-reduced-motion: reduce) { .ct.is-embed .ct__layer--flat { transition: none; } }
+/* Wide screens: the spin fills the whole screen edge to edge (no fade, no bars) and the dock floats
+   over the ground, like the 360° tour. Cues that sit at the bottom of the car go above the dock. */
+.ct.is-embed.has-dock:not(.is-narrow) { --vsv-overlay-bottom: 132px; }
 
 /* Standalone: the 360° tour's control buttons, top right. */
 .ct__rail {
@@ -431,15 +426,17 @@ defineExpose({ go, items })
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ct__group {
-  min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: transparent;
-  color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 700; cursor: pointer;
+  position: relative; min-height: 32px; min-width: 104px; padding: 0 22px; border-radius: 999px; border: 0; background: transparent;
+  color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 700; letter-spacing: 0.01em; cursor: pointer;
   transition: background 120ms, color 120ms, transform 120ms;
 }
 .ct__group.is-on { background: #fff; color: #0b0b0c; }
+/* Slim to look at, but a finger-sized place to tap. */
+.ct__group::after { content: ''; position: absolute; inset: -8px 0; }
 .ct__group:active { transform: scale(0.97); }
 /* Spin page on a phone: the switch sits left, clear of the share and full-screen buttons on the right. */
 .ct.is-embed.is-narrow .ct__groups { left: 16px; transform: none; max-width: calc(100% - 92px); }
-.ct.is-embed.is-narrow .ct__group { min-height: 42px; padding: 0 12px; }
+.ct.is-embed.is-narrow .ct__group { min-width: 0; padding: 0 14px; }
 .ct__group:focus-visible, .ct__chip:focus-visible, .ct__step:focus-visible, .ct__nav:focus-visible,
 .ct__ribbon-btn:focus-visible, .ct__thumb:focus-visible, .ct__ribbon-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
