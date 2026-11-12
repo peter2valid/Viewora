@@ -1067,7 +1067,9 @@ async function makeSpin(file: File) {
     spinOpen.value = false
     if (views.value.length) selectedId.value = views.value[0].id
     const centred = report.centred ? ' The car is centred and the same size in every frame.' : ''
-    setNotice(`Smooth spin ready: ${views.value.length} frames.${centred} Drag the car to try it, then pin hotspots on any frame.${report.tips.length ? ` ${report.tips.length > 1 ? 'Tips' : 'Tip'}: ${report.tips.slice(0, 2).join(' ')}` : ''}`)
+    setNotice(`Smooth spin ready: ${views.value.length} frames.${centred} The studio finish is being added now (about a minute). Drag the car to try it, then pin hotspots on any frame.${report.tips.length ? ` ${report.tips.length > 1 ? 'Tips' : 'Tip'}: ${report.tips.slice(0, 2).join(' ')}` : ''}`)
+    // Every new video spin gets the studio finish; the owner can switch back to Original in the side panel.
+    if (finish.available.value) void finish.apply('natural')
   } catch (e: any) {
     const m = errMsg(e, 'Something went wrong')
     if (m === 'Cancelled') {
