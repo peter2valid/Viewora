@@ -83,6 +83,11 @@ export function useHotspotEditor(
   const patchSeq = new Map<string, number>()
   const tempIdOf = new Map<string, string>()
   const seqKey = (id: string) => tempIdOf.get(id) ?? id
+  // temp id → real id, once the create lands. The hover menu (and anything else
+  // that grabbed the id right after "Save Hotspot") can still hold the temp id;
+  // without this a move/delete aimed at it missed the hotspot on the first try.
+  const realIdOf = new Map<string, string>()
+  const liveId = (id: string) => realIdOf.get(id) ?? id
 
   async function resolveRealId(id: string): Promise<string | null> {
     if (!isTempId(id)) return id
@@ -466,6 +471,9 @@ export function useHotspotEditor(
         // A reload that left before this POST landed won't have the row: keep ours.
         writes.touch(mapped.id)
         tempIdOf.set(mapped.id, id)
+        realIdOf.set(id, mapped.id)
+        // A move started on the temp id keeps going on the real one.
+        if (repositioningHotspotId.value === id) repositioningHotspotId.value = mapped.id
         const list = hotspotsByScene.value[sceneId] ?? []
         const local = list.find(h => h.id === id)
         // Edits made while the POST was in flight are already queued against
@@ -634,6 +642,7 @@ export function useHotspotEditor(
 
   function deleteHotspot(id: string, opts: { silent?: boolean } = {}) {
     if (!id || deletingHotspot.value) return
+    id = liveId(id)
     const sceneId = selectedSceneId.value
 
     replaceHotspot(sceneId, id, null)
@@ -658,6 +667,7 @@ export function useHotspotEditor(
   }
 
   function handleHotspotReposition(id: string) {
+    id = liveId(id)
     if (quickEditHotspotId.value !== id) commitOpenQuickEdit()
     const hs = activeSceneHotspots.value.find(h => h.id === id)
     if (hs?.kind === 'plot' || hs?.kind === 'zone' || (hs?.kind === 'road' && (hs.points?.length ?? 0) >= 2)) {
@@ -672,6 +682,7 @@ export function useHotspotEditor(
   }
 
   function repositionHotspot(id: string, yaw: number, pitch: number) {
+    id = liveId(id)
     const sceneId = selectedSceneId.value
     repositioningHotspotId.value = null
     editorStore.setMode('view')
@@ -686,6 +697,7 @@ export function useHotspotEditor(
   }
 
   function selectHotspot(id: string | null) {
+    if (id) id = liveId(id)
     editorStore.selectHotspot(id)
     if (!id) return
     const hotspot = activeSceneHotspots.value.find(h => h.id === id)

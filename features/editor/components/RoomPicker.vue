@@ -45,6 +45,8 @@
       :start-index="selectedIndex"
       @close="previewOpen = false"
       @choose="onPreviewChoose"
+      @change="onPreviewChange"
+      @revert="onPreviewRevert"
     />
   </div>
 </template>
@@ -55,7 +57,7 @@
  * the chosen room in 360° (drag to look around), arrows to step through the
  * rooms in dock order, and a bigger preview.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import RoomPreviewOverlay from '~/features/editor/components/RoomPreviewOverlay.vue'
 import RoomSphere from '~/features/editor/components/RoomSphere.vue'
 
@@ -71,6 +73,16 @@ const emit = defineEmits<{
 const selected = computed(() => props.scenes.find(s => s.id === props.modelValue))
 
 const previewOpen = ref(false)
+// Room linked when the big preview opened, restored if the preview is cancelled.
+let linkedBeforePreview: string | null | undefined
+watch(previewOpen, (open) => { if (open) linkedBeforePreview = props.modelValue })
+function onPreviewChange(id: string) {
+  if (id !== props.modelValue) emit('update:modelValue', id)
+}
+function onPreviewRevert() {
+  if (linkedBeforePreview && linkedBeforePreview !== props.modelValue) emit('update:modelValue', linkedBeforePreview)
+  previewOpen.value = false
+}
 
 function onPreviewChoose(id: string) {
   emit('update:modelValue', id)

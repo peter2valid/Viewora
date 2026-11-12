@@ -29,7 +29,7 @@
         </component>
 
         <div class="rp-footer">
-          <button class="rp-btn rp-btn--ghost" @click="emit('close')">Cancel</button>
+          <button class="rp-btn rp-btn--ghost" @click="emit('revert')">Cancel</button>
           <button class="rp-btn rp-btn--primary" :disabled="!scene" @click="scene && emit('choose', scene.id)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             Link this room
@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import RoomSphere from '~/features/editor/components/RoomSphere.vue'
 
 const props = defineProps<{
@@ -52,10 +52,17 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'choose', id: string): void
+  /** The room on screen changed — it's linked straight away, no need to press "Link this room". */
+  (e: 'change', id: string): void
+  /** Cancel: put back the room that was linked before the preview opened. */
+  (e: 'revert'): void
 }>()
 
 const index = ref(Math.max(0, props.startIndex))
 const scene = computed(() => props.scenes[index.value])
+
+// The room being shown is the linked room, whether or not "Link this room" is pressed.
+watch(scene, (s) => { if (s) emit('change', s.id) }, { immediate: true })
 
 function step(dir: 1 | -1) {
   const n = props.scenes.length
