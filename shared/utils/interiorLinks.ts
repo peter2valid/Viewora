@@ -4,7 +4,7 @@
 
 import type { Hotspot } from '~/domain/hotspot'
 
-type LinkLike = Pick<Hotspot, 'type' | 'linkStyle' | 'targetSceneId'> & { yaw?: number }
+type LinkLike = Pick<Hotspot, 'type' | 'linkStyle' | 'targetSceneId'> & { yaw?: number; label?: string }
 
 export function isInteriorLink(h: Pick<Hotspot, 'type' | 'linkStyle'> | null | undefined): boolean {
   return !!h && h.type === 'scene_link' && h.linkStyle === 'interior'
@@ -15,6 +15,10 @@ export type InteriorHome = {
   homeSceneId: string
   /** Where the badge sits in that scene, to face the car on the way back. */
   badgeYaw: number
+  /** The scene the badge opens (the car's first interior view). */
+  entrySceneId: string
+  /** The badge's text, e.g. "See interior · Land Cruiser 300". */
+  badgeLabel: string
 }
 
 /**
@@ -32,11 +36,11 @@ export function interiorScenes(hotspotsByScene: Record<string, LinkLike[]>): Rec
       .filter(h => h.type === 'scene_link' && h.targetSceneId && !isInteriorLink(h))
       .map(h => h.targetSceneId!)
 
-  const badges: Array<{ from: string; to: string; yaw: number }> = []
+  const badges: Array<{ from: string; to: string; yaw: number; label: string }> = []
   for (const [from, list] of Object.entries(hotspotsByScene)) {
     for (const h of list ?? []) {
       if (isInteriorLink(h) && h.targetSceneId && h.targetSceneId !== from) {
-        badges.push({ from, to: h.targetSceneId, yaw: Number(h.yaw) || 0 })
+        badges.push({ from, to: h.targetSceneId, yaw: Number(h.yaw) || 0, label: h.label ?? '' })
       }
     }
   }
@@ -54,7 +58,7 @@ export function interiorScenes(hotspotsByScene: Record<string, LinkLike[]>): Rec
   const result: Record<string, InteriorHome> = {}
   for (const b of badges) {
     if (outside.has(b.to) || result[b.to]) continue
-    const home: InteriorHome = { homeSceneId: b.from, badgeYaw: b.yaw }
+    const home: InteriorHome = { homeSceneId: b.from, badgeYaw: b.yaw, entrySceneId: b.to, badgeLabel: b.label }
     const stack = [b.to]
     while (stack.length) {
       const id = stack.pop()!
@@ -64,4 +68,38 @@ export function interiorScenes(hotspotsByScene: Record<string, LinkLike[]>): Rec
     }
   }
   return result
+}
+
+/** "See interior · Land Cruiser 300" → "Land Cruiser 300"; nothing left → "". */
+export function carNameFromBadge(label: string | null | undefined): string {
+  return (label ?? '')
+    .replace(/^\s*(see|view|open)?\s*(the\s+)?interior\b\s*/i, '')
+    .replace(/^[\s·:|\-–—]+/, '')
+    .trim()
+}
+
+/**
+ * Dock folder name per interior scene: one folder per car, named from its
+ * badge, else from the car's first interior scene. Two cars with the same
+ * name get "(2)", "(3)"… so their seats never land in one folder.
+ */
+export function interiorFolders(
+  homes: Record<string, InteriorHome>,
+  sceneName: (id: string) => string,
+): Record<string, string> {
+  const nameOfEntry = new Map<string, string>()
+  const used = new Map<string, number>()
+  const out: Record<string, string> = {}
+  for (const [sceneId, home] of Object.entries(homes)) {
+    let name = nameOfEntry.get(home.entrySceneId)
+    if (!name) {
+      const base = carNameFromBadge(home.badgeLabel) || sceneName(home.entrySceneId) || 'Car'
+      const n = (used.get(base) ?? 0) + 1
+      used.set(base, n)
+      name = n === 1 ? base : `${base} (${n})`
+      nameOfEntry.set(home.entrySceneId, name)
+    }
+    out[sceneId] = name
+  }
+  return out
 }

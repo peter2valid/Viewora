@@ -83,6 +83,7 @@ export function buildDockEntries(
   scenes: GroupableScene[],
   openGroup: string | null,
   activeSceneId: string,
+  backLabel = 'All rooms',
 ): { items: DockEntry[]; activeItemId: string } {
   const toEntry = (s: GroupableScene): DockEntry => ({
     id: s.id, label: s.label, imageUrl: s.imageUrl, badge: s.badge ?? null, tooltip: s.tooltip ?? null,
@@ -96,7 +97,7 @@ export function buildDockEntries(
     if (inGroup.length >= 2) {
       return {
         items: [
-          { id: BACK_ITEM_ID, label: 'All rooms', kind: 'back', ariaLabel: 'Back to all rooms' },
+          { id: BACK_ITEM_ID, label: backLabel, kind: 'back', ariaLabel: `Back to ${backLabel.toLowerCase()}` },
           ...inGroup.map((s, i) => ({ ...toEntry(s), label: s.label || `${openGroup} ${i + 1}` })),
         ],
         activeItemId: activeSceneId,

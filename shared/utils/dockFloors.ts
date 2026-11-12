@@ -30,3 +30,25 @@ export function buildDockFloors(floors: FloorMapFloor[], sceneIds: string[]): Do
 export function dockFloorOf(tabs: DockFloor[], sceneId: string): string | null {
   return tabs.find(t => t.sceneIds.includes(sceneId))?.id ?? null
 }
+
+// ── Showroom | Interiors ─────────────────────────────────────────────────────
+// A showroom with "See interior" badges on 20+ cars would bury the walkthrough
+// under 40+ seat views. The dock splits them: the walkthrough (as floor tabs
+// when there are floor plans, else one "Showroom" tab) and an "Interiors" tab.
+
+export const SHOWROOM_TAB_ID = '__showroom'
+export const INTERIORS_TAB_ID = '__interiors'
+
+/** `tabs` = buildDockFloors() output; `sceneIds` = every scene in tour order. */
+export function withInteriorsTab(tabs: DockFloor[], sceneIds: string[], isInterior: (id: string) => boolean): DockFloor[] {
+  const interiors = sceneIds.filter(isInterior)
+  const outside = sceneIds.filter(id => !isInterior(id))
+  if (!interiors.length || !outside.length) return tabs
+  const walk = tabs
+    .map(t => ({ ...t, sceneIds: t.sceneIds.filter(id => !isInterior(id)) }))
+    .filter(t => t.sceneIds.length > 0)
+  return [
+    ...(walk.length ? walk : [{ id: SHOWROOM_TAB_ID, name: 'Showroom', sceneIds: outside }]),
+    { id: INTERIORS_TAB_ID, name: 'Interiors', sceneIds: interiors },
+  ]
+}

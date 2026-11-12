@@ -641,7 +641,7 @@ import { factsLine, formatPrice } from '~/utils/listingDisplay'
 import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
-import { interiorScenes, isInteriorLink } from '~/shared/utils/interiorLinks'
+import { interiorFolders, interiorScenes, isInteriorLink } from '~/shared/utils/interiorLinks'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
@@ -666,7 +666,7 @@ import {
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
 import { attachFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
 import { floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
-import { buildDockFloors, dockFloorOf, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
+import { buildDockFloors, dockFloorOf, withInteriorsTab, INTERIORS_TAB_ID, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import {
   initVirtualTourViewer,
@@ -1020,12 +1020,19 @@ const activeSceneId = computed(() =>
     : ''
 )
 
+// Car interiors (scenes behind a "See interior" badge): one dock folder per
+// car, named from its badge. A category the owner set by hand still wins.
+const interiorFolderOf = computed(() => interiorFolders(interiorHome.value, (id) => {
+  const raw = tourScenes.value.find((x: any) => x.id === id)
+  return raw?.name || ''
+}))
+
 // Scenes as groupable entries — `group` is the scene's category, if any.
 const groupableScenes = computed<GroupableScene[]>(() =>
   tourScenes.value.map((s: any, idx: number) => ({
     id: s.id,
     label: s.name || `Scene ${idx + 1}`,
-    group: s.group_name ?? null,
+    group: s.group_name ?? interiorFolderOf.value[s.id] ?? null,
     imageUrl: s.thumbnail_url || null,
     // If tiles are ready or we have a thumbnail, the scene is functional.
     // Only show 'loading' if it's genuinely pending, and skip 'failed' if it actually works.
@@ -1039,7 +1046,11 @@ const groupableScenes = computed<GroupableScene[]>(() =>
 // dockFloorId is the floor being shown; it follows the visitor on every
 // scene change, and a tab tap browses another floor without moving. No tabs
 // (no plans, or nothing to switch between) → every scene, as before.
-const dockFloors = computed(() => buildDockFloors(floorMapFloors.value, groupableScenes.value.map(s => s.id)))
+// With "See interior" badges: walkthrough tab(s) + an "Interiors" tab.
+const dockFloors = computed(() => {
+  const ids = groupableScenes.value.map(s => s.id)
+  return withInteriorsTab(buildDockFloors(floorMapFloors.value, ids), ids, id => !!interiorHome.value[id])
+})
 const visitorFloorId = computed(() => dockFloorOf(dockFloors.value, activeSceneId.value))
 const dockFloorId = ref<string | null>(null)
 // activeSceneId too: moving within the same floor also ends any browsing.
@@ -1101,7 +1112,8 @@ if (MAGNET_DOCK) {
 }
 
 function browseDockFloor(floorId: string) {
-  if (floorId !== OTHER_FLOOR_ID) floorMapCtl.value?.showFloor(floorId)
+  // Only real floors have a plan for the minimap to show.
+  if (floorMapFloors.value.some(f => f.id === floorId)) floorMapCtl.value?.showFloor(floorId)
   if (floorId === dockFloorId.value) return
   dockFloorId.value = floorId
   openGroup.value = null
@@ -1246,7 +1258,10 @@ function scheduleDockLift() {
 // shot via a hotspot opens the Kitchen folder. With floor tabs, folders are
 // built from the floor being shown.
 const openGroup = ref<string | null>(null)
-const dockState = computed(() => buildDockEntries(dockScenes.value, openGroup.value, activeSceneId.value))
+const dockState = computed(() => buildDockEntries(
+  dockScenes.value, openGroup.value, activeSceneId.value,
+  dockFloorId.value === INTERIORS_TAB_ID ? 'All cars' : 'All rooms',
+))
 const dockItems = computed(() => dockState.value.items as any[])
 const dockActiveId = computed(() => dockState.value.activeItemId)
 watch(activeSceneId, (id) => {

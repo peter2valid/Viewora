@@ -26,9 +26,9 @@ test('front and rear seats belong to the showroom spot with the badge', () => {
     'lc-front': [],
   })
   assert.deepEqual(out, {
-    'prado-front': { homeSceneId: 'floor1', badgeYaw: 1.2 },
-    'prado-rear': { homeSceneId: 'floor1', badgeYaw: 1.2 },
-    'lc-front': { homeSceneId: 'floor2', badgeYaw: -0.5 },
+    'prado-front': { homeSceneId: 'floor1', badgeYaw: 1.2, entrySceneId: 'prado-front', badgeLabel: '' },
+    'prado-rear': { homeSceneId: 'floor1', badgeYaw: 1.2, entrySceneId: 'prado-front', badgeLabel: '' },
+    'lc-front': { homeSceneId: 'floor2', badgeYaw: -0.5, entrySceneId: 'lc-front', badgeLabel: '' },
   })
 })
 
@@ -48,4 +48,43 @@ test('a scene also reachable by a plain arrow from the floor is not an interior'
     office: [],
   })
   assert.deepEqual(out, {})
+})
+
+import { carNameFromBadge, interiorFolders } from '../shared/utils/interiorLinks.ts'
+import { withInteriorsTab, INTERIORS_TAB_ID, SHOWROOM_TAB_ID } from '../shared/utils/dockFloors.ts'
+
+test('car name comes from the badge text', () => {
+  assert.equal(carNameFromBadge('See interior · Land Cruiser 300'), 'Land Cruiser 300')
+  assert.equal(carNameFromBadge('See interior: Prado'), 'Prado')
+  assert.equal(carNameFromBadge('Interior - Hilux'), 'Hilux')
+  assert.equal(carNameFromBadge('See interior'), '')
+  assert.equal(carNameFromBadge('Prado TX'), 'Prado TX')
+})
+
+test('one folder per car; unnamed badges fall back to the scene name; duplicates are numbered', () => {
+  const homes = interiorScenes({
+    floor: [
+      { ...badge('p1'), label: 'See interior · Prado' },
+      { ...badge('l1'), label: 'See interior' },
+      { ...badge('x1'), label: 'See interior · Prado' },
+    ],
+    p1: [walk('p2')], p2: [walk('p1')], l1: [], x1: [],
+  })
+  const names: Record<string, string> = { l1: 'LC300 front' }
+  assert.deepEqual(interiorFolders(homes, id => names[id] ?? ''), {
+    p1: 'Prado', p2: 'Prado', l1: 'LC300 front', x1: 'Prado (2)',
+  })
+})
+
+test('interiors get their own dock tab', () => {
+  const ids = ['a', 'b', 'p1', 'p2']
+  const inside = (id: string) => id.startsWith('p')
+  assert.deepEqual(withInteriorsTab([], ids, inside), [
+    { id: SHOWROOM_TAB_ID, name: 'Showroom', sceneIds: ['a', 'b'] },
+    { id: INTERIORS_TAB_ID, name: 'Interiors', sceneIds: ['p1', 'p2'] },
+  ])
+  // Floor tabs stay; interiors leave them (an "Other" tab of only interiors disappears).
+  const floors = [{ id: 'g', name: 'Ground', sceneIds: ['a', 'b'] }, { id: '__other', name: 'Other', sceneIds: ['p1', 'p2'] }]
+  assert.deepEqual(withInteriorsTab(floors, ids, inside).map(t => t.name), ['Ground', 'Interiors'])
+  assert.deepEqual(withInteriorsTab([], ids, () => false), [])
 })
