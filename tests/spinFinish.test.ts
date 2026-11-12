@@ -25,6 +25,7 @@ test('progress: running states and the owner-facing line', () => {
   assert.match(progressText({ state: 'failed', look: 'vivid', done: 0, total: 0 }), /previous look/)
 })
 
-test('three looks, original first', () => {
-  assert.deepEqual(SPIN_LOOK_OPTIONS.map(o => o.look), ['original', 'natural', 'vivid'])
+test('four looks, original first', () => {
+  assert.deepEqual(SPIN_LOOK_OPTIONS.map(o => o.look), ['original', 'natural', 'vivid', 'hd'])
+  assert.equal(lookOfUrl(`${orig}.studio-hd-v1-0a1b2c3d.jpg`), 'hd')
 })

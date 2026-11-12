@@ -188,7 +188,7 @@
         <p class="vp-muted">Cleaner light and richer paint, matched on every frame so the car doesn't flicker as it turns. Your recording is kept.</p>
         <fieldset class="vp-seg vp-seg--3" aria-label="Look of this spin">
           <button
-            v-for="o in SPIN_LOOK_OPTIONS"
+            v-for="o in finishOptions"
             :key="o.look"
             type="button"
             class="vp-seg__btn"
@@ -1099,6 +1099,7 @@ const finishLook = computed<SpinLook>(() => finish.status.value?.look ?? 'origin
 const finishRunning = computed(() => isRunning(finish.status.value?.progress))
 const finishFailed = computed(() => finish.error.value || (finish.status.value?.progress?.state === 'failed' ? progressText(finish.status.value.progress) : ''))
 const compareSplit = ref(50)
+const finishOptions = computed(() => SPIN_LOOK_OPTIONS.filter(o => o.look !== 'hd' || finish.status.value?.hd_available))
 function applyFinish(look: SpinLook, again = false) {
   if (look === finishLook.value && !again) return
   finish.apply(look)
@@ -1245,7 +1246,7 @@ defineExpose({ reload: init, showBuyerView })
 </script>
 
 <style scoped>
-.vp-seg.vp-seg--3 { grid-template-columns: repeat(3, 1fr); }
+.vp-seg.vp-seg--3 { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
 .vp-seg__btn.is-pending { border-style: dashed; border-color: #fff; }
 .vp-compare { position: relative; margin: 4px 0 0; border-radius: 10px; overflow: hidden; aspect-ratio: 16 / 9; background: #000; }
 .vp-compare__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }

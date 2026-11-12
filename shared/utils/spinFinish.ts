@@ -2,15 +2,16 @@
 // copy next to each original (viewora-backend utils/spinLook.ts). These helpers read a photo's look
 // from its URL and find its original, so the editor can show before and after.
 
-export type SpinLook = 'original' | 'natural' | 'vivid'
+export type SpinLook = 'original' | 'natural' | 'vivid' | 'hd'
 
 export const SPIN_LOOK_OPTIONS: { look: SpinLook; label: string; hint: string }[] = [
   { look: 'original', label: 'Original', hint: 'The frames as you recorded them' },
   { look: 'natural', label: 'Studio', hint: 'Cleaner light, richer paint, even brightness all the way round' },
   { look: 'vivid', label: 'Vivid', hint: 'Studio with more contrast and colour. Best for dark or dull paint' },
+  { look: 'hd', label: 'AI HD', hint: 'AI restores each frame: removes video blur and blotches, cleaner edges. Takes a few minutes' },
 ]
 
-const SUFFIX = /\.studio-(natural|vivid)-v\d+(?:-[0-9a-f]{8})?\.jpg$/
+const SUFFIX = /\.studio-(natural|vivid|hd)-v\d+(?:-[0-9a-f]{8})?\.jpg$/
 
 /** The look a frame URL shows. */
 export function lookOfUrl(url: string): SpinLook {
@@ -37,6 +38,8 @@ export interface SpinLookStatus {
   behind: number
   total: number
   progress: SpinLookProgress | null
+  /** The server can run AI HD (its AI service is set up). */
+  hd_available?: boolean
 }
 
 /** True while the server is still working on a change. */
