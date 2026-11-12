@@ -705,24 +705,39 @@ function findHotspot(id: string) {
   }
   return null
 }
-async function follow(id: string, fixed: Record<string, [number, number]> = {}) {
+async function follow(id: string, fixed: Record<string, [number, number]> = {}, quiet = false): Promise<boolean> {
   const found = findHotspot(id)
-  if (!found || !isSpin.value) return
+  if (!found || !isSpin.value) return false
   const run = (trackRuns.get(id) ?? 0) + 1
   trackRuns.set(id, run)
   tracking.value = { ...tracking.value, [id]: 'running' }
   try {
     const track = await followPin(views.value, found.view.id, [found.h.x, found.h.y], fixed)
-    if (trackRuns.get(id) !== run) return
+    if (trackRuns.get(id) !== run) return false
     await updateHotspot(found.view.id, id, { track })
     const { [id]: _, ...rest } = tracking.value
     tracking.value = rest
+    return true
   } catch (e: any) {
-    if (trackRuns.get(id) !== run) return
+    if (trackRuns.get(id) !== run) return false
     tracking.value = { ...tracking.value, [id]: 'failed' }
-    setNotice(`${errMsg(e, 'Could not follow the pin round the car')}. It shows near this frame only.`)
+    if (!quiet) setNotice(`${errMsg(e, 'Could not follow the pin round the car')}. It shows near this frame only.`)
+    return false
   }
 }
+
+// Pins placed before following existed (or before the database could keep a track) are followed
+// once, one after another, when their spin opens. The first failure (such as the database update
+// not having run yet) stops it quietly; the pins keep working as before.
+const backfilledSpins = new Set<string>()
+watch(() => [loaded.value, activeSpinId.value, views.value.length] as const, async () => {
+  if (!loaded.value || !isSpin.value) return
+  const key = activeSpinId.value ?? ''
+  if (backfilledSpins.has(key)) return
+  backfilledSpins.add(key)
+  const todo = views.value.flatMap(v => (v.hotspots ?? []).filter(h => !h.track).map(h => h.id))
+  for (const id of todo) if (!(await follow(id, {}, true))) break
+}, { immediate: true })
 const trackNote = computed(() => {
   const h = selectedHotspot.value
   if (!h || !isSpin.value) return ''
