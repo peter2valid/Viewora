@@ -436,7 +436,7 @@ defineExpose({ go, items })
 .ct__group:active { transform: scale(0.97); }
 /* Spin page on a phone: the switch sits left, clear of the share and full-screen buttons on the right. */
 .ct.is-embed.is-narrow .ct__groups { left: 16px; transform: none; max-width: calc(100% - 92px); }
-.ct.is-embed.is-narrow .ct__group { min-width: 0; padding: 0 14px; }
+.ct.is-narrow .ct__group { min-width: 0; padding: 0 14px; white-space: nowrap; }
 .ct__group:focus-visible, .ct__chip:focus-visible, .ct__step:focus-visible, .ct__nav:focus-visible,
 .ct__ribbon-btn:focus-visible, .ct__thumb:focus-visible, .ct__ribbon-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 

@@ -45,6 +45,8 @@
             top-offset="64px"
             @item-change="carItem = $event"
           />
+          <!-- The dealer's brand on the car, through Exterior, Interior and Close-ups. -->
+          <ViewerTourBrandCard v-if="carBrand" class="car-brand" :space="space" :name="carBrand.name" />
           <ViewerPsvViewer
             v-else-if="isPanorama"
             ref="psvViewerRef"
@@ -68,7 +70,17 @@
             <NuxtLink to="/view" class="iconbtn" aria-label="Back to listings">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </NuxtLink>
-            <h1 class="topbar__title">{{ space.title }}</h1>
+            <h1 class="topbar__title" :class="{ 'has-logo': carBrand && space.logo_url }">{{ space.title }}</h1>
+            <!-- Phones: the dealer's logo takes the title's place (the car is named below the price). -->
+            <NuxtImg
+              v-if="carBrand && space.logo_url"
+              :src="space.logo_url"
+              width="120"
+              height="32"
+              fit="contain"
+              class="topbar__logo"
+              :alt="carBrand.name || 'Dealer logo'"
+            />
             <div class="topbar__right">
               <NuxtLink v-if="isOwner" :to="ownerEditHref" class="iconbtn" aria-label="Edit listing">
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
@@ -314,6 +326,13 @@ const tourData = ref<any>(null)
 const carSpins = computed(() => (space.value?.space_type === 'automotive' ? spinsFromTour(tourData.value) : []))
 const isCarTour = computed(() => space.value?.space_type === 'automotive' && (carSpins.value.length > 0 || rooms.value.length > 0 || photos.value.length > 0))
 const carItem = ref<CarTourItem | null>(null)
+// A car's title is the car, so the brand card names the dealer (their profile's business name).
+// Shown once there is something of the brand to show: a logo or a business name.
+const carBrand = computed(() => {
+  if (!isCarTour.value || !space.value) return null
+  const name = seller.value?.company_name?.trim() || null
+  return space.value.logo_url || name ? { name } : null
+})
 const seller = ref<{ id: string; full_name: string | null; avatar_url: string | null; company_name: string | null } | null>(null)
 
 const { data: tourPayload, error: tourError } = await useAsyncData(
@@ -1001,6 +1020,21 @@ useHead({
 /* The car tour keeps its zoom buttons on the right edge: the expand button stays bottom-right. */
 /* The open photo strip stops short of the expand button. */
 .pano--car { --ct-ribbon-right: 64px; --vsv-tl-right: 62px; }
+/* Dealer's brand: top-left, under the top bar, over every part of the car tour. */
+.car-brand { position: absolute; z-index: 21; top: 64px; left: 16px; }
+.topbar__logo { display: none; }
+@media (max-width: 640px) {
+  .car-brand { display: none; }
+  .topbar__title.has-logo {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .topbar__logo {
+    display: block; flex: 1 1 auto; min-width: 0;
+    width: auto; max-width: 120px; max-height: 32px; margin: 0 auto;
+    object-fit: contain; object-position: center;
+    filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+  }
+}
 .stage--car .expandbtn, .stage--car.stage--full .expandbtn { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); transform: none; }
 .pano--gallery { cursor: default; touch-action: pan-x; user-select: auto; }
 .pano__scrim {

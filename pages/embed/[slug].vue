@@ -58,11 +58,11 @@
           height="52"
           fit="contain"
           class="brand-card__logo"
-          :alt="space.title"
+          :alt="brandName || space.title"
         />
         <div class="brand-card__body">
-          <p class="brand-card__name">{{ space.title }}</p>
-          <p v-if="space.description" class="brand-card__desc">{{ space.description }}</p>
+          <p v-if="brandName" class="brand-card__name">{{ brandName }}</p>
+          <p v-if="space.description && !isCarTour" class="brand-card__desc">{{ space.description }}</p>
           <p v-if="space.location_text" class="brand-card__line">{{ space.location_text }}</p>
           <p v-if="space.phone" class="brand-card__line">{{ space.phone }}</p>
           <p v-if="space.email" class="brand-card__line">{{ space.email }}</p>
@@ -111,6 +111,8 @@ const isCarTour = computed(() => space.value?.space_type === 'automotive' && bui
 // Same test as the full tour page: only real visual branding replaces the watermark.
 // /spin/<slug> is the car alone: no description, location or contact card.
 const spinOnly = route.path.startsWith('/spin/')
+// A car's title is the car: its card names the dealer (their profile's business name) instead.
+const brandName = computed(() => (isCarTour.value ? tour.value?.seller?.company_name?.trim() || '' : space.value?.title || ''))
 const hasBrandingDetails = computed(() => {
   const sp = space.value
   return !spinOnly && !!(sp && (sp.logo_url || sp.description || sp.location_text || sp.email))
