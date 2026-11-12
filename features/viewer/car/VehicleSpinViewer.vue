@@ -17,7 +17,7 @@
     @keydown.up="onHeightKey($event, -1)"
     @keydown.down="onHeightKey($event, 1)"
     @keydown="onZoomKey"
-    @keydown.esc="activePinId = null"
+    @keydown.esc="photoOpen ? (photoOpen = false) : (activePinId = null)"
   >
     <!-- Blurred copy behind a car shown whole (contain), so a portrait phone has no black bars. -->
     <div v-if="showBackdrop" class="vsv__backdrop" :style="{ backgroundImage: `url(${backdropUrl})` }" aria-hidden="true" />
@@ -57,6 +57,7 @@
         @keydown.space.stop.prevent="selectPin(p.h)"
       >
         <svg v-if="p.h.kind === 'damage'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17.2v.1"/></svg>
+        <svg v-else-if="p.h.image_url" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-9 8"/></svg>
         <svg v-else-if="p.h.kind === 'link'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
         <svg v-else-if="p.h.kind === 'info'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M12 11v6M12 7.2v.1"/></svg>
         <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
@@ -66,8 +67,9 @@
     <!-- Popover for a tapped pin, anchored to it (the editor shows these in its side panel instead). -->
     <div
       v-if="!editable && activePin && popover"
+      ref="popEl"
       class="vsv__pop"
-      :class="`is-${popover.side}`"
+      :class="[`is-${popover.side}`, { 'has-img': !!activePin.image_url, 'no-arrow': !popover.fits }]"
       :style="{ left: popover.left + 'px', top: popover.top + 'px', '--arrow-x': popover.arrow + 'px' }"
       role="dialog"
       :aria-label="activePin.title"
@@ -76,11 +78,35 @@
       <button type="button" class="vsv__pop-close" aria-label="Close" @click="activePinId = null">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
+      <button v-if="activePin.image_url" type="button" class="vsv__pop-img" :aria-label="`Open the photo: ${activePin.title}`" @click="photoOpen = true">
+        <img :src="activePin.image_url" alt="" loading="eager" decoding="async" />
+      </button>
       <p class="vsv__pop-kind" :class="`is-${activePin.kind}`">{{ hotspotKindLabel(activePin.kind) }}</p>
       <p class="vsv__pop-title">{{ activePin.title }}</p>
       <p v-if="activePin.body" class="vsv__pop-body">{{ activePin.body }}</p>
       <a v-if="activePin.url" :href="activePin.url" class="vsv__pop-cta" target="_blank" rel="noopener noreferrer">Learn more</a>
     </div>
+
+    <!-- A pin's photo over the whole page (inside the full-screen element when there is one).
+         Tap anywhere, the cross or Esc to go back. -->
+    <Teleport :to="lightboxTarget">
+    <div
+      v-if="photoOpen && activePin?.image_url"
+      class="vsv__lightbox"
+      @keydown.esc.stop="photoOpen = false"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="activePin.title"
+      @pointerdown.stop
+      @click="photoOpen = false"
+    >
+      <img :src="activePin.image_url" :alt="activePin.title" />
+      <p class="vsv__lightbox-t">{{ activePin.title }}</p>
+      <button ref="lightboxClose" type="button" class="vsv__lightbox-x" aria-label="Close the photo" @click.stop="photoOpen = false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    </Teleport>
 
     <!-- While the frames load: the 360° badge in the middle, with how far along it is. -->
     <div v-if="showBadge" class="vsv__badge" aria-hidden="true">
@@ -224,7 +250,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   sortByAngle, viewLabel, wrapIndex, fitRect, pointToFraction, hotspotKindLabel, isSpinSet,
   resolveFit, clampZoom, zoomAt, zoomForward, zoomInverse, spinLoadOrder, indexNearestAngle,
@@ -358,15 +384,32 @@ function showToast(msg: string) {
   toastTimer = setTimeout(() => { toast.value = '' }, 1600)
 }
 
-/** Popover beside its pin: above it when there is room, else below; kept inside the viewer. */
+/** Popover beside its pin: above it when it fits, else below, else on the roomier side pulled
+ *  inside the viewer (a tall one with a photo near the top of a short screen). */
+const popEl = ref<HTMLElement | null>(null)
+const popH = ref(0)
+let popRo: ResizeObserver | undefined
+watch(popEl, el => {
+  popRo?.disconnect()
+  if (!el || typeof ResizeObserver === 'undefined') return
+  popRo = new ResizeObserver(() => { popH.value = el.offsetHeight })
+  popRo.observe(el)
+})
 const popover = computed(() => {
   const id = activePinId.value
   const p = id ? pins.value.find(x => x.h.id === id) : null
   if (!p || !p.visible) return null
   const W = Math.min(300, box.value.w - 24)
   const left = Math.max(12, Math.min(box.value.w - W - 12, p.left - W / 2))
-  const side = p.top >= box.value.h - p.top ? 'above' : 'below'
-  return { left, top: side === 'above' ? p.top - 22 : p.top + 22, side, arrow: Math.max(18, Math.min(W - 18, p.left - left)) }
+  const arrow = Math.max(18, Math.min(W - 18, p.left - left))
+  const H = popH.value || (p.h.image_url ? 300 : 120)
+  const room = { above: p.top - 22 - 12, below: box.value.h - p.top - 22 - 12 }
+  const side: 'above' | 'below' = room.above >= H ? 'above' : room.below >= H ? 'below' : room.above >= room.below ? 'above' : 'below'
+  // The top edge of the box; the popover is drawn from its top (below) or its bottom (above).
+  let top = side === 'above' ? p.top - 22 - H : p.top + 22
+  top = Math.max(12, Math.min(box.value.h - H - 12, top))
+  const fits = side === 'above' ? top + H <= p.top - 20 : top >= p.top + 20
+  return { left, top: side === 'above' ? top + H : top, side, arrow, fits }
 })
 
 // ── Box size ──
@@ -658,6 +701,19 @@ const pins = computed(() => {
 // Where a pin being dragged is right now; the real data only changes once it is dropped and saved.
 const dragOverride = ref<{ id: string; x: number; y: number } | null>(null)
 const activePinId = ref<string | null>(null)
+/** The open pin's photo, full screen. Closes with its pin. */
+const photoOpen = ref(false)
+const lightboxClose = ref<HTMLButtonElement | null>(null)
+const lightboxTarget = shallowRef<string | HTMLElement>('body')
+watch(activePinId, () => { photoOpen.value = false })
+watch(photoOpen, (open, was) => {
+  if (open) {
+    lightboxTarget.value = (document.fullscreenElement as HTMLElement | null) ?? 'body'
+    nextTick(() => lightboxClose.value?.focus())
+  } else if (was) {
+    rootEl.value?.querySelector<HTMLElement>('.vsv__pop-img')?.focus()
+  }
+})
 watch(activePinId, (id) => {
   emit('popover', !!id)
   const h = id ? activePin.value : null
@@ -1207,6 +1263,7 @@ onBeforeUnmount(() => {
   if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onDocVisibility)
   if (releaseTimer) clearTimeout(releaseTimer)
   if (toastTimer) clearTimeout(toastTimer)
+  popRo?.disconnect()
   if (sharpTimer) clearTimeout(sharpTimer)
   for (const d of frames.values()) closeDrawable(d)
   frames.clear()
@@ -1304,6 +1361,7 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 }
 .vsv__pop.is-above::after { bottom: -7px; border-top: 0; border-left: 0; }
 .vsv__pop.is-below::after { top: -7px; border-bottom: 0; border-right: 0; }
+.vsv__pop.no-arrow::after { display: none; }
 @keyframes vsv-pop-in { from { opacity: 0; } to { opacity: 1; } }
 .vsv__pop-close {
   position: absolute; top: 2px; right: 2px; width: 44px; height: 44px; border: 0; background: transparent;
@@ -1318,6 +1376,28 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
   display: inline-flex; align-items: center; min-height: 40px; margin-top: 12px; padding: 0 16px; border-radius: 8px;
   background: var(--vsv-cta-bg); color: var(--vsv-cta-fg); font-size: 14px; font-weight: 600; text-decoration: none;
 }
+.vsv__pop.has-img { padding-top: 0; padding-right: 16px; overflow: hidden; }
+.vsv__pop.has-img .vsv__pop-close {
+  top: 8px; right: 8px; width: 36px; height: 36px; border-radius: 999px; opacity: 1; z-index: 1;
+  background: rgba(0,0,0,0.55); color: #fff;
+}
+.vsv__pop-img {
+  display: block; width: calc(100% + 32px); margin: 0 -16px 12px; padding: 0; border: 0; cursor: zoom-in;
+  aspect-ratio: 16 / 10; background: rgba(127,127,127,0.15);
+}
+.vsv__pop-img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.vsv__pop-img:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: -4px; }
+.vsv__lightbox {
+  position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 64px 16px 24px; background: rgba(6,6,8,0.94); cursor: zoom-out; animation: vsv-pop-in 160ms ease-out;
+}
+.vsv__lightbox img { max-width: 100%; max-height: calc(100% - 40px); object-fit: contain; border-radius: 6px; }
+.vsv__lightbox-t { margin: 0; color: #fff; font-size: 15px; font-weight: 600; text-align: center; }
+.vsv__lightbox-x {
+  position: absolute; top: 12px; right: 12px; width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center;
+  border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.08); color: #fff; cursor: pointer;
+}
+.vsv__lightbox-x:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .vsv__pop-cta:focus-visible, .vsv__pop-close:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: 2px; }
 
 /* The "360°" badge: frosted, centred, gone at the first touch. */
@@ -1496,6 +1576,6 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 }
 @media (prefers-reduced-motion: reduce) {
   .vsv__pin.is-pulse::after { animation: none; display: none; }
-  .vsv__dot::after, .vsv__pin::before, .vsv__tl-dot::before, .vsv__pop, .vsv__toast, .vsv__zcue { transition: none; animation: none; }
+  .vsv__dot::after, .vsv__pin::before, .vsv__tl-dot::before, .vsv__pop, .vsv__lightbox, .vsv__toast, .vsv__zcue { transition: none; animation: none; }
 }
 </style>

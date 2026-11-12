@@ -11,7 +11,7 @@ const LEGACY_SPIN: VehicleSpin = { id: '00000000-0000-0000-0000-000000000000', t
 
 export interface AngleSuggestion { id: string; angle: number | null; label: string | null }
 export interface HotspotSuggestion { kind: 'feature' | 'damage'; x: number; y: number; title: string; body: string | null }
-export type HotspotDraft = { kind: VehicleHotspotKind; x: number; y: number; title: string; body?: string | null; url?: string | null }
+export type HotspotDraft = { kind: VehicleHotspotKind; x: number; y: number; title: string; body?: string | null; url?: string | null; image_url?: string | null }
 
 /**
  * Exterior spins, photos and hotspots for one car: load, upload, reorder by angle, pin, AI help.
@@ -119,6 +119,16 @@ export function useVehicleViews(spaceId: string) {
     return created
   }
 
+  /** A photo for a pin (the engine bay, the tyre tread): checked and resized like a car photo. Answers its URL. */
+  async function uploadHotspotPhoto(file: File): Promise<string> {
+    const invalid = validateVehicleViewFile(file)
+    if (invalid) throw new Error(invalid)
+    const prepared = await resizeVehiclePhoto(file)
+    const record: any = unwrap(await uploadFile(prepared.file, 'vehicle_view'))
+    if (!record?.public_url) throw new Error('Upload failed')
+    return record.public_url as string
+  }
+
   async function removeView(id: string) {
     const v = allViews.value.find(x => x.id === id)
     await apiFetch(`/vehicle-views/${id}`, { method: 'DELETE' })
@@ -133,7 +143,7 @@ export function useVehicleViews(spaceId: string) {
     const created = await addView(file, old.angle, old.label ?? undefined)
     // Pins belong to what is in the photo; if the new shot is framed alike they still land right.
     for (const h of old.hotspots ?? []) {
-      await createHotspot(created.id, { kind: h.kind, x: h.x, y: h.y, title: h.title, body: h.body, url: h.url }).catch(() => {})
+      await createHotspot(created.id, { kind: h.kind, x: h.x, y: h.y, title: h.title, body: h.body, url: h.url, image_url: h.image_url ?? null }).catch(() => {})
     }
     await removeView(id)
   }
@@ -216,7 +226,7 @@ export function useVehicleViews(spaceId: string) {
     views, allViews, loading, loaded, load,
     spins, spinsReady, activeSpinId, activeSpin, frameCounts, selectSpin, addSpin, updateSpin, removeSpin,
     addView, removeView, replaceView, applyAngles, renameView,
-    createHotspot, updateHotspot, deleteHotspot,
+    createHotspot, updateHotspot, deleteHotspot, uploadHotspotPhoto,
     aiSortSuggestions, aiHotspotSuggestions,
   }
 }

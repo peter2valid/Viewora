@@ -397,7 +397,7 @@ defineExpose({ go, items })
    (bottom-right). On phones those sit above the track, so it gets the full width, and the first-use
    hints go above them. */
 .ct { --vsv-tl-side: 196px; }
-.ct.is-pin-open:is(.is-narrow, .is-compact) :is(.ct__ribbon-btn, .ct__step, .ct__spins, .ct__groups) { visibility: hidden; }
+.ct.is-pin-open:is(.is-narrow, .is-compact) :is(.ct__ribbon-btn, .ct__step, .ct__spins, .ct__groups, .ct__rail) { visibility: hidden; }
 /* Zoomed in on a phone, the buyer is studying one detail: only the car and the "Zoom out to spin" cue. */
 .ct.is-zoomed.is-spin:is(.is-narrow, .is-compact) :is(.ct__ribbon-btn, .ct__step, .ct__spins, .ct__groups) { visibility: hidden; }
 .ct.is-narrow { --vsv-tl-side: 14px; --vsv-hints-bottom: calc(var(--ct-bottom) + 136px); }

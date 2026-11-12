@@ -232,6 +232,20 @@
         <input id="vp-h-url" class="vp-input" type="url" inputmode="url" placeholder="https://" :value="selectedHotspot.url ?? ''" @input="editHotspot({ url: ($event.target as HTMLInputElement).value })" />
         <p v-if="urlError" class="vp-error">{{ urlError }}</p>
 
+        <span class="vp-label" id="vp-h-photo">Photo <span class="vp-muted">optional · opens from the pin</span></span>
+        <div v-if="selectedHotspot.image_url" class="vp-hphoto">
+          <img :src="selectedHotspot.image_url" alt="" />
+          <div class="vp-row">
+            <button class="vp-btn" :disabled="photoBusy" @click="pickHotspotPhoto">{{ photoBusy ? 'Uploading…' : 'Replace' }}</button>
+            <button class="vp-btn" :disabled="photoBusy" @click="editHotspot({ image_url: null })">Remove</button>
+          </div>
+        </div>
+        <button v-else class="vp-btn vp-hphoto-add" aria-describedby="vp-h-photo" :disabled="photoBusy" @click="pickHotspotPhoto">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-9 8"/></svg>
+          {{ photoBusy ? 'Uploading…' : 'Add a photo' }}
+        </button>
+        <input ref="hotspotPhotoInput" type="file" accept="image/jpeg,image/png,image/webp" class="vp-hidden" @change="onHotspotPhoto" />
+
         <div class="vp-row">
           <button class="vp-btn vp-btn--danger" @click="removeSelectedHotspot">Delete</button>
           <button class="vp-btn" @click="selectedHotspotId = null">Done</button>
@@ -383,7 +397,7 @@ const props = defineProps<{ spaceId: string }>()
 
 const {
   views, loaded, load, addView, removeView, replaceView, applyAngles,
-  createHotspot, updateHotspot, deleteHotspot, aiSortSuggestions, aiHotspotSuggestions,
+  createHotspot, updateHotspot, deleteHotspot, uploadHotspotPhoto, aiSortSuggestions, aiHotspotSuggestions,
   spins, spinsReady, activeSpinId, activeSpin, frameCounts, selectSpin, addSpin, updateSpin, removeSpin,
 } = useVehicleViews(props.spaceId)
 
@@ -697,6 +711,27 @@ function editHotspot(patch: Record<string, any>) {
       setNotice(`${errMsg(e, 'Could not save the hotspot')}. Try again.`)
     }
   }, 500)
+}
+
+// A photo on the pin: buyers tap the bonnet and see the engine.
+const hotspotPhotoInput = ref<HTMLInputElement | null>(null)
+const photoBusy = ref(false)
+function pickHotspotPhoto() { hotspotPhotoInput.value?.click() }
+async function onHotspotPhoto(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  const h = selectedHotspot.value
+  if (!file || !h) return
+  photoBusy.value = true
+  try {
+    const url = await uploadHotspotPhoto(file)
+    if (selectedHotspot.value?.id === h.id) editHotspot({ image_url: url })
+  } catch (err: any) {
+    setNotice(`${errMsg(err, 'Could not add the photo')}. Try again.`)
+  } finally {
+    photoBusy.value = false
+  }
 }
 
 function removeSelectedHotspot() {
@@ -1176,6 +1211,9 @@ defineExpose({ reload: init, showBuyerView })
 .vp-textarea { padding: 10px; min-height: 76px; resize: vertical; font-family: inherit; line-height: 1.4; }
 
 .vp-hlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.vp-hphoto { display: flex; flex-direction: column; gap: 8px; }
+.vp-hphoto img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 10px; background: rgba(255,255,255,0.06); }
+.vp-hphoto-add { justify-content: center; gap: 8px; border-style: dashed; }
 .vp-hitem { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 10px; border: 1px solid transparent; background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; text-align: left; font-size: 13px; }
 .vp-hitem:hover { background: rgba(255,255,255,0.1); }
 .vp-hitem.is-active { border-color: #fff; }

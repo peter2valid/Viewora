@@ -182,6 +182,8 @@ export interface VehicleHotspot {
   title: string
   body?: string | null
   url?: string | null
+  /** A photo that opens from the pin (the engine under the bonnet, the tyre tread). */
+  image_url?: string | null
 }
 
 export const HOTSPOT_KINDS: Array<{ kind: VehicleHotspotKind; label: string; hint: string }> = [
