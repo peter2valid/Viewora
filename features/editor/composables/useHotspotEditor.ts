@@ -1,6 +1,7 @@
 import { ref, computed, watch, type Ref, type ComputedRef, type WritableComputedRef } from 'vue'
 import { mapDbHotspot, type EditorHotspot } from '~/features/editor/mappers'
 import { isLocalSceneId } from '~/features/editor/composables/useEditorUpload'
+import { inDockOrder } from '~/shared/utils/sceneGroups'
 import type { LandKind, SphericalPoint } from '~/domain/hotspot'
 import { angularDistance, isOnGround, pathAnchor, sphericalCentroid, subdivideBlock } from '~/shared/utils/viewerAdapters/landMarkers'
 import {
@@ -15,7 +16,7 @@ import {
   type HotspotType,
 } from '~/features/editor/hotspotPayload'
 
-type SceneChip = { id: string; label: string; ready: boolean; imageUrl?: string | null }
+type SceneChip = { id: string; label: string; ready: boolean; imageUrl?: string | null; group?: string | null }
 
 type EditorStore = {
   mode: string
@@ -138,8 +139,9 @@ export function useHotspotEditor(
     })
   })
 
+  // Same order as the dock, so "19 / 65" and the arrows match what you see there.
   const otherScenesForHotspot = computed(() =>
-    sceneChips.value.filter(s => s.id !== selectedSceneId.value && s.ready).map(s => ({ id: s.id, label: s.label, imageUrl: s.imageUrl }))
+    inDockOrder(sceneChips.value).filter(s => s.id !== selectedSceneId.value && s.ready).map(s => ({ id: s.id, label: s.label, imageUrl: s.imageUrl }))
   )
 
   const plotCount = computed(() =>

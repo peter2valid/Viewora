@@ -46,6 +46,24 @@ export function hasGroups(scenes: GroupableScene[]): boolean {
   return [...counts.values()].some(n => n >= 2)
 }
 
+/**
+ * Scenes in the order the editor dock shows them: with categories, each
+ * category's scenes sit together, categories in the order of their first scene
+ * (scenes without one form their own run). Without categories: unchanged.
+ * Must match GlassDock's `sections` (branches mode).
+ */
+export function inDockOrder<T extends { group?: string | null }>(scenes: T[]): T[] {
+  if (!scenes.some(s => s.group)) return scenes
+  const runs = new Map<string, T[]>()
+  for (const s of scenes) {
+    const key = s.group || '__none'
+    const run = runs.get(key)
+    if (run) run.push(s)
+    else runs.set(key, [s])
+  }
+  return [...runs.values()].flat()
+}
+
 export function groupOf(scenes: GroupableScene[], sceneId: string): string | null {
   const g = normalizeGroup(scenes.find(s => s.id === sceneId)?.group)
   if (!g) return null

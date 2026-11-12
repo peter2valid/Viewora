@@ -636,10 +636,18 @@ function initSortables() {
         }
         if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
 
-        // Using the actual DOM order ensures we don't desync if items are added/removed.
+        // Read the new order from the DOM Sortable just rearranged...
         const currentDOMIds = Array.from(strip.querySelectorAll('[data-dock-id]'))
           .map(node => node.getAttribute('data-dock-id'))
           .filter(Boolean) as string[]
+
+        // ...then put the card back and let the parent's data decide. Left moved,
+        // the card showed in its new place even when the parent refused or failed
+        // to save the order (e.g. scenes still uploading), so the dock and the
+        // rest of the editor (hotspot room picker) disagreed about the order.
+        const from = evt.from
+        from.removeChild(evt.item)
+        from.insertBefore(evt.item, from.children[evt.oldIndex] ?? null)
 
         if (currentDOMIds.length === props.items.length) {
           emit('reorder', currentDOMIds)

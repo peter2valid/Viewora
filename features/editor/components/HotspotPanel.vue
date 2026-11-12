@@ -5,13 +5,14 @@ import { HOTSPOT_ICONS_BY_KEY, ICON_GROUPS, PICKER_ICON_DEFS, TYPE_DEFAULT_ICON,
 import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/editor/hotspotPayload'
 import { PLOT_STATUS_META, directionsUrl } from '~/shared/utils/viewerAdapters/landMarkers'
 import type { PlotStatus } from '~/domain/hotspot'
+import RoomPicker from '~/features/editor/components/RoomPicker.vue'
 
 const props = defineProps<{
   visible: boolean
   hotspots: EditorHotspot[]
   selectedId: string | null
   draft: EditDraft
-  otherScenes: Array<{ id: string; label: string }>
+  otherScenes: Array<{ id: string; label: string; imageUrl?: string | null }>
   saving: boolean
   deleting: boolean
 }>()
@@ -343,15 +344,12 @@ function updateDraft(patch: Partial<typeof props.draft>) {
               <div v-if="otherScenes.length === 0" class="hs-hint-box">
                 Add another scene to enable navigation hotspots.
               </div>
-              <select
+              <RoomPicker
                 v-else
-                class="hs-input hs-input--select"
-                :value="draft.targetSceneId"
-                @change="updateDraft({ targetSceneId: ($event.target as HTMLSelectElement).value })"
-              >
-                <option value="">Select destination…</option>
-                <option v-for="s in otherScenes" :key="s.id" :value="s.id">{{ s.label }}</option>
-              </select>
+                :scenes="otherScenes"
+                :model-value="draft.targetSceneId"
+                @update:model-value="updateDraft({ targetSceneId: $event })"
+              />
             </div>
 
             <!-- Media: URL -->

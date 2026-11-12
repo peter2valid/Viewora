@@ -12,26 +12,21 @@
           </button>
         </div>
 
-        <!-- The whole panorama, height-fitted and repeated sideways: drag to turn around the room. -->
-        <div
-          ref="stageEl"
+        <!-- The room in 360°: drag to look around, scroll to zoom. -->
+        <component
+          :is="scene?.imageUrl ? RoomSphere : 'div'"
           class="rp-stage"
-          :class="{ 'rp-stage--dragging': dragging }"
-          :style="{ backgroundImage: scene?.imageUrl ? `url('${scene.imageUrl}')` : 'none', backgroundPositionX: `${offset}px` }"
-          @pointerdown="onPointerDown"
-          @pointermove="onPointerMove"
-          @pointerup="onPointerUp"
-          @pointercancel="onPointerUp"
+          :image-url="scene?.imageUrl || undefined"
         >
           <span v-if="!scene?.imageUrl" class="rp-empty">No photo for this room yet</span>
-          <button class="rp-arrow rp-arrow--left" title="Previous room" aria-label="Previous room" @pointerdown.stop @click="step(-1)">
+          <button class="rp-arrow rp-arrow--left" title="Previous room" aria-label="Previous room" @click="step(-1)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <button class="rp-arrow rp-arrow--right" title="Next room" aria-label="Next room" @pointerdown.stop @click="step(1)">
+          <button class="rp-arrow rp-arrow--right" title="Next room" aria-label="Next room" @click="step(1)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
           </button>
-          <span class="rp-hint">Drag to look around</span>
-        </div>
+          <span v-if="scene?.imageUrl" class="rp-hint">Drag to look around</span>
+        </component>
 
         <div class="rp-footer">
           <button class="rp-btn rp-btn--ghost" @click="emit('close')">Cancel</button>
@@ -46,7 +41,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import RoomSphere from '~/features/editor/components/RoomSphere.vue'
 
 const props = defineProps<{
   scenes: Array<{ id: string; label: string; imageUrl?: string | null }>
@@ -61,38 +57,10 @@ const emit = defineEmits<{
 const index = ref(Math.max(0, props.startIndex))
 const scene = computed(() => props.scenes[index.value])
 
-const stageEl = ref<HTMLElement | null>(null)
-const offset = ref(0)
-const dragging = ref(false)
-let startX = 0
-let startOffset = 0
-
-/** Middle of the panorama (the scene's front) in the middle of the stage; the image is 2:1, height-fitted. */
-function centre() {
-  const el = stageEl.value
-  if (!el) return
-  offset.value = Math.round(el.clientWidth / 2 - el.clientHeight)
-}
-
 function step(dir: 1 | -1) {
   const n = props.scenes.length
   if (!n) return
   index.value = (index.value + dir + n) % n
-}
-
-watch(index, () => nextTick(centre))
-
-function onPointerDown(e: PointerEvent) {
-  dragging.value = true
-  startX = e.clientX
-  startOffset = offset.value
-  stageEl.value?.setPointerCapture(e.pointerId)
-}
-function onPointerMove(e: PointerEvent) {
-  if (dragging.value) offset.value = startOffset + (e.clientX - startX)
-}
-function onPointerUp() {
-  dragging.value = false
 }
 
 // Capture phase on window: runs before the quick editor's own keydown
@@ -109,12 +77,9 @@ function onKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown, { capture: true })
-  window.addEventListener('resize', centre)
-  nextTick(centre)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown, { capture: true })
-  window.removeEventListener('resize', centre)
 })
 </script>
 
@@ -188,16 +153,12 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   overflow: hidden;
   background-color: rgba(255,255,255,0.05);
-  background-size: auto 100%;
-  background-repeat: repeat-x;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
+}
+div.rp-stage {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.rp-stage--dragging { cursor: grabbing; }
 .rp-empty {
   font-size: 13px;
   font-weight: 600;
