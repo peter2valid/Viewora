@@ -261,7 +261,13 @@ const props = withDefaults(defineProps<{
   zoomable?: boolean
   /** Turn once by itself when a smooth set has loaded, so it is obvious the car spins. Stops at the first touch. */
   autoplay?: boolean
+  /**
+   * Studio look (the car tour): a photo shown whole has no blurred copy around it; its edges fade
+   * softly into the plain background instead, so there is no hard frame.
+   */
+  studio?: boolean
 }>(), {
+  studio: false,
   fit: 'auto', editable: false, placing: false, selectedHotspotId: null, hideBar: false, hideZoom: false,
   zoomBottom: '50%', zoomable: true, autoplay: true, startAngle: 0, rows: null,
 })
@@ -404,7 +410,10 @@ const fitNow = computed(() => resolveFit(props.fit, box.value, natOf(sorted.valu
 function rectOf(v?: VehicleView) {
   return fitRect(box.value, natOf(v), fitNow.value)
 }
-const showBackdrop = computed(() => !props.editable && fitNow.value === 'contain' && !!backdropUrl.value)
+const showBackdrop = computed(() => !props.editable && !props.studio && fitNow.value === 'contain' && !!backdropUrl.value)
+/** Studio: the photo's edges that sit inside the box fade out (a share of the photo's size). */
+const FEATHER = 0.14
+const feathered = computed(() => props.studio && !props.editable && fitNow.value === 'contain')
 const backdropUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? '')
 const posterUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? '')
 
@@ -594,7 +603,28 @@ function draw() {
     if (k < 1 && fd && from) { paint(fd, from, 1 - k); requestDraw() } else fade = null
   }
   ctx.globalAlpha = 1
+  if (feathered.value) featherEdges(ctx, rectOf(base.v))
   if (!painted.value) painted.value = true
+}
+
+/** Fades the photo's edges into the background: keeps the drawn pixels, scaled by a soft ramp at each
+ *  edge that is inside the box (an edge already at the screen's edge stays sharp). */
+function featherEdges(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }) {
+  const big = 1e5
+  ctx.globalCompositeOperation = 'destination-in'
+  const pass = (horizontal: boolean) => {
+    const start = horizontal ? r.x : r.y
+    const len = horizontal ? r.w : r.h
+    if (start <= 0.5) return
+    const f = Math.min(0.45, FEATHER * (horizontal ? r.h / r.w : 1)) // the same fade width on both axes
+    const g = horizontal ? ctx.createLinearGradient(r.x, 0, r.x + len, 0) : ctx.createLinearGradient(0, r.y, 0, r.y + len)
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(f, '#000'); g.addColorStop(1 - f, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = g
+    ctx.fillRect(-big, -big, 2 * big, 2 * big)
+  }
+  pass(false)
+  pass(true)
+  ctx.globalCompositeOperation = 'source-over'
 }
 
 // ── Pins ──

@@ -2,14 +2,11 @@
   <div
     ref="rootEl"
     class="ct"
-    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen, 'is-spin': active?.kind === 'spin', 'is-zoomed': zoomedIn, 'has-dock': embed && items.length > 0 && !dockCollapsed }"
+    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen, 'is-spin': active?.kind === 'spin', 'is-zoomed': zoomedIn, 'has-dock': embed && items.length > 1 && !dockCollapsed }"
     :style="{ '--ct-top': topOffset, '--ct-bottom': bottomOffset }"
     @keydown.esc="ribbonOpen = false"
   >
     <div v-if="!items.length" class="ct__empty">This car has no photos yet.</div>
-
-    <!-- Standalone: a blurred copy of the view fills the room around it (under the dock), not black. -->
-    <div v-if="embed && active?.thumb" class="ct__backdrop" :style="{ backgroundImage: `url(${active.thumb})` }" aria-hidden="true" />
 
     <!-- Stage: one of a spin, the interior 360 viewer, or a detail photo. -->
     <VehicleSpinViewer
@@ -19,6 +16,7 @@
       :views="active.spin!.views"
       :rows="active.spin!.rows?.length ? spinRows(active.spin!) : null"
       :start-angle="active.spin!.start_angle"
+      studio
       hide-bar
       :hide-zoom="compact || (narrow && ribbonOpen)"
       :zoom-bottom="zoomBottom"
@@ -46,6 +44,7 @@
       :views="[photoAsView(active)]"
       :autoplay="false"
       fit="contain"
+      studio
       hide-bar
       :hide-zoom="compact || (narrow && ribbonOpen)"
       :zoom-bottom="zoomBottom"
@@ -122,7 +121,7 @@
          under Exterior / Interior / Close-ups, and the tour's share and full-screen buttons. -->
     <template v-if="embed">
       <GlassDock
-        v-if="items.length"
+        v-if="items.length > 1"
         v-model:collapsed="dockCollapsed"
         :items="dockItems"
         :active-id="active?.id ?? ''"
@@ -365,13 +364,14 @@ defineExpose({ go, items })
   --ct-top: 16px; --ct-bottom: 16px;
 }
 .ct__layer { position: absolute; inset: 0; }
-.ct__backdrop {
-  position: absolute; inset: -40px; background-size: cover; background-position: center;
-  filter: blur(36px) brightness(0.55) saturate(1.1); transform: translateZ(0);
+/* Wide screens: the car and close-ups sit above the open dock, never under it; their edges fade into
+   the plain background (studio), so there is no frame and no blur. A phone keeps the full screen. */
+.ct.is-embed.has-dock:not(.is-narrow) .ct__layer--flat {
+  bottom: 176px; --vsv-overlay-bottom: 72px;
+  /* The bottom edge then sits mid-screen: it fades out too, the same as the sides. */
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 72px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 72px), transparent);
 }
-/* Wide screens: the car and close-ups sit above the open dock instead of under it (a phone shows the
-   car whole, with room above and below, so it keeps the full screen). The 360 inside stays full. */
-.ct.is-embed.has-dock:not(.is-narrow) .ct__layer--flat { bottom: 196px; }
 .ct.is-embed .ct__layer--flat { transition: bottom 180ms ease; }
 @media (prefers-reduced-motion: reduce) { .ct.is-embed .ct__layer--flat { transition: none; } }
 
