@@ -74,6 +74,7 @@ import {
   type PsvViewerHandle,
   type InitViewerOptions,
   type LiveViewerSettings,
+  isInteriorLink,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 import HotspotActionMenu from '~/features/viewer/panorama/HotspotActionMenu.vue'
 
@@ -180,7 +181,9 @@ function menuAnchor(hs: Hotspot): { x: number; y: number } | null {
   const at = hotspotDrawPosition(hs)
   const pos = getHotspotScreenPos(handle.value, at.yaw, at.pitch)
   if (!pos || hs.type !== 'scene_link') return pos
-  return { x: pos.x, y: pos.y - 20 * Number(hs.scale || 1) }
+  // Interior badge: the pill sits ~30px above its stem's foot.
+  const lift = isInteriorLink(hs) ? 30 : 20
+  return { x: pos.x, y: pos.y - lift * Number(hs.scale || 1) }
 }
 
 function trackMenuPosition() {

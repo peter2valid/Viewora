@@ -118,9 +118,17 @@
       </div>
     </div>
 
+    <!-- Inside a car: one tap back to the showroom, facing the car again -->
+    <Transition name="interior-back">
+      <button v-if="showInteriorBack" type="button" class="interior-back" @click="backToShowroom">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+        Back to showroom
+      </button>
+    </Transition>
+
     <!-- Scene name toast -->
     <Transition name="scene-toast">
-      <div v-if="sceneToastVisible" class="scene-toast">
+      <div v-if="sceneToastVisible" class="scene-toast" :class="{ 'scene-toast--below': showInteriorBack }">
         <span class="scene-toast__dot" />
         {{ sceneToastText }}
       </div>
@@ -633,6 +641,7 @@ import { factsLine, formatPrice } from '~/utils/listingDisplay'
 import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
+import { interiorScenes, isInteriorLink } from '~/shared/utils/interiorLinks'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
@@ -845,6 +854,8 @@ let walkedInto: string | null = null
  */
 function arrivalView(targetId: string, fromId: string | null): { yaw: number; pitch: number } {
   const back = fromId ? (buildAllHotspots()[targetId] ?? []).find(h => h.type === 'scene_link' && h.targetSceneId === fromId) : null
+  // Back out of a car: face the car you just left, not away from it.
+  if (back && isInteriorLink(back)) return { yaw: back.yaw, pitch: 0 }
   if (back) {
     let yaw = back.yaw + Math.PI
     if (yaw > Math.PI * 2) yaw -= Math.PI * 2
@@ -857,6 +868,47 @@ function arrivalView(targetId: string, fromId: string | null): { yaw: number; pi
 function previewFor(targetId: string): string | null {
   const raw = tourScenes.value.find((x: any) => x.id === targetId)
   return raw ? sceneImageUrl(raw) : null
+}
+
+// ── Inside a car ("See interior" badges) ─────────────────────────────────────
+// Scenes reached through an interior badge, plus the scenes they link to with
+// ordinary arrows (front seat ⇄ rear seat), are "inside". Every scene reachable
+// from a badge's own scene by ordinary arrows is "outside" (the showroom), so
+// an arrow from the car back to the showroom never pulls the showroom inside.
+const interiorHome = computed(() => interiorScenes(buildAllHotspots()))
+
+/** Where "Back to showroom" returns: the view the visitor had when they tapped the badge. */
+const interiorReturn = ref<{ sceneId: string; yaw: number; pitch: number } | null>(null)
+
+const interiorHere = computed(() => interiorHome.value[vtActiveNodeId.value] ?? null)
+// Back outside by any route (an arrow, the dock): the saved view is spent.
+watch(vtActiveNodeId, (id) => { if (!interiorHome.value[id]) interiorReturn.value = null })
+const showInteriorBack = computed(() =>
+  !!interiorHere.value && vtReady.value && !chromeHidden.value && !stereoActive.value && !props.hideOwnChrome)
+
+async function backToShowroom() {
+  const here = interiorHere.value
+  const handle = vtHandle.value
+  if (!here || !handle || vtTransitioning.value) return
+  const ret = interiorReturn.value && interiorReturn.value.sceneId === here.homeSceneId ? interiorReturn.value : null
+  const target = here.homeSceneId
+  interiorReturn.value = null
+  vtTransitioning.value = true
+  navVia = 'interior-back'
+  pendingEntry = null
+  walkedInto = target
+  try {
+    const ok = await vtWalkToNode(handle, target, {
+      // Facing the car again: where you were looking, or straight at its badge.
+      arrive: ret ? { yaw: ret.yaw, pitch: ret.pitch } : { yaw: here.badgeYaw, pitch: 0 },
+      previewUrl: previewFor(target),
+    })
+    if (!ok) { vtTransitioning.value = false; walkedInto = null; navVia = null }
+  } catch {
+    vtTransitioning.value = false
+    walkedInto = null
+    navVia = null
+  }
 }
 const chromeHidden = ref(false)
 const autoRotateActive = ref(false)
@@ -1856,7 +1908,7 @@ async function initVT() {
     }
     const allHS = buildAllHotspots()
     const floorNav = floorNavEnabled()
-    const isFloorLink = (h: Hotspot) => h.type === 'scene_link' && !!h.targetSceneId && (floorNav || isFloorIcon(h.icon))
+    const isFloorLink = (h: Hotspot) => h.type === 'scene_link' && !!h.targetSceneId && !isInteriorLink(h) && (floorNav || isFloorIcon(h.icon))
     if (Object.values(allHS).some(list => list.some(isFloorLink))) {
       try {
         const sceneName = (id: string) => mappedScenes.find(s => s.id === id)?.title || 'Next scene'
@@ -1995,6 +2047,12 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
           }
           return null
         })()
+
+        // Into a car: remember this view so "Back to showroom" returns to it.
+        if (isInteriorLink(clickedHotspot)) {
+          const at = handle.viewer?.getPosition?.()
+          interiorReturn.value = at ? { sceneId: vtActiveNodeId.value, yaw: at.yaw, pitch: at.pitch } : null
+        }
 
         // Walk through the door: step toward the clicked arrow, crossfade,
         // arrive facing into the next room.
@@ -4258,6 +4316,32 @@ watch(() => vtTransitioning.value, (loading) => {
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   pointer-events: none;
 }
+.scene-toast--below { top: 66px; }
+
+/* ── Back to showroom (inside a car) ─────────────────── */
+.interior-back {
+  position: absolute;
+  top: 16px; top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 50%; transform: translateX(-50%);
+  z-index: 61;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 40px; padding: 0 18px 0 12px;
+  border-radius: 999px;
+  background: rgba(10, 11, 16, 0.72);
+  border: 1px solid rgba(255,255,255,0.22);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  color: #fff;
+  font-size: 13px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.interior-back:hover { background: rgba(10, 11, 16, 0.88); border-color: rgba(255,255,255,0.4); }
+.interior-back:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.interior-back-enter-active { transition: opacity 220ms ease, transform 220ms cubic-bezier(0.22,1,0.36,1); }
+.interior-back-leave-active { transition: opacity 180ms ease, transform 180ms ease; }
+.interior-back-enter-from, .interior-back-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+
 .scene-toast__dot {
   width: 5px; height: 5px;
   border-radius: 50%;

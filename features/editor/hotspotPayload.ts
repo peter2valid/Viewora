@@ -28,6 +28,7 @@ export type EditDraft = {
   plotPrice?: string
   plotSize?: string
   arrowWidth?: number
+  linkStyle?: 'interior'
 }
 
 // Must match the backend limits in routes/hotspots.ts — longer values were
@@ -67,12 +68,14 @@ export function draftFromHotspot(h: EditorHotspot, targetSceneId = h.targetScene
     plotPrice: h.plotPrice || '',
     plotSize: h.plotSize || '',
     arrowWidth: h.arrowWidth,
+    linkStyle: h.linkStyle,
   }
 }
 
-export function defaultLabel(d: Pick<EditDraft, 'kind' | 'type'>): string {
+export function defaultLabel(d: Pick<EditDraft, 'kind' | 'type'> & { linkStyle?: 'interior' }): string {
   if (d.kind) return LAND_DEFAULT_LABEL[d.kind]
-  return d.type === 'scene_link' ? 'Go to next room' : 'Info hotspot'
+  if (d.type === 'scene_link') return d.linkStyle === 'interior' ? 'See interior' : 'Go to next room'
+  return 'Info hotspot'
 }
 
 export function buildContent(d: EditDraft): Record<string, any> {
@@ -107,6 +110,7 @@ export function buildContent(d: EditDraft): Record<string, any> {
     strokeScale: Number(d.strokeScale || 1),
     corners: d.corners?.length === 4 ? d.corners : undefined,
     image_url: d.imageUrl || undefined,
+    link_style: d.type === 'scene_link' && d.linkStyle === 'interior' ? 'interior' : undefined,
   }
 }
 

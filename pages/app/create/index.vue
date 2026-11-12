@@ -174,7 +174,7 @@ const atSpaceLimit = computed(() => {
 })
 
 const typeOptions = [
-  { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels' },
+  { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels, car showrooms' },
   { id: 'automotive', title: 'Car / Vehicle', description: 'One car: photos around it, plus 360° interior' },
   { id: 'commercial', title: 'Business / Institution', description: 'Schools, offices, showrooms, facilities' },
   { id: 'land', title: 'Land / Plots', description: 'Drone views, plot boundaries, beacons' },

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isInteriorLink } from '~/shared/utils/interiorLinks'
 import { Viewer, Cache } from '@photo-sphere-viewer/core'
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin'
 import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin'
@@ -182,6 +183,7 @@ function hotspotSignature(hs: Hotspot): string {
     hs.plotPrice ?? '',
     hs.plotSize ?? '',
     hs.arrowWidth ?? '',
+    hs.linkStyle ?? '',
   ].join('|')
 }
 
@@ -675,6 +677,85 @@ function buildNavMarkerEl(hotspot: Hotspot): HTMLElement {
   return wrap
 }
 
+// ── "See interior" badge ─────────────────────────────────────────────────────
+// A scene link with linkStyle 'interior' leads inside an object (a car in a
+// showroom). It sits on the object as a small pill instead of a floor chevron,
+// so a row of cars doesn't fill the floor with arrows. Styles are injected
+// once here so the editor and the public viewer draw the same badge.
+
+export { isInteriorLink }
+
+const CAR_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17H3v-5l2.2-5.1A2 2 0 0 1 7 5.7h10a2 2 0 0 1 1.8 1.2L21 12v5h-2"/><path d="M3 12h18"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/><path d="M9.5 17h5"/></svg>`
+
+function ensureInteriorBadgeStyles(): void {
+  if (typeof document === 'undefined' || document.getElementById('vhs-interior-styles')) return
+  const style = document.createElement('style')
+  style.id = 'vhs-interior-styles'
+  style.textContent = `
+.vhs-interior { display: flex; flex-direction: column; align-items: center; cursor: pointer; pointer-events: auto; user-select: none; -webkit-tap-highlight-color: transparent; }
+.vhs-interior__pill {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  padding: 6px 12px 6px 7px; border-radius: 999px;
+  background: rgba(14, 14, 18, 0.62); color: #fff;
+  -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  font: 600 12.5px/1.1 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: 0.01em;
+  transform-origin: 50% 100%;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.vhs-interior__icon {
+  position: relative; display: grid; place-items: center; flex: none;
+  width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111;
+}
+.vhs-interior__icon svg { width: 15px; height: 15px; }
+.vhs-interior__icon::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  animation: vhs-interior-pulse 2.4s ease-out infinite;
+}
+.vhs-interior__stem { width: 2px; height: 10px; background: linear-gradient(rgba(255,255,255,0.75), rgba(255,255,255,0)); }
+.vhs-interior:hover .vhs-interior__pill, .vhs-interior:focus-visible .vhs-interior__pill {
+  transform: scale(1.06); background: rgba(14, 14, 18, 0.8); border-color: rgba(255, 255, 255, 0.55);
+}
+@keyframes vhs-interior-pulse { 0% { transform: scale(0.9); opacity: 0.9 } 70%, 100% { transform: scale(1.45); opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { .vhs-interior__icon::after { animation: none; opacity: 0 } }
+`
+  document.head.appendChild(style)
+}
+
+function buildInteriorBadgeEl(hotspot: Hotspot): HTMLElement {
+  ensureInteriorBadgeStyles()
+  const label = esc(hotspot.label || 'See interior')
+  const scale = Number(hotspot.scale || 1)
+  const wrap = document.createElement('div')
+  wrap.className = 'vhs-interior'
+  wrap.setAttribute('data-vhs-type', 'scene_link')
+  wrap.setAttribute('data-vhs-id', hotspot.id)
+  wrap.setAttribute('role', 'button')
+  wrap.setAttribute('aria-label', label)
+  if (scale !== 1) {
+    wrap.style.transform = `scale(${scale})`
+    wrap.style.transformOrigin = '50% 100%'
+  }
+  wrap.innerHTML = `
+    <span class="vhs-interior__pill"><span class="vhs-interior__icon">${CAR_ICON_SVG}</span><span>${label}</span></span>
+    <span class="vhs-interior__stem"></span>
+  `
+  return wrap
+}
+
+/** Marker config for an interior badge; the stem's foot stands on the hotspot point. */
+function interiorBadgeMarker(hotspot: Hotspot): Record<string, any> {
+  return {
+    id: hotspot.id,
+    position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
+    element: buildInteriorBadgeEl(hotspot),
+    anchor: 'bottom center',
+    data: { type: 'scene_link', targetSceneId: hotspot.targetSceneId, linkStyle: 'interior' },
+  }
+}
+
 /** Red of the info badge's "i" (same family as the navigation pins). */
 const INFO_RED = '#e5252a'
 
@@ -889,7 +970,7 @@ export function moveHotspotMarkers(handle: PsvViewerHandle | null, hs: Hotspot, 
   if (!handle?.markers) return
   const moved = { ...hs, ...position }
   handle.markers.updateMarker({ id: hs.id, position: hotspotDrawPosition(moved) })
-  if (hs.type !== 'scene_link') return
+  if (hs.type !== 'scene_link' || isInteriorLink(hs)) return
   const disc = floorDiscMarker(`${hs.id}${FLOOR_DISC_SUFFIX}`, { ...moved, scale: Number(hs.scale || 1) })
   // The disc hides while the pin is above the floor line and comes back below it.
   try { handle.markers.updateMarker({ id: disc.id, position: disc.position, size: disc.size, visible: disc.visible }) } catch { /* noop */ }
@@ -1340,6 +1421,11 @@ export function addHotspot(handle: PsvViewerHandle | null, hotspot: Hotspot): vo
     const scale       = Number(hotspot.scale || 1)
     const hoverAmount = Number(hotspot.hoverScale || 1.3)
 
+    if (isInteriorLink(hotspot)) {
+      handle.markers.addMarker(interiorBadgeMarker(hotspot))
+      return
+    }
+
     if (hotspot.type === 'scene_link') {
       // Same disc + pin as the public viewer (floorCursor.ts), so owners see
       // what visitors will. The pin carries the hotspot id and data-vhs-id
@@ -1780,7 +1866,8 @@ function buildTourNodes(
     // Deduplicate scene_link targets — VT Plugin uses these for its 3D floor arrows.
     const uniqueLinksMap = new Map<string, any>()
     hotspots.forEach(h => {
-      if (h.type === 'scene_link' && h.targetSceneId) {
+      // Interior badges aren't walkable doorways: no VT link (and no floor arrow).
+      if (h.type === 'scene_link' && h.targetSceneId && !isInteriorLink(h)) {
         if (!uniqueLinksMap.has(h.targetSceneId)) {
           const targetScene = scenes.find(s => s.id === h.targetSceneId)
           uniqueLinksMap.set(h.targetSceneId, {
@@ -1811,6 +1898,7 @@ function buildTourNodes(
             data: { type: 'info', kind: h.kind, url: h.url },
           }
         }
+        if (isInteriorLink(h)) return interiorBadgeMarker(h)
         const isNav = h.type === 'scene_link'
         const el = isNav ? buildNavMarkerEl(h) : buildInfoMarkerEl(h)
         if (sprites.ids.has(h.id)) el.classList.add('vhs-info--gl')

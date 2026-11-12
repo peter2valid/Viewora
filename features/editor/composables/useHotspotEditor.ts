@@ -435,7 +435,7 @@ export function useHotspotEditor(
       targetSceneId: d.targetSceneId, description: d.description, icon: d.icon, labelColor: d.labelColor,
       labelBold: d.labelBold, scale: d.scale, hoverScale: d.hoverScale, strokeScale: d.strokeScale,
       corners: d.corners, imageUrl: d.imageUrl, kind: d.kind, points: d.points, plotStatus: d.plotStatus,
-      plotPrice: d.plotPrice, plotSize: d.plotSize, _pending: true,
+      plotPrice: d.plotPrice, plotSize: d.plotSize, linkStyle: d.type === 'scene_link' ? d.linkStyle : undefined, _pending: true,
     }
     const exists = (hotspotsByScene.value[sceneId] ?? []).some(h => h.id === id)
     if (exists) replaceHotspot(sceneId, id, entry)
@@ -723,7 +723,7 @@ export function useHotspotEditor(
       icon: d.icon || undefined, labelColor: d.labelColor || undefined, labelBold: d.labelBold || undefined,
       scale: Number(d.scale), hoverScale: Number(d.hoverScale), strokeScale: Number(d.strokeScale),
       corners: d.corners, imageUrl: d.imageUrl, kind: d.kind, points: d.points, plotStatus: d.plotStatus,
-      plotPrice: d.plotPrice, plotSize: d.plotSize,
+      plotPrice: d.plotPrice, plotSize: d.plotSize, linkStyle: d.type === 'scene_link' ? d.linkStyle : undefined,
     })
 
     showToast('Hotspot updated')

@@ -125,7 +125,7 @@ const creating = ref(false)
 const errorMsg = ref<string | null>(null)
 
 const typeOptions = [
-  { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels', emoji: '🏠' },
+  { id: 'residential', title: 'Property / Space', description: 'Apartments, Airbnb, hotels, car showrooms', emoji: '🏠' },
   { id: 'automotive', title: 'Car / Vehicle', description: 'Show interior and exterior views', emoji: '🚗' },
   { id: 'commercial', title: 'Business / Institution', description: 'Schools, offices, facilities', emoji: '🏢' },
   { id: 'land', title: 'Land / Plots', description: 'Drone views, plot boundaries, beacons', emoji: '🌍' },

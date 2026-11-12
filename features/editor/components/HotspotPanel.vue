@@ -107,6 +107,16 @@ function onUrlInput(val: string) {
 function updateDraft(patch: Partial<typeof props.draft>) {
   emit('update-draft', patch)
 }
+
+/** Switching style also swaps the default label, but never one the owner typed. */
+function setLinkStyle(style: 'interior' | undefined) {
+  const label = props.draft.label.trim()
+  const isDefault = !label || label === 'Go to next room' || label === 'See interior'
+  updateDraft({
+    linkStyle: style,
+    ...(isDefault ? { label: style === 'interior' ? 'See interior' : 'Go to next room' } : {}),
+  })
+}
 </script>
 
 <template>
@@ -352,6 +362,28 @@ function updateDraft(patch: Partial<typeof props.draft>) {
               />
             </div>
 
+            <!-- Scene link: floor chevron (walk) or a badge on an object (see inside a car) -->
+            <div v-if="draft.type === 'scene_link'" class="hs-field">
+              <label class="hs-field-label">Show as</label>
+              <div class="hs-status-row hs-status-row--2">
+                <button
+                  class="hs-status-btn"
+                  :class="{ 'hs-status-btn--on': draft.linkStyle !== 'interior' }"
+                  style="--st-color: #ffffff"
+                  @click="setLinkStyle(undefined)"
+                >Floor arrow</button>
+                <button
+                  class="hs-status-btn"
+                  :class="{ 'hs-status-btn--on': draft.linkStyle === 'interior' }"
+                  style="--st-color: #ffffff"
+                  @click="setLinkStyle('interior')"
+                >See interior badge</button>
+              </div>
+              <p v-if="draft.linkStyle === 'interior'" class="hs-hint">
+                Place it on the car. Visitors get a "Back to showroom" button while inside.
+              </p>
+            </div>
+
             <!-- Media: URL -->
             <div v-if="isMediaType" class="hs-field">
               <label class="hs-field-label">
@@ -565,6 +597,7 @@ function updateDraft(patch: Partial<typeof props.draft>) {
 /* ── Land fields ── */
 .hs-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .hs-status-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.hs-status-row--2 { grid-template-columns: repeat(2, 1fr); }
 .hs-status-btn {
   height: 32px; border-radius: 9px;
   border: 1px solid rgba(255,255,255,0.1);
@@ -832,6 +865,13 @@ function updateDraft(patch: Partial<typeof props.draft>) {
   line-height: 1.55;
 }
 .hs-input--select { appearance: none; cursor: pointer; }
+
+.hs-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.5;
+}
 
 .hs-hint-box {
   padding: 10px 12px;

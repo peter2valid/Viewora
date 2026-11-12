@@ -77,6 +77,7 @@ function normalizeHotspot(h: any): Hotspot {
     plotPrice: h.plotPrice ?? h.content?.plot_price ?? undefined,
     plotSize: h.plotSize ?? h.content?.plot_size ?? undefined,
     arrowWidth: h.arrowWidth ?? h.content?.arrow_width ?? undefined,
+    linkStyle: (h.linkStyle ?? h.content?.link_style) === 'interior' ? 'interior' : undefined,
   }
 }
 

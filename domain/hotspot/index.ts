@@ -27,6 +27,8 @@ export interface Hotspot {
   plotSize?: string
   /** Road arrows: width multiplier for the ground-painted arrow. */
   arrowWidth?: number
+  /** scene_link only: 'interior' draws a "See interior" badge on the object instead of a floor chevron. */
+  linkStyle?: 'interior'
 }
 
 export interface HotspotCreatePayload {

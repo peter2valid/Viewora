@@ -41,8 +41,28 @@
             </template>
           </div>
 
-          <!-- Navigation icons (floor pin, up, down) — shown directly, no "Edit more" -->
+          <!-- Floor arrow (walk) or a "See interior" badge on an object, e.g. a car in a showroom -->
           <div class="qe-section">
+            <span class="qe-section-label">Show as</span>
+            <div class="qe-shortcuts">
+              <button class="qe-shortcut" :class="{ 'qe-shortcut--on': draft.linkStyle !== 'interior' }" @click="setLinkStyle(undefined)">Floor arrow</button>
+              <button class="qe-shortcut" :class="{ 'qe-shortcut--on': draft.linkStyle === 'interior' }" @click="setLinkStyle('interior')">See interior badge</button>
+            </div>
+          </div>
+
+          <div v-if="draft.linkStyle === 'interior'" class="qe-section">
+            <span class="qe-section-label">Badge text</span>
+            <input
+              class="qe-input"
+              :value="draft.label"
+              placeholder="e.g. See interior · Land Cruiser 300"
+              :maxlength="HOTSPOT_LABEL_MAX"
+              @input="emit('update-draft', { label: ($event.target as HTMLInputElement).value })"
+            />
+          </div>
+
+          <!-- Navigation icons (floor pin, up, down) — shown directly, no "Edit more" -->
+          <div v-if="draft.linkStyle !== 'interior'" class="qe-section">
             <span class="qe-section-label">Navigation Icon</span>
             <div class="qe-nav-icons">
               <button
@@ -238,6 +258,16 @@ const LINK_SHORTCUTS = [
   { label: 'Call', prefix: 'tel:' },
   { label: 'Email', prefix: 'mailto:' },
 ]
+
+/** Switching style also swaps the default label, but never one the owner typed. */
+function setLinkStyle(style: 'interior' | undefined) {
+  const label = props.draft.label.trim()
+  const isDefault = !label || label === 'Go to next room' || label === 'See interior'
+  emit('update-draft', {
+    linkStyle: style,
+    ...(isDefault ? { label: style === 'interior' ? 'See interior' : 'Go to next room' } : {}),
+  })
+}
 
 const userType = computed(() => {
   if (props.draft.type === 'scene_link') return 'nav'
@@ -608,6 +638,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   transition: background 120ms, color 120ms;
 }
 .qe-shortcut:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.85); }
+.qe-shortcut--on, .qe-shortcut--on:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.35); color: #fff; }
 
 /* ── YouTube badge ── */
 .qe-youtube-tag {
