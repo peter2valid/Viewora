@@ -52,7 +52,8 @@
     <div class="ct__fade" :class="{ 'is-on': fading }" aria-hidden="true" />
 
     <!-- Exterior / Interior / Details: jump to the first view of each. -->
-    <div v-if="groups.length > 1 && !embed" class="ct__groups" role="tablist" aria-label="Part of the car">
+    <!-- Exterior / Interior / Close-ups: one tap to the first view of each (the spin page too). -->
+    <div v-if="groups.length > 1" class="ct__groups" role="tablist" aria-label="Part of the car">
       <button
         v-for="g in groups"
         :key="g.key"
@@ -432,9 +433,13 @@ defineExpose({ go, items })
 .ct__group {
   min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: transparent;
   color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 700; cursor: pointer;
-  transition: background 120ms, color 120ms;
+  transition: background 120ms, color 120ms, transform 120ms;
 }
 .ct__group.is-on { background: #fff; color: #0b0b0c; }
+.ct__group:active { transform: scale(0.97); }
+/* Spin page on a phone: the switch sits left, clear of the share and full-screen buttons on the right. */
+.ct.is-embed.is-narrow .ct__groups { left: 16px; transform: none; max-width: calc(100% - 92px); }
+.ct.is-embed.is-narrow .ct__group { min-height: 42px; padding: 0 12px; }
 .ct__group:focus-visible, .ct__chip:focus-visible, .ct__step:focus-visible, .ct__nav:focus-visible,
 .ct__ribbon-btn:focus-visible, .ct__thumb:focus-visible, .ct__ribbon-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
