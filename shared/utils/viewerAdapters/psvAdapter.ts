@@ -914,6 +914,8 @@ export interface InitViewerOptions {
   onClick?: (payload: PsvClickPayload) => void
   onMarkerClick?: (id: string) => void
   isEditing?: boolean
+  /** false: never autorotate, not on load and not when idle (the editor). */
+  autorotate?: boolean
   onMarkerEnter?: (id: string) => void
   onMarkerLeave?: (id: string) => void
   performanceMode?: ViewerPerformanceMode
@@ -1132,6 +1134,7 @@ export async function initViewer(
     onClick, 
     onMarkerClick, 
     isEditing = false, 
+    autorotate = true,
     onMarkerEnter, 
     onMarkerLeave, 
     performanceMode = 'auto',
@@ -1164,8 +1167,14 @@ export async function initViewer(
   plugins.push([AutorotatePlugin, {
     autorotateSpeed: '0.5rpm',
     autorotatePitch: scene.settings.pitch_default ?? 0,
-    autostartDelay: 8000,
-    autostartOnIdle: true,
+    // A delay alone starts it once after load; null keeps it off.
+    autostartDelay: autorotate ? 8000 : null,
+    // Off in the editor (autorotate: false). Idle autorotate there kept the view turning for as
+    // long as the editor stayed open: a WebGL frame every vsync plus a stream of
+    // new tiles as the view swept round. On Firefox with an integrated GPU every
+    // presented frame and texture upload goes through shared memory, which grew
+    // ~120 MB/s until the laptop ran out of RAM (memory audit, 12 Nov 2026).
+    autostartOnIdle: autorotate,
   }])
   plugins.push([StereoPlugin, {}])
 
@@ -1221,7 +1230,7 @@ export async function initViewer(
 
   viewer.addEventListener('ready', () => {
     onReady?.()
-    if (!isEditing && scene.settings.auto_rotate_enabled) {
+    if (!isEditing && autorotate && scene.settings.auto_rotate_enabled) {
       startAutorotate(viewer)
     }
   }, { once: true })

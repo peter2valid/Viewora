@@ -81,6 +81,8 @@ const props = defineProps<{
   scene: TourScene | null
   hotspots?: Hotspot[]
   isEditing?: boolean
+  /** The editor: the view never turns by itself. */
+  noAutorotate?: boolean
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
   traceClosable?: boolean
@@ -326,6 +328,7 @@ async function initWithScene(scene: TourScene) {
     
     const viewerOptions: InitViewerOptions = {
       isEditing: props.isEditing ?? false,
+      autorotate: !props.noAutorotate,
       onReady: () => {
         if (signal.aborted) return
         state.value = 'ready'

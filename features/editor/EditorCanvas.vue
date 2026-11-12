@@ -7,6 +7,7 @@
       :space-type="spaceType"
       :hotspots="hotspots"
       :is-editing="isEditing"
+      no-autorotate
       :is-tracing="isTracing"
       :trace-points="tracePoints"
       :trace-closable="traceClosable"

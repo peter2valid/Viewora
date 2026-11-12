@@ -8,6 +8,7 @@
           :scene="activeScene"
           :hotspots="normalizedHotspots"
           :is-editing="isEditing"
+          :no-autorotate="noAutorotate"
           :is-tracing="isTracing"
           :trace-points="tracePoints"
           :trace-closable="traceClosable"
@@ -57,6 +58,8 @@ const props = defineProps<{
   hotspots?: Hotspot[]
   // True when the editor is placing hotspots
   isEditing?: boolean
+  /** The editor: no autorotate, on load or idle (see psvAdapter initViewer). */
+  noAutorotate?: boolean
   isTracing?: boolean
   tracePoints?: Array<{ yaw: number; pitch: number }>
   traceClosable?: boolean
