@@ -262,8 +262,8 @@ const props = withDefaults(defineProps<{
   /** Turn once by itself when a smooth set has loaded, so it is obvious the car spins. Stops at the first touch. */
   autoplay?: boolean
   /**
-   * Studio look (the car tour): a photo shown whole has no blurred copy around it; its edges fade
-   * softly into the plain background instead, so there is no hard frame.
+   * Studio look (the car tour): a photo shown whole has no blurred copy around it. On a wide screen
+   * its sides fade into the plain background; top and bottom stay straight.
    */
   studio?: boolean
 }>(), {
@@ -411,7 +411,7 @@ function rectOf(v?: VehicleView) {
   return fitRect(box.value, natOf(v), fitNow.value)
 }
 const showBackdrop = computed(() => !props.editable && !props.studio && fitNow.value === 'contain' && !!backdropUrl.value)
-/** Studio: the photo's edges that sit inside the box fade out (a share of the photo's size). */
+/** Studio: the photo's side edges that sit inside the box fade out (a share of the photo's height). */
 const FEATHER = 0.14
 const feathered = computed(() => props.studio && !props.editable && fitNow.value === 'contain')
 const backdropUrl = computed(() => sorted.value[startIndex.value]?.image_url ?? '')
@@ -607,8 +607,8 @@ function draw() {
   if (!painted.value) painted.value = true
 }
 
-/** Fades the photo's edges into the background: keeps the drawn pixels, scaled by a soft ramp at each
- *  edge that is inside the box (an edge already at the screen's edge stays sharp). */
+/** Fades the photo's left and right edges into the background when they sit inside the box (a wide
+ *  screen). Top and bottom stay a clean straight line: on a phone the car is a sharp band, not a blur. */
 function featherEdges(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }) {
   const big = 1e5
   ctx.globalCompositeOperation = 'destination-in'
@@ -622,7 +622,6 @@ function featherEdges(ctx: CanvasRenderingContext2D, r: { x: number; y: number; 
     ctx.fillStyle = g
     ctx.fillRect(-big, -big, 2 * big, 2 * big)
   }
-  pass(false)
   pass(true)
   ctx.globalCompositeOperation = 'source-over'
 }
