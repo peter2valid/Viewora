@@ -44,7 +44,7 @@
         :key="p.h.id"
         type="button"
         class="vsv__pin"
-        :class="[`vsv__pin--${p.h.kind}`, { 'is-selected': (editable ? selectedHotspotId : activePinId) === p.h.id, 'is-hidden': !p.visible, 'is-pulse': !editable && p.alpha === 1 }]"
+        :class="[`vsv__pin--${p.h.kind}`, { 'is-selected': (editable ? selectedHotspotId : activePinId) === p.h.id, 'is-hidden': !p.visible, 'is-pulse': !editable && p.alpha === 1, 'is-tracked': editable && p.tracked }]"
         :style="{ left: p.left + 'px', top: p.top + 'px', opacity: p.visible ? p.alpha : 0 }"
         :aria-label="`${p.h.title}, ${hotspotKindLabel(p.h.kind)}`"
         :aria-expanded="!editable ? activePinId === p.h.id : undefined"
@@ -258,6 +258,7 @@ import {
   ZOOM_MAX, ZOOM_MIN,
   type VehicleView, type VehicleHotspot, type ZoomState, type TimelineMark, type VehicleSpinRow,
 } from '~/shared/utils/vehicleViews'
+import { isClosedLoop, trackFade } from '~/features/vehicle/pinTrack'
 
 const props = withDefaults(defineProps<{
   views: VehicleView[]
@@ -670,29 +671,61 @@ function featherEdges(ctx: CanvasRenderingContext2D, r: { x: number; y: number; 
 }
 
 // ── Pins ──
-// In a smooth spin, frames are only a few degrees apart, so a pin placed on one frame also shows (fading)
-// on the frames either side. The editor shows just the frame being edited, so what you move is what you see.
+// A followed pin (smooth spins: the editor tracked the part frame by frame) sits where the part is on
+// each frame, fades over the last two frames before the part turns out of sight, and is hidden after.
+// A pin without a track shows on its own frame and, in a smooth spin, fading on the frames either side.
 const PIN_REACH_DEG = 14
 function angularDistance(a: number, b: number) {
   const d = Math.abs(a - b) % 360
   return Math.min(d, 360 - d)
 }
 
+/** Each followed pin's strength on each frame (frame id → 0-1). */
+const trackFades = computed(() => {
+  const out = new Map<string, Map<string, number>>()
+  if (!smooth.value) return out
+  const list = sorted.value
+  const cyclic = isClosedLoop(list.map(v => v.angle))
+  for (const v of list) {
+    for (const h of v.hotspots ?? []) {
+      const pts = h.track?.pts
+      if (!pts) continue
+      const f = trackFade(list.length, i => !!pts[list[i].id], cyclic)
+      out.set(h.id, new Map([...f].map(([i, a]) => [list[i].id, a])))
+    }
+  }
+  return out
+})
+
 const pins = computed(() => {
   const cur = currentView.value
   if (!cur || !box.value.w) return []
-  const sources = props.editable || !smooth.value
-    ? [cur]
-    : sorted.value.filter(v => angularDistance(v.angle, cur.angle) <= PIN_REACH_DEG)
-  const out: Array<{ h: VehicleHotspot; left: number; top: number; visible: boolean; alpha: number }> = []
-  for (const v of sources) {
-    if (!v.hotspots?.length) continue
-    const r = rectOf(v)
-    const alpha = v.id === cur.id ? 1 : Math.max(0.25, 1 - angularDistance(v.angle, cur.angle) / PIN_REACH_DEG)
-    for (const h of v.hotspots) {
-      const o = dragOverride.value?.id === h.id ? dragOverride.value : null
-      const p = zoomForward({ x: r.x + (o ? o.x : h.x) * r.w, y: r.y + (o ? o.y : h.y) * r.h }, box.value, zoom.value)
-      out.push({ h, left: p.x, top: p.y, alpha, visible: p.x >= 0 && p.x <= box.value.w && p.y >= 0 && p.y <= box.value.h })
+  const out: Array<{ h: VehicleHotspot; left: number; top: number; visible: boolean; alpha: number; tracked: boolean }> = []
+  const r = rectOf(cur)
+  const push = (h: VehicleHotspot, rr: typeof r, x: number, y: number, alpha: number, tracked: boolean) => {
+    const o = dragOverride.value?.id === h.id ? dragOverride.value : null
+    const p = zoomForward({ x: rr.x + (o ? o.x : x) * rr.w, y: rr.y + (o ? o.y : y) * rr.h }, box.value, zoom.value)
+    out.push({ h, left: p.x, top: p.y, alpha, tracked, visible: p.x >= 0 && p.x <= box.value.w && p.y >= 0 && p.y <= box.value.h })
+  }
+  if (!smooth.value) {
+    for (const h of cur.hotspots ?? []) push(h, r, h.x, h.y, 1, false)
+    return out
+  }
+  for (const v of sorted.value) {
+    for (const h of v.hotspots ?? []) {
+      const pts = h.track?.pts
+      if (pts) {
+        // The pin's own frame always shows it where the seller put it.
+        const at = v.id === cur.id ? [h.x, h.y] as const : pts[cur.id]
+        if (!at) continue
+        const alpha = props.editable ? 1 : (trackFades.value.get(h.id)?.get(cur.id) ?? 1)
+        push(h, r, at[0], at[1], alpha, v.id !== cur.id)
+      } else if (v.id === cur.id) {
+        push(h, r, h.x, h.y, 1, false)
+      } else if (!props.editable && angularDistance(v.angle, cur.angle) <= PIN_REACH_DEG) {
+        // Not followed (placed before tracking, or it could not be): near its frame, fading with the angle.
+        push(h, rectOf(v), h.x, h.y, Math.max(0.25, 1 - angularDistance(v.angle, cur.angle) / PIN_REACH_DEG), false)
+      }
     }
   }
   return out
@@ -1333,6 +1366,8 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   transition: transform 150ms ease, background 150ms ease;
 }
+/* Editor: this frame's position came from following the part; drag it to correct this frame. */
+.vsv__pin.is-tracked { outline: 2px dashed rgba(255,255,255,0.75); outline-offset: 3px; }
 .vsv__pin.is-pulse::after {
   content: ''; position: absolute; width: var(--vsv-marker-size); height: var(--vsv-marker-size); border-radius: 50%;
   background: var(--vsv-pulse); animation: vsv-pulse 1.8s ease-out infinite; pointer-events: none;

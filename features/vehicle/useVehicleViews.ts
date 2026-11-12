@@ -11,7 +11,7 @@ const LEGACY_SPIN: VehicleSpin = { id: '00000000-0000-0000-0000-000000000000', t
 
 export interface AngleSuggestion { id: string; angle: number | null; label: string | null }
 export interface HotspotSuggestion { kind: 'feature' | 'damage'; x: number; y: number; title: string; body: string | null }
-export type HotspotDraft = { kind: VehicleHotspotKind; x: number; y: number; title: string; body?: string | null; url?: string | null; image_url?: string | null }
+export type HotspotDraft = { kind: VehicleHotspotKind; x: number; y: number; title: string; body?: string | null; url?: string | null; image_url?: string | null; track?: VehicleHotspot["track"] }
 
 /**
  * Exterior spins, photos and hotspots for one car: load, upload, reorder by angle, pin, AI help.

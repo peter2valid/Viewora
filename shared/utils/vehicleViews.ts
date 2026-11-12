@@ -184,6 +184,12 @@ export interface VehicleHotspot {
   url?: string | null
   /** A photo that opens from the pin (the engine under the bonnet, the tyre tread). */
   image_url?: string | null
+  /**
+   * Smooth spins: where the pin sits on each frame (frame id → [x, y]), found by following the part
+   * from frame to frame. A frame left out is one where the part is out of sight. `fixed`: frames the
+   * seller corrected by hand.
+   */
+  track?: { pts: Record<string, [number, number]>; fixed?: string[] } | null
 }
 
 export const HOTSPOT_KINDS: Array<{ kind: VehicleHotspotKind; label: string; hint: string }> = [

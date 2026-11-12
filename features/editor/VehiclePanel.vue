@@ -218,6 +218,7 @@
           <h2 class="vp-h2">Edit hotspot</h2>
           <span class="vp-muted" aria-live="polite">{{ saveState }}</span>
         </div>
+        <p v-if="trackNote" class="vp-muted vp-track" aria-live="polite">{{ trackNote }}</p>
         <fieldset class="vp-seg" aria-label="Hotspot type">
           <button v-for="k in HOTSPOT_KINDS" :key="k.kind" type="button" class="vp-seg__btn" :class="{ 'is-on': selectedHotspot.kind === k.kind }" :aria-pressed="selectedHotspot.kind === k.kind" :title="k.hint" @click="editHotspot({ kind: k.kind })">{{ k.label }}</button>
         </fieldset>
@@ -385,6 +386,7 @@ import { toast } from 'vue-sonner'
 import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
 import { useCarSetup } from '~/features/vehicle/useCarSetup'
 import { useVehicleViews, type AngleSuggestion } from '~/features/vehicle/useVehicleViews'
+import { followPin } from '~/features/vehicle/pinTracker'
 import {
   VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS, VEHICLE_MAX_SPINS, SPIN_PRESETS, SPIN_HEIGHTS,
   viewLabel, nearestSlot, hotspotKindLabel, slotGaps, swapAngles, isSpinSet, spinAngles,
@@ -448,7 +450,8 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); if (remove
 const slotAngles = new Set(VEHICLE_SLOTS.map(s => s.angle))
 const current = computed<VehicleView | null>(() => views.value.find(v => v.id === selectedId.value) ?? null)
 const currentHotspots = computed(() => current.value?.hotspots ?? [])
-const selectedHotspot = computed(() => currentHotspots.value.find(h => h.id === selectedHotspotId.value) ?? null)
+const selectedHotspot = computed(() => currentHotspots.value.find(h => h.id === selectedHotspotId.value)
+  ?? (selectedHotspotId.value ? findHotspot(selectedHotspotId.value)?.h ?? null : null))
 const viewerIndex = computed(() => Math.max(0, views.value.findIndex(v => v.id === selectedId.value)))
 
 // 12+ evenly spaced frames: a smooth spin, so the eight main angles are no longer a checklist.
@@ -655,6 +658,7 @@ async function onPlace({ viewId, x, y }: { viewId: string; x: number; y: number 
     const h = await createHotspot(viewId, { kind: 'feature', x, y, title: DEFAULT_TITLES.feature })
     id = h.id
   }, 'Could not add the hotspot')
+  if (ok && id) void follow(id)
   if (ok && id) {
     selectedHotspotId.value = id
     await nextTick()
@@ -664,15 +668,72 @@ async function onPlace({ viewId, x, y }: { viewId: string; x: number; y: number 
 }
 
 function onSelectHotspot({ viewId, id }: { viewId: string; id: string }) {
-  if (viewId !== selectedId.value) selectedId.value = viewId
+  // A followed pin can be picked on any frame it shows on: stay on that frame.
+  const shownHere = !!selectedId.value && !!findHotspot(id)?.h.track?.pts[selectedId.value]
+  if (viewId !== selectedId.value && !shownHere) selectedId.value = viewId
   selectedHotspotId.value = id
   placing.value = false
 }
 
 async function onMoveHotspot({ viewId, id, x, y }: { viewId: string; id: string; x: number; y: number }) {
   selectedHotspotId.value = id
-  await withBusy(null, () => updateHotspot(viewId, id, { x, y }), 'Could not move the hotspot')
+  const found = findHotspot(id)
+  if (found && found.view.id !== viewId) {
+    // Dragged on another frame of the spin: a correction there. Keep the earlier ones and follow again.
+    const t = found.h.track
+    const fixed: Record<string, [number, number]> = {}
+    for (const f of t?.fixed ?? []) if (t?.pts[f]) fixed[f] = t.pts[f]
+    fixed[viewId] = [x, y]
+    if (t) found.h.track = { ...t, pts: { ...t.pts, [viewId]: [x, y] } }
+    await follow(id, fixed)
+    return
+  }
+  // Moved on its own frame: the pin starts over from here (earlier corrections were for the old spot).
+  const ok = await withBusy(null, () => updateHotspot(viewId, id, { x, y }), 'Could not move the hotspot')
+  if (ok) void follow(id)
 }
+
+// ── Following a pin round the car ──
+// In a smooth spin, a pin is followed frame by frame from where it is placed, so it stays on the
+// bonnet as the car turns and hides when the bonnet is out of sight. Runs here, once per change.
+const tracking = ref<Record<string, 'running' | 'failed'>>({})
+const trackRuns = new Map<string, number>()
+function findHotspot(id: string) {
+  for (const v of views.value) {
+    const h = v.hotspots?.find(x => x.id === id)
+    if (h) return { view: v, h }
+  }
+  return null
+}
+async function follow(id: string, fixed: Record<string, [number, number]> = {}) {
+  const found = findHotspot(id)
+  if (!found || !isSpin.value) return
+  const run = (trackRuns.get(id) ?? 0) + 1
+  trackRuns.set(id, run)
+  tracking.value = { ...tracking.value, [id]: 'running' }
+  try {
+    const track = await followPin(views.value, found.view.id, [found.h.x, found.h.y], fixed)
+    if (trackRuns.get(id) !== run) return
+    await updateHotspot(found.view.id, id, { track })
+    const { [id]: _, ...rest } = tracking.value
+    tracking.value = rest
+  } catch (e: any) {
+    if (trackRuns.get(id) !== run) return
+    tracking.value = { ...tracking.value, [id]: 'failed' }
+    setNotice(`${errMsg(e, 'Could not follow the pin round the car')}. It shows near this frame only.`)
+  }
+}
+const trackNote = computed(() => {
+  const h = selectedHotspot.value
+  if (!h || !isSpin.value) return ''
+  const state = tracking.value[h.id]
+  if (state === 'running') return 'Following the part round the car…'
+  if (state === 'failed') return 'Shows near this frame only.'
+  const n = h.track ? Object.keys(h.track.pts).length : 0
+  if (!h.track) return ''
+  if (n <= 1) return 'Shows on this frame only: this spot could not be followed. Try a spot with more detail.'
+  return `Follows the car on ${n} of ${views.value.length} frames. Turn the car and drag the pin to correct a frame.`
+})
 
 // Edits are saved shortly after typing stops, so there is no Save button to forget.
 const saveState = ref('')
@@ -682,7 +743,8 @@ let pendingPatch: Record<string, any> = {}
 
 function editHotspot(patch: Record<string, any>) {
   const h = selectedHotspot.value
-  const v = current.value
+  // The pin belongs to the frame it was placed on, even when it is being edited from another frame.
+  const v = h ? findHotspot(h.id)?.view ?? current.value : null
   if (!h || !v) return
   if ('url' in patch) {
     const u = String(patch.url ?? '').trim()
@@ -736,7 +798,7 @@ async function onHotspotPhoto(e: Event) {
 
 function removeSelectedHotspot() {
   const h = selectedHotspot.value
-  const v = current.value
+  const v = h ? findHotspot(h.id)?.view ?? current.value : null
   if (!h || !v) return
   selectedHotspotId.value = null
   withBusy(null, () => deleteHotspot(v.id, h.id), 'Could not delete the hotspot')
@@ -805,7 +867,8 @@ async function addDrafts() {
   const room = MAX_HOTSPOTS_PER_VIEW - (v.hotspots?.length ?? 0)
   const ok = await withBusy(null, async () => {
     for (const d of picked.slice(0, Math.max(0, room))) {
-      await createHotspot(v.id, { kind: d.kind, x: d.x, y: d.y, title: d.title, body: d.body })
+      const h = await createHotspot(v.id, { kind: d.kind, x: d.x, y: d.y, title: d.title, body: d.body })
+      void follow(h.id)
     }
   }, 'Could not add the hotspots')
   if (ok) {
@@ -1201,6 +1264,7 @@ defineExpose({ reload: init, showBuyerView })
 .vp-sec__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .vp-h2 { margin: 0; font-size: 14px; font-weight: 800; }
 .vp-muted { margin: 0; font-size: 12px; line-height: 1.45; color: rgba(255,255,255,0.6); }
+.vp-track { margin: -2px 0 2px; }
 .vp-hint { margin: 0; font-size: 12px; line-height: 1.45; color: rgba(255,255,255,0.55); }
 .vp-label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8); margin-top: 4px; }
 .vp-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
