@@ -108,16 +108,24 @@
     </div>
     </Teleport>
 
-    <!-- While the frames load: the 360° badge in the middle, with how far along it is. -->
-    <div v-if="showBadge" class="vsv__badge" aria-hidden="true">
-      <svg viewBox="0 0 64 40" width="64" height="40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <text x="32" y="19" text-anchor="middle" fill="currentColor" stroke="none" font-size="15" font-weight="800" font-family="system-ui, sans-serif">360°</text>
-        <path d="M10 22c-4 2-6 4-6 6 0 5 12 8 28 8 6 0 11-.4 15.5-1.3" />
-        <path d="m43 31 5 3.6-5 3.4" />
-        <path d="M54 22c4 2 6 4 6 6 0 1.6-1.2 3-3.4 4.2" />
-      </svg>
-      <span v-if="loading" class="vsv__badge-pct">{{ loadPct }}%</span>
-    </div>
+    <!-- While the frames load: a ring that fills as they arrive, and what is loading. -->
+    <Transition name="vsv-load">
+      <div v-if="showBadge" class="vsv__load" aria-hidden="true">
+        <span class="vsv__load-ring">
+          <svg viewBox="0 0 40 40" width="40" height="40">
+            <circle cx="20" cy="20" r="17" class="vsv__load-track" />
+            <circle cx="20" cy="20" r="17" class="vsv__load-fill" :style="{ strokeDashoffset: `${106.8 * (1 - Math.max(4, loadPct) / 100)}` }" />
+          </svg>
+          <svg class="vsv__load-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="13" rx="9" ry="3.6" /><path d="m15 15.8 2.2.9-1.4 1.8" />
+          </svg>
+        </span>
+        <span class="vsv__load-t">
+          <b>Loading 360° spin</b>
+          <span class="vsv__load-pct">{{ loadedCount }} of {{ sorted.length }} photos</span>
+        </span>
+      </div>
+    </Transition>
 
     <!-- First-use hint, the same one as the 360° tour: a swiping finger on a phone, a mouse on a computer. Gone at the first touch. -->
     <ViewerDragHint :show="showHints && !showBadge" :touch="isTouch" />
@@ -171,14 +179,13 @@
       v-if="showZoomCue"
       type="button"
       class="vsv__zcue"
-      :class="{ 'is-nudge': zoomNudge }"
-      aria-label="Zoom out to spin the car"
+      aria-label="Zoom out to see the whole car"
       @pointerdown.stop
       @click="resetZoom(true)"
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
-      <span class="vsv__zcue-quiet">Zoomed in</span>
-      <span class="vsv__zcue-main">Zoom out to spin</span>
+      <span class="vsv__zcue-quiet">Drag past the edge to turn</span>
+      <span class="vsv__zcue-main">Zoom out</span>
     </button>
 
     <!-- Turn track with a mark per hotspot: tap a mark and the car turns to it and opens it. -->
@@ -310,6 +317,8 @@ const emit = defineEmits<{
   (e: 'zoom', zoomed: boolean): void
   /** A hotspot's popover opened or closed: a host can clear its own controls out of the way. */
   (e: 'popover', open: boolean): void
+  /** Every photo of the spin is in: the network is free for whatever the host wants to load next. */
+  (e: 'ready'): void
 }>()
 
 // ── Camera heights ──
@@ -354,20 +363,9 @@ const verticalHeights = computed(() => !!rowList.value && !props.editable
 const badgeGone = ref(false)
 const showBadge = computed(() => smooth.value && !props.editable && !badgeGone.value && loading.value)
 const showHints = computed(() => showHint.value && painted.value && sorted.value.length > 1 && !props.editable && !activePinId.value && !zoomed.value)
-/** While zoomed, a drag pans the photo instead of turning the car: keep saying how to spin again. */
+/** While zoomed, a drag looks around the photo and turns the car at its edges; a tap on the cue zooms out. */
 const showZoomCue = computed(() => zoomed.value && !props.editable && sorted.value.length > 1 && !activePinId.value)
-const zoomNudge = ref(false)
-let zoomNudgeTimer: ReturnType<typeof setTimeout> | undefined
-let edgePush = 0
 let cueSpoken = false
-/** Someone dragged sideways at the edge of the zoomed photo, as if to turn the car: make the cue noticed. */
-function nudgeZoomCue() {
-  zoomNudge.value = false
-  requestAnimationFrame(() => { zoomNudge.value = true })
-  if (zoomNudgeTimer) clearTimeout(zoomNudgeTimer)
-  zoomNudgeTimer = setTimeout(() => { zoomNudge.value = false }, 900)
-  if (!cueSpoken) { cueSpoken = true; announce('Zoom out to spin the car') }
-}
 const showTimeline = computed(() => smooth.value && !props.hideBar && sorted.value.length > 1)
 /** A short box (a listing card): the timeline loses its label. */
 const short = computed(() => box.value.h > 0 && box.value.h < 460)
@@ -760,8 +758,7 @@ watch(zoomed, (z) => {
   emit('zoom', z)
   if (!z) sharp = null
   if (z) cueSpoken = false
-  else { edgePush = 0; zoomNudge.value = false }
-  announce(z ? 'Zoomed in. Drag to look around this view; zoom out (or press 0) to spin the car again.' : 'Zoomed out. Drag to spin the car.')
+  announce(z ? 'Zoomed in. Drag to look around; drag past the edge to turn the car. Zoom out (or press 0) to see all of it.' : 'Zoomed out. Drag to spin the car.')
 })
 let zoomAnim = 0
 
@@ -942,8 +939,10 @@ function startAutoplay() {
   }
   raf = requestAnimationFrame(tick)
 }
+let readySent = false
 watch(loadedCount, (c) => {
   const n = sorted.value.length
+  if (n && c >= n && !readySent) { readySent = true; emit('ready') }
   if (autoplayed || !props.autoplay || props.editable || reduceMotion || !smooth.value || !n || c < n) return
   autoplayed = true
   startAutoplay()
@@ -992,7 +991,6 @@ function onDown(e: PointerEvent) {
   dragAxis = null
   dragStartRow = rowIdx.value
   moved = 0
-  edgePush = 0
   downX = startPosX = lastX = e.clientX
   downY = lastY = e.clientY
   startPos = pos
@@ -1021,11 +1019,13 @@ function onMove(e: PointerEvent) {
     const dx = e.clientX - lastX
     const x0 = zoom.value.x
     setZoom({ z: zoom.value.z, x: zoom.value.x + dx, y: zoom.value.y + (e.clientY - lastY) })
-    // The photo stopped at its edge but the finger keeps going sideways: they want the car to turn.
-    if (Math.abs(dx) > 0 && Math.abs(zoom.value.x - x0) < Math.abs(dx) * 0.25) {
-      edgePush += Math.abs(dx)
-      if (edgePush > 60) { edgePush = 0; nudgeZoomCue() }
-    } else if (Math.abs(dx) > 0) edgePush = 0
+    // The photo stopped at its edge but the finger keeps going sideways: the rest of the drag turns
+    // the car, still zoomed in, so someone looking at a wheel can walk along the side of the car.
+    const overflow = dx - (zoom.value.x - x0)
+    if (sorted.value.length > 1 && Math.abs(overflow) > 0.5) {
+      setPos(pos - overflow * framesPerPx())
+      if (!cueSpoken) { cueSpoken = true; announce('Turning the car. Zoom out to see all of it.') }
+    }
     lastX = e.clientX
     lastY = e.clientY
     return
@@ -1080,7 +1080,9 @@ function onUp(e: PointerEvent) {
     }
     return
   }
-  if (panning || dragAxis === 'y') return
+  // A drag past the edge of a zoomed photo can leave the car between two frames.
+  if (panning) { if (pos !== Math.round(pos)) setPos(Math.round(pos)); return }
+  if (dragAxis === 'y') return
 
   if (reduceMotion || Math.abs(velocity) < 0.002 || performance.now() - lastT > 80) {
     setPos(Math.round(pos))
@@ -1419,16 +1421,32 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__lightbox-x:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .vsv__pop-cta:focus-visible, .vsv__pop-close:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: 2px; }
 
-/* The "360°" badge: frosted, centred, gone at the first touch. */
-.vsv__badge {
+/* Loading: a solid dark pill under the middle of the car, a ring that fills as photos arrive.
+   The car can already be turned underneath it, so it never takes a touch. */
+.vsv__load {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4;
-  min-width: 100px; padding: 12px 16px; border-radius: 16px; box-sizing: border-box;
-  display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none;
-  background: var(--vsv-badge-bg); color: #fff; box-shadow: 0 2px 16px rgba(0,0,0,0.12);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));
+  display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px;
+  pointer-events: none; white-space: nowrap;
+  background: rgba(12, 12, 14, 0.78); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
 }
-.vsv__badge-pct { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0.9; }
+.vsv__load-ring { position: relative; width: 40px; height: 40px; flex: none; }
+.vsv__load-ring svg:first-child { display: block; transform: rotate(-90deg); }
+.vsv__load-track { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 3; }
+.vsv__load-fill {
+  fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round;
+  stroke-dasharray: 106.8; transition: stroke-dashoffset 180ms ease-out;
+}
+.vsv__load-icon { position: absolute; left: 12px; top: 12px; opacity: 0.9; }
+.vsv__load-t { display: flex; flex-direction: column; line-height: 1.25; }
+.vsv__load-t b { font-size: 13px; font-weight: 700; }
+.vsv__load-pct { font-size: 12px; opacity: 0.68; font-variant-numeric: tabular-nums; }
+.vsv-load-leave-active { transition: opacity 180ms ease; }
+.vsv-load-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .vsv__load-fill { transition: none; }
+  .vsv-load-leave-active { transition: none; }
+}
 
 
 .vsv.is-short .vsv__tl { padding-top: 14px; }
@@ -1497,14 +1515,6 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__zcue-main { color: #fff; font-weight: 700; }
 .vsv__zcue:hover { background: var(--vsv-btn-bg-hover); }
 .vsv__zcue:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: 2px; }
-.vsv__zcue.is-nudge { animation: vsv-zcue-nudge 700ms ease; background: var(--vsv-brand); color: #fff; }
-.vsv__zcue.is-nudge .vsv__zcue-quiet { opacity: 0.9; }
-@keyframes vsv-zcue-nudge {
-  0%, 100% { transform: translateX(-50%) scale(1); }
-  20% { transform: translateX(calc(-50% - 6px)) scale(1.06); }
-  40% { transform: translateX(calc(-50% + 6px)) scale(1.06); }
-  60% { transform: translateX(calc(-50% - 3px)) scale(1.03); }
-}
 
 .vsv__toast {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; margin: 0;

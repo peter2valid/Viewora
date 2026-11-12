@@ -132,7 +132,7 @@
          screen), the listing's name and key facts, and a progress ring. When
          the 360 is ready the blur dissolves into the live view of that room. -->
     <Transition name="vt-intro">
-      <div v-if="hasTourData && !vtReady && !vtError" class="vt-intro" aria-live="polite" :aria-label="`Loading ${introTitle}`">
+      <div v-if="hasTourData && !vtReady && !vtError && !props.hideIntro" class="vt-intro" aria-live="polite" :aria-label="`Loading ${introTitle}`">
         <img v-if="introLo" :src="introLo" class="vt-intro__bg" alt="" aria-hidden="true" fetchpriority="high" decoding="async" />
         <img v-if="introHi" :src="introHi" class="vt-intro__bg vt-intro__bg--hi" :class="{ 'vt-intro__bg--shown': introHiReady }" alt="" aria-hidden="true" decoding="async" @load="introHiReady = true" />
         <div class="vt-intro__shade" />
@@ -520,6 +520,7 @@
         :class="{
           'vt-canvas--ready': vtReady,
           'vt-canvas--focused': vtBlur,
+          'vt-canvas--embed': props.isEmbed,
           'hide-nav-arrows': !dockCollapsed || props.hideNavArrows || compactNavActive
         }"
       />
@@ -703,6 +704,9 @@ const props = defineProps<{
   // its own collapsed state, so this component's internal dockCollapsed
   // never changes and can't drive that coordination on its own.
   hideNavArrows?: boolean
+  // No "Preparing your tour" opening screen: the host loads this viewer out of
+  // sight ahead of time (the car tour's interior) and shows its own small loader.
+  hideIntro?: boolean
 }>()
 
 const img = useImage()
@@ -1428,7 +1432,7 @@ const introChips = computed(() => {
   if (n > 1) chips.push(`${n} ${sp.space_type === 'land' ? 'views' : 'rooms'}`)
   return chips
 })
-useHead(() => introLo.value ? { link: [{ rel: 'preload', as: 'image', href: introLo.value, fetchpriority: 'high' } as any] } : {})
+useHead(() => introLo.value && !props.hideIntro ? { link: [{ rel: 'preload', as: 'image', href: introLo.value, fetchpriority: 'high' } as any] } : {})
 
 // Counts plots on the scene being viewed, e.g. "4 available · 1 reserved · 3 sold".
 const plotLegend = computed(() => {
@@ -3423,6 +3427,11 @@ watch(() => vtTransitioning.value, (loading) => {
 .vt-vignette--active { opacity: 1; }
 
 /* ── PSV/VirtualTour overrides ──────────────────────────── */
+/* Embedded in someone else's page the frame is small: walk arrows about half size, like Street View's. */
+:global(.vt-canvas--embed .psv-virtual-tour-arrow) { width: 68px !important; height: 68px !important; }
+@media (max-width: 640px) {
+  :global(.vt-canvas--embed .psv-virtual-tour-arrow) { width: 56px !important; height: 56px !important; }
+}
 :global(.psv-virtual-tour-arrow) {
   /* Let viewora-hotspot control its own display */
   background: transparent !important;

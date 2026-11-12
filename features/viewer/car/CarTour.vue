@@ -2,7 +2,7 @@
   <div
     ref="rootEl"
     class="ct"
-    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen, 'is-spin': active?.kind === 'spin', 'is-zoomed': zoomedIn, 'has-dock': embed && items.length > 1 && !dockCollapsed }"
+    :class="{ 'is-compact': compact, 'is-narrow': narrow, 'is-embed': embed, 'is-pin-open': pinOpen, 'is-spin': active?.kind === 'spin', 'is-zoomed': zoomedIn, 'has-dock': embed && items.length > 1 && !dockCollapsed, 'has-dock-btn': embed && items.length > 1 && dockCollapsed }"
     :style="{ '--ct-top': topOffset, '--ct-bottom': bottomOffset }"
     @keydown.esc="ribbonOpen = false"
   >
@@ -24,20 +24,29 @@
       :zoom-bottom="zoomBottom"
       @popover="pinOpen = $event"
       @zoom="zoomedIn = $event"
+      @ready="preloadPano"
     />
-    <!-- Mounted the first time the interior is opened, then kept: going back inside is instant. -->
-    <div v-if="panoMounted" v-show="active?.kind === 'pano'" class="ct__layer">
+    <!-- The interior loads quietly behind the spin once the spin's photos are in, so tapping Interior
+         opens the 360 straight away. Hidden with visibility, not display, so the viewer has a size to
+         draw at while it waits. Kept once mounted: going back inside is instant. -->
+    <div v-if="panoMounted" class="ct__layer" :class="{ 'is-off': active?.kind !== 'pano' }" :aria-hidden="active?.kind !== 'pano'">
       <ViewerPsvViewer
         ref="psvRef"
         :tour="tour"
         :share-url="shareUrl"
         :is-embed="embed"
         :hide-own-chrome="true"
+        :hide-intro="true"
         :hide-nav-arrows="ribbonOpen"
         class="ct__psv"
         @scene-changed="onSceneChanged"
         @loaded="onPanoLoaded"
       />
+    </div>
+    <!-- Only when someone opens the interior before it has finished loading in the background. -->
+    <div v-if="active?.kind === 'pano' && !panoReady" class="ct__loading" role="status">
+      <span class="ct__loading-ring" aria-hidden="true" />
+      Loading the interior…
     </div>
     <VehicleSpinViewer
       v-if="active?.kind === 'photo'"
@@ -126,6 +135,7 @@
       <GlassDock
         v-if="items.length > 1"
         v-model:collapsed="dockCollapsed"
+        :collapsible="dock !== 'fixed'"
         :items="dockItems"
         :active-id="active?.id ?? ''"
         glass-class="dock-glass-superdark"
@@ -201,7 +211,10 @@ const props = withDefaults(defineProps<{
   bottomOffset?: string
   /** The car's name, shown top-left on wide screens. The listing page has its own title: leave empty. */
   title?: string
-}>(), { embed: false, shareUrl: undefined, topOffset: '16px', bottomOffset: '16px', title: '' })
+  /** The standalone dock: 'open' (can be hidden), 'closed' (starts hidden behind its arrow, for
+   *  iframes on someone else's page) or 'fixed' (always showing, the spin page). */
+  dock?: 'open' | 'closed' | 'fixed'
+}>(), { embed: false, shareUrl: undefined, topOffset: '16px', bottomOffset: '16px', title: '', dock: 'open' })
 
 const emit = defineEmits<{ (e: 'item-change', item: CarTourItem): void }>()
 
@@ -306,16 +319,32 @@ function onKey(e: KeyboardEvent) {
 // ── Interior 360 ──
 const psvRef = ref<any>(null)
 const panoMounted = ref(false)
+const panoReady = ref(false)
 let pendingScene: string | null = null
+/** The scene the 360 viewer is showing, as it last reported. */
+let panoScene: string | null = null
 function openPano(sceneId: string) {
+  if (!panoMounted.value) { pendingScene = sceneId; panoMounted.value = true; return }
+  if (!panoReady.value) { pendingScene = sceneId; return }
+  if (sceneId === panoScene) return
   pendingScene = sceneId
-  if (!panoMounted.value) { panoMounted.value = true; return }
   psvRef.value?.goToScene(sceneId)
 }
 function onPanoLoaded() {
+  panoReady.value = true
   if (pendingScene) psvRef.value?.goToScene(pendingScene)
 }
+/** Start loading the interior behind the spin: when the spin's photos are all in, or after a while anyway. */
+const hasPano = computed(() => items.value.some(i => i.kind === 'pano'))
+let preloadTimer: ReturnType<typeof setTimeout> | undefined
+function preloadPano() {
+  if (preloadTimer) { clearTimeout(preloadTimer); preloadTimer = undefined }
+  if (hasPano.value && !panoMounted.value) panoMounted.value = true
+}
+onMounted(() => { if (hasPano.value) preloadTimer = setTimeout(preloadPano, 8000) })
+onBeforeUnmount(() => { if (preloadTimer) clearTimeout(preloadTimer) })
 function onSceneChanged(sceneId: string) {
+  panoScene = sceneId
   // First report from a freshly mounted viewer: it opened on its own first scene.
   if (pendingScene && sceneId !== pendingScene) { psvRef.value?.goToScene(pendingScene); return }
   pendingScene = null
@@ -341,7 +370,8 @@ function onDockSelect(id: string) {
   if (it) go(it)
 }
 const shareOpen = ref(false)
-const dockCollapsed = ref(false)
+// In an iframe on someone else's page the car gets the whole frame; the arrow at the bottom brings the strip up.
+const dockCollapsed = ref(props.dock === 'closed')
 
 // iPhone Safari has no element full screen: no button there rather than one that does nothing.
 const canFullscreen = ref(false)
@@ -367,9 +397,24 @@ defineExpose({ go, items })
   --ct-top: 16px; --ct-bottom: 16px;
 }
 .ct__layer { position: absolute; inset: 0; }
+/* The interior, loading or waiting behind the spin: drawn at full size, never seen or touched. */
+.ct__layer.is-off, .ct__layer.is-off :deep(*) { visibility: hidden !important; pointer-events: none !important; }
+.ct__loading {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4;
+  display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 8px; border-radius: 999px; white-space: nowrap;
+  background: rgba(12, 12, 14, 0.78); border: 1px solid rgba(255, 255, 255, 0.1);
+  font: 600 13px system-ui, -apple-system, sans-serif; color: #fff; pointer-events: none;
+}
+.ct__loading-ring {
+  width: 28px; height: 28px; border-radius: 50%; box-sizing: border-box;
+  border: 3px solid rgba(255, 255, 255, 0.16); border-top-color: #fff;
+  animation: ct-spin 0.9s linear infinite;
+}
+@keyframes ct-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ct__loading-ring { animation-duration: 3s; } }
 /* Wide screens: the spin fills the whole screen edge to edge (no fade, no bars) and the dock floats
    over the ground, like the 360° tour. Cues that sit at the bottom of the car go above the dock. */
-.ct.is-embed.has-dock:not(.is-narrow) { --vsv-overlay-bottom: 132px; }
+.ct.is-embed.has-dock:not(.is-narrow) { --vsv-overlay-bottom: 212px; }
 
 /* Standalone: the 360° tour's control buttons, top right. */
 .ct__rail {
@@ -402,6 +447,10 @@ defineExpose({ go, items })
 .ct { --vsv-overlay-bottom: var(--ct-bottom); }
 .ct.is-narrow { --vsv-overlay-bottom: calc(var(--ct-bottom) + 56px); }
 .ct.is-narrow.is-zoomed.is-spin { --vsv-overlay-bottom: var(--ct-bottom); }
+/* A phone with the strip open: the zoom cue and hints sit above the strip and its arrows. */
+.ct.is-narrow.has-dock.is-spin, .ct.is-narrow.has-dock.is-zoomed.is-spin { --vsv-overlay-bottom: 176px; }
+/* Strip closed: keep clear of the arrow that opens it. */
+.ct.has-dock-btn:not(.is-narrow), .ct.has-dock-btn.is-narrow.is-zoomed.is-spin { --vsv-overlay-bottom: 60px; }
 .ct.is-narrow.is-spin .ct__ribbon-btn { bottom: var(--ct-bottom); }
 /* Clear of a host's own corner button (expand, full screen), which --ct-ribbon-right makes room for. */
 .ct.is-narrow.is-spin .ct__step { bottom: var(--ct-bottom); right: max(16px, var(--ct-ribbon-right, 16px)); }

@@ -29,6 +29,7 @@
           </button>
           
           <button
+            v-if="collapsible"
             class="glass-dock__ctrl-btn glass-dock__ctrl-btn--collapse"
             aria-label="Hide scenes"
             @click="isCollapsed = true"
@@ -295,6 +296,8 @@ const props = withDefaults(defineProps<{
    * reorders, as before.
    */
   combinable?: boolean
+  /** False: the strip always stays open (no hide button). */
+  collapsible?: boolean
 }>(), {
   activeId: '',
   showAdd: false,
@@ -313,6 +316,7 @@ const props = withDefaults(defineProps<{
   collapsedLabel: '',
   branches: false,
   combinable: false,
+  collapsible: true,
 })
 
 const emit = defineEmits<{
@@ -332,6 +336,7 @@ const isMounted = ref(false)
 
 const isCollapsed = computed({
   get() {
+    if (!props.collapsible) return false
     return props.collapsed !== undefined ? props.collapsed : isCollapsedLocal.value
   },
   set(val) {
