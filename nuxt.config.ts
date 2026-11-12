@@ -200,6 +200,22 @@ export default defineNuxtConfig({
         "upgrade-insecure-requests",
       ].join('; '),
     }},
+    // /spin/<slug> is the embed page under another address (Share > Spin only): same rules.
+    '/spin/**': { ssr: true, headers: {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': [
+        "default-src 'self' https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://app.posthog.com https://us.posthog.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://media.viewora.software https://*.r2.dev https://r2.dev https://www.google-analytics.com https://www.googletagmanager.com https://*.supabase.co https://*.googleusercontent.com https://app.viewora.software",
+        "connect-src 'self' blob: https://jtezuupnjncguzrpacap.supabase.co https://api.viewora.software https://media.viewora.software https://www.google-analytics.com https://app.posthog.com https://us.posthog.com wss://jtezuupnjncguzrpacap.supabase.co https://*.r2.cloudflarestorage.com",
+        "frame-src 'self' https://www.youtube.com https://youtube.com",
+        "worker-src 'self' blob:",
+        "upgrade-insecure-requests",
+      ].join('; '),
+    }},
     // App dashboard — client-side only (auth-protected, user-specific data)
     // NOTE: connect-src below includes open.er-api.com for the display-only
     // currency conversion on /app/billing (useCurrencyDisplay.ts) — it
