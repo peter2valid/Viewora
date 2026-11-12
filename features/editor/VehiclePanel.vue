@@ -387,6 +387,7 @@ import VehicleSpinViewer from '~/features/viewer/car/VehicleSpinViewer.vue'
 import { useCarSetup } from '~/features/vehicle/useCarSetup'
 import { useVehicleViews, type AngleSuggestion } from '~/features/vehicle/useVehicleViews'
 import { followPin } from '~/features/vehicle/pinTracker'
+import { TRACK_VERSION } from '~/features/vehicle/pinTrack'
 import {
   VEHICLE_SLOTS, VEHICLE_MAX_VIEWS, MAX_HOTSPOTS_PER_VIEW, HOTSPOT_KINDS, VEHICLE_MAX_SPINS, SPIN_PRESETS, SPIN_HEIGHTS,
   viewLabel, nearestSlot, hotspotKindLabel, slotGaps, swapAngles, isSpinSet, spinAngles,
@@ -653,6 +654,13 @@ async function onPlace({ viewId, x, y }: { viewId: string; x: number; y: number 
   placing.value = false
   const v = views.value.find(i => i.id === viewId)
   if ((v?.hotspots?.length ?? 0) >= MAX_HOTSPOTS_PER_VIEW) { setNotice(`Up to ${MAX_HOTSPOTS_PER_VIEW} hotspots per photo.`); return }
+  // A pin already shows here (placed on this frame, or followed onto it): open that one, never a twin.
+  const near = pinNear(viewId, x, y)
+  if (near) {
+    selectedHotspotId.value = near.id
+    setNotice(`“${near.title || 'This pin'}” is already here. Edit it, or drag it to move it.`)
+    return
+  }
   let id = ''
   const ok = await withBusy(null, async () => {
     const h = await createHotspot(viewId, { kind: 'feature', x, y, title: DEFAULT_TITLES.feature })
@@ -665,6 +673,23 @@ async function onPlace({ viewId, x, y }: { viewId: string; x: number; y: number 
     titleInput.value?.focus()
     titleInput.value?.select()
   }
+}
+
+/** How close (share of the photo's width) a new pin may come to one already showing on the frame. */
+const PIN_TWIN = 0.05
+function pinNear(viewId: string, x: number, y: number) {
+  const v = views.value.find(i => i.id === viewId)
+  const aspect = v?.width && v?.height ? v.height / v.width : 9 / 16
+  let best: { id: string; title: string; d: number } | null = null
+  for (const w of views.value) {
+    for (const h of w.hotspots ?? []) {
+      const p = w.id === viewId ? [h.x, h.y] : h.track?.pts[viewId]
+      if (!p) continue
+      const d = Math.hypot(p[0] - x, (p[1] - y) * aspect)
+      if (d < PIN_TWIN && (!best || d < best.d)) best = { id: h.id, title: h.title, d }
+    }
+  }
+  return best
 }
 
 function onSelectHotspot({ viewId, id }: { viewId: string; id: string }) {
@@ -735,8 +760,13 @@ watch(() => [loaded.value, activeSpinId.value, views.value.length] as const, asy
   const key = activeSpinId.value ?? ''
   if (backfilledSpins.has(key)) return
   backfilledSpins.add(key)
-  const todo = views.value.flatMap(v => (v.hotspots ?? []).filter(h => !h.track).map(h => h.id))
-  for (const id of todo) if (!(await follow(id, {}, true))) break
+  // Pins never followed, or followed by an older tracker (redone, keeping the seller's corrections).
+  const todo = views.value.flatMap(v => (v.hotspots ?? []).filter(h => (h.track?.v ?? 0) < TRACK_VERSION))
+  for (const h of todo) {
+    const fixed: Record<string, [number, number]> = {}
+    for (const f of h.track?.fixed ?? []) if (h.track?.pts[f]) fixed[f] = h.track.pts[f]
+    if (!(await follow(h.id, fixed, true))) break
+  }
 }, { immediate: true })
 const trackNote = computed(() => {
   const h = selectedHotspot.value

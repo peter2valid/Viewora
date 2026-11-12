@@ -189,7 +189,7 @@ export interface VehicleHotspot {
    * from frame to frame. A frame left out is one where the part is out of sight. `fixed`: frames the
    * seller corrected by hand.
    */
-  track?: { pts: Record<string, [number, number]>; fixed?: string[] } | null
+  track?: { pts: Record<string, [number, number]>; fixed?: string[]; v?: number } | null
 }
 
 export const HOTSPOT_KINDS: Array<{ kind: VehicleHotspotKind; label: string; hint: string }> = [

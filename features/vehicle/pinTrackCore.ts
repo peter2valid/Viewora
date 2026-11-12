@@ -25,12 +25,33 @@ export function loadGray(url: string): Promise<GrayFrame> {
     const bmp = await createImageBitmap(await res.blob())
     const w = Math.min(TRACK_WIDTH, bmp.width)
     const h = Math.max(1, Math.round((bmp.height * w) / bmp.width))
-    const canvas: OffscreenCanvas | HTMLCanvasElement = typeof OffscreenCanvas !== 'undefined'
-      ? new OffscreenCanvas(w, h)
-      : Object.assign(document.createElement('canvas'), { width: w, height: h })
+    const make = (cw: number, ch: number): OffscreenCanvas | HTMLCanvasElement => typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(cw, ch)
+      : Object.assign(document.createElement('canvas'), { width: cw, height: ch })
+    // Shrink by halves: one big drawImage step skips most pixels and leaves sparkle that the
+    // tracker mistakes for detail (it followed 4 frames instead of 15 on a 1080p walk-round).
+    let src: CanvasImageSource = bmp
+    let sw = bmp.width
+    let sh = bmp.height
+    while (sw / 2 >= w * 1.0001) {
+      const nw = Math.max(w, Math.round(sw / 2))
+      const nh = Math.max(h, Math.round(sh / 2))
+      const step = make(nw, nh)
+      const sctx = step.getContext('2d') as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null
+      if (!sctx) break
+      sctx.imageSmoothingEnabled = true
+      sctx.imageSmoothingQuality = 'high'
+      sctx.drawImage(src, 0, 0, nw, nh)
+      src = step
+      sw = nw
+      sh = nh
+    }
+    const canvas = make(w, h)
     const ctx = canvas.getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null
     if (!ctx) throw new Error('No canvas')
-    ctx.drawImage(bmp, 0, 0, w, h)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(src, 0, 0, w, h)
     bmp.close?.()
     const rgba = ctx.getImageData(0, 0, w, h).data
     const px = new Uint8Array(w * h)

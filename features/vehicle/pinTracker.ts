@@ -1,9 +1,9 @@
 // Follows a car pin through a spin: in a worker when the browser can (the editor never stalls),
 // otherwise on the page. The result is where the pin sits on each frame, keyed by frame id.
-import { isClosedLoop, type PinPos } from './pinTrack'
+import { isClosedLoop, TRACK_VERSION, type PinPos } from './pinTrack'
 import { loadGray, runTrack, type TrackRequest } from './pinTrackCore'
 
-export interface PinTrack { pts: Record<string, PinPos>; fixed?: string[] }
+export interface PinTrack { pts: Record<string, PinPos>; fixed?: string[]; v?: number }
 
 let worker: Worker | null = null
 let seq = 0
@@ -73,5 +73,5 @@ export async function followPin(
   const out: Record<string, PinPos> = {}
   for (const [i, p] of pts) out[frames[i].id] = [round(p[0]), round(p[1])]
   const kept = Object.keys(fixed).filter(id => id in out && id !== startId)
-  return kept.length ? { pts: out, fixed: kept } : { pts: out }
+  return kept.length ? { pts: out, fixed: kept, v: TRACK_VERSION } : { pts: out, v: TRACK_VERSION }
 }

@@ -98,3 +98,40 @@ test('trackFade: solid in the middle, fading over the last two frames before the
   const all = trackFade(5, () => true, false)
   assert.deepEqual([...all.values()], [1, 1, 1, 1, 1])
 })
+
+// A textured panel drawn at any scale: smooth bumps, so it stays the same picture when resized.
+function panelFrames(n: number, opts: { step: number; grow: number; plainHole?: number }): { frames: GrayFrame[]; at: (k: number) => [number, number] } {
+  const cx0 = 160, cy = 135
+  const tex = (u: number, v: number) => 128 + 40 * Math.sin(u * 0.21 + 1.3 * Math.sin(v * 0.07)) + 35 * Math.cos(v * 0.19 - 0.9 * Math.sin(u * 0.05)) + 20 * Math.sin((u + v) * 0.37)
+  const frames: GrayFrame[] = []
+  for (let k = 0; k < n; k++) {
+    const s = 1 + opts.grow * k
+    const cx = cx0 + opts.step * k
+    const px = new Uint8Array(W * H).fill(90)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const u = (x - cx) / s, v = (y - cy) / s
+      if (Math.abs(u) > 80 || Math.abs(v) > 80) continue
+      const plain = opts.plainHole && Math.abs(u) < opts.plainHole && Math.abs(v) < opts.plainHole
+      px[y * W + x] = plain ? 235 : Math.max(0, Math.min(255, Math.round(tex(u, v))))
+    }
+    frames.push({ w: W, h: H, px })
+  }
+  return { frames, at: k => [(cx0 + opts.step * k) / W, cy / H] }
+}
+
+test('trackPin: a pin on a plain patch is carried by the detail around it', () => {
+  const { frames, at } = panelFrames(8, { step: 6, grow: 0, plainHole: 22 })
+  const out = trackPin(frames, 0, at(0), { cyclic: false })
+  assert.equal(out.size, 8)
+  for (const [k, p] of out) assert.ok(Math.abs(p[0] - at(k)[0]) * W < 1.5, `frame ${k} x off by ${(p[0] - at(k)[0]) * W}px`)
+})
+
+test('trackPin: follows a part that grows as the camera comes closer', () => {
+  const { frames, at } = panelFrames(8, { step: 5, grow: 0.03 })
+  const out = trackPin(frames, 0, at(0), { cyclic: false })
+  assert.equal(out.size, 8)
+  for (const [k, p] of out) {
+    assert.ok(Math.abs(p[0] - at(k)[0]) * W < 1.5, `frame ${k} x off by ${(p[0] - at(k)[0]) * W}px`)
+    assert.ok(Math.abs(p[1] - at(k)[1]) * H < 1.5, `frame ${k} y`)
+  }
+})
