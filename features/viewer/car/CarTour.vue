@@ -341,7 +341,11 @@ function preloadPano() {
   if (preloadTimer) { clearTimeout(preloadTimer); preloadTimer = undefined }
   if (hasPano.value && !panoMounted.value) panoMounted.value = true
 }
-onMounted(() => { if (hasPano.value) preloadTimer = setTimeout(preloadPano, 8000) })
+onMounted(() => {
+  // A car with no exterior spin opens on its interior: load that straight away.
+  if (active.value?.kind === 'pano' && active.value.sceneId) { openPano(active.value.sceneId); return }
+  if (hasPano.value) preloadTimer = setTimeout(preloadPano, 8000)
+})
 onBeforeUnmount(() => { if (preloadTimer) clearTimeout(preloadTimer) })
 function onSceneChanged(sceneId: string) {
   panoScene = sceneId
