@@ -218,8 +218,9 @@ if (tourError.value) {
   // A car with exterior photos: the Exterior / Interior viewer lives on /view/p, so send every car there
   // (its interior 360 is shown there too). Otherwise cars with 360 scenes never get the toggle.
   const carHasSpin = (tourData?.vehicle_spins?.length ?? 0) > 0 || (tourData?.vehicle_views?.length ?? 0) > 0
+  // (The car details page is switched off for now: a car opens as its 360° spin.)
   if (spaceData?.space_type === 'automotive' && carHasSpin) {
-    await navigateTo(`/view/p/${encodeURIComponent(slug)}`, { redirectCode: 302, replace: true })
+    await navigateTo(`/spin/${encodeURIComponent(slug)}`, { redirectCode: 302, replace: true })
   }
 
   // Photo-only listing: this page is built around the 360/aerial viewer and

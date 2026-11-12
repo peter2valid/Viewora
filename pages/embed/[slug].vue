@@ -18,7 +18,7 @@
         :share-url="shareUrl"
         :title="hasBrandingDetails ? '' : (vehicleName(space) || space.title)"
         :top-offset="hasBrandingDetails ? 'var(--embed-car-top)' : '16px'"
-        :dock="spinOnly ? 'fixed' : 'closed'"
+        :dock="spinOnly ? 'open' : 'closed'"
       />
 
       <!-- PSV Viewer — Photo Sphere Viewer integration via ViewerPsvViewer -->

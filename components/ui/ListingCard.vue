@@ -1,5 +1,5 @@
 <template>
-  <NuxtLink :to="`/view/p/${listing.slug || listing.id}`" class="card">
+  <NuxtLink :to="`/${listing.space_type === 'automotive' ? 'spin' : 'p'}/${listing.slug || listing.id}`" class="card">
     <div class="card__media">
       <img v-if="listing.hero_image" :src="listing.hero_image" :alt="listing.title" loading="lazy" />
       <div v-else class="card__media-placeholder" aria-hidden="true">

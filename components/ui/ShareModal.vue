@@ -10,7 +10,7 @@
             </button>
           </div>
           <!-- A car: two links. The listing (spin, price, details) or just the spin to turn. -->
-          <div v-if="isCar && !visitor" class="share-modal__pick" role="radiogroup" aria-label="What to share">
+          <div v-if="isCar && !visitor && CAR_LISTING_PAGE" class="share-modal__pick" role="radiogroup" aria-label="What to share">
             <button
               v-for="o in carLinkOptions"
               :key="o.id"
@@ -151,7 +151,9 @@ const shareTabs: Array<{ id: 'link' | 'embed' | 'qr'; label: string }> = [
 const publicUrl = computed(() => (props.space ? resolvePublicTourUrl(props.space, props.context) : ''))
 
 const isCar = computed(() => (props.space as any)?.space_type === 'automotive')
-const carLink = ref<'listing' | 'spin'>('listing')
+// The car details page is switched off for now (it forwards to the spin), so a car shares its spin.
+const CAR_LISTING_PAGE = false
+const carLink = ref<'listing' | 'spin'>(CAR_LISTING_PAGE ? 'listing' : 'spin')
 const carLinkOptions: Array<{ id: 'listing' | 'spin'; title: string; sub: string }> = [
   { id: 'listing', title: 'Full listing', sub: 'Spin, price and details' },
   { id: 'spin', title: 'Spin only', sub: 'Just the car to turn' },
@@ -194,7 +196,7 @@ async function copyEmbedCode() {
 
 watch(() => props.space, (space) => {
   shareTab.value = 'link'
-  carLink.value = 'listing'
+  carLink.value = CAR_LISTING_PAGE ? 'listing' : 'spin'
   makeQr(space)
 })
 watch(carLink, () => makeQr(props.space))

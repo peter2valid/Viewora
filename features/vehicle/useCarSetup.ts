@@ -109,7 +109,7 @@ export function useCarSetup(spaceId: string) {
   const required = computed(() => steps.value.filter(s => !s.optional))
   const doneCount = computed(() => steps.value.filter(s => s.done).length)
   const nextStep = computed(() => steps.value.find(s => !s.done && !s.optional) ?? steps.value.find(s => !s.done) ?? null)
-  const tourUrl = computed(() => (setup.value?.is_published && setup.value.slug ? `/view/p/${encodeURIComponent(setup.value.slug)}` : null))
+  const tourUrl = computed(() => (setup.value?.is_published && setup.value.slug ? `/spin/${encodeURIComponent(setup.value.slug)}` : null))
 
   return { setup, error, refresh, steps, required, doneCount, nextStep, tourUrl }
 }

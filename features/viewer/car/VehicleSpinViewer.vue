@@ -2,7 +2,8 @@
   <div
     ref="rootEl"
     class="vsv"
-    :class="{ 'is-placing': placing, 'is-edit': editable, 'is-zoomed': zoomed, 'has-timeline': showTimeline, 'is-short': short, 'is-heights': verticalHeights }"
+    :class="{ 'is-placing': placing, 'is-edit': editable, 'is-zoomed': zoomed, 'has-timeline': showTimeline, 'is-short': short, 'is-heights': verticalHeights, 'is-developing': loaderOn && developed < 1 }"
+    :style="loaderOn ? { '--vsv-dev': developed } : undefined"
     role="group"
     tabindex="0"
     :aria-roledescription="smooth ? '360° view' : undefined"
@@ -108,27 +109,11 @@
     </div>
     </Teleport>
 
-    <!-- While the frames load: a ring that fills as they arrive, and what is loading. -->
-    <Transition name="vsv-load">
-      <div v-if="showBadge" class="vsv__load" aria-hidden="true">
-        <span class="vsv__load-ring">
-          <svg viewBox="0 0 40 40" width="40" height="40">
-            <circle cx="20" cy="20" r="17" class="vsv__load-track" />
-            <circle cx="20" cy="20" r="17" class="vsv__load-fill" :style="{ strokeDashoffset: `${106.8 * (1 - Math.max(4, loadPct) / 100)}` }" />
-          </svg>
-          <svg class="vsv__load-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <ellipse cx="12" cy="13" rx="9" ry="3.6" /><path d="m15 15.8 2.2.9-1.4 1.8" />
-          </svg>
-        </span>
-        <span class="vsv__load-t">
-          <b>Loading 360° spin</b>
-          <span class="vsv__load-pct">{{ loadedCount }} of {{ sorted.length }} photos</span>
-        </span>
-      </div>
-    </Transition>
+    <!-- While the frames load: the car on a turntable whose ring lights up; gone at the first touch. -->
+    <SpinLoader v-if="loaderOn" :progress="loadedCount / Math.max(1, sorted.length)" :done="!loading || framesSettled" @shown="developed = $event" @finished="loaderOn = false" />
 
     <!-- First-use hint, the same one as the 360° tour: a swiping finger on a phone, a mouse on a computer. Gone at the first touch. -->
-    <ViewerDragHint :show="showHints && !showBadge" :touch="isTouch" />
+    <ViewerDragHint :show="showHints && !showBadge && !loaderOn" :touch="isTouch" />
 
     <!-- Zoom: one button until zoomed, then out / in / whole car. Pinch, ctrl+wheel and double-tap do the same. -->
     <div v-if="zoomable && sorted.length && !hideZoom" class="vsv__zoom" :class="{ 'is-open': zoomed }" :style="{ bottom: zoomBottom }" @pointerdown.stop>
@@ -266,6 +251,7 @@ import {
   type VehicleView, type VehicleHotspot, type ZoomState, type TimelineMark, type VehicleSpinRow,
 } from '~/shared/utils/vehicleViews'
 import { isClosedLoop, trackFade } from '~/features/vehicle/pinTrack'
+import SpinLoader from '~/features/viewer/car/SpinLoader.vue'
 
 const props = withDefaults(defineProps<{
   views: VehicleView[]
@@ -362,6 +348,10 @@ const verticalHeights = computed(() => !!rowList.value && !props.editable
 /** The middle "360°" badge, while the frames load; then the drag hint says what to do. Gone at the first touch. */
 const badgeGone = ref(false)
 const showBadge = computed(() => smooth.value && !props.editable && !badgeGone.value && loading.value)
+/** The loader stays up after the last photo is in, long enough to close its ring; a touch takes it away. */
+const loaderOn = ref(false)
+/** How far the loader says it is, 0 to 1: the car's colour fades in with it, like a photo developing. */
+const developed = ref(0)
 const showHints = computed(() => showHint.value && painted.value && sorted.value.length > 1 && !props.editable && !activePinId.value && !zoomed.value)
 /** While zoomed, a drag looks around the photo and turns the car at its edges; a tap on the cue zooms out. */
 const showZoomCue = computed(() => zoomed.value && !props.editable && sorted.value.length > 1 && !activePinId.value)
@@ -440,9 +430,14 @@ type Drawable = ImageBitmap | HTMLImageElement | HTMLCanvasElement
 const frames = new Map<string, Drawable>()
 const natural = ref<Record<string, { w: number; h: number }>>({})
 const loadedIds = shallowRef<Set<string>>(new Set())
+/** Frames that would not load: the loader must not wait for them forever. */
+const failedIds = shallowRef<Set<string>>(new Set())
+const framesSettled = computed(() => sorted.value.every(v => loadedIds.value.has(v.id) || failedIds.value.has(v.id)))
 const loadedCount = computed(() => sorted.value.filter(v => loadedIds.value.has(v.id)).length)
 const loading = computed(() => sorted.value.length > 1 && loadedCount.value < sorted.value.length)
 const loadPct = computed(() => Math.round((100 * loadedCount.value) / Math.max(1, sorted.value.length)))
+watch(showBadge, (on) => { if (on) loaderOn.value = true }, { immediate: true })
+watch(badgeGone, (gone) => { if (gone) loaderOn.value = false })
 let corsOk = true
 let resizeOk = true
 let loadGen = 0
@@ -548,7 +543,10 @@ function loadAll() {
         frames.set(v.id, d)
         loadedIds.value = new Set(loadedIds.value).add(v.id)
         requestDraw()
-      } catch { /* a missing frame is skipped; its neighbours stand in */ }
+      } catch {
+        // A missing frame is skipped; its neighbours stand in. It still counts as settled for the loader.
+        if (gen === loadGen) failedIds.value = new Set(failedIds.value).add(v.id)
+      }
     }
   }
   for (let k = 0; k < 6; k++) worker()
@@ -1215,6 +1213,7 @@ function releaseFrames() {
   const keep = currentView.value?.id
   for (const [id, d] of frames) if (id !== keep) { closeDrawable(d); frames.delete(id) }
   loadedIds.value = new Set(keep && frames.has(keep) ? [keep] : [])
+  failedIds.value = new Set()
   sharp = null
   released = true
 }
@@ -1334,6 +1333,10 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__poster.is-contain { object-fit: contain; }
 .vsv__poster.is-bottom { object-position: center bottom; }
 .vsv__canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Loading: the car starts dim and grey and its colour comes in as the photos arrive. */
+.vsv.is-developing :is(.vsv__canvas, .vsv__poster) {
+  filter: grayscale(calc(1 - var(--vsv-dev, 0))) brightness(calc(0.62 + 0.38 * var(--vsv-dev, 0)));
+}
 .vsv__empty {
   position: absolute; inset: 0; display: grid; place-items: center;
   color: rgba(255,255,255,0.5); font-size: 13px;
@@ -1421,32 +1424,6 @@ defineExpose({ goTo, index, zoomBy, resetZoom, play, togglePlay })
 .vsv__lightbox-x:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .vsv__pop-cta:focus-visible, .vsv__pop-close:focus-visible { outline: 2px solid var(--vsv-focus); outline-offset: 2px; }
 
-/* Loading: a solid dark pill under the middle of the car, a ring that fills as photos arrive.
-   The car can already be turned underneath it, so it never takes a touch. */
-.vsv__load {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4;
-  display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px;
-  pointer-events: none; white-space: nowrap;
-  background: rgba(12, 12, 14, 0.78); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-.vsv__load-ring { position: relative; width: 40px; height: 40px; flex: none; }
-.vsv__load-ring svg:first-child { display: block; transform: rotate(-90deg); }
-.vsv__load-track { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 3; }
-.vsv__load-fill {
-  fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round;
-  stroke-dasharray: 106.8; transition: stroke-dashoffset 180ms ease-out;
-}
-.vsv__load-icon { position: absolute; left: 12px; top: 12px; opacity: 0.9; }
-.vsv__load-t { display: flex; flex-direction: column; line-height: 1.25; }
-.vsv__load-t b { font-size: 13px; font-weight: 700; }
-.vsv__load-pct { font-size: 12px; opacity: 0.68; font-variant-numeric: tabular-nums; }
-.vsv-load-leave-active { transition: opacity 180ms ease; }
-.vsv-load-leave-to { opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .vsv__load-fill { transition: none; }
-  .vsv-load-leave-active { transition: none; }
-}
 
 
 .vsv.is-short .vsv__tl { padding-top: 14px; }

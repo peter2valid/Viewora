@@ -364,6 +364,16 @@ if (tourError.value) {
   seller.value = tour?.seller ?? null
   const hasSpins = tour?.space?.space_type === 'automotive' && spinsFromTour(tour).length > 0
   state.value = (rooms.value.length > 0 || photos.value.length > 0 || hasSpins) ? 'ready' : 'empty'
+
+  // This details page is switched off for now: a car opens as its 360° spin, any other listing
+  // with a tour opens the tour. Only photo-only listings, which have no other page, stay here.
+  const query = route.fullPath.includes('?') ? route.fullPath.slice(route.fullPath.indexOf('?')) : ''
+  const hasTour = rooms.value.length > 0 || (tour?.aerial_maps?.length ?? 0) > 0 || (tour?.floor_plans?.length ?? 0) > 0
+  if (tour?.space?.space_type === 'automotive' && (hasSpins || rooms.value.length > 0 || photos.value.length > 0)) {
+    await navigateTo(`/spin/${encodeURIComponent(slug)}${query}`, { redirectCode: 302, replace: true })
+  } else if (hasTour) {
+    await navigateTo(`/p/${encodeURIComponent(slug)}${query}`, { redirectCode: 302, replace: true })
+  }
 }
 pending.value = false
 
