@@ -179,6 +179,47 @@
         </div>
       </section>
 
+      <!-- Studio finish: one grade for every frame of the spin (done on the server, originals kept). -->
+      <section v-if="isSpin && finish.available.value" class="vp-sec" aria-label="Studio finish">
+        <div class="vp-sec__head">
+          <h2 class="vp-h2">Studio finish</h2>
+          <span class="vp-muted vp-num" aria-live="polite">{{ finishRunning ? progressText(finish.status.value?.progress) : '' }}</span>
+        </div>
+        <p class="vp-muted">Cleaner light and richer paint, matched on every frame so the car doesn't flicker as it turns. Your recording is kept.</p>
+        <fieldset class="vp-seg vp-seg--3" aria-label="Look of this spin">
+          <button
+            v-for="o in SPIN_LOOK_OPTIONS"
+            :key="o.look"
+            type="button"
+            class="vp-seg__btn"
+            :class="{ 'is-on': finishLook === o.look, 'is-pending': finishRunning && finish.status.value?.progress?.look === o.look }"
+            :aria-pressed="finishLook === o.look"
+            :disabled="finishRunning || finish.asking.value || !finish.status.value"
+            :title="o.hint"
+            @click="applyFinish(o.look)"
+          >{{ o.label }}</button>
+        </fieldset>
+        <p v-if="!finishRunning && finishLook !== 'original' && finish.status.value?.behind" class="vp-muted">
+          {{ finish.status.value.behind }} {{ finish.status.value.behind === 1 ? 'frame was' : 'frames were' }} added after the finish.
+          <button class="vp-linkbtn" @click="applyFinish(finishLook, true)">Finish them too</button>
+        </p>
+        <p v-if="finishFailed" class="vp-error" role="alert">{{ finishFailed }}</p>
+        <figure v-if="current && lookOfUrl(current.image_url) !== 'original'" class="vp-compare" :style="{ '--split': `${compareSplit}%` }">
+          <img :src="current.image_url" alt="" class="vp-compare__img" />
+          <img :src="originalUrl(current.image_url)" alt="" class="vp-compare__img vp-compare__before" />
+          <span class="vp-compare__tag" aria-hidden="true">Before</span>
+          <span class="vp-compare__tag vp-compare__tag--r" aria-hidden="true">After</span>
+          <figcaption class="vp-hidden-text">This frame before and after the studio finish</figcaption>
+        </figure>
+        <input
+          v-if="current && lookOfUrl(current.image_url) !== 'original'"
+          v-model.number="compareSplit"
+          type="range" min="0" max="100" step="1"
+          class="vp-compare__range"
+          aria-label="Before and after: drag to compare"
+        />
+      </section>
+
       <section class="vp-sec">
         <div class="vp-sec__head">
           <h2 class="vp-h2">Hotspots</h2>
@@ -394,6 +435,8 @@ import {
   type VehicleView, type VehicleSlot, type VehicleHotspotKind,
 } from '~/shared/utils/vehicleViews'
 import { extractSpinFrames, validateSpinVideo, type SpinPhase } from '~/shared/utils/videoFrames'
+import { useSpinFinish } from '~/features/vehicle/useSpinFinish'
+import { SPIN_LOOK_OPTIONS, isRunning, lookOfUrl, originalUrl, progressText, type SpinLook } from '~/shared/utils/spinFinish'
 import { preloadCarDetector, releaseCarDetector } from '~/shared/utils/carDetector'
 
 const props = defineProps<{ spaceId: string }>()
@@ -1043,6 +1086,24 @@ async function makeSpin(file: File) {
 }
 
 // The step bar ticks off the exterior from the frame count: re-check it once a change has settled.
+// ── Studio finish ──
+// Set on the main spin; its camera heights are finished with it.
+const finishSpinId = computed(() => (spinsReady.value ? (activeSpin.value?.row_of ?? activeSpin.value?.id ?? null) : null))
+const finish = useSpinFinish(finishSpinId, async () => {
+  await load()
+  toast.success(finishLook.value === 'original' ? 'Back to your original frames' : 'Studio finish is on. Drag the slider to compare.')
+})
+const finishLook = computed<SpinLook>(() => finish.status.value?.look ?? 'original')
+const finishRunning = computed(() => isRunning(finish.status.value?.progress))
+const finishFailed = computed(() => finish.error.value || (finish.status.value?.progress?.state === 'failed' ? progressText(finish.status.value.progress) : ''))
+const compareSplit = ref(50)
+function applyFinish(look: SpinLook, again = false) {
+  if (look === finishLook.value && !again) return
+  finish.apply(look)
+}
+// New frames from a video or uploads change the spin: read its look again.
+watch(() => views.value.length, () => { if (!finishRunning.value) finish.refresh() })
+
 const carSetup = useCarSetup(props.spaceId)
 let checklistTimer: ReturnType<typeof setTimeout> | undefined
 watch(() => `${views.value.length}|${spins.value.length}|${busy.value}`, () => {
@@ -1182,6 +1243,17 @@ defineExpose({ reload: init, showBuyerView })
 </script>
 
 <style scoped>
+.vp-seg--3 { grid-template-columns: repeat(3, 1fr); }
+.vp-seg__btn.is-pending { border-style: dashed; border-color: #fff; }
+.vp-compare { position: relative; margin: 4px 0 0; border-radius: 10px; overflow: hidden; aspect-ratio: 16 / 9; background: #000; }
+.vp-compare__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.vp-compare__before { clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0); }
+.vp-compare::after { content: ''; position: absolute; top: 0; bottom: 0; left: var(--split, 50%); width: 2px; margin-left: -1px; background: #fff; pointer-events: none; }
+.vp-compare__tag { position: absolute; top: 6px; left: 6px; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; font-weight: 700; }
+.vp-compare__tag--r { left: auto; right: 6px; }
+.vp-compare__range { width: 100%; min-height: 44px; accent-color: #fff; cursor: ew-resize; }
+.vp-compare__range:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.vp-hidden-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .vp {
   /* --vp-top clears the floating top bar and the step bar above this panel. */
   --vp-top: 132px; --vp-gap: 16px; --vp-rail: 76px; --vp-side: 320px; --vp-dock: 128px;
