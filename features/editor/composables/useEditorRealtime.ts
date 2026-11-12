@@ -1,9 +1,13 @@
 import { useSupabaseClient } from '#imports'
 
+type ChangePayload = { eventType?: string; new?: Record<string, any>; old?: Record<string, any> }
+
 export function useEditorRealtime(
   spaceId: string,
   onRefresh: () => void,
   isActive: () => boolean,
+  /** Events this returns true for (echoes of this tab's own saves) don't trigger a refresh. */
+  isOwnEcho: (table: 'scenes' | 'hotspots', payload: ChangePayload) => boolean = () => false,
 ) {
   const supabase = useSupabaseClient()
   let channels: ReturnType<typeof supabase.channel>[] = []
@@ -25,7 +29,7 @@ export function useEditorRealtime(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'scenes', filter: `space_id=eq.${spaceId}` },
-        refreshSoon,
+        (payload: ChangePayload) => { if (!isOwnEcho('scenes', payload)) refreshSoon() },
       )
       .subscribe()
 
@@ -36,7 +40,7 @@ export function useEditorRealtime(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'hotspots' },
-        refreshSoon,
+        (payload: ChangePayload) => { if (!isOwnEcho('hotspots', payload)) refreshSoon() },
       )
       .subscribe()
 

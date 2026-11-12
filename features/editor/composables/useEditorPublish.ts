@@ -162,15 +162,22 @@ export function useEditorPublish(
     }
   }
 
-  async function saveSettings() {
-    if (settingsSaving.value) return
-    settingsSaving.value = true
+  // Latest save wins: a slow, failed older save must not roll back a newer one.
+  let settingsSeq = 0
+  let settingsQueue: Promise<unknown> = Promise.resolve()
 
+  /**
+   * Optimistic: the panel closes and the viewer takes the new view at once.
+   * Saves run one at a time, so a quick second save can't land before the first.
+   */
+  async function saveSettings() {
+    const seq = ++settingsSeq
+    const draft = { ...settingsDraft.value }
     const viewerPatch = {
-      hfov_default: settingsDraft.value.hfov,
-      yaw_default: settingsDraft.value.yaw,
-      pitch_default: settingsDraft.value.pitch,
-      auto_rotate_enabled: settingsDraft.value.autoRotate,
+      hfov_default: draft.hfov,
+      yaw_default: draft.yaw,
+      pitch_default: draft.pitch,
+      auto_rotate_enabled: draft.autoRotate,
     }
 
     const prevSettings = space.value?.property_360_settings?.[0]
@@ -182,21 +189,24 @@ export function useEditorPublish(
       }
     }
     showSettingsPanel.value = false
+    // Apply to the live viewer immediately — no page reload needed
+    onSettingsApplied?.({ hfov: draft.hfov, yaw: draft.yaw, pitch: draft.pitch })
 
+    settingsSaving.value = true
+    const request = settingsQueue.then(() => apiFetch(`/spaces/${spaceId}/settings`, { method: 'PATCH', body: viewerPatch }))
+    settingsQueue = request.catch(() => {})
     try {
-      await apiFetch(`/spaces/${spaceId}/settings`, { method: 'PATCH', body: viewerPatch })
-      showToast('Settings saved')
-      // Apply to the live viewer immediately — no page reload needed
-      onSettingsApplied?.({
-        hfov: settingsDraft.value.hfov,
-        yaw:  settingsDraft.value.yaw,
-        pitch: settingsDraft.value.pitch,
-      })
+      await request
+      if (seq === settingsSeq) showToast('Settings saved')
     } catch (e: any) {
+      if (seq !== settingsSeq) return // a newer save is on its way
       if (space.value) space.value = { ...space.value, property_360_settings: prevSettings ? [prevSettings] : [] }
+      if (prevSettings) {
+        onSettingsApplied?.({ hfov: prevSettings.hfov_default, yaw: prevSettings.yaw_default, pitch: prevSettings.pitch_default })
+      }
       showToast(e?.data?.statusMessage || 'Failed to save settings', 'error')
     } finally {
-      settingsSaving.value = false
+      if (seq === settingsSeq) settingsSaving.value = false
     }
   }
 

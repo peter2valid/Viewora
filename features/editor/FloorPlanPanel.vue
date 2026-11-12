@@ -278,6 +278,7 @@ import { useFloorPlans } from '~/features/floorplan/useFloorPlans'
 import VenueImportDialog from '~/features/venue/VenueImportDialog.vue'
 import { isVenueData, isVenueKind, venueKindOf, venueWords, VENUE_KINDS } from '~/shared/utils/venue'
 import { clamp01, isPlaced, MAX_FLOOR_PLANS } from '~/shared/utils/floorPlan'
+import { createSerialWrites } from '~/shared/utils/editorWrites'
 
 const props = defineProps<{ spaceId: string }>()
 
@@ -700,16 +701,29 @@ function saveConeDeg(id: string, coneDeg: number) {
   saveNorthOffset(id, coneDeg - refYaw.value)
 }
 
-/** Optimistic update; reverts and shows an error if the save fails. */
+// Pin saves for one scene go out one at a time and quick successive drags are
+// merged, so the server can't end up with an older position than the screen.
+const pinWrites = createSerialWrites()
+const pinSeq = new Map<string, number>()
+// Last saved state per scene while saves are pending — what a failure goes back to.
+const pinBaseline = new Map<string, Pick<SceneRow, 'floor_plan_id' | 'plan_x' | 'plan_y' | 'north_offset'>>()
+
+/** Optimistic update; reverts (unless edited again since) and shows an error if the save fails. */
 async function savePin(id: string, patch: Partial<Pick<SceneRow, 'floor_plan_id' | 'plan_x' | 'plan_y' | 'north_offset'>>) {
   const sc = sceneById.value[id]
   if (!sc) return
   const before = { floor_plan_id: sc.floor_plan_id, plan_x: sc.plan_x, plan_y: sc.plan_y, north_offset: sc.north_offset }
+  const seq = (pinSeq.get(id) ?? 0) + 1
+  pinSeq.set(id, seq)
+  if (!pinBaseline.has(id)) pinBaseline.set(id, before)
   Object.assign(sc, patch)
   try {
-    await apiFetch(`/scenes/${id}`, { method: 'PATCH', body: patch })
+    await pinWrites.patch(id, patch, body => apiFetch(`/scenes/${id}`, { method: 'PATCH', body }))
+    if (pinSeq.get(id) === seq) pinBaseline.delete(id)
   } catch (e: any) {
-    Object.assign(sc, before)
+    if (pinSeq.get(id) !== seq) return
+    Object.assign(sc, pinBaseline.get(id) ?? before)
+    pinBaseline.delete(id)
     toast.error(e?.data?.statusMessage || 'Could not save the location — check your connection.')
   }
 }

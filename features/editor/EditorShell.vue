@@ -245,15 +245,12 @@
             >{{ c }}</button>
           </div>
           <div class="rename-popover__actions">
-            <button class="rename-popover__save" :disabled="renameSaving" @click="saveRenameScene">Save</button>
+            <button class="rename-popover__save" @click="saveRenameScene">Save</button>
             <button class="rename-popover__cancel" @click="renameCandidate = null">✕</button>
           </div>
           <div class="rename-popover__delete-row">
             <template v-if="sceneDeleteConfirm === renameCandidate.id">
-              <button class="rename-popover__del-confirm" :disabled="deletingScene" @click="confirmDeleteScene(renameCandidate.id)">
-                <span v-if="deletingScene" class="hs-edit-panel__spin" />
-                <template v-else>Confirm delete</template>
-              </button>
+              <button class="rename-popover__del-confirm" @click="confirmDeleteScene(renameCandidate.id)">Confirm delete</button>
               <button class="rename-popover__del-abort" @click="sceneDeleteConfirm = null">Cancel</button>
             </template>
             <template v-else>
@@ -290,7 +287,7 @@
           </div>
           <span class="rename-popover__hint">{{ categoryNaming.ids.length }} scene{{ categoryNaming.ids.length === 1 ? '' : 's' }}<template v-if="categoryNaming.mode === 'new'"> · after saving, drop more scenes onto the category's name to add them</template></span>
           <div class="rename-popover__actions">
-            <button class="rename-popover__save" :disabled="categorySaving || !categoryNameDraft.trim()" @click="saveCategoryName">Save</button>
+            <button class="rename-popover__save" :disabled="!categoryNameDraft.trim()" @click="saveCategoryName">Save</button>
             <button class="rename-popover__cancel" :aria-label="categoryNaming.mode === 'new' ? 'Cancel, keep the scenes separate' : 'Cancel'" @click="cancelCategoryName">✕</button>
           </div>
         </div>
@@ -362,10 +359,7 @@
 
             <!-- Footer -->
             <div class="ts-footer">
-              <button class="ts-btn-save" :disabled="settingsSaving" @click="saveSettings">
-                <span v-if="settingsSaving" class="ts-spin" />
-                <template v-else>Save Changes</template>
-              </button>
+              <button class="ts-btn-save" @click="saveSettings">Save Changes</button>
               <button class="ts-btn-cancel" @click="showSettingsPanel = false">Cancel</button>
             </div>
 
@@ -552,6 +546,7 @@ import { navigateTo } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/editor/mappers'
+import { createSerialWrites, createWriteTracker, mergeById } from '~/shared/utils/editorWrites'
 import { resolveStartView } from '~/domain/scene'
 import {
   BACK_ITEM_ID, CATEGORY_SUGGESTIONS, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, normalizeGroup, scenesInGroup,
@@ -600,6 +595,21 @@ const scenes = ref<any[]>([])
 const selectedSceneId = ref('')
 const dockCollapsed = ref(false)
 const hotspotsByScene = ref<Record<string, EditorHotspot[]>>({})
+// Saves still in flight (and just landed): reloads keep the on-screen copy of
+// those items, and realtime echoes of them don't trigger a reload at all.
+const writes = createWriteTracker()
+// One request at a time per item, so quick successive saves land in order.
+const serial = createSerialWrites()
+// Scene fields the editor writes. A reload that raced one of those writes keeps
+// these from the local copy and takes everything else (status, tiles…) from the server.
+const SCENE_EDIT_FIELDS = ['name', 'group_name', 'order_index', 'initial_yaw', 'initial_pitch', 'position_x', 'position_y', 'floor_plan_id', 'plan_x', 'plan_y', 'north_offset'] as const
+function keepLocalSceneEdits(server: any, local: any) {
+  const out = { ...server }
+  for (const f of SCENE_EDIT_FIELDS) if (f in local) out[f] = local[f]
+  return out
+}
+// Scenes removed on screen whose DELETE hasn't been confirmed yet.
+const deletingSceneIds = ref(new Set<string>())
 const inlineEditMode = computed({
   get: () => editorStore.mode === 'hotspot',
   set: (val: boolean) => editorStore.setMode(val ? 'hotspot' : 'view'),
@@ -763,6 +773,8 @@ const {
   sceneChips,
   showToast,
   fetchHotspots,
+  writes,
+  serial,
 )
 
 const viewerCanvasRef = ref<InstanceType<typeof ViewerCanvas> | null>(null)
@@ -825,9 +837,10 @@ const {
 // Each one saves through the normal API, then patches local state so the
 // viewer and panels update without a full reload.
 async function aiCreateHotspot(sceneId: string, payload: object) {
-  const data = await apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload }) as any
+  const data = await writes.track(`create:${sceneId}`, apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: payload })) as any
   if (data?.hotspot) {
     const mapped = mapDbHotspot(data.hotspot)
+    writes.touch(mapped.id)
     hotspotsByScene.value = {
       ...hotspotsByScene.value,
       [sceneId]: [...(hotspotsByScene.value[sceneId] ?? []), mapped],
@@ -836,7 +849,7 @@ async function aiCreateHotspot(sceneId: string, payload: object) {
 }
 
 async function aiDeleteHotspot(hotspotId: string) {
-  await apiFetch(`/hotspots/${hotspotId}`, { method: 'DELETE' })
+  await writes.track(hotspotId, serial.run(hotspotId, () => apiFetch(`/hotspots/${hotspotId}`, { method: 'DELETE' })))
   for (const sceneId of Object.keys(hotspotsByScene.value)) {
     hotspotsByScene.value = {
       ...hotspotsByScene.value,
@@ -846,7 +859,7 @@ async function aiDeleteHotspot(hotspotId: string) {
 }
 
 async function aiUpdateHotspot(hotspotId: string, sceneId: string, body: object) {
-  const data = await apiFetch(`/hotspots/${hotspotId}`, { method: 'PATCH', body }) as any
+  const data = await writes.track(hotspotId, serial.patch(hotspotId, body as Record<string, any>, b => apiFetch(`/hotspots/${hotspotId}`, { method: 'PATCH', body: b }))) as any
   if (data?.hotspot) {
     const mapped = mapDbHotspot(data.hotspot)
     hotspotsByScene.value = {
@@ -857,7 +870,7 @@ async function aiUpdateHotspot(hotspotId: string, sceneId: string, body: object)
 }
 
 async function aiUpdateScene(sceneId: string, body: object) {
-  await apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body })
+  await writes.track(sceneId, serial.patch(`scene:${sceneId}`, body as Record<string, any>, b => apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body: b })))
   scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, ...body } : s)
 }
 
@@ -873,9 +886,11 @@ async function handleAutoLinkApply() {
       const prev = scenes.value.slice()
       scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, name } : s)
       try {
-        await apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body: { name } })
+        await writes.track(sceneId, serial.patch(`scene:${sceneId}`, { name }, b => apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body: b })))
       } catch {
-        scenes.value = prev
+        writes.forget(sceneId)
+        const before = prev.find(s => s.id === sceneId)
+        if (before) scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, name: before.name } : s)
       }
     },
     aiCreateHotspot,
@@ -971,10 +986,8 @@ const categoryOptions = computed(() => {
   const used = [...new Set(scenes.value.map((s: any) => (s.group_name ?? '').trim()).filter(Boolean))]
   return [...used, ...CATEGORY_SUGGESTIONS.filter(c => !used.includes(c))]
 })
-const renameSaving = ref(false)
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const sceneDeleteConfirm = ref<string | null>(null)
-const deletingScene = ref(false)
 
 const isPreviewMode = computed(() => editorStore.mode === 'preview')
 
@@ -1155,8 +1168,21 @@ function handleRenameScene(id: string) {
   renameCandidate.value = { id, name: scene.name || '' }
 }
 
+// Latest write per scene field-set, so a slow failure can't roll back a newer edit.
+const sceneEditSeq = new Map<string, number>()
+function nextSceneSeq(key: string) {
+  const n = (sceneEditSeq.get(key) ?? 0) + 1
+  sceneEditSeq.set(key, n)
+  return n
+}
+
+/**
+ * Optimistic: the popover closes and the dock updates at once; the save runs
+ * in the background (one at a time per scene), so the next scene can be
+ * renamed straight away.
+ */
 async function saveRenameScene() {
-  if (!renameCandidate.value || renameSaving.value) return
+  if (!renameCandidate.value) return
   const name = renameDraft.value.trim()
   if (!name) return
   const { id } = renameCandidate.value
@@ -1167,24 +1193,25 @@ async function saveRenameScene() {
   if (group !== ((current?.group_name ?? '') as string).trim()) body.group_name = group || null
   renameCandidate.value = null
   if (!Object.keys(body).length) return
-  renameSaving.value = true
-  const prevScenes = scenes.value.slice()
+  const before: Record<string, any> = Object.fromEntries(Object.keys(body).map(k => [k, current?.[k] ?? null]))
+  const seqs = Object.fromEntries(Object.keys(body).map(k => [k, nextSceneSeq(`${id}:${k}`)]))
   scenes.value = scenes.value.map((s) => s.id === id ? { ...s, ...body } : s)
+  showToast(body.group_name !== undefined && body.name === undefined
+    ? (body.group_name ? `Added to ${body.group_name}` : 'Removed from category')
+    : 'Scene updated')
   try {
-    await apiFetch(`/scenes/${id}`, { method: 'PATCH', body })
-    showToast(body.group_name !== undefined && body.name === undefined
-      ? (body.group_name ? `Added to ${body.group_name}` : 'Removed from category')
-      : 'Scene updated')
+    await writes.track(id, serial.patch(`scene:${id}`, body, b => apiFetch(`/scenes/${id}`, { method: 'PATCH', body: b })))
   } catch (e: any) {
-    scenes.value = prevScenes
+    // Roll back only the fields no newer edit has touched since.
+    const revert = Object.fromEntries(Object.entries(before).filter(([k]) => sceneEditSeq.get(`${id}:${k}`) === seqs[k]))
+    writes.forget(id)
+    if (Object.keys(revert).length) scenes.value = scenes.value.map((s) => s.id === id ? { ...s, ...revert } : s)
     showToast(
       body.group_name !== undefined
         ? 'Could not save the category. If this is new, run VIEWORA_CATEGORIES_MIGRATION.sql in Supabase.'
         : (e?.data?.statusMessage || 'Failed to rename scene'),
       'error',
     )
-  } finally {
-    renameSaving.value = false
   }
 }
 
@@ -1203,7 +1230,6 @@ type CategoryNaming = {
 const categoryNaming = ref<CategoryNaming | null>(null)
 const categoryNameDraft = ref('')
 const categoryNameInputRef = ref<HTMLInputElement | null>(null)
-const categorySaving = ref(false)
 const categoryNameSuggestions = computed(() => {
   const used = new Set(scenes.value.map((s: any) => normalizeGroup(s.group_name)))
   return CATEGORY_SUGGESTIONS.filter(c => !used.has(c)).slice(0, 8)
@@ -1250,11 +1276,22 @@ function uniqueCategoryName(base: string): string {
   return `${base} ${n}`
 }
 
-async function patchCategory(ids: string[], group: string | null): Promise<boolean> {
+/**
+ * Saves categories in the background. Category writes go out one at a time
+ * (in order) so quick successive drags can't land out of order. Returns
+ * false on failure, after rolling back the scenes no newer category edit has
+ * touched in the meantime.
+ */
+async function patchCategory(ids: string[], group: string | null, prev: Record<string, string | null>): Promise<boolean> {
+  const seqs = Object.fromEntries(ids.map(id => [id, nextSceneSeq(`${id}:group_name`)]))
   try {
-    await apiFetch(`/spaces/${props.spaceId}/scenes/category`, { method: 'PATCH', body: { scene_ids: ids, group_name: group } })
+    await writes.track(ids, serial.run(`scene-categories:${props.spaceId}`, () =>
+      apiFetch(`/spaces/${props.spaceId}/scenes/category`, { method: 'PATCH', body: { scene_ids: ids, group_name: group } })))
     return true
   } catch (e: any) {
+    ids.forEach(id => writes.forget(id))
+    const revert = Object.fromEntries(ids.filter(id => sceneEditSeq.get(`${id}:group_name`) === seqs[id] && id in prev).map(id => [id, prev[id]]))
+    if (Object.keys(revert).length) setLocalGroups(revert)
     showToast(e?.data?.statusMessage || 'Could not save the category', 'error')
     return false
   }
@@ -1268,7 +1305,7 @@ async function patchCategory(ids: string[], group: string | null): Promise<boole
  * The moved scene goes to the end of its new category in the tour order.
  */
 async function handleCombineScenes(p: { dragId: string; targetId?: string; group?: string | null }) {
-  if (categoryNaming.value || categorySaving.value) return
+  if (categoryNaming.value) return
   if (isLocalSceneId(p.dragId) || (p.targetId && isLocalSceneId(p.targetId))) {
     showToast('Wait for all scenes to finish uploading before grouping them.', 'error')
     return
@@ -1296,15 +1333,20 @@ async function handleCombineScenes(p: { dragId: string; targetId?: string; group
   if (normalizeGroup(drag.group_name) === (dest ?? '')) return
   const prevGroup = drag.group_name ?? null
   const anchor = lastSceneOfGroup(dest ?? '', p.dragId)
+  // Everything on screen changes now; the save follows in the background.
   setLocalGroups({ [p.dragId]: dest })
-  if (!(await patchCategory([p.dragId], dest))) { setLocalGroups({ [p.dragId]: prevGroup }); return }
-  showToast(dest ? `Added to ${dest}` : 'Removed from category')
+  const prevOrder = orderedSceneIds()
   const order = anchor ? orderWithAfter(p.dragId, anchor) : null
   if (order) handleReorderScenes(order)
+  showToast(dest ? `Added to ${dest}` : 'Removed from category')
+  if (!(await patchCategory([p.dragId], dest, { [p.dragId]: prevGroup })) && order) {
+    // Put it back where it was, unless it has been moved again since.
+    const now = orderedSceneIds()
+    if (now.join() === order.join()) handleReorderScenes(prevOrder)
+  }
 }
 
 function handleRenameGroup(group: string) {
-  if (categorySaving.value) return
   const g = normalizeGroup(group)
   const ids = orderedSceneIds().filter((id) => normalizeGroup(scenes.value.find((s) => s.id === id)?.group_name) === g)
   if (!g || !ids.length) return
@@ -1314,66 +1356,84 @@ function handleRenameGroup(group: string) {
   categoryNaming.value = { mode: 'rename', ids, from: g, prev: {} }
 }
 
+/** Optimistic: the box closes and the dock updates at once; on failure the old names come back. */
 async function saveCategoryName() {
   const c = categoryNaming.value
-  if (!c || categorySaving.value) return
+  if (!c) return
   const name = categoryNameDraft.value.trim().slice(0, 40)
   if (!name) return
   if (c.mode === 'rename' && name === c.from) { categoryNaming.value = null; return }
-  categorySaving.value = true
-  setLocalGroups(Object.fromEntries(c.ids.map((id) => [id, name])))
-  const ok = await patchCategory(c.ids, name)
-  categorySaving.value = false
-  if (!ok) {
-    // Keep the box open so the name isn't lost; the dock shows what's saved.
-    setLocalGroups(c.mode === 'new' ? c.prev : Object.fromEntries(c.ids.map((id) => [id, c.from])))
-    return
-  }
   categoryNaming.value = null
+  setLocalGroups(Object.fromEntries(c.ids.map((id) => [id, name])))
   showToast(c.mode === 'new' ? `Category "${name}" created` : `Renamed to "${name}"`)
   if (c.mode === 'new' && c.anchorId && c.dragId) {
     const order = orderWithAfter(c.dragId, c.anchorId)
     if (order) handleReorderScenes(order)
   }
+  const prev = c.mode === 'new' ? c.prev : Object.fromEntries(c.ids.map((id) => [id, c.from]))
+  await patchCategory(c.ids, name, prev)
 }
 
 function cancelCategoryName() {
   const c = categoryNaming.value
-  if (!c || categorySaving.value) return
+  if (!c) return
   if (c.mode === 'new') setLocalGroups(c.prev)
   categoryNaming.value = null
 }
 
+/**
+ * Removes the scene (and nav arrows pointing at it) from the screen at once and
+ * deletes it in the background. Nothing waits on the request, so scenes can be
+ * deleted back to back; a reload while a delete is settling won't bring it back.
+ */
 async function confirmDeleteScene(id: string) {
-  if (deletingScene.value) return
-  deletingScene.value = true
-  const prevScenes = scenes.value.slice()
-  const prevHotspots = { ...hotspotsByScene.value }
-  const prevSelectedId = selectedSceneId.value
+  if (deletingSceneIds.value.has(id)) return
+  deletingSceneIds.value = new Set(deletingSceneIds.value).add(id)
   renameCandidate.value = null
   sceneDeleteConfirm.value = null
-  scenes.value = scenes.value.filter((s) => s.id !== id)
-  // Optimistically remove the scene and any nav arrows pointing to it from other scenes
+  // Its own hotspots and arrows into it go with it (DB cascade); track them too
+  // so their realtime DELETE events are recognised as ours.
+  const ownHotspotIds = (hotspotsByScene.value[id] ?? []).map(h => h.id)
+  const arrowIds: string[] = []
   const { [id]: _removed, ...remainingHotspots } = hotspotsByScene.value
   const prunedHotspots = Object.fromEntries(
     Object.entries(remainingHotspots).map(([sid, hs]) => [
       sid,
-      hs.filter(h => !(h.type === 'scene_link' && h.targetSceneId === id)),
+      hs.filter(h => {
+        const pointsHere = h.type === 'scene_link' && h.targetSceneId === id
+        if (pointsHere) arrowIds.push(h.id)
+        return !pointsHere
+      }),
     ])
   )
+  const wasSelected = selectedSceneId.value === id
+  const order = sceneChips.value.map(s => s.id)
+  scenes.value = scenes.value.filter((s) => s.id !== id)
   hotspotsByScene.value = prunedHotspots
-  if (selectedSceneId.value === id) selectedSceneId.value = scenes.value[0]?.id || ''
+  if (wasSelected) {
+    // Land on the neighbour in dock order, so deleting down a row keeps your place.
+    const at = order.indexOf(id)
+    const next = order.slice(at + 1).find(sid => sid !== id && scenes.value.some(s => s.id === sid))
+      ?? order.slice(0, at).reverse().find(sid => scenes.value.some(s => s.id === sid))
+    if (next) void selectScene(next)
+    else selectedSceneId.value = scenes.value[0]?.id || ''
+  }
+  const tracked = [id, ...ownHotspotIds, ...arrowIds]
   try {
-    const result = await apiFetch(`/scenes/${id}`, { method: 'DELETE' }) as any
+    const result = await writes.track(tracked, serial.run(`scene:${id}`, () => apiFetch(`/scenes/${id}`, { method: 'DELETE' }))) as any
     const removedLinks: number = result?.removedLinks ?? 0
     showToast(removedLinks > 0 ? `Scene deleted (removed ${removedLinks} nav arrow${removedLinks === 1 ? '' : 's'})` : 'Scene deleted')
   } catch (e: any) {
-    scenes.value = prevScenes
-    hotspotsByScene.value = prevHotspots
-    selectedSceneId.value = prevSelectedId
+    if (e?.status === 404 || e?.statusCode === 404) return // already gone
+    // Other deletes may be in flight, so don't restore a snapshot — resync this
+    // scene from the server instead.
+    tracked.forEach(t => writes.forget(t))
     showToast(e?.data?.statusMessage || 'Failed to delete scene', 'error')
+    void fetchScenes()
   } finally {
-    deletingScene.value = false
+    const next = new Set(deletingSceneIds.value)
+    next.delete(id)
+    deletingSceneIds.value = next
   }
 }
 
@@ -1465,10 +1525,11 @@ async function saveSceneOrder() {
       const ids = queuedSceneOrder
       queuedSceneOrder = null
       try {
-        await apiFetch(`/spaces/${props.spaceId}/scenes/order`, { method: 'PUT', body: { scene_ids: ids } })
+        await writes.track(ids, apiFetch(`/spaces/${props.spaceId}/scenes/order`, { method: 'PUT', body: { scene_ids: ids } }))
         savedSceneOrder = ids
       } catch (e: any) {
         if (queuedSceneOrder) continue // a newer order is about to be sent anyway
+        ids.forEach(id => writes.forget(id))
         const back = new Map(scenes.value.map((s) => [s.id, s]))
         const restored = (savedSceneOrder ?? []).map((id, idx) => {
           const s = back.get(id)
@@ -1516,11 +1577,24 @@ onBeforeUnmount(() => {
   if (processingPollTimer) { clearInterval(processingPollTimer); processingPollTimer = null }
 })
 
+/**
+ * A hotspot list a reload brought back, merged with the one on screen: hotspots
+ * with a save in flight (or that landed after the reload left) keep their local
+ * copy, unsaved drafts stay, and arrows into a scene being deleted stay hidden.
+ */
+function mergeSceneHotspots(sceneId: string, server: EditorHotspot[], since: number): EditorHotspot[] {
+  const merged = mergeById(server, hotspotsByScene.value[sceneId], id => writes.isNewerThan(id, since), h => h._pending === true)
+  if (!deletingSceneIds.value.size) return merged
+  return merged.filter(h => !(h.type === 'scene_link' && h.targetSceneId && deletingSceneIds.value.has(h.targetSceneId)))
+}
+
 async function fetchScenes() {
   const version = ++fetchScenesVersion
   fetchScenesController?.abort()
   fetchScenesController = new AbortController()
   const { signal } = fetchScenesController
+  // Anything saved from here on is newer than what this request brings back.
+  const since = writes.mark()
 
   try {
     const result = await apiFetch<any>(`/spaces/${props.spaceId}/scenes`, { signal })
@@ -1529,7 +1603,14 @@ async function fetchScenes() {
     // Re-read local scenes AFTER the fetch resolves so any scenes removed by a
     // concurrent upload-failure handler are not re-inserted here.
     const optimisticLocalScenes = scenes.value.filter((s) => isLocalSceneId(s?.id))
-    const loadedScenes = toArrayPayload<any>(unwrapApiData<any>(result), 'scenes')
+    // Scenes edited or deleted while this request was out keep their local state.
+    const loadedScenes = mergeById(
+      toArrayPayload<any>(unwrapApiData<any>(result), 'scenes'),
+      scenes.value.filter((s) => !isLocalSceneId(s?.id)),
+      id => writes.isNewerThan(id, since) || deletingSceneIds.value.has(id),
+      () => false,
+      keepLocalSceneEdits,
+    )
     const mergedScenes = [...loadedScenes]
     for (const localScene of optimisticLocalScenes) {
       if (!mergedScenes.some((s: any) => s.id === localScene.id)) {
@@ -1577,20 +1658,14 @@ async function fetchScenes() {
         delete pendingPreviewNext[scene.id]
       }
 
+      // Server lists are merged with what's on screen only once every request
+      // has landed (below) — merging here would miss edits made meanwhile.
       if (Array.isArray(scene.hotspots)) {
-        const dbHotspots = mapDbHotspots(scene.hotspots)
-        const pending = (hotspotsByScene.value[scene.id] ?? []).filter((h) => h._pending === true)
-        return {
-          sceneId: scene.id,
-          hotspots: pending.length ? [...dbHotspots, ...pending] : dbHotspots,
-        }
+        return { sceneId: scene.id, server: mapDbHotspots(scene.hotspots) }
       }
 
       if (hotspotsByScene.value[scene.id] !== undefined) {
-        return {
-          sceneId: scene.id,
-          hotspots: hotspotsByScene.value[scene.id],
-        }
+        return { sceneId: scene.id, server: null }
       }
 
       // Only eager-load hotspots for the active scene; all others load on-demand via selectScene()
@@ -1602,14 +1677,11 @@ async function fetchScenes() {
         if (version !== fetchScenesVersion) return null
         return {
           sceneId: scene.id,
-          hotspots: mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(hRes), 'hotspots')),
+          server: mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(hRes), 'hotspots')),
         }
       } catch (err: any) {
         if (isAbortError(err)) return null
-        return {
-          sceneId: scene.id,
-          hotspots: hotspotsByScene.value[scene.id] ?? [],
-        }
+        return { sceneId: scene.id, server: null }
       }
     })
 
@@ -1617,7 +1689,9 @@ async function fetchScenes() {
     if (version !== fetchScenesVersion) return
     for (const result of hotspotResults) {
       if (!result) continue
-      newMap[result.sceneId] = result.hotspots
+      newMap[result.sceneId] = result.server
+        ? mergeSceneHotspots(result.sceneId, result.server, since)
+        : (hotspotsByScene.value[result.sceneId] ?? [])
     }
     // Preserve cached hotspot data for scenes deferred this cycle
     for (const scene of mergedScenes) {
@@ -1658,16 +1732,28 @@ const { start: startSceneRealtime, stop: stopSceneRealtime } = useEditorRealtime
   props.spaceId,
   () => { if (isMounted) void fetchScenes() },
   () => isMounted,
+  // Our own saves come back as realtime events. The save's response already
+  // updated the screen, so reloading everything for them only wasted a request
+  // and could put back a copy older than an edit made since.
+  (table, payload) => {
+    const row = payload?.new && Object.keys(payload.new).length ? payload.new : payload?.old
+    if (table === 'hotspots' && payload?.eventType === 'INSERT') {
+      return writes.isOwnEcho(row?.id) || writes.isOwnEcho(`create:${row?.scene_id}`)
+    }
+    return writes.isOwnEcho(row?.id)
+  },
 )
 
 async function fetchHotspots(sceneId: string) {
   if (isLocalSceneId(sceneId)) return
+  const since = writes.mark()
   try {
     const result = await apiFetch<any>(`/scenes/${sceneId}/hotspots`)
+    if (!scenes.value.some(s => s.id === sceneId)) return // deleted while loading
     const list = mapDbHotspots(toArrayPayload<any>(unwrapApiData<any>(result), 'hotspots'))
-    const pending = (hotspotsByScene.value[sceneId] ?? []).filter((h) => h._pending === true)
-    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: pending.length ? [...list, ...pending] : list }
+    hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: mergeSceneHotspots(sceneId, list, since) }
   } catch {
+    if (!scenes.value.some(s => s.id === sceneId)) return
     hotspotsByScene.value = { ...hotspotsByScene.value, [sceneId]: hotspotsByScene.value[sceneId] || [] }
   }
 }

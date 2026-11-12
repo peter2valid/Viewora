@@ -15,6 +15,7 @@ import {
   type EditDraft,
   type HotspotType,
 } from '~/features/editor/hotspotPayload'
+import { createSerialWrites, createWriteTracker, type SerialWrites, type WriteTracker } from '~/shared/utils/editorWrites'
 
 type SceneChip = { id: string; label: string; ready: boolean; imageUrl?: string | null; group?: string | null }
 
@@ -48,6 +49,9 @@ export function useHotspotEditor(
   sceneChips: ComputedRef<SceneChip[]>,
   showToast: (msg: string, type?: 'success' | 'error') => void,
   fetchHotspots: (sceneId: string) => Promise<void>,
+  // Shared with EditorShell so its reloads keep hotspots that are still saving.
+  writes: WriteTracker = createWriteTracker(),
+  serial: SerialWrites = createSerialWrites(),
 ) {
   const { $posthog } = useNuxtApp() as any
   const editDraft = ref<EditDraft>(emptyDraft())
@@ -74,7 +78,11 @@ export function useHotspotEditor(
   // resolves the real id first.
   const pendingCreates = new Map<string, Promise<string | null>>()
   // Latest PATCH per hotspot — a slower, older response must not overwrite a newer edit.
+  // Keyed by the id the hotspot was created under, so edits made before and
+  // after its temp id was swapped for the real one share one sequence.
   const patchSeq = new Map<string, number>()
+  const tempIdOf = new Map<string, string>()
+  const seqKey = (id: string) => tempIdOf.get(id) ?? id
 
   async function resolveRealId(id: string): Promise<string | null> {
     if (!isTempId(id)) return id
@@ -97,23 +105,33 @@ export function useHotspotEditor(
     }
   }
 
+  /**
+   * Saves a partial update. Writes to one hotspot go out one at a time, in
+   * order (parallel PATCHes could land out of order and keep the older value),
+   * and edits made while one is in flight are merged into the next request.
+   * The hotspot is tracked as "saving" from the moment it changed on screen,
+   * so reloads in between don't put the old copy back.
+   */
   function sendPatch(sceneId: string, id: string, body: any, errorMsg: string) {
-    const seq = (patchSeq.get(id) ?? 0) + 1
-    patchSeq.set(id, seq)
-    return resolveRealId(id).then(realId => {
+    const key = seqKey(id)
+    const seq = (patchSeq.get(key) ?? 0) + 1
+    patchSeq.set(key, seq)
+    return writes.track(id, resolveRealId(id).then(realId => {
       if (!realId) return // create failed — its own handler already rolled back
-      return apiFetch(`/hotspots/${realId}`, { method: 'PATCH', body })
+      return writes.track(realId, serial.patch(realId, body, merged => apiFetch(`/hotspots/${realId}`, { method: 'PATCH', body: merged })))
         .then(res => {
-          if (patchSeq.get(id) !== seq) return
+          if (patchSeq.get(key) !== seq) return
           const updated = unwrap<any>(res)?.hotspot || res?.hotspot
           if (updated) replaceHotspot(sceneId, realId, mapDbHotspot(updated))
         })
         .catch(e => {
-          if (patchSeq.get(id) !== seq) return
+          if (patchSeq.get(key) !== seq) return
+          // Server copy is the truth again: let the resync replace the local edit.
+          writes.forget(realId)
           fetchHotspots(sceneId)
           showToast(e?.data?.statusMessage || e?.data?.fields?.[0]?.message || errorMsg, 'error')
         })
-    })
+    }))
   }
 
   type DeleteCandidate = EditorHotspot & { sceneId: string }
@@ -177,7 +195,16 @@ export function useHotspotEditor(
   })
 
   // Switching scenes mid-drawing would attach the boundary to the wrong panorama.
-  watch(selectedSceneId, () => { if (isTracing.value) cancelTracing() })
+  // A hotspot whose quick editor is open is saved where it was placed, and a
+  // pending move is dropped (its hotspot isn't in the new scene).
+  watch(selectedSceneId, (_next, prev) => {
+    if (isTracing.value) cancelTracing()
+    if (prev && quickEditHotspotId.value) commitOpenQuickEdit(prev)
+    if (repositioningHotspotId.value) {
+      repositioningHotspotId.value = null
+      if (editorStore.mode === 'hotspot') editorStore.setMode('view')
+    }
+  })
 
   // ── Tracing ────────────────────────────────────────────────
 
@@ -359,12 +386,13 @@ export function useHotspotEditor(
     showToast(`Creating ${temps.length} plots…`)
 
     try {
-      const res = await apiFetch(`/scenes/${sceneId}/hotspots/batch`, {
+      const res = await writes.track([id, `create:${sceneId}`], apiFetch(`/scenes/${sceneId}/hotspots/batch`, {
         method: 'POST',
         body: { hotspots: drafts.map((d, i) => buildHotspotPayload(d, temps[i])) },
-      })
+      }))
       const rowsOut: any[] = unwrap<any>(res)?.hotspots ?? res?.hotspots ?? []
       const created = rowsOut.map(mapDbHotspot)
+      for (const h of created) writes.touch(h.id)
       const tempIds = new Set(temps.map(t => t.id))
       hotspotsByScene.value = {
         ...hotspotsByScene.value,
@@ -428,16 +456,31 @@ export function useHotspotEditor(
 
     const beforeCount = hotspotCount.value - 1
     hotspotSaveInFlight.value = true
-    const created = apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(d, pos) })
+    // `create:<scene>` lets the realtime filter recognise the INSERT echo, which
+    // can arrive before this response tells us the new row's id.
+    const created = writes.track([id, `create:${sceneId}`], apiFetch(`/scenes/${sceneId}/hotspots`, { method: 'POST', body: buildHotspotPayload(d, pos) }))
       .then(response => {
         const row = unwrap<any>(response)?.hotspot || response?.hotspot
         if (!row) throw new Error('Empty create response')
         const mapped = mapDbHotspot(row)
+        // A reload that left before this POST landed won't have the row: keep ours.
+        writes.touch(mapped.id)
+        tempIdOf.set(mapped.id, id)
         const list = hotspotsByScene.value[sceneId] ?? []
+        const local = list.find(h => h.id === id)
+        // Edits made while the POST was in flight are already queued against
+        // the real id; keep showing them rather than the as-created row.
+        const editedMeanwhile = patchSeq.has(id)
+        const next = local && editedMeanwhile ? { ...mapped, ...local, id: mapped.id, _pending: undefined } : mapped
         // A refetch that ran while this POST was in flight may already contain
-        // the new row — keep that copy and just drop the temp entry.
+        // the new row — drop the temp entry and put our copy in its place.
         const alreadyFetched = list.some(h => h.id === mapped.id)
-        if (list.some(h => h.id === id)) replaceHotspot(sceneId, id, alreadyFetched ? null : mapped)
+        if (alreadyFetched) {
+          replaceHotspot(sceneId, id, null)
+          replaceHotspot(sceneId, mapped.id, next)
+        } else if (local) {
+          replaceHotspot(sceneId, id, next)
+        }
         if (editorStore.selectedHotspotId === id) editorStore.selectHotspot(mapped.id)
         if (!opts.openPanel) showToast(beforeCount === 0 ? 'Your tour is now interactive' : 'Hotspot added')
         $posthog?.capture('hotspot_added', { hotspot_type: mapped.type, hotspot_kind: mapped.kind, scene_id: sceneId })
@@ -523,6 +566,9 @@ export function useHotspotEditor(
       return
     }
     if (addingHotspot.value) return
+    // Placing the next hotspot while the last one's quick editor is still open:
+    // save that one as it stands instead of leaving an unsaved draft behind.
+    commitOpenQuickEdit()
 
     const sceneId = selectedSceneId.value
     if (!sceneId) { showToast('Create or upload a scene first.', 'error'); return }
@@ -545,16 +591,24 @@ export function useHotspotEditor(
     editorStore.setMode('view')
   }
 
-  function submitQuickEdit(openPanel: boolean) {
+  function submitQuickEdit(openPanel: boolean, sceneId = selectedSceneId.value) {
     const id = quickEditHotspotId.value
     quickEditHotspotId.value = null
     if (!id) return
-    const sceneId = selectedSceneId.value
     const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
     if (!hs) return
     const d = { ...editDraft.value }
     // Roads continue into the full panel, which is where the directions link is set.
     createHotspot(sceneId, { yaw: hs.yaw, pitch: hs.pitch }, d, { openPanel: openPanel || d.kind === 'road', existingTempId: id })
+  }
+
+  /** Saves a hotspot whose quick editor is open, if any (the user moved on to something else). */
+  function commitOpenQuickEdit(sceneId = selectedSceneId.value) {
+    const id = quickEditHotspotId.value
+    if (!id) return
+    const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
+    if (hs?._pending && !pendingCreates.has(id)) submitQuickEdit(false, sceneId)
+    else quickEditHotspotId.value = null
   }
 
   function onQuickEditDone() { submitQuickEdit(false) }
@@ -584,23 +638,27 @@ export function useHotspotEditor(
 
     replaceHotspot(sceneId, id, null)
     if (editorStore.selectedHotspotId === id) editorStore.selectHotspot(null)
-    patchSeq.delete(id)
+    patchSeq.delete(seqKey(id))
     if (!opts.silent) showToast('Hotspot deleted')
 
-    void resolveRealId(id).then(realId => {
+    void writes.track(id, resolveRealId(id).then(realId => {
       if (!realId) return // never reached the server
       // The create may have landed after the optimistic removal and re-inserted
       // the row under its real id — drop it again before deleting server-side.
       replaceHotspot(sceneId, realId, null)
-      return apiFetch(`/hotspots/${realId}`, { method: 'DELETE' })
+      // Queued behind any edit still saving, so a late PATCH can't 404.
+      return writes.track(realId, serial.run(realId, () => apiFetch(`/hotspots/${realId}`, { method: 'DELETE' })))
         .catch(e => {
+          if (e?.status === 404 || e?.statusCode === 404) return // already gone
+          writes.forget(realId)
           fetchHotspots(sceneId)
           showToast(e?.data?.statusMessage || 'Failed to delete hotspot', 'error')
         })
-    })
+    }))
   }
 
   function handleHotspotReposition(id: string) {
+    if (quickEditHotspotId.value !== id) commitOpenQuickEdit()
     const hs = activeSceneHotspots.value.find(h => h.id === id)
     if (hs?.kind === 'plot' || hs?.kind === 'zone' || (hs?.kind === 'road' && (hs.points?.length ?? 0) >= 2)) {
       // A shape's position is its outline/path — "reposition" means redraw it.
