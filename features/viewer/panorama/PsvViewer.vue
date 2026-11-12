@@ -397,6 +397,15 @@ async function initWithScene(scene: TourScene) {
         }
         if (isTraceMarkerId(id)) return
         if (props.isEditing) {
+          // A room link still takes you to its room while placing a hotspot
+          // (move/edit/delete stay on the hover menu).
+          const clicked = props.hotspots?.find(h => h.id === id)
+          if (clicked?.type === 'scene_link' && clicked.targetSceneId) {
+            closeMenu()
+            isFocusing.value = true
+            emit('hotspot-click', id)
+            return
+          }
           // Lock the radial menu on hotspot click in editor mode
           openMenu(id)
           menu.locked = true

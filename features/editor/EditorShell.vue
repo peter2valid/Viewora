@@ -1781,6 +1781,8 @@ function handleHotspotClick(id: string) {
   // Scene-link hotspots always navigate — exactly like tapping a chip in the dock.
   // No preview-mode gate: if you can see a nav arrow, clicking it should move you there.
   if (hotspot.type === 'scene_link' && hotspot.targetSceneId) {
+    // Following a link ends "click anywhere to place hotspot" — the click was for navigating.
+    if (editorStore.mode === 'hotspot') onCancelPlacement()
     void selectScene(hotspot.targetSceneId)
     return
   }
