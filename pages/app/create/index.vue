@@ -11,7 +11,7 @@
         </div>
         <h2 class="text-2xl font-black tracking-tight text-main mb-4 relative z-10">Tour Limit Reached</h2>
         <p class="text-dim text-sm font-bold leading-relaxed mb-4 relative z-10">
-          You've used all <span class="text-main">{{ planStore.plan?.max_active_spaces }}</span> active tour slots on your {{ planStore.plan?.name || 'Free' }} plan.
+          You've used all <span class="text-main">{{ planStore.plan?.max_active_spaces }}</span> tour slots on your {{ planStore.plan?.name || 'Free' }} plan.
         </p>
         <p class="text-dim text-sm leading-relaxed mb-10 relative z-10">Upgrade to create more tours and unlock additional storage.</p>
         <NuxtLink to="/app/billing" class="btn btn-primary w-full !py-5 shadow-2xl relative z-10">

@@ -257,7 +257,9 @@ const atSpaceLimit = computed(() => {
   return used >= max
 })
 
-function handleCreateTour() {
+async function handleCreateTour() {
+  // Usage may be stale (e.g. tours deleted in another tab) — re-check before blocking.
+  if (atSpaceLimit.value) await planStore.fetchSubscriptionStatus().catch(() => {})
   if (atSpaceLimit.value) {
     toast.error(`Tour limit reached (${planStore.plan?.max_active_spaces} on ${planStore.plan?.name || 'Free'} plan). Upgrade to create more.`, {
       action: { label: 'Upgrade', onClick: () => navigateTo('/app/billing') }
@@ -350,6 +352,9 @@ const handleDelete = async () => {
   const title = spaceToDelete.value.title
   try {
     await deleteSpace(spaceToDelete.value.id)
+    // Backend decremented the counter and busted the billing cache; refresh so the
+    // tour-limit check doesn't keep using the pre-delete count.
+    planStore.fetchSubscriptionStatus().catch(() => {})
     spaceToDelete.value = null
     showToast(`"${title}" deleted`)
   } catch (e: any) {

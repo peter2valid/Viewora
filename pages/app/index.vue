@@ -49,7 +49,7 @@
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <UiMetricCard label="Total Views" :value="totalViews" :sub="`${viewsToday} today`" />
         <UiMetricCard label="Leads Captured" :value="totalLeads" :sub="`${conversionRate} conversion`" />
-        <UiMetricCard label="Active Tours" :value="usage?.active_spaces_count || 0" sub="Published &amp; live" />
+        <UiMetricCard label="Tours" :value="usage?.active_spaces_count || 0" sub="Drafts &amp; published" />
         <UiMetricCard label="Top Tour" :value="topTourName" :sub="`${topTourViews} views`" />
       </div>
 
