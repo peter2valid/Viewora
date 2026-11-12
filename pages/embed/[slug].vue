@@ -109,13 +109,15 @@ const space = computed(() => tour.value?.space ?? null)
 // A car with anything to show (a spin, an interior 360 or a detail photo) embeds as the car tour.
 const isCarTour = computed(() => space.value?.space_type === 'automotive' && buildCarTourItems(tour.value).length > 0)
 // Same test as the full tour page: only real visual branding replaces the watermark.
-// /spin/<slug> is the car alone: no description, location or contact card.
+// /spin/<slug> is the car alone, but still carries the dealer's brand (logo or business name).
 const spinOnly = route.path.startsWith('/spin/')
 // A car's title is the car: its card names the dealer (their profile's business name) instead.
 const brandName = computed(() => (isCarTour.value ? tour.value?.seller?.company_name?.trim() || '' : space.value?.title || ''))
 const hasBrandingDetails = computed(() => {
   const sp = space.value
-  return !spinOnly && !!(sp && (sp.logo_url || sp.description || sp.location_text || sp.email))
+  if (!sp) return false
+  if (spinOnly) return !!(sp.logo_url || brandName.value)
+  return !!(sp.logo_url || sp.description || sp.location_text || sp.email)
 })
 // Same value on server and client (no window.location) so SSR hydration can't leave a relative link.
 // The spin-only page shares itself; an embed shares the full listing.

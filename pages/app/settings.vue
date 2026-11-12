@@ -35,6 +35,22 @@
             />
           </div>
 
+          <!-- Business name -->
+          <div class="flex flex-col gap-2">
+            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1" for="business-name">Business name <span class="normal-case font-medium text-dim/60">(optional)</span></label>
+            <input
+              id="business-name"
+              v-model="profileForm.companyName"
+              type="text"
+              maxlength="120"
+              autocomplete="organization"
+              aria-describedby="business-name-help"
+              class="input-glass w-full px-5 py-3 text-sm font-bold placeholder:text-dim/40"
+              placeholder="e.g. Simba Motors"
+            />
+            <p id="business-name-help" class="text-xs text-dim ml-1">Shown with your logo on your tours and car listings, and under “Listed by”.</p>
+          </div>
+
           <!-- Profile Photo -->
           <div class="space-y-3">
             <label class="text-sm font-bold text-main">Profile Photo</label>
@@ -84,19 +100,6 @@
         </div>
 
         <div class="p-6 space-y-8">
-          <!-- Agency Name -->
-          <div class="flex flex-col gap-2">
-            <label class="text-[10px] font-black text-dim uppercase tracking-widest ml-1" for="agency-name">Enterprise / Agency Name</label>
-            <input
-              id="agency-name"
-              v-model="profileForm.agencyName"
-              type="text"
-              class="input-glass w-full px-5 py-3 text-sm font-bold placeholder:text-dim/40 disabled:opacity-40"
-              placeholder="Skyline Virtual Realty"
-              :disabled="!planStore.entitlements?.branding_customization_enabled"
-            />
-          </div>
-
           <!-- Logo Upload -->
           <div class="space-y-3">
             <label class="text-sm font-bold text-main">Agency Logo</label>
@@ -211,10 +214,19 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
 // never show up there.
 const profileForm = ref({
   fullName: '',
+  // profiles.company_name: what tours and listings show. Older accounts typed it as the agency
+  // name (kept only in their login metadata, which nothing public reads): offered as the start.
+  companyName: '',
   bio: '',
   photoUrl: '',
   agencyName: user.value?.user_metadata?.agency_name || '',
   agencyLogoUrl: user.value?.user_metadata?.agency_logo_url || ''
+})
+
+// The signed-in user can arrive after the profile: offer the old agency name then, once.
+let companyFromProfile = false
+watch(() => user.value?.user_metadata?.agency_name as string | undefined, (v) => {
+  if (v && !companyFromProfile && !profileForm.value.companyName) profileForm.value.companyName = v
 })
 
 onMounted(async () => {
@@ -222,6 +234,8 @@ onMounted(async () => {
     const profile = await apiFetch<any>('/profile')
     profileForm.value.fullName = profile?.full_name || ''
     profileForm.value.bio = profile?.bio || ''
+    profileForm.value.companyName = profile?.company_name || user.value?.user_metadata?.agency_name || ''
+    companyFromProfile = !!profile?.company_name
     profileForm.value.photoUrl = profile?.avatar_url || ''
   } catch {
     // Non-critical — fields just start blank if this fails.
@@ -327,13 +341,14 @@ async function saveProfile() {
       body: {
         full_name: profileForm.value.fullName,
         bio: profileForm.value.bio,
+        company_name: profileForm.value.companyName,
         avatar_url: profileForm.value.photoUrl,
       },
     })
 
     const { error } = await supabase.auth.updateUser({
       data: {
-        agency_name: profileForm.value.agencyName,
+        agency_name: profileForm.value.companyName,
         agency_logo_url: profileForm.value.agencyLogoUrl
       }
     })
