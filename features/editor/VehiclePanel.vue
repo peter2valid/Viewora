@@ -180,7 +180,7 @@
       </section>
 
       <!-- Studio finish: one grade for every frame of the spin (done on the server, originals kept). -->
-      <section v-if="isSpin && finish.available.value" class="vp-sec" aria-label="Studio finish">
+      <section v-if="views.length && finish.available.value" class="vp-sec" aria-label="Studio finish">
         <div class="vp-sec__head">
           <h2 class="vp-h2">Studio finish</h2>
           <span class="vp-muted vp-num" aria-live="polite">{{ finishRunning ? progressText(finish.status.value?.progress) : '' }}</span>
@@ -1243,7 +1243,7 @@ defineExpose({ reload: init, showBuyerView })
 </script>
 
 <style scoped>
-.vp-seg--3 { grid-template-columns: repeat(3, 1fr); }
+.vp-seg.vp-seg--3 { grid-template-columns: repeat(3, 1fr); }
 .vp-seg__btn.is-pending { border-style: dashed; border-color: #fff; }
 .vp-compare { position: relative; margin: 4px 0 0; border-radius: 10px; overflow: hidden; aspect-ratio: 16 / 9; background: #000; }
 .vp-compare__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
