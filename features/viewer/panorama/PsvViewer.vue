@@ -38,6 +38,7 @@
       <HotspotActionMenu
         :visible="menu.visible"
         :right-px="menuGeom.right"
+        :vert-px="menuGeom.vert"
         @edit="onMenuEdit"
         @delete="onMenuDelete"
         @reposition="onMenuReposition"
@@ -156,7 +157,7 @@ const MENU_RING_PX = 58
  * badge is a wide pill, so the ring is centred on the pill and the right
  * button (Edit) moves out past the pill's edge instead of covering its label.
  */
-const menuGeom = reactive({ lift: 0, right: MENU_RING_PX, keep: MENU_KEEP_RADIUS })
+const menuGeom = reactive({ lift: 0, right: MENU_RING_PX, vert: MENU_RING_PX, keep: MENU_KEEP_RADIUS })
 /** Screen point the open menu circles (container px). */
 let menuAt: { x: number; y: number } | null = null
 /** Last pointer position over the viewer (container px), null once it leaves. */
@@ -185,33 +186,65 @@ async function retryCurrentScene() {
   await initWithScene(props.scene)
 }
 
+/** Gap between the badge's pill and each menu button's edge (px). */
+const BADGE_MENU_GAP = 16
+/** Menu button radius (HotspotActionMenu: 38px buttons). */
+const MENU_BTN_R = 19
+
 /**
- * Sets menuGeom for `hs`. Floor pin: the ring circles the pin's middle (40px
- * tall at scale 1). Interior badge: measured from its element (unscaled
- * offset sizes, so a hover zoom in progress doesn't skew it) — centred on the
- * pill, Edit clear of the pill even at full hover zoom.
+ * The "See interior" badge whose menu is open. While open it keeps its hover
+ * zoom (moving onto a button would otherwise shrink it under the ring) and
+ * the ring is placed from the pill's real on-screen box every frame, so the
+ * pill sits dead centre with the same gap to Move, Edit and Delete.
  */
-function measureMenuGeom(hs: Hotspot) {
-  const scale = Number(hs.scale || 1)
-  menuGeom.lift = hs.type === 'scene_link' ? 20 * scale : 0
-  menuGeom.right = MENU_RING_PX
-  menuGeom.keep = MENU_KEEP_RADIUS
+let menuBadge: { pill: HTMLElement; marker: HTMLElement } | null = null
+
+function holdBadge(hs: Hotspot) {
+  releaseBadge()
   if (!isInteriorLink(hs)) return
-  const el = containerEl.value?.querySelector<HTMLElement>(`.vhs-interior[data-vhs-id="${CSS.escape(hs.id)}"]`)
-  const pill = el?.querySelector<HTMLElement>('.vhs-interior__pill')
-  const stem = el?.querySelector<HTMLElement>('.vhs-interior__stem')
-  const pillW = pill?.offsetWidth || 140
-  const pillH = pill?.offsetHeight || 36
-  const stemH = stem?.offsetHeight ?? 10
-  const hover = Number(hs.hoverScale || 1.3)
-  menuGeom.lift = (stemH + pillH / 2) * scale
-  // Button centre: half the grown pill + a gap + the button's own radius (19px).
-  menuGeom.right = Math.max(MENU_RING_PX, Math.round((pillW / 2) * scale * hover + 12 + 19))
-  menuGeom.keep = Math.max(MENU_KEEP_RADIUS, menuGeom.right + 52)
+  const root = containerEl.value?.querySelector<HTMLElement>(`.vhs-interior[data-vhs-id="${CSS.escape(hs.id)}"]`)
+  const pill = root?.querySelector<HTMLElement>('.vhs-interior__pill')
+  const marker = root?.closest<HTMLElement>('.psv-marker')
+  if (!pill || !marker) return
+  const canHover = !window.matchMedia?.('(hover: none)').matches
+  marker.style.setProperty('--vhs-menu-scale', String(canHover ? Number(hs.hoverScale || 1.3) : 1))
+  marker.classList.add('vhs-menu-open')
+  menuBadge = { pill, marker }
 }
 
-/** Screen point the action menu circles (see measureMenuGeom). */
+function releaseBadge() {
+  menuBadge?.marker.classList.remove('vhs-menu-open')
+  menuBadge = null
+}
+
+/** Floor pin: the ring circles the pin's middle (40px tall at scale 1); other hotspots: the point itself. */
+function measureMenuGeom(hs: Hotspot) {
+  menuGeom.lift = hs.type === 'scene_link' ? 20 * Number(hs.scale || 1) : 0
+  menuGeom.right = MENU_RING_PX
+  menuGeom.vert = MENU_RING_PX
+  menuGeom.keep = MENU_KEEP_RADIUS
+}
+
+/** Ring centre and spacing from the held badge's pill, or null if it's gone. */
+function badgeAnchor(): { x: number; y: number } | null {
+  if (!menuBadge || !menuBadge.pill.isConnected || !containerEl.value) return null
+  const r = menuBadge.pill.getBoundingClientRect()
+  if (!r.width) return null
+  const c = containerEl.value.getBoundingClientRect()
+  const right = Math.max(MENU_RING_PX, Math.round(r.width / 2 + BADGE_MENU_GAP + MENU_BTN_R))
+  const vert = Math.max(MENU_RING_PX, Math.round(r.height / 2 + BADGE_MENU_GAP + MENU_BTN_R))
+  if (right !== menuGeom.right) menuGeom.right = right
+  if (vert !== menuGeom.vert) menuGeom.vert = vert
+  menuGeom.keep = Math.max(MENU_KEEP_RADIUS, right + 52)
+  return { x: r.left + r.width / 2 - c.left, y: r.top + r.height / 2 - c.top }
+}
+
+/** Screen point the action menu circles. */
 function menuAnchor(hs: Hotspot): { x: number; y: number } | null {
+  if (menuBadge) {
+    const at = badgeAnchor()
+    if (at) return at
+  }
   const at = hotspotDrawPosition(hs)
   const pos = getHotspotScreenPos(handle.value, at.yaw, at.pitch)
   if (!pos || !menuGeom.lift) return pos
@@ -236,6 +269,7 @@ function openMenu(id: string) {
   if (!hs) return
   if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
   measureMenuGeom(hs)
+  holdBadge(hs)
   const pos = menuAnchor(hs)
   menu.hotspotId = id
   menuAt = pos
@@ -249,6 +283,7 @@ function openMenu(id: string) {
 function closeMenu() {
   if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
   if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
+  releaseBadge()
   menu.visible = false
   menu.locked = false
   menu.hotspotId = null

@@ -718,6 +718,8 @@ function ensureInteriorBadgeStyles(): void {
 .vhs-interior:hover .vhs-interior__pill, .vhs-interior:focus-visible .vhs-interior__pill {
   background: rgba(14, 14, 18, 0.8); border-color: rgba(255, 255, 255, 0.55);
 }
+/* Editor: the badge keeps its hover zoom while its action menu is open. */
+.psv-marker.vhs-menu-open { scale: var(--vhs-menu-scale, 1) !important; }
 @keyframes vhs-interior-pulse { 0% { transform: scale(0.9); opacity: 0.9 } 70%, 100% { transform: scale(1.45); opacity: 0 } }
 @media (prefers-reduced-motion: reduce) { .vhs-interior__icon::after { animation: none; opacity: 0 } }
 `

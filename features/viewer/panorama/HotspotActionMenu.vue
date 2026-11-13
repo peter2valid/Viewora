@@ -3,7 +3,7 @@
     <div
       v-if="visible"
       class="hsm-root"
-      :style="{ '--hsm-right': `${rightPx ?? 58}px` }"
+      :style="{ '--hsm-right': `${rightPx ?? 58}px`, '--hsm-vert': `${vertPx ?? 58}px` }"
       @mouseenter="$emit('menu-enter')"
       @mouseleave="$emit('menu-leave')"
     >
@@ -42,6 +42,8 @@ defineProps<{
   visible: boolean
   /** Distance of the Edit button from the centre; wider for the "See interior" pill. */
   rightPx?: number
+  /** Distance of Move (above) and Delete (below) from the centre; taller badges push them out. */
+  vertPx?: number
 }>()
 
 defineEmits<{
@@ -97,9 +99,9 @@ defineEmits<{
 .hsm-btn--danger:hover { background: #fff1f1; }
 
 /* ── Radial positions (58px radius) ──────────────────────── */
-.hsm-btn--top    { margin-top: calc(-19px - 58px); }
+.hsm-btn--top    { margin-top: calc(-19px - var(--hsm-vert, 58px)); }
 .hsm-btn--right  { margin-left: calc(-19px + var(--hsm-right, 58px)); }
-.hsm-btn--bottom { margin-top: calc(-19px + 58px); }
+.hsm-btn--bottom { margin-top: calc(-19px + var(--hsm-vert, 58px)); }
 
 /* ── Button pop-in animation ─────────────────────────────── */
 .hsm-btn--top    { animation: btn-pop 210ms cubic-bezier(0.34, 1.56, 0.64, 1) 0ms   forwards; }
