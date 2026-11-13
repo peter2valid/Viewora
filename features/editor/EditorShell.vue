@@ -107,7 +107,7 @@
       @place-hotspot="handlePlaceHotspot"
       @open-settings="showSettingsPanel = !showSettingsPanel"
       @cancel-placement="onCancelPlacement"
-      @auto-link="openAutoLink"
+      @auto-link="openAutoLinkFromPlan"
       @ai-assistant="toggleAiAssistant"
     />
 
@@ -384,8 +384,8 @@
 
             <div class="share-modal__topbar">
               <h2 class="share-modal__title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z"/></svg>
-                AI Scene Linking
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                {{ autoLinkPlanNotes ? 'Link scenes from the floor plan' : 'AI scene linking' }}
               </h2>
               <button class="share-modal__close" @click="closeAutoLink" aria-label="Close">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -395,8 +395,7 @@
             <!-- Analysing state -->
             <div v-if="autoLinkAnalyzing" class="al-loading">
               <div class="al-spinner" />
-              <p class="al-loading__text">{{ autoLinkProgress ?? 'Connecting to AI…' }}</p>
-              <p class="al-loading__sub">Using Haiku + Sonnet per scene · results appear when complete</p>
+              <p class="al-loading__text">{{ autoLinkProgress ?? 'Working…' }}</p>
             </div>
 
             <!-- Error state -->
@@ -481,6 +480,24 @@
                 </ul>
               </template>
 
+              <!-- Floor plan: what could not be linked, and how to fix it -->
+              <div v-if="autoLinkPlanNotes && (autoLinkPlanNotes.unpinned.length || autoLinkPlanNotes.noDirection.length || autoLinkPlanNotes.loneFloors.length)" class="al-notes">
+                <p v-if="autoLinkPlanNotes.noDirection.length">
+                  <strong>Set the facing direction</strong> on the floor plan for:
+                  {{ autoLinkPlanNotes.noDirection.map(s => s.name).join(', ') }}.
+                  Their arrows need it; other scenes can still link to them.
+                </p>
+                <p v-if="autoLinkPlanNotes.unpinned.length">
+                  <strong>Not on the floor plan:</strong>
+                  {{ autoLinkPlanNotes.unpinned.map(s => s.name).join(', ') }}.
+                  Pin them in the Floor plan panel, or link them by hand.
+                </p>
+                <p v-if="autoLinkPlanNotes.loneFloors.length">
+                  <strong>Only one scene on</strong> {{ autoLinkPlanNotes.loneFloors.join(', ') }} — pin at least two to link them.
+                </p>
+                <p class="al-notes__sub">Stairs, lifts and car interiors are not linked from the plan. Use a Move hotspot (Floor up / Floor down) or a "See interior" badge.</p>
+              </div>
+
               <!-- Navigation hotspots -->
               <template v-if="autoLinkSuggestions.length">
                 <p class="al-section-label">🧭 Add navigation hotspots</p>
@@ -518,7 +535,7 @@
               </template>
 
               <p v-if="!autoLinkRenames.length && !autoLinkDeletions.length && !autoLinkFixes.length && !autoLinkSceneSettings.length && !autoLinkSuggestions.length && !autoLinkInfoHotspots.length" class="al-empty">
-                Everything looks good — no changes needed.
+                {{ autoLinkPlanNotes ? 'Nothing new to link — every pinned scene already points at its neighbours.' : 'Everything looks good — no changes needed.' }}
               </p>
 
               <div class="al-actions">
@@ -826,6 +843,8 @@ const {
   selectedSettings: autoLinkSelectedSettings,
   hasSelections: autoLinkHasSelections,
   open: openAutoLink,
+  openFromFloorPlan: openAutoLinkFromPlan,
+  floorPlanNotes: autoLinkPlanNotes,
   close: closeAutoLink,
   toggleSuggestion: toggleAutoLinkSuggestion,
   toggleInfoHotspot: toggleAutoLinkInfo,
@@ -2614,6 +2633,28 @@ defineExpose({
   color: #dc2626;
 }
 
+.al-notes {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #f0d27a;
+  background: #fffaeb;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #3d3418;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.al-notes p { margin: 0; }
+.al-notes strong { color: #1f1a0b; }
+.al-notes__sub { color: #6b5e35; font-size: 12px; }
+/* The topbar classes are styled inside ShareModal.vue (scoped), so this window needs its own. */
+.al-modal .share-modal__topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -4px 0 12px; }
+.al-modal .share-modal__title { margin: 0; font-size: 17px; font-weight: 700; color: #202124; }
+.al-modal .share-modal__close { flex: none; width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; color: #5f6368; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.al-modal .share-modal__close:hover { background: rgba(60, 64, 67, 0.08); color: #202124; }
+.al-modal .share-modal__close:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
 .al-empty {
   padding: 24px 0;
   text-align: center;

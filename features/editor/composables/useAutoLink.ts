@@ -79,6 +79,13 @@ export function useAutoLink(spaceId: string) {
   const hotspotFixes     = ref<HotspotFix[]>([])
   const sceneSettings    = ref<SceneSetting[]>([])
 
+  // Scenes the floor-plan linker had to skip, so the owner knows what to fix.
+  const floorPlanNotes = ref<{
+    unpinned:    Array<{ id: string; name: string }>
+    noDirection: Array<{ id: string; name: string }>
+    loneFloors:  string[]
+  } | null>(null)
+
   const selectedSuggestions  = ref<Set<string>>(new Set())
   const selectedInfoHotspots = ref<Set<string>>(new Set())
   const selectedDeletions    = ref<Set<string>>(new Set())
@@ -103,6 +110,7 @@ export function useAutoLink(spaceId: string) {
   }
 
   async function open() {
+    floorPlanNotes.value = null
     showModal.value    = true
     isAnalyzing.value  = true
     progress.value     = null
@@ -202,6 +210,49 @@ export function useAutoLink(spaceId: string) {
       errorMsg.value =
         err?.message ||
         'Analysis failed. Check that the Gemini API key is configured on the server.'
+    } finally {
+      isAnalyzing.value = false
+      progress.value    = null
+    }
+  }
+
+  /**
+   * Arrows from the floor plan: every pinned scene points at the scenes
+   * pinned near it. Geometry only — no AI, no credits, answers in a second.
+   */
+  async function openFromFloorPlan() {
+    showModal.value   = true
+    isAnalyzing.value = true
+    progress.value    = 'Reading your floor plan…'
+    errorMsg.value    = null
+    floorPlanNotes.value = null
+    applyResults({})
+
+    const session = useSupabaseSession()
+    const config  = useRuntimeConfig()
+    const baseURL = (config.public.apiBaseUrl as string | undefined) || ''
+    const token   = session.value?.access_token ?? ''
+    const url = baseURL
+      ? `${baseURL.replace(/\/$/, '')}/spaces/${spaceId}/auto-link/floor-plan`
+      : `/api/spaces/${spaceId}/auto-link/floor-plan`
+
+    try {
+      const response = await fetch(url, {
+        method:  'POST',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+      })
+      const body = await response.json().catch(() => ({})) as any
+      if (!response.ok) throw new Error(body?.statusMessage || body?.message || `Request failed (HTTP ${response.status})`)
+      applyResults({ suggestions: body.suggestions })
+      floorPlanNotes.value = {
+        unpinned:    body.unpinned    ?? [],
+        noDirection: body.noDirection ?? [],
+        loneFloors:  body.loneFloors  ?? [],
+      }
+    } catch (err: any) {
+      errorMsg.value = err?.message === 'Failed to fetch'
+        ? 'Could not reach Viewora. Check your connection and try again.'
+        : (err?.message || 'Could not link from the floor plan. Try again.')
     } finally {
       isAnalyzing.value = false
       progress.value    = null
@@ -329,7 +380,7 @@ export function useAutoLink(spaceId: string) {
     suggestions, infoHotspots, hotspotDeletions, sceneRenames, hotspotFixes, sceneSettings,
     selectedSuggestions, selectedInfoHotspots, selectedDeletions, selectedRenames, selectedFixes, selectedSettings,
     hasSelections,
-    open, close,
+    open, openFromFloorPlan, floorPlanNotes, close,
     toggleSuggestion, toggleInfoHotspot, toggleDeletion, toggleRename, toggleFix, toggleSetting,
     apply,
   }
