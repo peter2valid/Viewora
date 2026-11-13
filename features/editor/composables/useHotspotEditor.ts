@@ -15,6 +15,7 @@ import {
   type EditDraft,
   type HotspotType,
 } from '~/features/editor/hotspotPayload'
+import { switchDraftType, draftProblem, type UserHotspotType } from '~/features/editor/hotspotTypeSwitch'
 import { createSerialWrites, createWriteTracker, type SerialWrites, type WriteTracker } from '~/shared/utils/editorWrites'
 
 type SceneChip = { id: string; label: string; ready: boolean; imageUrl?: string | null; group?: string | null }
@@ -606,6 +607,8 @@ export function useHotspotEditor(
     const hs = (hotspotsByScene.value[sceneId] ?? []).find(h => h.id === id)
     if (!hs) return
     const d = { ...editDraft.value }
+    const problem = draftProblem(d)
+    if (problem) { quickEditHotspotId.value = id; showToast(problem, 'error'); return }
     // Roads continue into the full panel, which is where the directions link is set.
     createHotspot(sceneId, { yaw: hs.yaw, pitch: hs.pitch }, d, { openPanel: openPanel || d.kind === 'road', existingTempId: id })
   }
@@ -706,6 +709,12 @@ export function useHotspotEditor(
 
   function patchHotspotDraft(patch: Partial<EditDraft>) { editDraft.value = { ...editDraft.value, ...patch } }
 
+  /** Move ⇄ Info ⇄ Media ⇄ Link on the open hotspot; saved with Save / Apply as usual. */
+  function changeHotspotType(to: UserHotspotType) {
+    const target = resolveTargetSceneId(selectedSceneId.value) ?? ''
+    editDraft.value = switchDraftType(editDraft.value, to, target)
+  }
+
   function closeHotspotPanel() {
     editorStore.setPanel(null)
     editorStore.setMode('view')
@@ -722,6 +731,8 @@ export function useHotspotEditor(
     if (!id || savingHotspot.value) return
     const sceneId = selectedSceneId.value
     const d = editDraft.value
+    const problem = draftProblem(d)
+    if (problem) { showToast(problem, 'error'); return }
     const content = buildContent(d)
     const patch: any = {
       type: d.type,
@@ -795,6 +806,7 @@ export function useHotspotEditor(
     handleHotspotReposition,
     selectHotspot,
     patchHotspotDraft,
+    changeHotspotType,
     closeHotspotPanel,
     confirmDeleteHotspot,
     saveHotspotEdit,

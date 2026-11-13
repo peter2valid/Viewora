@@ -6,6 +6,8 @@ import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/
 import { PLOT_STATUS_META, directionsUrl } from '~/shared/utils/viewerAdapters/landMarkers'
 import type { PlotStatus } from '~/domain/hotspot'
 import RoomPicker from '~/features/editor/components/RoomPicker.vue'
+import HotspotTypeSwitch from '~/features/editor/components/HotspotTypeSwitch.vue'
+import type { UserHotspotType } from '~/features/editor/hotspotTypeSwitch'
 
 const props = defineProps<{
   visible: boolean
@@ -21,6 +23,7 @@ const emit = defineEmits<{
   (e: 'close'): void
   (e: 'select', id: string | null): void
   (e: 'update-draft', patch: Partial<typeof props.draft>): void
+  (e: 'change-type', to: UserHotspotType): void
   (e: 'save'): void
   (e: 'delete'): void
   (e: 'start-tracing'): void
@@ -197,12 +200,18 @@ function setLinkStyle(style: 'interior' | undefined) {
         <!-- Scrollable body -->
         <div class="hs-edit-scroll custom-scrollbar">
 
-          <!-- ── TYPE (read-only) ── -->
+          <!-- ── TYPE — any non-land hotspot can switch, keeping what was typed ── -->
           <div class="hs-section">
             <span class="hs-section-title">Type</span>
-            <span class="hs-type-badge" :class="typeMeta(draft).color">
+            <span v-if="isLand" class="hs-type-badge" :class="typeMeta(draft).color">
               {{ typeMeta(draft).label }}
             </span>
+            <HotspotTypeSwitch
+              v-else
+              :type="draft.type"
+              :can-move="otherScenes.length > 0"
+              @change="emit('change-type', $event)"
+            />
           </div>
 
           <div class="hs-divider" />

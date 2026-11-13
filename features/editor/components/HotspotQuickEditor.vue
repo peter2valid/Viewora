@@ -24,6 +24,16 @@
       <!-- Scrollable body -->
       <div class="qe-body qe-scrollbar">
 
+        <!-- Type — switch any time; label, description and link carry over -->
+        <div v-if="!draft.kind" class="qe-section">
+          <span class="qe-section-label">Type</span>
+          <HotspotTypeSwitch
+            :type="draft.type"
+            :can-move="otherScenes.length > 0"
+            @change="emit('change-type', $event)"
+          />
+        </div>
+
         <!-- ══ NAV ══ -->
         <template v-if="userType === 'nav'">
           <!-- Destination room selector with thumbnails -->
@@ -97,8 +107,32 @@
           </div>
         </template>
 
-        <!-- ══ INFO ══ -->
-        <template v-else-if="userType === 'info'">
+        <!-- ══ MEDIA ══ -->
+        <template v-else-if="userType === 'media'">
+          <div class="qe-section">
+            <span class="qe-section-label">Label</span>
+            <input
+              class="qe-input"
+              :value="draft.label"
+              placeholder="e.g. Walk-through video"
+              :maxlength="HOTSPOT_LABEL_MAX"
+              @input="emit('update-draft', { label: ($event.target as HTMLInputElement).value })"
+            />
+          </div>
+          <div class="qe-section">
+            <span class="qe-section-label">Video link</span>
+            <input
+              class="qe-input"
+              :value="draft.url"
+              type="url"
+              placeholder="Paste a YouTube or .mp4 link"
+              @input="onMediaUrlInput(($event.target as HTMLInputElement).value)"
+            />
+          </div>
+        </template>
+
+        <!-- ══ INFO / LINK ══ -->
+        <template v-else>
           <!-- Label -->
           <div class="qe-section">
             <span class="qe-section-label">Label</span>
@@ -126,7 +160,7 @@
 
           <!-- Optional link URL -->
           <div v-if="!draft.kind" class="qe-section">
-            <span class="qe-section-label">Link URL <span class="qe-optional">optional</span></span>
+            <span class="qe-section-label">Link URL <span v-if="draft.type !== 'url'" class="qe-optional">optional</span></span>
             <input
               class="qe-input"
               :value="draft.url"
@@ -220,6 +254,8 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { ICON_GROUPS, PICKER_ICON_DEFS, navPickerIcon } from '~/shared/utils/hotspotIcons'
 import { HOTSPOT_LABEL_MAX, HOTSPOT_TEXT_MAX, type EditDraft } from '~/features/editor/hotspotPayload'
 import RoomPicker from '~/features/editor/components/RoomPicker.vue'
+import HotspotTypeSwitch from '~/features/editor/components/HotspotTypeSwitch.vue'
+import type { UserHotspotType } from '~/features/editor/hotspotTypeSwitch'
 
 const NAV_ICONS = PICKER_ICON_DEFS.filter(d => d.group === 'nav')
 
@@ -234,6 +270,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update-draft', patch: Partial<typeof props.draft>): void
+  (e: 'change-type', to: UserHotspotType): void
   (e: 'done'): void
   (e: 'cancel'): void
   (e: 'start-tracing'): void
@@ -245,11 +282,13 @@ const showAdvanced = ref(false)
 const CARD_W = 330
 
 const TYPE_LABELS: Record<string, string> = {
-  nav: 'Navigate', info: 'Info', beacon: 'Beacon', road: 'Road',
+  nav: 'Navigate', info: 'Info', media: 'Media', link: 'Link', beacon: 'Beacon', road: 'Road',
 }
 const TYPE_HINTS: Record<string, string> = {
   nav: 'Navigate to another scene',
   info: 'Show info + optional link',
+  media: 'Play a video in the tour',
+  link: 'Open a website, call or WhatsApp',
   beacon: 'Survey beacon / boundary marker',
   road: 'Where buyers enter from',
 }
@@ -271,11 +310,15 @@ function setLinkStyle(style: 'interior' | undefined) {
 
 const userType = computed(() => {
   if (props.draft.type === 'scene_link') return 'nav'
+  if (props.draft.type === 'video' || props.draft.type === 'youtube') return 'media'
   return 'info'
 })
 
 // Header badge: land markers are `info` hotspots underneath but read as their own type.
-const badgeKey = computed(() => props.draft.kind === 'beacon' || props.draft.kind === 'road' ? props.draft.kind : userType.value)
+const badgeKey = computed(() =>
+  props.draft.kind === 'beacon' || props.draft.kind === 'road' ? props.draft.kind
+  : props.draft.type === 'url' ? 'link'
+  : userType.value)
 
 // Real card height (it grows with the icon grid and shrinks with browser zoom).
 const cardH = ref(480)
@@ -325,6 +368,10 @@ const posStyle = computed(() => {
 
 function onInfoUrlInput(val: string) {
   emit('update-draft', { url: val, type: val.trim() ? 'url' : 'info' })
+}
+
+function onMediaUrlInput(val: string) {
+  emit('update-draft', { url: val, type: /youtu(\.be|be\.com)/i.test(val) ? 'youtube' : 'video' })
 }
 
 function applyShortcut(prefix: string) {
@@ -387,7 +434,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   width: fit-content;
 }
 .qe-type-badge--nav  { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
-.qe-type-badge--info { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.qe-type-badge--info,
+.qe-type-badge--media,
+.qe-type-badge--link { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
 .qe-type-badge--beacon { background: rgba(239,68,68,0.15); color: #f87171; }
 .qe-type-badge--road { background: rgba(250,204,21,0.15); color: #facc15; }
 .qe-land-hint { margin: 2px 2px 0; font-size: 11px; color: rgba(255,255,255,0.45); }

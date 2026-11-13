@@ -89,6 +89,7 @@
       @close="closeHotspotPanel"
       @select="selectHotspot"
       @update-draft="patchHotspotDraft"
+      @change-type="changeHotspotType"
       @save="saveHotspotEdit"
       @delete="confirmDeleteHotspot"
       @start-tracing="startTracing"
@@ -203,6 +204,7 @@
       :screen-y="quickEditScreenPos.y"
       :saving="addingHotspot"
       @update-draft="patchHotspotDraft"
+      @change-type="changeHotspotType"
       @done="onQuickEditDone"
       @cancel="onQuickEditCancel"
       @start-tracing="startTracing"
@@ -761,6 +763,7 @@ const {
   handleHotspotDragDrop,
   selectHotspot,
   patchHotspotDraft,
+  changeHotspotType,
   closeHotspotPanel,
   confirmDeleteHotspot,
   saveHotspotEdit,
