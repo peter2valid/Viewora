@@ -3,6 +3,7 @@
     <div
       v-if="visible"
       class="hsm-root"
+      :style="{ '--hsm-right': `${rightPx ?? 58}px` }"
       @mouseenter="$emit('menu-enter')"
       @mouseleave="$emit('menu-leave')"
     >
@@ -39,6 +40,8 @@
 <script setup lang="ts">
 defineProps<{
   visible: boolean
+  /** Distance of the Edit button from the centre; wider for the "See interior" pill. */
+  rightPx?: number
 }>()
 
 defineEmits<{
@@ -95,7 +98,7 @@ defineEmits<{
 
 /* ── Radial positions (58px radius) ──────────────────────── */
 .hsm-btn--top    { margin-top: calc(-19px - 58px); }
-.hsm-btn--right  { margin-left: calc(-19px + 58px); }
+.hsm-btn--right  { margin-left: calc(-19px + var(--hsm-right, 58px)); }
 .hsm-btn--bottom { margin-top: calc(-19px + 58px); }
 
 /* ── Button pop-in animation ─────────────────────────────── */

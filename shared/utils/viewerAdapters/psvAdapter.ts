@@ -716,7 +716,7 @@ function ensureInteriorBadgeStyles(): void {
 }
 .vhs-interior__stem { width: 2px; height: 10px; background: linear-gradient(rgba(255,255,255,0.75), rgba(255,255,255,0)); }
 .vhs-interior:hover .vhs-interior__pill, .vhs-interior:focus-visible .vhs-interior__pill {
-  transform: scale(1.06); background: rgba(14, 14, 18, 0.8); border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(14, 14, 18, 0.8); border-color: rgba(255, 255, 255, 0.55);
 }
 @keyframes vhs-interior-pulse { 0% { transform: scale(0.9); opacity: 0.9 } 70%, 100% { transform: scale(1.45); opacity: 0 } }
 @media (prefers-reduced-motion: reduce) { .vhs-interior__icon::after { animation: none; opacity: 0 } }
@@ -745,13 +745,20 @@ function buildInteriorBadgeEl(hotspot: Hotspot): HTMLElement {
   return wrap
 }
 
-/** Marker config for an interior badge; the stem's foot stands on the hotspot point. */
+/**
+ * Marker config for an interior badge; the stem's foot stands on the hotspot
+ * point. Hover grows it by the hotspot's own "Hover zoom", like the floor pins
+ * (floorPinMarker), from that foot upwards.
+ */
 function interiorBadgeMarker(hotspot: Hotspot): Record<string, any> {
+  const touch = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none)').matches
   return {
     id: hotspot.id,
     position: { yaw: hotspot.yaw, pitch: hotspot.pitch },
     element: buildInteriorBadgeEl(hotspot),
     anchor: 'bottom center',
+    ...(touch ? {} : { hoverScale: { amount: Number(hotspot.hoverScale || 1.3), duration: 150 } }),
+    zIndex: 5,
     data: { type: 'scene_link', targetSceneId: hotspot.targetSceneId, linkStyle: 'interior' },
   }
 }

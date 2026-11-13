@@ -159,7 +159,7 @@ export function useHotspotEditor(
     return hotspots.map(h => {
       if (h.id !== selectedId) return h
       const d = editDraft.value
-      return { ...h, label: d.label, description: d.description, url: d.url, targetSceneId: d.targetSceneId, type: d.type as any, icon: d.icon, labelColor: d.labelColor, labelBold: d.labelBold, scale: d.scale, hoverScale: d.hoverScale, strokeScale: d.strokeScale, corners: d.corners, imageUrl: d.imageUrl, kind: d.kind, points: d.points, plotStatus: d.plotStatus, plotPrice: d.plotPrice, plotSize: d.plotSize }
+      return { ...h, label: d.label, description: d.description, url: d.url, targetSceneId: d.targetSceneId, type: d.type as any, icon: d.icon, labelColor: d.labelColor, labelBold: d.labelBold, scale: d.scale, hoverScale: d.hoverScale, strokeScale: d.strokeScale, corners: d.corners, imageUrl: d.imageUrl, kind: d.kind, points: d.points, plotStatus: d.plotStatus, plotPrice: d.plotPrice, plotSize: d.plotSize, linkStyle: d.type === 'scene_link' ? d.linkStyle : undefined }
     })
   })
 

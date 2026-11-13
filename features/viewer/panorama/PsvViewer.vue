@@ -37,6 +37,7 @@
     <div class="psv-menu-layer" aria-hidden="true" ref="menuLayerRef">
       <HotspotActionMenu
         :visible="menu.visible"
+        :right-px="menuGeom.right"
         @edit="onMenuEdit"
         @delete="onMenuDelete"
         @reposition="onMenuReposition"
@@ -148,6 +149,14 @@ let menuHovered = false
  * was dead space and the menu closed if the pointer took >260ms to cross it.
  */
 const MENU_KEEP_RADIUS = 110
+/** Default distance of the menu buttons from the point they circle (HotspotActionMenu). */
+const MENU_RING_PX = 58
+/**
+ * Menu geometry for the open hotspot. Pins use the defaults; a "See interior"
+ * badge is a wide pill, so the ring is centred on the pill and the right
+ * button (Edit) moves out past the pill's edge instead of covering its label.
+ */
+const menuGeom = reactive({ lift: 0, right: MENU_RING_PX, keep: MENU_KEEP_RADIUS })
 /** Screen point the open menu circles (container px). */
 let menuAt: { x: number; y: number } | null = null
 /** Last pointer position over the viewer (container px), null once it leaves. */
@@ -176,14 +185,37 @@ async function retryCurrentScene() {
   await initWithScene(props.scene)
 }
 
-/** Screen point the action menu circles: the middle of a scene link's floor pin (40px tall at scale 1). */
+/**
+ * Sets menuGeom for `hs`. Floor pin: the ring circles the pin's middle (40px
+ * tall at scale 1). Interior badge: measured from its element (unscaled
+ * offset sizes, so a hover zoom in progress doesn't skew it) — centred on the
+ * pill, Edit clear of the pill even at full hover zoom.
+ */
+function measureMenuGeom(hs: Hotspot) {
+  const scale = Number(hs.scale || 1)
+  menuGeom.lift = hs.type === 'scene_link' ? 20 * scale : 0
+  menuGeom.right = MENU_RING_PX
+  menuGeom.keep = MENU_KEEP_RADIUS
+  if (!isInteriorLink(hs)) return
+  const el = containerEl.value?.querySelector<HTMLElement>(`.vhs-interior[data-vhs-id="${CSS.escape(hs.id)}"]`)
+  const pill = el?.querySelector<HTMLElement>('.vhs-interior__pill')
+  const stem = el?.querySelector<HTMLElement>('.vhs-interior__stem')
+  const pillW = pill?.offsetWidth || 140
+  const pillH = pill?.offsetHeight || 36
+  const stemH = stem?.offsetHeight ?? 10
+  const hover = Number(hs.hoverScale || 1.3)
+  menuGeom.lift = (stemH + pillH / 2) * scale
+  // Button centre: half the grown pill + a gap + the button's own radius (19px).
+  menuGeom.right = Math.max(MENU_RING_PX, Math.round((pillW / 2) * scale * hover + 12 + 19))
+  menuGeom.keep = Math.max(MENU_KEEP_RADIUS, menuGeom.right + 52)
+}
+
+/** Screen point the action menu circles (see measureMenuGeom). */
 function menuAnchor(hs: Hotspot): { x: number; y: number } | null {
   const at = hotspotDrawPosition(hs)
   const pos = getHotspotScreenPos(handle.value, at.yaw, at.pitch)
-  if (!pos || hs.type !== 'scene_link') return pos
-  // Interior badge: the pill sits ~30px above its stem's foot.
-  const lift = isInteriorLink(hs) ? 30 : 20
-  return { x: pos.x, y: pos.y - lift * Number(hs.scale || 1) }
+  if (!pos || !menuGeom.lift) return pos
+  return { x: pos.x, y: pos.y - menuGeom.lift }
 }
 
 function trackMenuPosition() {
@@ -203,6 +235,7 @@ function openMenu(id: string) {
   const hs = props.hotspots?.find(h => h.id === id)
   if (!hs) return
   if (menuRaf !== null) { cancelAnimationFrame(menuRaf); menuRaf = null }
+  measureMenuGeom(hs)
   const pos = menuAnchor(hs)
   menu.hotspotId = id
   menuAt = pos
@@ -225,7 +258,7 @@ function closeMenu() {
 
 function pointerNearMenu(): boolean {
   if (!menuAt || !pointerAt) return false
-  return Math.hypot(pointerAt.x - menuAt.x, pointerAt.y - menuAt.y) <= MENU_KEEP_RADIUS
+  return Math.hypot(pointerAt.x - menuAt.x, pointerAt.y - menuAt.y) <= menuGeom.keep
 }
 
 /** Close the hover menu shortly, unless the pointer is back near it or on a button by then. */
