@@ -1134,11 +1134,17 @@ function toArrayPayload<T = any>(value: any, key: string): T[] {
 
 // Poll fetchScenes while scenes are still processing so a missed realtime event
 // never leaves the editor permanently stuck with a "processing" badge.
+// Every few minutes it also asks the server to re-queue scenes whose job was
+// cut short (the server only touches ones stuck for 10+ minutes).
 let processingPollTimer: ReturnType<typeof setInterval> | null = null
+const REPAIR_EVERY_MS = 3 * 60 * 1000
+let lastRepairAt = 0
 watch(hasProcessingScenes, (isProcessing) => {
   if (isProcessing && !processingPollTimer) {
     processingPollTimer = setInterval(() => {
-      if (isMounted) void fetchScenes()
+      if (!isMounted) return
+      if (Date.now() - lastRepairAt > REPAIR_EVERY_MS) void repairTour()
+      else void fetchScenes()
     }, 6000)
   } else if (!isProcessing && processingPollTimer) {
     clearInterval(processingPollTimer)
@@ -1548,6 +1554,23 @@ async function saveSceneOrder() {
   }
 }
 
+/** Orphaned nav arrows, order gaps, and scenes whose processing was cut short (re-queued). */
+async function repairTour() {
+  lastRepairAt = Date.now()
+  try {
+    const repair = await apiFetch(`/spaces/${props.spaceId}/repair`, { method: 'POST', timeout: 45_000 }) as any
+    const fixed = (repair?.orphansRemoved ?? 0) + (repair?.stuckReset ?? 0)
+    if (fixed > 0) {
+      const requeued = repair?.stuckRequeued ?? 0
+      const gaveUp = repair?.stuckFailed ?? 0
+      if (gaveUp > 0) showToast(`${gaveUp} scene${gaveUp === 1 ? '' : 's'} couldn't be processed. Delete and upload ${gaveUp === 1 ? 'it' : 'them'} again.`, 'error')
+      else if (requeued > 0) showToast(`Restarted processing for ${requeued} stuck scene${requeued === 1 ? '' : 's'}`)
+      else showToast('Tour cleaned up automatically')
+      await fetchScenes()
+    }
+  } catch { /* ignore — repair is best-effort */ }
+}
+
 onMounted(async () => {
   isMounted = true
   window.addEventListener('keydown', handleKeydown)
@@ -1556,14 +1579,7 @@ onMounted(async () => {
   await fetchSpace(true)
 
   // Silently clean up orphaned nav arrows, order gaps, and stuck scenes on every mount.
-  try {
-    const repair = await apiFetch(`/spaces/${props.spaceId}/repair`, { method: 'POST' }) as any
-    const fixed = (repair?.orphansRemoved ?? 0) + (repair?.stuckReset ?? 0)
-    if (fixed > 0) {
-      showToast('Tour cleaned up automatically')
-      await fetchScenes()
-    }
-  } catch { /* ignore — repair is best-effort */ }
+  await repairTour()
 
   startSceneRealtime()
 })

@@ -1,5 +1,10 @@
 import { ref } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { withRetry } from '~/shared/utils/retry'
+
+// A request that hangs (the API waiting on a database that isn't answering) is
+// cut off and retried instead of stalling the upload queue indefinitely.
+const API_STEP_TIMEOUT_MS = 45_000
 
 export type LocalUploadState = 'local_select' | 'signing' | 'uploading' | 'registering' | 'processing' | 'failed'
 
@@ -64,10 +69,11 @@ export function useSceneUpload(spaceId: string) {
     
     try {
       updateLocalUpload(localId, { state: 'signing' })
-      const signedPayload = unwrapApiData<any>(await apiFetch<any>('/uploads/create-signed-url', {
+      const signedPayload = unwrapApiData<any>(await withRetry(() => apiFetch<any>('/uploads/create-signed-url', {
         method: 'POST',
         body: { spaceId, mediaType: type, fileName: file.name, contentType: file.type, fileSize: file.size },
-      }))
+        timeout: API_STEP_TIMEOUT_MS,
+      })))
 
       const signedUrl = signedPayload?.signedUrl
       const objectKey = signedPayload?.objectKey
@@ -80,21 +86,23 @@ export function useSceneUpload(spaceId: string) {
 
       updateLocalUpload(localId, { state: 'uploading' })
       
-      await $fetch(signedUrl, { 
-        method: 'PUT', 
-        body: file, 
-        headers: { 
+      // Re-sending the same object to the same key is harmless, so a dropped upload is simply sent again.
+      await withRetry(() => $fetch(signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
           'Content-Type': file.type,
           'Cache-Control': 'public, max-age=31536000, immutable'
-        } 
-      })
+        },
+      }))
       
       updateLocalUpload(localId, { state: 'registering' })
 
-      const record = unwrapApiData<any>(await apiFetch<any>('/uploads/complete', {
+      const record = unwrapApiData<any>(await withRetry(() => apiFetch<any>('/uploads/complete', {
         method: 'POST',
         body: { spaceId, mediaType: type, objectKey, publicUrl: publicUrlVal, fileSize: file.size },
-      }))
+        timeout: API_STEP_TIMEOUT_MS,
+      })))
 
       if (!record || typeof record !== 'object') {
         throw new Error('Upload registration returned an invalid response. Please try again.')

@@ -1,6 +1,7 @@
 import { ref, watch, type Ref } from 'vue'
 import { navigateTo } from '#imports'
 import { toast } from 'vue-sonner'
+import { withRetry } from '~/shared/utils/retry'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
 import { hotspotToPayload } from '~/features/editor/hotspotPayload'
@@ -248,16 +249,28 @@ export function useEditorUpload(
 
   async function createSceneWithPanorama(rawImageUrl: string, name?: string, localSceneId?: string, initialPitchDeg = 0) {
     const sceneNumber = (scenes.value?.length || 0) + 1
-    const response = await apiFetch<any>(`/spaces/${spaceId}/scenes`, {
-      method: 'POST',
-      body: {
-        name: name || `Scene ${sceneNumber}`,
-        raw_image_url: rawImageUrl,
-        initial_yaw: 0,
-        initial_pitch: Math.max(-90, Math.min(90, Math.round(initialPitchDeg))),
-      },
+    // Retried through short outages. A try that timed out may still have
+    // created the scene, so each retry first looks for it by its photo.
+    const createdScene = await withRetry(async (attempt) => {
+      if (attempt > 0) {
+        const existing = await apiFetch<any>(`/spaces/${spaceId}/scenes`, { timeout: 30_000 })
+        const body = existing?.data ?? existing
+        const list = Array.isArray(body) ? body : body?.scenes
+        const found = Array.isArray(list) ? list.find((s: any) => s?.raw_image_url === rawImageUrl) : null
+        if (found) return found
+      }
+      const response = await apiFetch<any>(`/spaces/${spaceId}/scenes`, {
+        method: 'POST',
+        body: {
+          name: name || `Scene ${sceneNumber}`,
+          raw_image_url: rawImageUrl,
+          initial_yaw: 0,
+          initial_pitch: Math.max(-90, Math.min(90, Math.round(initialPitchDeg))),
+        },
+        timeout: 45_000,
+      })
+      return (response as any)?.scene || response
     })
-    const createdScene = (response as any)?.scene || response
     if (createdScene?.id) {
       const shouldSelectCreatedScene = localSceneId
         ? selectedSceneId.value === localSceneId
@@ -401,7 +414,8 @@ export function useEditorUpload(
                   )
                 } else {
                   setSceneUploadState(item.localSceneId, 'failed')
-                  showToast(`${item.file.name} uploaded but scene creation failed. Please refresh to recover.`, 'error')
+                  removeOptimisticLocalScene(item.localSceneId)
+                  showToast(`${item.file.name} uploaded but its scene couldn't be created. Add the photo again.`, 'error')
                 }
               }
             },
@@ -555,22 +569,22 @@ export function useEditorUpload(
     }
   }
 
+  /**
+   * Uploads that were still running when the page went away (reload, crash,
+   * lost connection) can't continue: the photo only lived in that page. They
+   * used to come back as scenes stuck "processing" forever, with the top-bar
+   * spinner never stopping. Now they're dropped and the user is told which
+   * photos to add again. Any that did finish on the server show up from the
+   * normal scene load.
+   */
   function hydrateRecoverySnapshot() {
     const snapshot = readRecoverySnapshot()
-    if (!snapshot) return
-    if (snapshot.localScenes.length) {
-      const existingIds = new Set(scenes.value.map((s) => s.id))
-      for (const scene of snapshot.localScenes) {
-        if (!existingIds.has(scene.id)) scenes.value.push(scene)
-      }
-    }
-    sceneUploadStateById.value = { ...sceneUploadStateById.value, ...snapshot.sceneUploadStateById }
-    if (snapshot.scenePreviewById && Object.keys(snapshot.scenePreviewById).length) {
-      replacePendingScenePreviewMap({ ...pendingScenePreviewById.value, ...snapshot.scenePreviewById })
-    }
-    if (snapshot.selectedSceneId && isLocalSceneId(snapshot.selectedSceneId)) {
-      selectedSceneId.value = snapshot.selectedSceneId
-    }
+    if (typeof window !== 'undefined') window.sessionStorage.removeItem(storageKey())
+    if (!snapshot?.localScenes.length) return
+    const names = snapshot.localScenes.map((s: any) => s.name).filter(Boolean) as string[]
+    const n = snapshot.localScenes.length
+    const listed = names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '')
+    toast.warning(`${n} upload${n === 1 ? ' was' : 's were'} interrupted. Add ${n === 1 ? 'that photo' : 'those photos'} again${listed ? `: ${listed}` : ''}.`, { duration: 15000 })
   }
 
   // Debounced snapshot write on relevant state changes
