@@ -389,6 +389,12 @@ useSeoMeta({
   twitterDescription: seoDescription,
   twitterImage:       seoImage,
   twitterImageAlt:    seoImageAlt,
+}, {
+  // First in <head>: WhatsApp reads only the start of the page, and ~300 KB of inlined CSS sits
+  // ahead of these tags otherwise. Crawlers get cached copies of the full page too.
+  // A number, not 'critical': that alias only shifts meta from 100 to 92, still behind styles (60).
+  // 15 puts them right after <title> (10).
+  tagPriority: 15,
 })
 
 useHead(computed(() => {
