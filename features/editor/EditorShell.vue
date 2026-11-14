@@ -225,7 +225,7 @@
             @keydown.enter="saveRenameScene"
             @keydown.exact.escape="renameCandidate = null"
           />
-          <span class="rename-popover__label" style="margin-top: 8px">Category <small style="opacity:0.55;text-transform:none;letter-spacing:0">— groups shots into a folder</small></span>
+          <span class="rename-popover__label" style="margin-top: 8px">{{ pickCar ? 'Car name' : 'Category' }} <small style="opacity:0.55;text-transform:none;letter-spacing:0">— {{ pickCar ? "names this car's interior folder" : 'groups shots into a folder' }}</small></span>
           <!-- Category picker: every folder in the tour, drawn like the dock's
                folder cards; the box filters them or names a new one. -->
           <div class="cat-pick">
@@ -236,14 +236,15 @@
                 class="cat-pick__input"
                 type="text"
                 maxlength="40"
-                placeholder="Find or create a category"
-                aria-label="Category"
+                :placeholder="pickCar ? 'Name this car, e.g. Toyota RAV4' : 'Find or create a category'"
+                :aria-label="pickCar ? 'Car name' : 'Category'"
                 @keydown.enter="saveRenameScene"
                 @keydown.exact.escape="renameCandidate = null"
               />
               <button v-if="renameGroupDraft" type="button" class="cat-pick__clear" aria-label="Clear category" @click="renameGroupDraft = ''">✕</button>
             </div>
-            <div class="cat-pick__list" role="listbox" aria-label="Categories">
+            <span v-if="pickCar && categoryPickRows.length" class="cat-pick__sub">Or use another car's name</span>
+            <div v-if="!pickCar || categoryPickRows.length || categoryPickNew" class="cat-pick__list" role="listbox" :aria-label="pickCar ? 'Other cars' : 'Categories'">
               <button
                 v-for="c in categoryPickRows" :key="c.name" type="button" role="option"
                 class="cat-pick__row" :class="{ 'cat-pick__row--on': normalizeGroup(renameGroupDraft) === c.name }"
@@ -255,20 +256,20 @@
                   <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
                 </span>
                 <span class="cat-pick__name">{{ c.name }}</span>
-                <span v-if="c.auto" class="cat-pick__tag" title="This car's interior views, linked from its See interior badge">Car</span>
-                <span v-if="c.count" class="cat-pick__count">{{ c.count }}</span>
+                <span v-if="c.becomes" class="cat-pick__becomes" :title="`This car will show as ${c.becomes}`">→ {{ c.becomes }}</span>
+                <span v-else-if="c.count" class="cat-pick__count">{{ c.count }}</span>
               </button>
               <button
                 v-if="categoryPickNew" type="button" class="cat-pick__row cat-pick__row--new cat-pick__row--on"
                 @click="saveRenameScene"
               >
                 <span class="cat-pick__thumb">+</span>
-                <span class="cat-pick__name">{{ renameCandidate && interiorHome[renameCandidate.id] ? 'Name this car' : 'Create' }} “{{ categoryPickNew }}”</span>
+                <span class="cat-pick__name">{{ pickCar ? 'Name this car' : 'Create' }} “{{ categoryPickNew }}”</span>
               </button>
-              <p v-if="!categoryPickRows.length && !categoryPickNew" class="cat-pick__empty">No categories yet. Type a name to start one.</p>
+              <p v-if="!categoryPickRows.length && !categoryPickNew" class="cat-pick__empty">{{ pickCar ? 'Type a name for this car above.' : 'No categories yet. Type a name to start one.' }}</p>
             </div>
-            <p v-if="renameCandidate && interiorHome[renameCandidate.id]" class="cat-pick__note">
-              This names the whole car; its interior views always stay together. If another car has the same name, this one shows with (2). Clear it for the automatic name.
+            <p v-if="pickCar" class="cat-pick__note">
+              Its interior views always stay together. Clear the name to use the automatic one.
             </p>
           </div>
           <div class="rename-popover__actions">
@@ -1057,31 +1058,55 @@ const renameGroupDraft = ref('')
 // The scene popover's category list: every folder in the tour (hand-set and
 // automatic car folders) in dock order, with its first shot and size; common
 // names follow only when the tour has none yet or the typed text matches.
-const categoryPickRows = computed(() => {
-  // A car's views see only their own car's folder (the name is the car's);
-  // other scenes don't see car folders (they can't join a car).
+type CategoryPickRow = { name: string; count: number; imageUrl: string | null; auto: boolean; becomes?: string }
+
+/** The scene being edited in the popover, when it's inside a car (else null). */
+const pickCar = computed(() => interiorHome.value[renameCandidate.value?.id ?? '']?.entrySceneId ?? null)
+
+/** What this car's folder would be called if named `name` (e.g. "Toyota RAV4 (2)"). */
+function carNameIfNamed(id: string, name: string): string {
+  const ids = new Set(carSceneIds(id))
+  const sorted = scenes.value.slice().sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0))
+  return sceneFolders(sorted.map((s: any) => (ids.has(s.id) ? { ...s, group_name: name } : s)), interiorHome.value)[id] || name
+}
+
+// The scene popover's list.
+//  • An ordinary scene: every category in the tour (dock order, first shot,
+//    size); common names follow when the tour has none yet or the text matches.
+//    Car folders aren't offered — a scene can't join a car.
+//  • A car's interior view: the other cars' names, to reuse one for this car
+//    ("Toyota RAV4" → shows as "Toyota RAV4 (2)"). Its own name is in the box.
+const categoryPickRows = computed<CategoryPickRow[]>(() => {
   const editing = renameCandidate.value?.id ?? ''
-  const myCar = interiorHome.value[editing]?.entrySceneId ?? null
-  const rows = new Map<string, { name: string; count: number; imageUrl: string | null; auto: boolean }>()
+  const myCar = pickCar.value
+  const rows = new Map<string, CategoryPickRow>()
   for (const c of inDockOrder(sceneChips.value)) {
     if (!c.group) continue
     const car = interiorHome.value[c.id]?.entrySceneId ?? null
-    if (car !== myCar) continue
-    const row = rows.get(c.group) ?? { name: c.group, count: 0, imageUrl: null, auto: !!car }
+    if (myCar ? (!car || car === myCar) : !!car) continue
+    // Another car's name without its "(2)": the name to reuse.
+    const name = myCar ? c.group.replace(/\s\(\d+\)$/, '') : c.group
+    const key = name.toLowerCase()
+    const row = rows.get(key) ?? { name, count: 0, imageUrl: null, auto: !!car }
     row.count++
     row.imageUrl ??= c.imageUrl || null
-    rows.set(c.group, row)
+    rows.set(key, row)
   }
   const q = normalizeGroup(renameGroupDraft.value).toLowerCase()
   const used = [...rows.values()]
   const matches = (n: string) => !q || n.toLowerCase().includes(q)
-  // A picked name shows the whole list; typing narrows it.
-  const picked = used.some(r => r.name.toLowerCase() === q)
+  // A picked name (or the scene's own) shows the whole list; typing narrows it.
+  const own = effectiveGroup({ id: editing }).toLowerCase()
+  const picked = q === own || used.some(r => r.name.toLowerCase() === q)
   const list = picked ? used : used.filter(r => matches(r.name))
   const extra = (myCar ? [] : CATEGORY_SUGGESTIONS)
-    .filter(n => !rows.has(n) && (q ? matches(n) && !picked : !used.length))
+    .filter(n => !rows.has(n.toLowerCase()) && (q ? matches(n) && !picked : !used.length))
     .map(name => ({ name, count: 0, imageUrl: null, auto: false }))
-  return [...list, ...extra]
+  const out = [...list, ...extra]
+  if (!myCar) return out
+  // Skip names that would leave this car as it is (no dead clicks).
+  for (const r of out) r.becomes = carNameIfNamed(editing, r.name)
+  return out.filter(r => r.becomes!.toLowerCase() !== own)
 })
 // Opening a scene: bring its category into view in the list.
 watch(() => renameCandidate.value?.id, async (id) => {
@@ -1093,7 +1118,8 @@ watch(() => renameCandidate.value?.id, async (id) => {
 const categoryPickNew = computed(() => {
   const q = normalizeGroup(renameGroupDraft.value).slice(0, 40)
   if (!q) return ''
-  // Against what this scene can pick: another car's name is still new here.
+  // Not when it's already the scene's own folder, or a name in the list.
+  if (q.toLowerCase() === effectiveGroup({ id: renameCandidate.value?.id ?? '' }).toLowerCase()) return ''
   return categoryPickRows.value.some(r => r.name.toLowerCase() === q.toLowerCase()) ? '' : q
 })
 
@@ -2271,16 +2297,17 @@ defineExpose({
 }
 .cat-pick__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cat-pick__name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cat-pick__tag {
-  flex-shrink: 0; padding: 1px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em;
-  color: rgba(147,197,253,0.9); background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.25);
-}
 /* Count: the dock folder-label's number. */
 .cat-pick__count {
   flex-shrink: 0; min-width: 18px; text-align: right;
   font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums;
 }
 .cat-pick__row--new .cat-pick__thumb { color: #93c5fd; border-style: dashed; }
+.cat-pick__sub { display: block; margin: 8px 2px -2px; font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,0.45); }
+.cat-pick__becomes {
+  flex-shrink: 0; max-width: 46%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 10.5px; font-weight: 600; color: rgba(147,197,253,0.85);
+}
 .cat-pick__empty { margin: 0; padding: 10px 8px; font-size: 11px; color: rgba(255,255,255,0.45); }
 .cat-pick__note { margin: 6px 2px 0; font-size: 10.5px; line-height: 1.35; color: rgba(255,255,255,0.45); }
 .rename-popover__chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-width: 260px; }
