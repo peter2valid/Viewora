@@ -69,7 +69,7 @@
               v-for="sec in sections"
               :key="sec.key"
               class="glass-dock__section"
-              :class="{ 'glass-dock__section--branch': sec.label !== null }"
+              :class="{ 'glass-dock__section--branch': sec.label !== null, 'glass-dock__section--bare': sec.label === null && sections.length > 1 }"
             >
             <div v-if="sec.label !== null" class="glass-dock__branch">
               <component
@@ -298,6 +298,11 @@ const props = withDefaults(defineProps<{
   combinable?: boolean
   /** False: the strip always stays open (no hide button). */
   collapsible?: boolean
+  /**
+   * With `branches`: the name over cards that have no category. null = no
+   * branch for them (the viewer's back card sits beside the open folder).
+   */
+  ungroupedLabel?: string | null
 }>(), {
   activeId: '',
   showAdd: false,
@@ -317,6 +322,7 @@ const props = withDefaults(defineProps<{
   branches: false,
   combinable: false,
   collapsible: true,
+  ungroupedLabel: 'No category',
 })
 
 const emit = defineEmits<{
@@ -398,7 +404,7 @@ const sections = computed<DockSection[]>(() => {
     const key = item.group || '__none'
     let sec = byKey.get(key)
     if (!sec) {
-      sec = { key, label: item.group || 'No category', items: [] }
+      sec = { key, label: item.group || props.ungroupedLabel, items: [] }
       byKey.set(key, sec)
     }
     sec.items.push(item)
@@ -840,6 +846,12 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   .glass-dock__section { --item-w: 136px; }
   .glass-dock__sectionItems { gap: 14px; }
   .glass-dock__section--branch + .glass-dock__section--branch { margin-left: 16px; }
+}
+.glass-dock__section--bare {
+  justify-content: flex-end;
+}
+.glass-dock__section--bare .glass-dock__sectionItems {
+  flex: none;
 }
 .glass-dock__branch {
   display: flex;

@@ -29,6 +29,8 @@ export interface DockEntry {
   tooltip?: string | null
   kind?: 'group' | 'back'
   count?: number
+  /** Set on an open folder's shots, so a branching dock names the folder over them. */
+  group?: string | null
 }
 
 export function normalizeGroup(g: string | null | undefined): string {
@@ -98,7 +100,7 @@ export function buildDockEntries(
       return {
         items: [
           { id: BACK_ITEM_ID, label: backLabel, kind: 'back', ariaLabel: `Back to ${backLabel.toLowerCase()}` },
-          ...inGroup.map((s, i) => ({ ...toEntry(s), label: s.label || `${openGroup} ${i + 1}` })),
+          ...inGroup.map((s, i) => ({ ...toEntry(s), label: s.label || `${openGroup} ${i + 1}`, group: openGroup })),
         ],
         activeItemId: activeSceneId,
       }

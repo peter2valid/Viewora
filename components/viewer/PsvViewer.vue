@@ -605,6 +605,8 @@
       :sigma-px="80"
       :lift-px="10"
       :collapsed-label="dockCollapsedLabel"
+      branches
+      :ungrouped-label="null"
       @select="onDockSelect"
     >
       <!-- Floor tabs (tours with floor plans): browse a floor without moving -->
@@ -1066,8 +1068,10 @@ function scenesOnFloor(floorId: string | null): GroupableScene[] {
 }
 const dockScenes = computed(() => scenesOnFloor(dockFloorId.value))
 // Collapsed dock button: "⌃ Ground Floor" — the floor the visitor is on.
+// Inside a car it's the car's name, so the visitor always knows which car.
 const dockCollapsedLabel = computed(() => {
   const floor = dockFloors.value.find(f => f.id === visitorFloorId.value)
+  if (floor?.id === INTERIORS_TAB_ID) return groupOf(scenesOnFloor(floor.id), activeSceneId.value) || floor.name
   return floor && floor.id !== OTHER_FLOOR_ID ? floor.name : ''
 })
 
