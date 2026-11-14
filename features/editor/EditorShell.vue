@@ -226,25 +226,50 @@
             @keydown.exact.escape="renameCandidate = null"
           />
           <span class="rename-popover__label" style="margin-top: 8px">Category <small style="opacity:0.55;text-transform:none;letter-spacing:0">— groups shots into a folder</small></span>
-          <input
-            v-model="renameGroupDraft"
-            class="rename-popover__input"
-            type="text"
-            maxlength="40"
-            list="viewora-scene-categories"
-            :placeholder="renameCandidate && interiorFolderOf[renameCandidate.id] ? `${interiorFolderOf[renameCandidate.id]} (automatic, from its See interior link)` : 'e.g. Kitchen'"
-            @keydown.enter="saveRenameScene"
-            @keydown.exact.escape="renameCandidate = null"
-          />
-          <datalist id="viewora-scene-categories">
-            <option v-for="c in categoryOptions" :key="c" :value="c" />
-          </datalist>
-          <div class="rename-popover__chips">
-            <button
-              v-for="c in categoryOptions.slice(0, 8)" :key="c" type="button"
-              class="rename-popover__chip" :class="{ 'rename-popover__chip--on': renameGroupDraft === c }"
-              @click="renameGroupDraft = renameGroupDraft === c ? '' : c"
-            >{{ c }}</button>
+          <!-- Category picker: every folder in the tour, drawn like the dock's
+               folder cards; the box filters them or names a new one. -->
+          <div class="cat-pick">
+            <div class="cat-pick__field">
+              <svg class="cat-pick__icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+              <input
+                v-model="renameGroupDraft"
+                class="cat-pick__input"
+                type="text"
+                maxlength="40"
+                placeholder="Find or create a category"
+                aria-label="Category"
+                @keydown.enter="saveRenameScene"
+                @keydown.exact.escape="renameCandidate = null"
+              />
+              <button v-if="renameGroupDraft" type="button" class="cat-pick__clear" aria-label="Clear category" @click="renameGroupDraft = ''">✕</button>
+            </div>
+            <div class="cat-pick__list" role="listbox" aria-label="Categories">
+              <button
+                v-for="c in categoryPickRows" :key="c.name" type="button" role="option"
+                class="cat-pick__row" :class="{ 'cat-pick__row--on': normalizeGroup(renameGroupDraft) === c.name }"
+                :aria-selected="normalizeGroup(renameGroupDraft) === c.name"
+                @click="renameGroupDraft = c.name"
+              >
+                <span class="cat-pick__thumb">
+                  <img v-if="c.imageUrl" :src="c.imageUrl" alt="" draggable="false" />
+                  <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+                </span>
+                <span class="cat-pick__name">{{ c.name }}</span>
+                <span v-if="c.auto" class="cat-pick__tag" title="Filed automatically from a See interior link">Auto</span>
+                <span v-if="c.count" class="cat-pick__count">{{ c.count }}</span>
+              </button>
+              <button
+                v-if="categoryPickNew" type="button" class="cat-pick__row cat-pick__row--new cat-pick__row--on"
+                @click="saveRenameScene"
+              >
+                <span class="cat-pick__thumb">+</span>
+                <span class="cat-pick__name">Create “{{ categoryPickNew }}”</span>
+              </button>
+              <p v-if="!categoryPickRows.length && !categoryPickNew" class="cat-pick__empty">No categories yet. Type a name to start one.</p>
+            </div>
+            <p v-if="renameCandidate && interiorFolderOf[renameCandidate.id]" class="cat-pick__note">
+              In {{ interiorFolderOf[renameCandidate.id] }} automatically, from its See interior link.
+            </p>
           </div>
           <div class="rename-popover__actions">
             <button class="rename-popover__save" @click="saveRenameScene">Save</button>
@@ -568,7 +593,7 @@ import { type EditorHotspot, mapDbHotspot, mapDbHotspots } from '~/features/edit
 import { createSerialWrites, createWriteTracker, mergeById } from '~/shared/utils/editorWrites'
 import { resolveStartView } from '~/domain/scene'
 import {
-  BACK_ITEM_ID, CATEGORY_SUGGESTIONS, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, normalizeGroup, scenesInGroup,
+  BACK_ITEM_ID, CATEGORY_SUGGESTIONS, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, inDockOrder, normalizeGroup, scenesInGroup,
   type GroupableScene,
 } from '~/shared/utils/sceneGroups'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
@@ -1021,10 +1046,44 @@ const renameCandidate = ref<{ id: string; name: string } | null>(null)
 const renameDraft = ref('')
 const renameGroupDraft = ref('')
 // Existing categories first (so new shots join them), then common suggestions.
-const categoryOptions = computed(() => {
-  const used = [...new Set(scenes.value.map((s: any) => effectiveGroup(s)).filter(Boolean))]
-  return [...used, ...CATEGORY_SUGGESTIONS.filter(c => !used.includes(c))]
+// The scene popover's category list: every folder in the tour (hand-set and
+// automatic car folders) in dock order, with its first shot and size; common
+// names follow only when the tour has none yet or the typed text matches.
+const categoryPickRows = computed(() => {
+  const rows = new Map<string, { name: string; count: number; imageUrl: string | null; auto: boolean }>()
+  for (const c of inDockOrder(sceneChips.value)) {
+    if (!c.group) continue
+    const row = rows.get(c.group) ?? { name: c.group, count: 0, imageUrl: null, auto: true }
+    row.count++
+    row.imageUrl ??= c.imageUrl || null
+    if (normalizeGroup((scenes.value.find(s => s.id === c.id) as any)?.group_name)) row.auto = false
+    rows.set(c.group, row)
+  }
+  const q = normalizeGroup(renameGroupDraft.value).toLowerCase()
+  const used = [...rows.values()]
+  const matches = (n: string) => !q || n.toLowerCase().includes(q)
+  // A picked name shows the whole list; typing narrows it.
+  const picked = used.some(r => r.name.toLowerCase() === q)
+  const list = picked ? used : used.filter(r => matches(r.name))
+  const extra = CATEGORY_SUGGESTIONS
+    .filter(n => !rows.has(n) && (q ? matches(n) && !picked : !used.length))
+    .map(name => ({ name, count: 0, imageUrl: null, auto: false }))
+  return [...list, ...extra]
 })
+// Opening a scene: bring its category into view in the list.
+watch(() => renameCandidate.value?.id, async (id) => {
+  if (!id) return
+  await nextTick()
+  document.querySelector('.cat-pick__row--on')?.scrollIntoView({ block: 'nearest' })
+})
+/** The typed name when it isn't a category yet (offered as "Create …"). */
+const categoryPickNew = computed(() => {
+  const q = normalizeGroup(renameGroupDraft.value).slice(0, 40)
+  if (!q) return ''
+  const all = [...sceneChips.value.map(c => c.group).filter(Boolean) as string[], ...CATEGORY_SUGGESTIONS]
+  return all.some(n => n.toLowerCase() === q.toLowerCase()) ? '' : q
+})
+
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const sceneDeleteConfirm = ref<string | null>(null)
 
@@ -1209,7 +1268,7 @@ function handleRenameScene(id: string) {
   if (!scene) return
   deleteCandidate.value = null
   renameDraft.value = scene.name || ''
-  renameGroupDraft.value = (scene as any).group_name || ''
+  renameGroupDraft.value = effectiveGroup(scene as any)
   renameCandidate.value = { id, name: scene.name || '' }
 }
 
@@ -1235,7 +1294,11 @@ async function saveRenameScene() {
   const group = renameGroupDraft.value.trim().slice(0, 40)
   const body: Record<string, any> = {}
   if (name !== (current?.name ?? '')) body.name = name
-  if (group !== ((current?.group_name ?? '') as string).trim()) body.group_name = group || null
+  // Unchanged from what the dock shows (its car folder included): nothing to save.
+  if (group !== effectiveGroup(current)) {
+    if (!group && interiorFolderOf.value[id]) showToast('Interior views stay with their car. Remove its "See interior" link to take it out.', 'error')
+    else body.group_name = group || null
+  }
   renameCandidate.value = null
   if (!Object.keys(body).length) return
   const before: Record<string, any> = Object.fromEntries(Object.keys(body).map(k => [k, current?.[k] ?? null]))
@@ -2108,13 +2171,19 @@ defineExpose({
 /* ── Scene rename popover ───────────────────────────────── */
 .rename-popover {
   position: fixed;
-  bottom: 104px;
+  /* Above the dock (its folder names and cards), not on top of it. */
+  bottom: 232px;
   left: 50%;
   transform: translateX(-50%);
-  width: 260px;
+  width: 300px;
+  max-height: calc(100vh - 248px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  /* The dock's glass, a shade darker: this panel is text and must read over bright rooms. */
   background:
     linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 26%, rgba(0,0,0,0.14) 100%),
-    rgba(10, 12, 20, 0.42);
+    rgba(10, 12, 20, 0.66);
   backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
   -webkit-backdrop-filter: blur(30px) saturate(1.1) brightness(1.02);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -2134,6 +2203,61 @@ defineExpose({
   color: rgba(255, 255, 255, 0.35);
   margin-bottom: 8px;
 }
+.cat-pick { margin-bottom: 12px; }
+.cat-pick__field { position: relative; display: flex; align-items: center; }
+.cat-pick__icon { position: absolute; left: 10px; color: rgba(255,255,255,0.35); pointer-events: none; }
+.cat-pick__input {
+  width: 100%; height: 34px; padding: 0 30px 0 30px; box-sizing: border-box;
+  border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; outline: none; transition: border-color 120ms;
+}
+.cat-pick__input:focus { border-color: rgba(59,130,246,0.5); }
+.cat-pick__input::placeholder { color: rgba(255,255,255,0.25); font-weight: 500; }
+.cat-pick__clear {
+  position: absolute; right: 6px; width: 22px; height: 22px; border-radius: 6px; border: none;
+  background: transparent; color: rgba(255,255,255,0.4); font-size: 11px; cursor: pointer;
+}
+.cat-pick__clear:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.cat-pick__list {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding: 4px;
+  max-height: 188px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  border-radius: 12px; background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.06);
+}
+@media (max-height: 820px) {
+  .cat-pick__list { max-height: 152px; }
+}
+.cat-pick__row {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 36px; padding: 4px 8px 4px 4px;
+  border-radius: 9px; border: 1px solid transparent; background: transparent; text-align: left;
+  color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.cat-pick__row:hover { background: rgba(255,255,255,0.06); color: #fff; }
+/* Selected: the dock's active card — a lifted glass tile with a bright edge. */
+.cat-pick__row--on {
+  background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35); color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.cat-pick__thumb {
+  flex-shrink: 0; width: 44px; height: 26px; border-radius: 6px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.45); font-size: 14px; font-weight: 600;
+}
+.cat-pick__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cat-pick__name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-pick__tag {
+  flex-shrink: 0; padding: 1px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em;
+  color: rgba(147,197,253,0.9); background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.25);
+}
+/* Count: the dock folder-label's number. */
+.cat-pick__count {
+  flex-shrink: 0; min-width: 18px; text-align: right;
+  font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums;
+}
+.cat-pick__row--new .cat-pick__thumb { color: #93c5fd; border-style: dashed; }
+.cat-pick__empty { margin: 0; padding: 10px 8px; font-size: 11px; color: rgba(255,255,255,0.45); }
+.cat-pick__note { margin: 6px 2px 0; font-size: 10.5px; line-height: 1.35; color: rgba(255,255,255,0.45); }
 .rename-popover__chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-width: 260px; }
 .rename-popover__chip {
   padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12);
@@ -2511,6 +2635,10 @@ defineExpose({
     right: 12px;
     bottom: 12px;
     transform: none;
+  }
+
+  .rename-popover {
+    max-height: calc(100vh - 24px);
   }
 
   .share-modal {
