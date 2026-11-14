@@ -1032,7 +1032,7 @@ const groupableScenes = computed<GroupableScene[]>(() =>
   tourScenes.value.map((s: any, idx: number) => ({
     id: s.id,
     label: s.name || `Scene ${idx + 1}`,
-    group: s.group_name ?? interiorFolderOf.value[s.id] ?? null,
+    group: (s.group_name ?? '').trim() || interiorFolderOf.value[s.id] || null,
     imageUrl: s.thumbnail_url || null,
     // If tiles are ready or we have a thumbnail, the scene is functional.
     // Only show 'loading' if it's genuinely pending, and skip 'failed' if it actually works.

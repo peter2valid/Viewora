@@ -232,7 +232,7 @@
             type="text"
             maxlength="40"
             list="viewora-scene-categories"
-            placeholder="e.g. Kitchen"
+            :placeholder="renameCandidate && interiorFolderOf[renameCandidate.id] ? `${interiorFolderOf[renameCandidate.id]} (automatic, from its See interior link)` : 'e.g. Kitchen'"
             @keydown.enter="saveRenameScene"
             @keydown.exact.escape="renameCandidate = null"
           />
@@ -576,6 +576,7 @@ import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
 import SceneDock from '~/features/editor/components/SceneDock.vue'
+import { interiorFolders, interiorScenes } from '~/shared/utils/interiorLinks'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import { useEditorRealtime } from '~/features/editor/composables/useEditorRealtime'
@@ -668,6 +669,21 @@ const {
   inlineEditMode,
 )
 
+// Car interiors (scenes behind a "See interior" badge): one folder per car,
+// named from its badge — the same rule the public viewer's dock uses
+// (PsvViewer.vue), so the editor shows what visitors will see. A category set
+// by hand still wins.
+const interiorFolderOf = computed(() => interiorFolders(
+  interiorScenes(hotspotsByScene.value),
+  (id) => scenes.value.find((s) => s.id === id)?.name || '',
+))
+
+/** The category a scene shows under: its own, else its car's interior folder ('' = none). */
+function effectiveGroup(s: { id: string; group_name?: string | null } | null | undefined): string {
+  if (!s) return ''
+  return normalizeGroup(s.group_name) || interiorFolderOf.value[s.id] || ''
+}
+
 const sceneChips = computed(() => {
   if (!scenes.value.length) return []
 
@@ -722,10 +738,11 @@ const sceneChips = computed(() => {
       badge = 'warn'
       warnReason = 'No way to leave this room — add an arrow to another scene'
     }
+    const group = effectiveGroup(s as any) || null
     return {
       id: s.id,
-      label: (s as any).group_name ? `${(s as any).group_name} · ${s.name || `Scene ${idx + 1}`}` : (s.name || `Scene ${idx + 1}`),
-      group: (s as any).group_name ?? null,
+      label: group ? `${group} · ${s.name || `Scene ${idx + 1}`}` : (s.name || `Scene ${idx + 1}`),
+      group,
       name: s.name || `Scene ${idx + 1}`,
       ready: state === 'ready',
       badge,
@@ -1005,7 +1022,7 @@ const renameDraft = ref('')
 const renameGroupDraft = ref('')
 // Existing categories first (so new shots join them), then common suggestions.
 const categoryOptions = computed(() => {
-  const used = [...new Set(scenes.value.map((s: any) => (s.group_name ?? '').trim()).filter(Boolean))]
+  const used = [...new Set(scenes.value.map((s: any) => effectiveGroup(s)).filter(Boolean))]
   return [...used, ...CATEGORY_SUGGESTIONS.filter(c => !used.includes(c))]
 })
 const renameInputRef = ref<HTMLInputElement | null>(null)
@@ -1283,7 +1300,7 @@ function setLocalGroups(map: Record<string, string | null>) {
 /** Last scene (in tour order) whose category is `group` ('' = none), skipping `exclude`. */
 function lastSceneOfGroup(group: string, exclude: string): string | null {
   const byId = new Map(scenes.value.map((s) => [s.id, s]))
-  const ids = orderedSceneIds().filter((id) => id !== exclude && normalizeGroup(byId.get(id)?.group_name) === group)
+  const ids = orderedSceneIds().filter((id) => id !== exclude && effectiveGroup(byId.get(id) as any) === group)
   return ids[ids.length - 1] ?? null
 }
 
@@ -1344,7 +1361,7 @@ async function handleCombineScenes(p: { dragId: string; targetId?: string; group
   if (p.targetId) {
     const target = scenes.value.find((s) => s.id === p.targetId)
     if (!target) return
-    const tg = normalizeGroup(target.group_name)
+    const tg = effectiveGroup(target as any)
     if (!tg) {
       const name = uniqueCategoryName('New category')
       const prev = { [p.dragId]: drag.group_name ?? null, [p.targetId]: target.group_name ?? null }
@@ -1358,7 +1375,11 @@ async function handleCombineScenes(p: { dragId: string; targetId?: string; group
   } else {
     dest = p.group ? normalizeGroup(p.group) || null : null
   }
-  if (normalizeGroup(drag.group_name) === (dest ?? '')) return
+  if (effectiveGroup(drag as any) === (dest ?? '')) return
+  if (!dest && interiorFolderOf.value[p.dragId] && !normalizeGroup(drag.group_name)) {
+    showToast('Interior views stay with their car. Remove its "See interior" link to take it out.', 'error')
+    return
+  }
   const prevGroup = drag.group_name ?? null
   const anchor = lastSceneOfGroup(dest ?? '', p.dragId)
   // Everything on screen changes now; the save follows in the background.
@@ -1376,7 +1397,7 @@ async function handleCombineScenes(p: { dragId: string; targetId?: string; group
 
 function handleRenameGroup(group: string) {
   const g = normalizeGroup(group)
-  const ids = orderedSceneIds().filter((id) => normalizeGroup(scenes.value.find((s) => s.id === id)?.group_name) === g)
+  const ids = orderedSceneIds().filter((id) => effectiveGroup(scenes.value.find((s) => s.id === id) as any) === g)
   if (!g || !ids.length) return
   if (categoryNaming.value) cancelCategoryName()
   renameCandidate.value = null
