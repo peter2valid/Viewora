@@ -121,7 +121,7 @@
     <!-- Inside a car: one tap back to the showroom, facing the car again -->
     <Transition name="interior-back">
       <button v-if="showInteriorBack" type="button" class="interior-back" @click="backToShowroom">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
         Back to showroom
       </button>
     </Transition>
@@ -4337,28 +4337,31 @@ watch(() => vtTransitioning.value, (loading) => {
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   pointer-events: none;
 }
-.scene-toast--below { top: 66px; }
+.scene-toast--below { top: 76px; }
 
 /* ── Back to showroom (inside a car) ─────────────────── */
+/* Same look as the maps' "Back to the 360° tour" (.vmv-back360 in
+   VenueMapViewer.vue): solid rose pill, white ring, arrow. */
 .interior-back {
   position: absolute;
   top: 16px; top: calc(16px + env(safe-area-inset-top, 0px));
   left: 50%; transform: translateX(-50%);
   z-index: 61;
-  display: inline-flex; align-items: center; gap: 6px;
-  height: 40px; padding: 0 18px 0 12px;
-  border-radius: 999px;
-  background: rgba(10, 11, 16, 0.72);
-  border: 1px solid rgba(255,255,255,0.22);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 46px; padding: 0 20px 0 16px;
+  border: 0; border-radius: 999px;
+  background: #e11d48;
   color: #fff;
-  font-size: 13px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  font-size: 15px; font-weight: 800; white-space: nowrap;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 8px 24px rgba(225,29,72,0.45);
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease;
 }
-.interior-back:hover { background: rgba(10, 11, 16, 0.88); border-color: rgba(255,255,255,0.4); }
-.interior-back:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.interior-back:hover { background: #be123c; }
+.interior-back:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+@media (max-width: 640px) {
+  .interior-back { height: 42px; font-size: 14px; }
+}
 .interior-back-enter-active { transition: opacity 220ms ease, transform 220ms cubic-bezier(0.22,1,0.36,1); }
 .interior-back-leave-active { transition: opacity 180ms ease, transform 180ms ease; }
 .interior-back-enter-from, .interior-back-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
