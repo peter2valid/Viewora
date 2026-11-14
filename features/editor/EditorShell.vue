@@ -255,7 +255,7 @@
                   <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
                 </span>
                 <span class="cat-pick__name">{{ c.name }}</span>
-                <span v-if="c.auto" class="cat-pick__tag" title="Filed automatically from a See interior link">Auto</span>
+                <span v-if="c.auto" class="cat-pick__tag" title="This car's interior views, linked from its See interior badge">Car</span>
                 <span v-if="c.count" class="cat-pick__count">{{ c.count }}</span>
               </button>
               <button
@@ -263,12 +263,12 @@
                 @click="saveRenameScene"
               >
                 <span class="cat-pick__thumb">+</span>
-                <span class="cat-pick__name">Create “{{ categoryPickNew }}”</span>
+                <span class="cat-pick__name">{{ renameCandidate && interiorHome[renameCandidate.id] ? 'Name this car' : 'Create' }} “{{ categoryPickNew }}”</span>
               </button>
               <p v-if="!categoryPickRows.length && !categoryPickNew" class="cat-pick__empty">No categories yet. Type a name to start one.</p>
             </div>
-            <p v-if="renameCandidate && interiorFolderOf[renameCandidate.id]" class="cat-pick__note">
-              In {{ interiorFolderOf[renameCandidate.id] }} automatically, from its See interior link.
+            <p v-if="renameCandidate && interiorHome[renameCandidate.id]" class="cat-pick__note">
+              This names the whole car; its interior views always stay together. If another car has the same name, this one shows with (2). Clear it for the automatic name.
             </p>
           </div>
           <div class="rename-popover__actions">
@@ -601,7 +601,7 @@ import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
 import SceneDock from '~/features/editor/components/SceneDock.vue'
-import { interiorFolders, interiorScenes } from '~/shared/utils/interiorLinks'
+import { interiorScenes, sceneFolders } from '~/shared/utils/interiorLinks'
 import GlassDock from '~/components/ui/GlassDock.vue'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
 import { useEditorRealtime } from '~/features/editor/composables/useEditorRealtime'
@@ -698,15 +698,23 @@ const {
 // named from its badge — the same rule the public viewer's dock uses
 // (PsvViewer.vue), so the editor shows what visitors will see. A category set
 // by hand still wins.
-const interiorFolderOf = computed(() => interiorFolders(
-  interiorScenes(hotspotsByScene.value),
-  (id) => scenes.value.find((s) => s.id === id)?.name || '',
+const interiorHome = computed(() => interiorScenes(hotspotsByScene.value))
+// Each car is its own folder: two cars both named "Toyota RAV4" show as
+// "Toyota RAV4" and "Toyota RAV4 (2)" (sceneFolders, shared with the viewer).
+const sceneFolderOf = computed(() => sceneFolders(
+  scenes.value.slice().sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0)) as any[],
+  interiorHome.value,
 ))
 
-/** The category a scene shows under: its own, else its car's interior folder ('' = none). */
-function effectiveGroup(s: { id: string; group_name?: string | null } | null | undefined): string {
-  if (!s) return ''
-  return normalizeGroup(s.group_name) || interiorFolderOf.value[s.id] || ''
+/** The folder a scene shows under, as the dock and the viewer show it ('' = none). */
+function effectiveGroup(s: { id: string } | null | undefined): string {
+  return (s && sceneFolderOf.value[s.id]) || ''
+}
+
+/** The interior views of the car `id` is in (tour order); [] when it isn't inside a car. */
+function carSceneIds(id: string): string[] {
+  const entry = interiorHome.value[id]?.entrySceneId
+  return entry ? orderedSceneIds().filter(x => interiorHome.value[x]?.entrySceneId === entry) : []
 }
 
 const sceneChips = computed(() => {
@@ -1050,13 +1058,18 @@ const renameGroupDraft = ref('')
 // automatic car folders) in dock order, with its first shot and size; common
 // names follow only when the tour has none yet or the typed text matches.
 const categoryPickRows = computed(() => {
+  // A car's views see only their own car's folder (the name is the car's);
+  // other scenes don't see car folders (they can't join a car).
+  const editing = renameCandidate.value?.id ?? ''
+  const myCar = interiorHome.value[editing]?.entrySceneId ?? null
   const rows = new Map<string, { name: string; count: number; imageUrl: string | null; auto: boolean }>()
   for (const c of inDockOrder(sceneChips.value)) {
     if (!c.group) continue
-    const row = rows.get(c.group) ?? { name: c.group, count: 0, imageUrl: null, auto: true }
+    const car = interiorHome.value[c.id]?.entrySceneId ?? null
+    if (car !== myCar) continue
+    const row = rows.get(c.group) ?? { name: c.group, count: 0, imageUrl: null, auto: !!car }
     row.count++
     row.imageUrl ??= c.imageUrl || null
-    if (normalizeGroup((scenes.value.find(s => s.id === c.id) as any)?.group_name)) row.auto = false
     rows.set(c.group, row)
   }
   const q = normalizeGroup(renameGroupDraft.value).toLowerCase()
@@ -1065,7 +1078,7 @@ const categoryPickRows = computed(() => {
   // A picked name shows the whole list; typing narrows it.
   const picked = used.some(r => r.name.toLowerCase() === q)
   const list = picked ? used : used.filter(r => matches(r.name))
-  const extra = CATEGORY_SUGGESTIONS
+  const extra = (myCar ? [] : CATEGORY_SUGGESTIONS)
     .filter(n => !rows.has(n) && (q ? matches(n) && !picked : !used.length))
     .map(name => ({ name, count: 0, imageUrl: null, auto: false }))
   return [...list, ...extra]
@@ -1080,8 +1093,8 @@ watch(() => renameCandidate.value?.id, async (id) => {
 const categoryPickNew = computed(() => {
   const q = normalizeGroup(renameGroupDraft.value).slice(0, 40)
   if (!q) return ''
-  const all = [...sceneChips.value.map(c => c.group).filter(Boolean) as string[], ...CATEGORY_SUGGESTIONS]
-  return all.some(n => n.toLowerCase() === q.toLowerCase()) ? '' : q
+  // Against what this scene can pick: another car's name is still new here.
+  return categoryPickRows.value.some(r => r.name.toLowerCase() === q.toLowerCase()) ? '' : q
 })
 
 const renameInputRef = ref<HTMLInputElement | null>(null)
@@ -1294,12 +1307,14 @@ async function saveRenameScene() {
   const group = renameGroupDraft.value.trim().slice(0, 40)
   const body: Record<string, any> = {}
   if (name !== (current?.name ?? '')) body.name = name
-  // Unchanged from what the dock shows (its car folder included): nothing to save.
-  if (group !== effectiveGroup(current)) {
-    if (!group && interiorFolderOf.value[id]) showToast('Interior views stay with their car. Remove its "See interior" link to take it out.', 'error')
-    else body.group_name = group || null
-  }
+  // Unchanged from what the dock shows: nothing to save.
+  const car = carSceneIds(id)
+  const groupChanged = group !== effectiveGroup(current)
+  if (groupChanged && !car.length) body.group_name = group || null
   renameCandidate.value = null
+  // Inside a car, the category is the car's name: it goes on all its views
+  // (empty = back to the automatic name). It can't join another car.
+  if (groupChanged && car.length) void nameCar(car, group || null)
   if (!Object.keys(body).length) return
   const before: Record<string, any> = Object.fromEntries(Object.keys(body).map(k => [k, current?.[k] ?? null]))
   const seqs = Object.fromEntries(Object.keys(body).map(k => [k, nextSceneSeq(`${id}:${k}`)]))
@@ -1321,6 +1336,14 @@ async function saveRenameScene() {
       'error',
     )
   }
+}
+
+async function nameCar(ids: string[], name: string | null) {
+  const prev = Object.fromEntries(ids.map(x => [x, (scenes.value.find(s => s.id === x) as any)?.group_name ?? null]))
+  setLocalGroups(Object.fromEntries(ids.map(x => [x, name])))
+  const shown = effectiveGroup({ id: ids[0] })
+  showToast(name ? `Car named ${shown}` : `Car back to its automatic name (${shown})`)
+  await patchCategory(ids, name, prev)
 }
 
 // ── Categories from the dock (drag one scene onto another) ──────────────────
@@ -1420,6 +1443,11 @@ async function handleCombineScenes(p: { dragId: string; targetId?: string; group
   }
   const drag = scenes.value.find((s) => s.id === p.dragId)
   if (!drag) return
+  const carFolders = new Set(Object.keys(interiorHome.value).map(x => effectiveGroup({ id: x })))
+  if (interiorHome.value[p.dragId] || (p.targetId && interiorHome.value[p.targetId]) || (p.group && carFolders.has(normalizeGroup(p.group)))) {
+    showToast('Interior views stay with their own car. To rename a car, click its folder name.', 'error')
+    return
+  }
   let dest: string | null
   if (p.targetId) {
     const target = scenes.value.find((s) => s.id === p.targetId)
@@ -1439,10 +1467,6 @@ async function handleCombineScenes(p: { dragId: string; targetId?: string; group
     dest = p.group ? normalizeGroup(p.group) || null : null
   }
   if (effectiveGroup(drag as any) === (dest ?? '')) return
-  if (!dest && interiorFolderOf.value[p.dragId] && !normalizeGroup(drag.group_name)) {
-    showToast('Interior views stay with their car. Remove its "See interior" link to take it out.', 'error')
-    return
-  }
   const prevGroup = drag.group_name ?? null
   const anchor = lastSceneOfGroup(dest ?? '', p.dragId)
   // Everything on screen changes now; the save follows in the background.
@@ -1465,7 +1489,9 @@ function handleRenameGroup(group: string) {
   if (categoryNaming.value) cancelCategoryName()
   renameCandidate.value = null
   categoryNameDraft.value = g
-  categoryNaming.value = { mode: 'rename', ids, from: g, prev: {} }
+  // prev = what's stored (a car shown as "RAV4 (2)" may store "RAV4", or nothing).
+  const prev = Object.fromEntries(ids.map((id) => [id, (scenes.value.find((s) => s.id === id) as any)?.group_name ?? null]))
+  categoryNaming.value = { mode: 'rename', ids, from: g, prev }
 }
 
 /** Optimistic: the box closes and the dock updates at once; on failure the old names come back. */
@@ -1482,8 +1508,7 @@ async function saveCategoryName() {
     const order = orderWithAfter(c.dragId, c.anchorId)
     if (order) handleReorderScenes(order)
   }
-  const prev = c.mode === 'new' ? c.prev : Object.fromEntries(c.ids.map((id) => [id, c.from]))
-  await patchCategory(c.ids, name, prev)
+  await patchCategory(c.ids, name, c.prev)
 }
 
 function cancelCategoryName() {

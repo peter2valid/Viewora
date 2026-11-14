@@ -88,3 +88,33 @@ test('interiors get their own dock tab', () => {
   assert.deepEqual(withInteriorsTab(floors, ids, inside).map(t => t.name), ['Ground', 'Interiors'])
   assert.deepEqual(withInteriorsTab([], ids, () => false), [])
 })
+
+import { sceneFolders } from '../shared/utils/interiorLinks.ts'
+
+test('each car is its own folder; a shared name gets (2) instead of merging', () => {
+  const homes = interiorScenes({
+    floor: [{ ...badge('a1'), label: 'See interior' }, { ...badge('b1'), label: 'See interior' }, { ...badge('c1'), label: 'See interior · Prado' }],
+    a1: [walk('a2')], a2: [walk('a1')], b1: [walk('b2')], b2: [walk('b1')], c1: [],
+  })
+  const scenes = [
+    { id: 'floor', name: 'Bay 1', group_name: null },
+    { id: 'a1', name: 'Front', group_name: 'Toyota RAV4' }, { id: 'a2', name: 'Rear', group_name: 'Toyota RAV4' },
+    // Second RAV4: only its front was named; the rear follows its car.
+    { id: 'b1', name: 'Front', group_name: 'Toyota RAV4' }, { id: 'b2', name: 'Rear', group_name: null },
+    { id: 'c1', name: 'IMG 055', group_name: null },
+  ]
+  assert.deepEqual(sceneFolders(scenes, homes), {
+    floor: null, a1: 'Toyota RAV4', a2: 'Toyota RAV4', b1: 'Toyota RAV4 (2)', b2: 'Toyota RAV4 (2)', c1: 'Prado',
+  })
+})
+
+test('unnamed car falls back to its first scene; hand-set categories elsewhere still group', () => {
+  const homes = interiorScenes({ floor: [{ ...badge('x1'), label: 'See interior' }], x1: [], k1: [], k2: [] })
+  const scenes = [
+    { id: 'k1', name: 'Kitchen A', group_name: 'Kitchen' }, { id: 'k2', name: 'Kitchen B', group_name: 'Kitchen' },
+    { id: 'floor', name: 'Bay', group_name: 'IMG 055' },
+    { id: 'x1', name: 'IMG 055', group_name: null },
+  ]
+  // The car claims its name first; the showroom scene that happens to share it is numbered.
+  assert.deepEqual(sceneFolders(scenes, homes), { k1: 'Kitchen', k2: 'Kitchen', floor: 'IMG 055 (2)', x1: 'IMG 055' })
+})

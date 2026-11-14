@@ -103,3 +103,57 @@ export function interiorFolders(
   }
   return out
 }
+
+type FolderScene = { id: string; name?: string | null; group_name?: string | null }
+
+/**
+ * The folder every scene shows under, in the editor and the viewer alike.
+ *
+ * A car is its own folder, whatever it's called: two cars named "Toyota RAV4"
+ * show as "Toyota RAV4" and "Toyota RAV4 (2)", never as one folder of both.
+ * A car's name is the category set on its views (the first one, in tour
+ * order), else its badge's car name, else its first interior scene's name.
+ * Cars claim names first, in tour order; other scenes keep their hand-set
+ * category, numbered only if a car already holds that name.
+ * `scenes` must be in tour order. null = no folder.
+ */
+export function sceneFolders(scenes: FolderScene[], homes: Record<string, InteriorHome>): Record<string, string | null> {
+  const out: Record<string, string | null> = {}
+  const used = new Set<string>()
+  const claim = (base: string) => {
+    let name = base
+    for (let n = 2; used.has(name.toLowerCase()); n++) name = `${base} (${n})`
+    used.add(name.toLowerCase())
+    return name
+  }
+  const set = (s: FolderScene | undefined) => (s?.group_name ?? '').trim()
+  const byId = new Map(scenes.map(s => [s.id, s]))
+
+  const cars = new Map<string, string[]>()
+  for (const s of scenes) {
+    const entry = homes[s.id]?.entrySceneId
+    if (!entry) continue
+    const ids = cars.get(entry)
+    if (ids) ids.push(s.id)
+    else cars.set(entry, [s.id])
+  }
+  for (const [entry, ids] of cars) {
+    const base = ids.map(id => set(byId.get(id))).find(Boolean)
+      || carNameFromBadge(homes[ids[0]]?.badgeLabel)
+      || (byId.get(entry)?.name ?? '').trim()
+      || 'Car'
+    const name = claim(base)
+    for (const id of ids) out[id] = name
+  }
+
+  const shown = new Map<string, string>()
+  for (const s of scenes) {
+    if (homes[s.id]) continue
+    const g = set(s)
+    if (!g) { out[s.id] = null; continue }
+    let name = shown.get(g)
+    if (!name) { name = used.has(g.toLowerCase()) ? claim(g) : g; shown.set(g, name) }
+    out[s.id] = name
+  }
+  return out
+}

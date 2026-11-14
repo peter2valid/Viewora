@@ -643,7 +643,7 @@ import { factsLine, formatPrice } from '~/utils/listingDisplay'
 import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
 import { safeHotspots } from '~/shared/utils/guards'
-import { interiorFolders, interiorScenes, isInteriorLink } from '~/shared/utils/interiorLinks'
+import { interiorScenes, isInteriorLink, sceneFolders } from '~/shared/utils/interiorLinks'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
@@ -1022,19 +1022,17 @@ const activeSceneId = computed(() =>
     : ''
 )
 
-// Car interiors (scenes behind a "See interior" badge): one dock folder per
-// car, named from its badge. A category the owner set by hand still wins.
-const interiorFolderOf = computed(() => interiorFolders(interiorHome.value, (id) => {
-  const raw = tourScenes.value.find((x: any) => x.id === id)
-  return raw?.name || ''
-}))
+// Folders: hand-set categories, and one per car for scenes behind a "See
+// interior" badge. Each car is its own folder; two cars with one name show as
+// "RAV4" and "RAV4 (2)". Same rule as the editor (sceneFolders).
+const folderOf = computed(() => sceneFolders(tourScenes.value as any[], interiorHome.value))
 
 // Scenes as groupable entries — `group` is the scene's category, if any.
 const groupableScenes = computed<GroupableScene[]>(() =>
   tourScenes.value.map((s: any, idx: number) => ({
     id: s.id,
     label: s.name || `Scene ${idx + 1}`,
-    group: (s.group_name ?? '').trim() || interiorFolderOf.value[s.id] || null,
+    group: folderOf.value[s.id] ?? null,
     imageUrl: s.thumbnail_url || null,
     // If tiles are ready or we have a thumbnail, the scene is functional.
     // Only show 'loading' if it's genuinely pending, and skip 'failed' if it actually works.
