@@ -605,7 +605,7 @@
       :sigma-px="80"
       :lift-px="10"
       :collapsed-label="dockCollapsedLabel"
-      branches
+      :branches="hasInteriorLinks"
       :ungrouped-label="null"
       @select="onDockSelect"
     >
@@ -1025,6 +1025,10 @@ const activeSceneId = computed(() =>
 // Folders: hand-set categories, and one per car for scenes behind a "See
 // interior" badge. Each car is its own folder; two cars with one name show as
 // "RAV4" and "RAV4 (2)". Same rule as the editor (sceneFolders).
+// The open folder's name over its cards ("Nissan Note" while inside a car)
+// is for tours with "See interior" badges only. Elsewhere (a mall whose
+// categories match its floor tabs) the dock stays as it was.
+const hasInteriorLinks = computed(() => Object.keys(interiorHome.value).length > 0)
 const folderOf = computed(() => sceneFolders(tourScenes.value as any[], interiorHome.value))
 
 // Scenes as groupable entries — `group` is the scene's category, if any.
