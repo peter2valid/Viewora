@@ -371,24 +371,37 @@ watch(() => props.items, (items) => {
   for (const url of failedThumbUrls) { if (!live.has(url)) failedThumbUrls.delete(url) }
 })
 
-// Auto-scroll active item into center view when activeId changes
-watch(() => props.activeId, (newId) => {
-  if (!newId || !stripEl.value) return
+// Keep the active card centred: when it changes (smooth), and when the cards
+// themselves change — a floor / Showroom / Interiors tab, a folder opened or
+// closed — straight away, so the new strip opens on "you are here" instead of
+// wherever the previous one was scrolled. Not in this strip → start at the
+// beginning. Keyed on the set of ids, so reordering cards doesn't jump.
+const itemSetKey = computed(() => props.items.map(i => i.id).sort().join('|'))
+function centreActive(id: string, behavior: ScrollBehavior) {
   nextTick(() => {
     const strip = stripEl.value
-    const activeBtn = strip?.querySelector(`[data-dock-id="${CSS.escape(newId)}"]`) as HTMLElement | null
-    if (activeBtn && strip) {
-      // Manual scrollBy instead of scrollIntoView: scrollIntoView walks up the
-      // scroll-ancestor chain, which includes the parent document when this
-      // dock is rendered inside an embedded iframe, causing the host page to
-      // scroll. scrollBy is confined to this element.
-      const stripRect = strip.getBoundingClientRect()
-      const btnRect = activeBtn.getBoundingClientRect()
-      const offset = (btnRect.left + btnRect.width / 2) - (stripRect.left + stripRect.width / 2)
-      strip.scrollBy({ left: offset, behavior: 'smooth' })
+    if (!strip) return
+    const activeBtn = id ? strip.querySelector(`[data-dock-id="${CSS.escape(id)}"]`) as HTMLElement | null : null
+    if (!activeBtn) {
+      if (behavior === 'auto') strip.scrollTo({ left: 0, behavior })
+      return
     }
+    // Manual scrollBy instead of scrollIntoView: scrollIntoView walks up the
+    // scroll-ancestor chain, which includes the parent document when this
+    // dock is rendered inside an embedded iframe, causing the host page to
+    // scroll. scrollBy is confined to this element.
+    const stripRect = strip.getBoundingClientRect()
+    const btnRect = activeBtn.getBoundingClientRect()
+    const offset = (btnRect.left + btnRect.width / 2) - (stripRect.left + stripRect.width / 2)
+    strip.scrollBy({ left: offset, behavior })
   })
+}
+// One watcher, so a scene change that also swaps the cards scrolls once.
+watch([() => props.activeId, itemSetKey], ([id, key], prev) => {
+  centreActive(id, prev && prev[1] === key ? 'smooth' : 'auto')
 }, { immediate: true })
+// The strip appears again after being collapsed: open on the active card.
+watch(stripEl, (el) => { if (el) centreActive(props.activeId, 'auto') })
 
 type DockSection = { key: string; label: string | null; items: DockItem[] }
 
