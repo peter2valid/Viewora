@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry } from 'three'
+import { BufferAttribute, BufferGeometry, Sphere, Vector3 } from 'three'
 
 /**
  * Denser panorama sphere for the same number of draw calls.
@@ -34,13 +34,47 @@ export interface DenseSphere {
   fv: Float32Array
 }
 
+/** The parts every room shares; built once per shape (the build takes 20-50 ms). */
+interface SphereTemplate {
+  /** One BufferAttribute for all rooms, so the GPU gets it once. Never disposed. */
+  position: BufferAttribute
+  uv: Float32Array
+  fu: Float32Array
+  fv: Float32Array
+  groups: Array<{ start: number; count: number; materialIndex: number }>
+}
+const templates = new Map<string, SphereTemplate>()
+
 /**
- * Builds the dense, non-indexed sphere matching PSV's tile mesh:
+ * The dense, non-indexed sphere matching PSV's tile mesh:
  * SphereGeometry(radius, segments, segments/2, -PI/2).scale(-1, 1, 1),
  * with group k (= row * segments + col) covering coarse piece (row, col) and
  * using material index k, the same as PSV's groups.
+ *
+ * Opening a room only copies the UVs (each room's tiles set their own); the
+ * positions are shared. Dispose with disposeDenseSphere(), never with
+ * geometry.dispose() alone: that would delete the shared GPU buffer that the
+ * other rooms' spheres are still drawing with.
  */
 export function buildDenseSphere(radius: number, segments: number, detail: number): DenseSphere {
+  const key = `${radius}/${segments}/${detail}`
+  let t = templates.get(key)
+  if (!t) { t = buildTemplate(radius, segments, detail); templates.set(key, t) }
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', t.position)
+  geometry.setAttribute('uv', new BufferAttribute(t.uv.slice(), 2))
+  for (const g of t.groups) geometry.addGroup(g.start, g.count, g.materialIndex)
+  geometry.boundingSphere = new Sphere(new Vector3(), radius)
+  return { geometry, fu: t.fu, fv: t.fv }
+}
+
+/** Frees one room's sphere (its UVs) and keeps the shared positions on the GPU. */
+export function disposeDenseSphere(geometry: BufferGeometry): void {
+  geometry.deleteAttribute('position')
+  geometry.dispose()
+}
+
+function buildTemplate(radius: number, segments: number, detail: number): SphereTemplate {
   const W = segments
   const H = segments / 2
   const FW = W * detail
@@ -52,7 +86,7 @@ export function buildDenseSphere(radius: number, segments: number, detail: numbe
   const uv = new Float32Array(nTris * 6)
   const fu = new Float32Array(nTris * 3)
   const fv = new Float32Array(nTris * 3)
-  const geometry = new BufferGeometry()
+  const groups: SphereTemplate['groups'] = []
 
   let n = 0 // vertices written
   // Fine-grid vertex (iy, ix) exactly as three's SphereGeometry places it,
@@ -86,13 +120,11 @@ export function buildDenseSphere(radius: number, segments: number, detail: numbe
           if (iy !== FH - 1) { put(iy, ix, row, col); put(iy + 1, ix, row, col); put(iy + 1, ix + 1, row, col) }
         }
       }
-      geometry.addGroup(start, n - start, row * W + col)
+      groups.push({ start, count: n - start, materialIndex: row * W + col })
     }
   }
 
-  geometry.setAttribute('position', new BufferAttribute(pos, 3))
-  geometry.setAttribute('uv', new BufferAttribute(uv, 2))
-  return { geometry, fu, fv }
+  return { position: new BufferAttribute(pos, 3), uv, fu, fv, groups }
 }
 
 /**

@@ -1,7 +1,7 @@
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import { utils } from '@photo-sphere-viewer/core'
 import { MeshBasicMaterial } from 'three'
-import { buildDenseSphere, mirrorPieceUvs, sphereDetail, type DenseSphere } from './sphereDetail'
+import { buildDenseSphere, disposeDenseSphere, mirrorPieceUvs, sphereDetail, type DenseSphere } from './sphereDetail'
 
 /**
  * EquirectangularTilesAdapter that never paints one scene's tiles onto another
@@ -194,9 +194,15 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
 
   // @ts-ignore
   disposeMesh(group: any) {
+    const dense: DenseSphere | undefined = group.userData.vwDense
+    if (dense) {
+      // PSV's disposeMesh disposes the tile geometry; hand it PSV's coarse one
+      // instead, and free the dense one without its shared positions.
+      group.children[1].geometry = group.userData.vwCoarse
+      disposeDenseSphere(dense.geometry)
+    }
     // @ts-ignore
     super.disposeMesh(group)
-    group.userData.vwCoarse?.dispose()
   }
 
   // @ts-ignore — PSV internals below are not in its public types

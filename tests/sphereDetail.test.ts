@@ -2,7 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { SphereGeometry, type BufferGeometry } from 'three'
-import { buildDenseSphere, mirrorPieceUvs } from '../shared/utils/viewerAdapters/sphereDetail.ts'
+import { buildDenseSphere, disposeDenseSphere, mirrorPieceUvs } from '../shared/utils/viewerAdapters/sphereDetail.ts'
 
 const R = 10
 const SEG = 32
@@ -114,4 +114,25 @@ test('mirrored UVs follow the tile rectangle PSV assigned (fan and middle pieces
   }
   // Only the changed pieces are queued for upload.
   assert.equal(uv.updateRanges.length, cases.length)
+})
+
+test('rooms share one position buffer, keep their own UVs, and disposing one keeps the shared buffer', () => {
+  const a = buildDenseSphere(R, SEG, 4), b = buildDenseSphere(R, SEG, 4)
+  assert.equal(a.geometry.getAttribute('position'), b.geometry.getAttribute('position'))
+  assert.notEqual(a.geometry.getAttribute('uv'), b.geometry.getAttribute('uv'))
+  assert.equal(a.geometry.boundingSphere?.radius, R)
+  // A tile on room A must not change room B.
+  const coarse = psvCoarse()
+  psvSetPieceUvs(coarse, 15, 9, 0.25, 0.5, 0.25, 0)
+  const before = b.geometry.getAttribute('uv').array.slice()
+  mirrorPieceUvs(coarse, a, 15 * SEG + 9)
+  assert.deepEqual(b.geometry.getAttribute('uv').array, before)
+  // three deletes the GPU buffer of every attribute still on a geometry when its
+  // 'dispose' event fires; the shared positions must already be detached by then.
+  let attrsAtDispose: string[] = []
+  a.geometry.addEventListener('dispose', () => { attrsAtDispose = Object.keys(a.geometry.attributes) })
+  disposeDenseSphere(a.geometry)
+  assert.deepEqual(attrsAtDispose, ['uv'])
+  assert.ok(b.geometry.getAttribute('position'))
+  assert.equal(buildDenseSphere(R, SEG, 4).geometry.getAttribute('position'), b.geometry.getAttribute('position'))
 })
