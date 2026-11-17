@@ -4,6 +4,7 @@
 
     <div v-else-if="loadError" class="jy-center">
       <p class="jy-title">Couldn't load your journeys</p>
+      <p v-if="loadError !== true" class="jy-muted">{{ loadError }}</p>
       <button class="jy-btn" @click="init">Try again</button>
     </div>
 
@@ -228,7 +229,7 @@ const { apiFetch } = useApiFetch()
 const serial = createSerialWrites()
 
 const loading = ref(true)
-const loadError = ref(false)
+const loadError = ref<boolean | string>(false)
 const enabled = ref(true)
 const creating = ref(false)
 const tour = ref<any>(null)
@@ -339,17 +340,23 @@ async function init() {
   loading.value = true
   loadError.value = false
   try {
+    // Say which call failed and why, so a report can be acted on.
+    const why = (what: string) => (e: any) => {
+      const status = e?.response?.status ?? e?.statusCode
+      const msg = e?.data?.statusMessage || e?.statusMessage || e?.message || 'no response'
+      throw new Error(`${what}: ${status ? status + ' ' : ''}${msg}`)
+    }
     const [t, j]: any[] = await Promise.all([
-      apiFetch(`/p/preview/${props.spaceId}`),
-      apiFetch(`/spaces/${props.spaceId}/journeys`),
+      apiFetch(`/p/preview/${props.spaceId}`).catch(why('Tour')),
+      apiFetch(`/spaces/${props.spaceId}/journeys`).catch(why('Journeys')),
     ])
     tour.value = t?.tour ?? t?.data?.tour ?? null
     enabled.value = j?.enabled !== false
     journeys.value = (j?.journeys ?? []).map(normalise)
     current.value = 0
     selected.value = 0
-  } catch {
-    loadError.value = true
+  } catch (e: any) {
+    loadError.value = e?.message || true
   } finally {
     loading.value = false
   }
