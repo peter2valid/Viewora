@@ -201,7 +201,15 @@ async function exec(a: JourneyAction, stopped: () => boolean) {
       if (f.zoom && !stopped()) await props.api.look(f, 1100)
     }
   } else if ('look' in a) {
-    await props.api.look(view(a.look), a.ms ?? 1500)
+    const v = view(a.look)
+    if (a.reframe) {
+      // Zoom out, turn, zoom in: the same move as between steps, within one photo.
+      await props.api.widen(700)
+      if (!stopped()) await props.api.look({ yaw: v.yaw, pitch: v.pitch }, a.ms ?? 1000)
+      if (v.zoom && !stopped()) await props.api.look(v, 1000)
+    } else {
+      await props.api.look(v, a.ms ?? 1500)
+    }
   } else if ('around' in a) {
     await Promise.all([
       props.api.lookAround(a.around, stopped),

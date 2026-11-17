@@ -26,8 +26,11 @@ export type JourneyAction =
    * the middle of the room after stepping up to a counter.
    */
   | { walk: string; say?: string; face?: JourneyView; direct?: boolean }
-  /** Turn the camera. `ms` = how long the turn takes. */
-  | { look: JourneyView; ms?: number }
+  /**
+   * Turn the camera. `ms` = how long the turn takes. reframe: like moving
+   * your eyes to something else: zoom out, turn, then zoom in to `look.zoom`.
+   */
+  | { look: JourneyView; ms?: number; reframe?: boolean }
   /** A slow full turn round the room, back to where it started. */
   | { around: number; say?: string }
   /** Narrate a line (caption + voice). The next action waits for it. */
@@ -93,7 +96,13 @@ export function journeyMinutes(j: Journey): number {
 // People build a visit as steps ("Reception") and sentences ("Register at the
 // front desk"); the walks, turns and timing are worked out here, never by them.
 
-export interface JourneyDocSentence { id: string; text: string }
+export interface JourneyDocView { yaw: number; pitch: number; zoom?: number }
+export interface JourneyDocSentence {
+  id: string
+  text: string
+  /** Where to look while this line is read (lines 2+; line 1 uses the step's view). Absent = keep looking. */
+  view?: JourneyDocView | null
+}
 export interface JourneyDocStep {
   id: string
   title: string
@@ -102,7 +111,7 @@ export interface JourneyDocStep {
    * Where to face on arrival, radians as PSV reports them, and how close to
    * zoom (PSV level 0–100; absent = wide). Null = keep walking direction.
    */
-  view?: { yaw: number; pitch: number; zoom?: number } | null
+  view?: JourneyDocView | null
   sentences: JourneyDocSentence[]
 }
 export interface JourneyDoc {
@@ -112,6 +121,8 @@ export interface JourneyDoc {
 }
 
 const toDeg = (r: number) => (r * 180) / Math.PI
+const toView = (v: JourneyDocView): JourneyView =>
+  ({ yaw: toDeg(v.yaw), pitch: toDeg(v.pitch), ...(v.zoom ? { zoom: v.zoom } : {}) })
 
 /** A step with no narration still pauses, so the visitor can take the room in. */
 const QUIET_STEP_MS = 3000
@@ -126,14 +137,18 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
   const steps = (doc.steps ?? []).filter(s => s.scene_id && sceneIds.has(s.scene_id))
   if (!steps.length) return null
   const chapters: JourneyChapter[] = steps.map((s, i) => {
-    const view: JourneyView | undefined = s.view
-      ? { yaw: toDeg(s.view.yaw), pitch: toDeg(s.view.pitch), ...(s.view.zoom ? { zoom: s.view.zoom } : {}) }
-      : undefined
-    const lines = (s.sentences ?? []).map(x => x.text.trim()).filter(Boolean)
+    const view = s.view ? toView(s.view) : undefined
     const actions: JourneyAction[] = []
     if (i > 0) actions.push({ walk: s.scene_id!, ...(view ? { face: view } : {}) })
-    for (const text of lines) actions.push({ say: text })
-    if (!lines.length) actions.push({ wait: QUIET_STEP_MS })
+    // Line 1 is said facing the arrival view; a later line with its own view
+    // turns there first. Empty lines are skipped, but their view still counts.
+    let said = 0
+    ;(s.sentences ?? []).forEach((x, k) => {
+      if (k > 0 && x.view) actions.push({ look: toView(x.view), reframe: true })
+      const text = (x.text ?? '').trim()
+      if (text) { actions.push({ say: text }); said++ }
+    })
+    if (!said) actions.push({ wait: QUIET_STEP_MS })
     return { title: s.title.trim() || `Step ${i + 1}`, scene: s.scene_id!, ...(view ? { view } : {}), actions }
   })
   return { title: doc.title.trim() || 'Guided visit', chapters }

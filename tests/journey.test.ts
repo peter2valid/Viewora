@@ -60,3 +60,23 @@ test('a zoomed-in view is kept for the arrival and the step start; wide views ca
   assert.deepEqual(j.chapters[1]!.actions[0], { walk: 'gate', face: { yaw: 90, pitch: 0, zoom: 45 } })
   assert.deepEqual(j.chapters[2]!.actions[0], { walk: 'desk', face: { yaw: 0, pitch: 0 } })
 })
+
+test('a line with its own facing turns there before it is read; empty lines keep their view', () => {
+  const j = compileJourney({ title: 't', steps: [
+    { id: '1', title: 'Gate', scene_id: 'gate', sentences: [] },
+    { id: '2', title: 'Reception', scene_id: 'desk', view: { yaw: 0, pitch: 0 }, sentences: [
+      { id: 'a', text: 'This is reception.', view: { yaw: 1, pitch: 0 } }, // line 1 uses the step view
+      { id: 'b', text: 'The pharmacy window is on your left.', view: { yaw: -Math.PI / 2, pitch: 0, zoom: 50 } },
+      { id: 'c', text: 'Seats are behind you.' },
+      { id: 'd', text: '  ', view: { yaw: Math.PI, pitch: 0 } },
+    ] },
+  ] }, ids)!
+  assert.deepEqual(j.chapters[1]!.actions, [
+    { walk: 'desk', face: { yaw: 0, pitch: 0 } },
+    { say: 'This is reception.' },
+    { look: { yaw: -90, pitch: 0, zoom: 50 }, reframe: true },
+    { say: 'The pharmacy window is on your left.' },
+    { say: 'Seats are behind you.' },
+    { look: { yaw: 180, pitch: 0 }, reframe: true },
+  ])
+})

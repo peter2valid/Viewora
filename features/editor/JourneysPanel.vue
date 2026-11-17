@@ -137,29 +137,22 @@
             <button v-for="n in nameIdeas" :key="n" class="jy-chip" @click="step.title = n; saveNow()">{{ n }}</button>
           </div>
 
-          <div class="jy-row">
-            <div class="jy-field">
-              <p class="jy-label">Photo</p>
-              <button class="jy-photo" @click="pickerOpen = true">
-                <span class="jy-photo__thumb" :style="thumbStyle(step.scene_id)" />
-                <span>{{ step.scene_id ? sceneName(step.scene_id) : 'Choose the photo for this step' }}</span>
-              </button>
-            </div>
-            <div class="jy-field">
-              <p class="jy-label">Facing</p>
-              <p class="jy-muted jy-facing">
-                {{ step.view ? (step.view.zoom ? 'Faces and zooms in on the view you set.' : 'Faces the direction you set.') : 'Faces the way patients walk in.' }}
-                Turn the preview to what patients should look at (scroll or pinch to zoom in), then:
-              </p>
-              <div class="jy-facing__btns">
-                <button class="jy-btn" :disabled="!previewReady" @click="useCurrentView">Use this view</button>
-                <button v-if="step.view" class="jy-linkbtn" @click="step.view = null; saveNow()">Reset</button>
-              </div>
-            </div>
+          <div class="jy-field jy-field--photo">
+            <p class="jy-label">Photo</p>
+            <button class="jy-photo" @click="pickerOpen = true">
+              <span class="jy-photo__thumb" :style="thumbStyle(step.scene_id)" />
+              <span>{{ step.scene_id ? sceneName(step.scene_id) : 'Choose the photo for this step' }}</span>
+            </button>
           </div>
 
-          <p class="jy-label">What happens here?</p>
-          <p class="jy-muted jy-hint">One idea per line. Each line is read out and shown as a caption while the patient looks around.</p>
+          <div class="jy-lines__head">
+            <p class="jy-label">What happens here?</p>
+            <p class="jy-label jy-lines__facing">Facing</p>
+          </div>
+          <p class="jy-muted jy-hint">
+            One idea per line, read out and shown as a caption. Beside each line, choose what the patient looks at:
+            turn the preview (scroll or pinch to zoom in), then press <b>Use this view</b>.
+          </p>
           <div v-for="(t, k) in step.sentences" :key="t.id" class="jy-sentence">
             <span class="jy-sentence__n">{{ k + 1 }}</span>
             <textarea
@@ -168,6 +161,20 @@
               @input="saveSoon"
               @keydown.enter.exact.prevent="addSentence(k + 1)"
             />
+            <div class="jy-look" :class="{ 'jy-look--set': !!lineView(k) }">
+              <button
+                class="jy-look__view" :style="lookStyle(lineView(k))" :disabled="!lineView(k)"
+                :title="lineView(k) ? 'Show this view in the preview' : ''" :aria-label="`Facing for line ${k + 1}`"
+                @click="showLineView(k)"
+              >
+                <span v-if="!lineView(k)" class="jy-look__empty">{{ k === 0 ? 'The way they walk in' : `Same as line ${k}` }}</span>
+                <span v-else-if="lineView(k)!.zoom" class="jy-look__tag">Zoomed in</span>
+              </button>
+              <div class="jy-look__btns">
+                <button class="jy-linkbtn" :disabled="!previewReady" @click="setLineView(k)">{{ lineView(k) ? 'Update' : 'Use this view' }}</button>
+                <button v-if="lineView(k)" class="jy-linkbtn jy-linkbtn--muted" @click="clearLineView(k)">Clear</button>
+              </div>
+            </div>
             <button class="jy-btn jy-btn--icon" title="Remove this line" @click="removeSentence(k)">✕</button>
           </div>
           <button class="jy-btn" @click="addSentence(step.sentences.length)">+ Add a line</button>
@@ -184,25 +191,48 @@
     </div>
 
     <!-- Photo picker -->
-    <div v-if="pickerOpen" class="jy-modal" @click.self="pickerOpen = false">
-      <div class="jy-modal__box">
+    <!-- Photo picker: look around the photo big, flick through the strip, pick. -->
+    <Teleport to="body">
+    <div v-if="pickerOpen" class="jy-modal" role="dialog" aria-modal="true" @click.self="closePicker">
+      <div class="jy-modal__box jy-modal__box--picker">
         <div class="jy-modal__head">
           <p class="jy-title jy-title--small">Choose the photo for “{{ step?.title || `Step ${selected + 1}` }}”</p>
           <input v-model="pickerSearch" class="jy-input" type="search" placeholder="Search photo names…" aria-label="Search photo names" />
-          <button class="jy-btn jy-btn--icon" title="Close" @click="pickerOpen = false">✕</button>
+          <button class="jy-btn jy-btn--icon" title="Close" @click="closePicker">✕</button>
         </div>
-        <div class="jy-grid">
+
+        <RoomSphere v-if="pickScene" class="jy-stage" :image-url="sceneImage(pickScene)" :reset-key="pickScene.id">
+          <button class="jy-stage__arrow jy-stage__arrow--left" title="Previous photo" aria-label="Previous photo" @click="pickStep(-1)">‹</button>
+          <button class="jy-stage__arrow jy-stage__arrow--right" title="Next photo" aria-label="Next photo" @click="pickStep(1)">›</button>
+          <span class="jy-stage__hint">Drag to look around</span>
+        </RoomSphere>
+        <div v-else class="jy-stage jy-stage--empty">No photos match “{{ pickerSearch }}”</div>
+
+        <div ref="stripEl" class="jy-strip">
           <button
-            v-for="sc in pickerScenes" :key="sc.id"
-            class="jy-pick" :class="{ 'jy-pick--on': sc.id === step?.scene_id }"
-            @click="choosePhoto(sc.id)"
+            v-for="(sc, i) in pickerScenes" :key="sc.id"
+            class="jy-pick" :class="{ 'jy-pick--on': i === pickIndex }"
+            :title="sc.name || 'Untitled photo'"
+            @click="pickIndex = i" @dblclick="choosePhoto(sc.id)"
           >
-            <span class="jy-pick__thumb" :style="thumbStyle(sc.id)" />
+            <span class="jy-pick__thumb" :style="thumbStyle(sc.id)">
+              <span v-if="usedIn.get(sc.id)" class="jy-pick__used">{{ usedIn.get(sc.id) }}</span>
+            </span>
             <span class="jy-pick__name">{{ sc.name || 'Untitled photo' }}</span>
           </button>
         </div>
+
+        <div class="jy-modal__foot">
+          <p class="jy-modal__name">
+            {{ pickScene?.name || '' }}
+            <span v-if="pickScene" class="jy-muted">{{ pickIndex + 1 }} / {{ pickerScenes.length }}</span>
+          </p>
+          <button class="jy-btn" @click="closePicker">Cancel</button>
+          <button class="jy-btn jy-btn--primary" :disabled="!pickScene" @click="pickScene && choosePhoto(pickScene.id)">✓ Use this photo</button>
+        </div>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 
@@ -211,12 +241,13 @@
 // narration, and see it play in the real viewer. The walks between steps,
 // arrival direction and timing are worked out (shared/utils/journey.ts);
 // nothing here asks for angles or durations.
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
+import RoomSphere from '~/features/editor/components/RoomSphere.vue'
 import type { JourneyCommand } from '~/components/viewer/JourneyPlayer.vue'
-import { compileJourney, journeyMinutes, newLocalId, type JourneyDocStep } from '~/shared/utils/journey'
+import { compileJourney, journeyMinutes, newLocalId, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
 import { buildSceneGraph, buildVenueFloors, scenePath } from '~/shared/utils/venue'
 import { createSerialWrites } from '~/shared/utils/editorWrites'
 
@@ -334,6 +365,48 @@ const pickerScenes = computed(() => {
   const q = pickerSearch.value.trim().toLowerCase()
   return q ? scenes.value.filter(s => (s.name || '').toLowerCase().includes(q)) : scenes.value
 })
+const pickIndex = ref(0)
+const pickScene = computed(() => pickerScenes.value[pickIndex.value] ?? null)
+const stripEl = ref<HTMLElement | null>(null)
+/** The panorama for the big look-around view (a small one, like the hotspot editor). */
+function sceneImage(sc: any): string | null { return sc?.thumbnail_url || sc?.raw_image_url || null }
+/** Which steps of this journey already use each photo: "Step 2", "Steps 1, 3". */
+const usedIn = computed(() => {
+  const m = new Map<string, number[]>()
+  journey.value?.steps.forEach((s, i) => { if (s.scene_id) m.set(s.scene_id, [...(m.get(s.scene_id) ?? []), i + 1]) })
+  return new Map([...m].map(([id, n]) => [id, `${n.length > 1 ? 'Steps' : 'Step'} ${n.join(', ')}`]))
+})
+// Open on this step's photo, else the one the step before it uses (likely next door).
+watch(pickerOpen, (open) => {
+  if (!open) return
+  pickerSearch.value = ''
+  const steps = journey.value?.steps ?? []
+  const near = step.value?.scene_id ?? steps.slice(0, selected.value).reverse().find(s => s.scene_id)?.scene_id
+  pickIndex.value = Math.max(0, scenes.value.findIndex(s => s.id === near))
+  void nextTick(scrollStrip)
+})
+watch(pickerSearch, () => { pickIndex.value = 0 })
+watch(pickIndex, () => void nextTick(scrollStrip))
+function scrollStrip() {
+  const el = stripEl.value?.children[pickIndex.value] as HTMLElement | undefined
+  el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+}
+function pickStep(dir: 1 | -1) {
+  const n = pickerScenes.value.length
+  if (n) pickIndex.value = (pickIndex.value + dir + n) % n
+}
+function closePicker() { pickerOpen.value = false }
+function onPickerKey(e: KeyboardEvent) {
+  if (!pickerOpen.value || (e.target as HTMLElement)?.tagName === 'INPUT' && e.key !== 'Escape' && e.key !== 'Enter') return
+  if (e.key === 'Escape') closePicker()
+  else if (e.key === 'ArrowLeft') pickStep(-1)
+  else if (e.key === 'ArrowRight') pickStep(1)
+  else if (e.key === 'Enter' && pickScene.value) choosePhoto(pickScene.value.id)
+  else return
+  e.preventDefault()
+}
+onMounted(() => window.addEventListener('keydown', onPickerKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', onPickerKey))
 
 // ── Loading ────────────────────────────────────────────────────────────────
 async function init() {
@@ -373,7 +446,7 @@ function normalise(r: any): JourneyRow {
       title: s.title ?? '',
       scene_id: s.scene_id ?? null,
       view: s.view ?? null,
-      sentences: (Array.isArray(s.sentences) ? s.sentences : []).map((x: any) => ({ id: x.id || newLocalId(), text: x.text ?? '' })),
+      sentences: (Array.isArray(s.sentences) ? s.sentences : []).map((x: any) => ({ id: x.id || newLocalId(), text: x.text ?? '', ...(x.view ? { view: x.view } : {}) })),
     })),
   }
 }
@@ -487,23 +560,84 @@ function moveStep(d: number) {
 }
 function choosePhoto(sceneId: string) {
   if (!step.value) return
-  if (step.value.scene_id !== sceneId) step.value.view = null // a direction only means something in its own photo
+  if (step.value.scene_id !== sceneId) clearViews(step.value) // a direction only means something in its own photo
   step.value.scene_id = sceneId
   pickerOpen.value = false
   pickerSearch.value = ''
   saveNow()
   void (viewerRef.value as any)?.showScene?.(sceneId, null)
 }
-function useCurrentView() {
+// ── Facing, one per line ───────────────────────────────────────────────────
+// Line 1's facing is the step's own view (where the patient arrives looking);
+// later lines may each look somewhere else in the same photo.
+function clearViews(s: JourneyDocStep) {
+  s.view = null
+  for (const x of s.sentences) delete x.view
+}
+function lineView(k: number): JourneyDocView | null {
+  const s = step.value
+  if (!s) return null
+  return (k === 0 ? s.view : s.sentences[k]?.view) ?? null
+}
+function setLineView(k: number) {
   const v = (viewerRef.value as any)?.getView?.()
-  if (!v || !step.value) return
-  const switched = step.value.scene_id && step.value.scene_id !== v.sceneId
-  step.value.scene_id = v.sceneId
+  const s = step.value
+  if (!v || !s) return
   // Keep the zoom only when it is a real close-up, so "wide" stays wide.
-  step.value.view = { yaw: v.yaw, pitch: v.pitch, ...(v.zoom >= 5 ? { zoom: v.zoom } : {}) }
+  const view: JourneyDocView = { yaw: v.yaw, pitch: v.pitch, ...(v.zoom >= 5 ? { zoom: v.zoom } : {}) }
+  const how = view.zoom ? 'looks and zooms in here' : 'looks here'
+  if (k === 0) {
+    // The preview may be on another photo (walked there): line 1 can switch the step to it.
+    const switched = s.scene_id && s.scene_id !== v.sceneId
+    if (switched) clearViews(s)
+    s.scene_id = v.sceneId
+    s.view = view
+    toast.success(switched ? `This step now uses “${sceneName(v.sceneId)}”; line 1 ${how}.` : `On arrival and during line 1, the patient ${how}.`)
+  } else {
+    if (s.scene_id !== v.sceneId) {
+      toast.error('The preview is on another photo. Showing this step’s photo: turn it, then press Use this view again.')
+      if (s.scene_id) void (viewerRef.value as any)?.showScene?.(s.scene_id, s.view ?? null)
+      return
+    }
+    s.sentences[k]!.view = view
+    toast.success(`During line ${k + 1}, the patient ${how}.`)
+  }
   saveNow()
-  const how = step.value.view.zoom ? 'facing and zoomed in like this' : 'facing this way'
-  toast.success(switched ? `This step now uses “${sceneName(v.sceneId)}”, ${how}.` : `Patients will see this step ${how}.`)
+}
+function clearLineView(k: number) {
+  const s = step.value
+  if (!s) return
+  if (k === 0) s.view = null
+  else delete s.sentences[k]!.view
+  saveNow()
+}
+function showLineView(k: number) {
+  const v = lineView(k)
+  if (v && step.value?.scene_id) void (viewerRef.value as any)?.showScene?.(step.value.scene_id, v)
+}
+/**
+ * A small window onto the photo at a view: the step's equirectangular
+ * thumbnail, scaled to the view's field of view and centred on its direction.
+ * Flat, not a true perspective, but it shows at a glance what the line faces.
+ */
+const LOOK_W = 168
+const LOOK_H = 78
+function lookStyle(v: JourneyDocView | null) {
+  const url = step.value?.scene_id ? sceneById.value.get(step.value.scene_id)?.thumbnail_url : null
+  if (!v || !url) return {}
+  const vfov = 90 - 60 * Math.min(100, Math.max(0, v.zoom ?? 0)) / 100 // PSV: 90° wide → 30° fully zoomed
+  const hfov = Math.min(300, vfov * (LOOK_W / LOOK_H))
+  const bgW = LOOK_W * 360 / hfov
+  const bgH = bgW / 2
+  const tau = Math.PI * 2
+  const cx = (((0.5 + v.yaw / tau) % 1) + 1) % 1 * bgW
+  const cy = (0.5 - v.pitch / Math.PI) * bgH
+  const y = Math.min(0, Math.max(LOOK_H - bgH, LOOK_H / 2 - cy))
+  return {
+    backgroundImage: `url('${url}')`,
+    backgroundSize: `${bgW}px ${bgH}px`,
+    backgroundPosition: `${LOOK_W / 2 - cx}px ${y}px`,
+  }
 }
 
 // ── Lines of narration ─────────────────────────────────────────────────────
@@ -555,7 +689,7 @@ watch(viewerRef, (v) => {
 
 <style scoped>
 .jy-root { position: fixed; inset: 0; padding-top: 130px; background: #0b0d12; color: #fff; overflow: hidden; }
-.jy-root * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+.jy-root *, .jy-modal * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
 .jy-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
 .jy-title { font-size: 20px; font-weight: 800; }
 .jy-title--small { font-size: 15px; flex: 1; text-align: left; }
@@ -628,22 +762,48 @@ watch(viewerRef, (v) => {
 .jy-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .jy-chip { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 700; cursor: pointer; }
 .jy-chip:hover { background: rgba(255,255,255,0.12); color: #fff; }
-.jy-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .jy-field { min-width: 0; }
 .jy-photo { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.25); background: rgba(255,255,255,0.03); color: #fff; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
 .jy-photo:hover { background: rgba(255,255,255,0.08); }
 .jy-photo__thumb { flex: none; width: 88px; height: 44px; border-radius: 8px; background: #1f2430 center / cover; }
-.jy-facing { margin-bottom: 6px; }
-.jy-facing__btns { display: flex; align-items: center; gap: 10px; }
 .jy-hint { margin: -2px 0 8px; }
-.jy-sentence { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.jy-sentence { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.jy-sentence .jy-textarea { flex: 1; min-height: 78px; }
+.jy-field--photo { margin-bottom: 16px; }
+.jy-lines__head { display: flex; align-items: baseline; gap: 8px; }
+.jy-lines__head .jy-label:first-child { flex: 1; }
+/* Lines up over the facing boxes (box 168 + gap 8 + remove 36). */
+.jy-lines__facing { width: 168px; margin-right: 44px; }
+.jy-look { flex: none; width: 168px; display: flex; flex-direction: column; gap: 5px; }
+.jy-look__view { position: relative; width: 168px; height: 78px; padding: 0; border-radius: 10px; border: 1px dashed rgba(255,255,255,0.25); background: rgba(255,255,255,0.03) repeat-x; color: rgba(255,255,255,0.5); font-size: 11.5px; font-weight: 600; cursor: default; overflow: hidden; }
+.jy-look--set .jy-look__view { border: 1px solid rgba(255,255,255,0.2); cursor: pointer; }
+.jy-look--set .jy-look__view:hover { border-color: #e11d48; }
+.jy-look__empty { display: grid; place-items: center; height: 100%; padding: 0 10px; text-align: center; line-height: 1.3; }
+.jy-look__tag { position: absolute; right: 5px; bottom: 5px; padding: 2px 7px; border-radius: 999px; background: rgba(12,14,22,0.75); color: #fff; font-size: 10px; font-weight: 800; }
+.jy-look__btns { display: flex; gap: 12px; padding-left: 2px; }
+.jy-linkbtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.jy-linkbtn--muted { color: rgba(255,255,255,0.55); }
 .jy-sentence__n { flex: none; width: 22px; height: 22px; margin-top: 9px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.08); font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.7); }
 
-.jy-modal { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,0.6); }
+.jy-modal { position: fixed; inset: 0; z-index: 500; color: #fff; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,0.6); }
 .jy-modal__box { width: min(960px, 100%); max-height: 86vh; display: flex; flex-direction: column; border-radius: 18px; background: #12151c; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
 .jy-modal__head { display: flex; align-items: center; gap: 10px; padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .jy-modal__head .jy-input { width: 240px; }
-.jy-grid { overflow-y: auto; padding: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.jy-modal__box--picker { width: min(1200px, 100%); max-height: 94vh; }
+.jy-stage { position: relative; flex: none; height: min(56vh, 540px); margin: 14px 14px 0; border-radius: 14px; overflow: hidden; background: #000; }
+.jy-stage--empty { display: grid; place-items: center; color: rgba(255,255,255,0.5); font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.04); }
+.jy-stage__arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25); background: rgba(12,14,22,0.6); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }
+.jy-stage__arrow:hover { background: rgba(12,14,22,0.85); }
+.jy-stage__arrow--left { left: 12px; }
+.jy-stage__arrow--right { right: 12px; }
+.jy-stage__hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; background: rgba(12,14,22,0.6); color: rgba(255,255,255,0.85); font-size: 11px; font-weight: 600; pointer-events: none; }
+.jy-strip { flex: none; display: flex; gap: 10px; overflow-x: auto; padding: 12px 14px 6px; scroll-padding: 0 14px; }
+.jy-strip .jy-pick { flex: 0 0 156px; }
+.jy-pick__thumb { position: relative; }
+.jy-pick__used { position: absolute; top: 5px; left: 5px; padding: 2px 7px; border-radius: 999px; background: rgba(225,29,72,0.92); color: #fff; font-size: 10.5px; font-weight: 800; }
+.jy-modal__foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px 14px; }
+.jy-modal__name { flex: 1; min-width: 0; margin: 0; font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jy-modal__name .jy-muted { margin-left: 8px; font-weight: 600; }
 .jy-pick { display: grid; gap: 6px; padding: 6px 6px 8px; border-radius: 12px; border: 2px solid transparent; background: rgba(255,255,255,0.04); color: #fff; text-align: left; cursor: pointer; }
 .jy-pick:hover { background: rgba(255,255,255,0.09); }
 .jy-pick--on { border-color: #e11d48; }
@@ -655,10 +815,19 @@ watch(viewerRef, (v) => {
   .jy-layout { display: flex; flex-direction: column-reverse; height: auto; }
   .jy-main { overflow: visible; }
   .jy-card { overflow: visible; }
-  .jy-row { grid-template-columns: 1fr; }
   .jy-preview { height: 42vh; }
 }
 @media (max-width: 640px) {
+  .jy-sentence { flex-wrap: wrap; }
+  .jy-sentence .jy-textarea { flex: 1 1 calc(100% - 74px); }
+  .jy-look { order: 3; width: auto; flex: 1 1 100%; flex-direction: row; align-items: center; gap: 12px; padding-left: 30px; }
+  .jy-look__btns { flex-direction: column; gap: 6px; }
+  .jy-lines__facing { display: none; }
+  .jy-stage { height: min(44vh, 340px); margin: 10px 10px 0; }
+  .jy-strip .jy-pick { flex-basis: 120px; }
+  .jy-modal { padding: 10px; }
+  .jy-modal__head { flex-wrap: wrap; }
+  .jy-modal__head .jy-input { width: 100%; order: 3; }
   .jy-root { padding-top: 104px; }
 }
 </style>
