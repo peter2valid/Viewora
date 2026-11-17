@@ -1,6 +1,7 @@
 import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter'
 import { utils } from '@photo-sphere-viewer/core'
 import { MeshBasicMaterial } from 'three'
+import { buildDenseSphere, mirrorPieceUvs, sphereDetail, type DenseSphere } from './sphereDetail'
 
 /**
  * EquirectangularTilesAdapter that never paints one scene's tiles onto another
@@ -106,11 +107,23 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
     }
   }
 
+  /** Sub-division of each sphere piece (sphereDetail.ts); 1 = PSV's own sphere. */
+  private vwDetail = sphereDetail()
+  /** Dense sphere currently on screen, mirrored from PSV's coarse state.geom. */
+  private vwDense: DenseSphere | null = null
+
   // @ts-ignore
   constructor(viewer: any, config: any) {
     // @ts-ignore
     super(viewer, config)
     try { viewer.addEventListener('position-updated', this.vwOnMove) } catch { /* ignore */ }
+    if (this.vwDetail > 1) {
+      // The preview sphere is a single mesh (one draw call at any detail).
+      // @ts-ignore
+      const base = this.adapter
+      base.SPHERE_SEGMENTS *= this.vwDetail
+      base.SPHERE_HORIZONTAL_SEGMENTS *= this.vwDetail
+    }
   }
 
   // @ts-ignore
@@ -163,7 +176,27 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
     // @ts-ignore
     const group = super.createMesh(panoData)
     group.traverse((obj: any) => { if (obj.isMesh) obj.raycast = () => {} })
+    if (this.vwDetail > 1) {
+      // Draw with the dense sphere; PSV keeps working on its coarse geometry
+      // (tile visibility, bookkeeping), restored as state.geom in __switchMesh.
+      const tilesMesh = group.children[1]
+      const coarse = tilesMesh.geometry
+      const p = coarse.getAttribute('position')
+      const radius = Math.hypot(p.getX(0), p.getY(0), p.getZ(0)) // PSV's SPHERE_RADIUS
+      // @ts-ignore
+      const dense = buildDenseSphere(radius, this.SPHERE_SEGMENTS, this.vwDetail)
+      group.userData.vwCoarse = coarse
+      group.userData.vwDense = dense
+      tilesMesh.geometry = dense.geometry
+    }
     return group
+  }
+
+  // @ts-ignore
+  disposeMesh(group: any) {
+    // @ts-ignore
+    super.disposeMesh(group)
+    group.userData.vwCoarse?.dispose()
   }
 
   // @ts-ignore — PSV internals below are not in its public types
@@ -177,7 +210,11 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
   __switchMesh(group: any) {
     this.vwPanorama = group.userData.vwPanorama
     // @ts-ignore
-    return super.__switchMesh(group)
+    const result = super.__switchMesh(group)
+    this.vwDense = group.userData.vwDense ?? null
+    // @ts-ignore — PSV's tile logic indexes the coarse layout's vertices.
+    if (group.userData.vwCoarse) this.state.geom = group.userData.vwCoarse
+    return result
   }
 
   // @ts-ignore
@@ -219,7 +256,21 @@ export class SceneSafeTilesAdapter extends EquirectangularTilesAdapter {
       return
     }
     // @ts-ignore
-    return super.__swapMaterial(tile, material, isError)
+    const result = super.__swapMaterial(tile, material, isError)
+    // @ts-ignore
+    const geom = this.state.geom
+    if (this.vwDense && geom) {
+      // Same pieces PSV just updated (its __swapMaterial loop).
+      const { facesByCol, facesByRow } = tile.config
+      for (let c = 0; c < facesByCol; c++) {
+        for (let r = 0; r < facesByRow; r++) {
+          // @ts-ignore
+          const k = (tile.row * facesByRow + r) * this.SPHERE_SEGMENTS + tile.col * facesByCol + c
+          mirrorPieceUvs(geom, this.vwDense, k)
+        }
+      }
+    }
+    return result
   }
 
   /**
