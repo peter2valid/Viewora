@@ -5,6 +5,7 @@ export const SPACE_TYPES = [
   'education',
   'automotive',
   'other',
+  'hospital',
 ] as const
 
 export const MEDIA_TYPES = ['panorama', 'gallery', 'car_spin'] as const

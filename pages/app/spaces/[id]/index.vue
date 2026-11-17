@@ -44,6 +44,14 @@
         @click="setMode('tour')"
       >360° Tour</button>
       <button
+        v-if="isHospital"
+        role="tab"
+        :aria-selected="mode === 'journeys'"
+        class="mode-switch__btn"
+        :class="{ 'mode-switch__btn--active': mode === 'journeys' }"
+        @click="setMode('journeys')"
+      >Patient journeys</button>
+      <button
         role="tab"
         :aria-selected="mode === 'photos'"
         class="mode-switch__btn"
@@ -51,6 +59,7 @@
         @click="setMode('photos')"
       >Photos</button>
       <button
+        v-if="!isHospital"
         role="tab"
         :aria-selected="mode === 'aerial'"
         class="mode-switch__btn"
@@ -103,6 +112,9 @@
       <AerialPanel v-if="mode === 'aerial'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
+      <JourneysPanel v-if="mode === 'journeys'" :space-id="spaceId" @fix-link="openSceneInTour" />
+    </KeepAlive>
+    <KeepAlive>
       <FloorPlanPanel v-if="mode === 'floorplan'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
@@ -127,6 +139,7 @@ import VehiclePanel from '~/features/editor/VehiclePanel.vue'
 import AerialPanel from '~/features/editor/AerialPanel.vue'
 import FloorPlanPanel from '~/features/editor/FloorPlanPanel.vue'
 import OrganizePanel from '~/features/editor/OrganizePanel.vue'
+import JourneysPanel from '~/features/editor/JourneysPanel.vue'
 import { useCarSetup } from '~/features/vehicle/useCarSetup'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import { toast } from 'vue-sonner'
@@ -138,9 +151,9 @@ const route = useRoute()
 const router = useRouter()
 const spaceId = route.params.id as string
 
-type Mode = 'tour' | 'car' | 'photos' | 'aerial' | 'floorplan' | 'organize' | 'details'
+type Mode = 'tour' | 'car' | 'photos' | 'aerial' | 'floorplan' | 'organize' | 'details' | 'journeys'
 function tabToMode(t: unknown): Mode {
-  return t === 'car' || t === 'photos' || t === 'aerial' || t === 'floorplan' || t === 'organize' || t === 'details' ? t : 'tour'
+  return t === 'car' || t === 'photos' || t === 'aerial' || t === 'floorplan' || t === 'organize' || t === 'details' || t === 'journeys' ? t : 'tour'
 }
 const mode = ref<Mode>(tabToMode(route.query.tab))
 
@@ -150,12 +163,16 @@ const { apiFetch } = useApiFetch()
 // ?tab=car is only ever a car (the create page opens a new car there), so its editor is on
 // screen from the first frame instead of waiting for the space to load.
 const isCar = ref(route.query.tab === 'car')
+// Hospitals get the Patient journeys tab (guided visits), and no aerial plot map.
+const isHospital = ref(false)
 const typeKnown = ref(isCar.value)
 const carSpace = ref<any>(null)
 apiFetch<any>(`/spaces/${spaceId}`)
   .then((s) => {
     const sp = s?.data ?? s
     isCar.value = (sp?.space_type ?? sp?.property_type) === 'automotive'
+    isHospital.value = (sp?.space_type ?? sp?.property_type) === 'hospital'
+    if (!isHospital.value && mode.value === 'journeys') setMode('tour')
     typeKnown.value = true
     if (isCar.value) carSpace.value = sp
     // New car listings open on the exterior photos, the first thing a car needs.
@@ -243,6 +260,12 @@ function setMode(next: Mode) {
     editorShellRef.value?.fetchSpace(true)
     if (isCar.value) apiFetch<any>(`/spaces/${spaceId}`).then((s) => { carSpace.value = { ...carSpace.value, ...(s?.data ?? s) } }).catch(() => {})
   }
+}
+
+// "Fix the link" from a journey: open that photo in the 360° editor, where arrows are added.
+function openSceneInTour(sceneId: string) {
+  setMode('tour')
+  if (sceneId) (editorShellRef.value as any)?.selectScene?.(sceneId)
 }
 
 // The 360° Tour tab stays mounted with its own copy of the scenes (dock

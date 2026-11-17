@@ -53,6 +53,8 @@
             <svg v-else-if="option.id === 'automotive'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
             <!-- Business -->
             <svg v-else-if="option.id === 'commercial'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+            <!-- Hospital -->
+            <svg v-else-if="option.id === 'hospital'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="md:w-8 md:h-8"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
             <!-- Land -->
             <svg v-else-if="option.id === 'land'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" class="md:w-8 md:h-8"><path d="M3 8l6-3 6 3 6-3v11l-6 3-6-3-6 3z"/><path d="M9 5v11"/><path d="M15 8v11"/></svg>
             <!-- Multiple -->
@@ -94,6 +96,11 @@
           </div>
           <h1 class="text-3xl font-bold text-main mb-2 tracking-tight">Basic Setup</h1>
           <p class="text-base text-dim">Give your tour a name to start building.</p>
+          <ol v-if="isHospital" class="mt-5 grid gap-2 text-sm text-dim">
+            <li class="flex gap-3"><span class="w-6 h-6 shrink-0 rounded-full bg-surface-alt border border-border grid place-items-center text-[11px] font-bold text-main">1</span>Upload your 360° photos and link the rooms.</li>
+            <li class="flex gap-3"><span class="w-6 h-6 shrink-0 rounded-full bg-surface-alt border border-border grid place-items-center text-[11px] font-bold text-main">2</span>In <b class="text-main">&nbsp;Patient journeys</b>, list the steps of a visit and say what happens at each.</li>
+            <li class="flex gap-3"><span class="w-6 h-6 shrink-0 rounded-full bg-surface-alt border border-border grid place-items-center text-[11px] font-bold text-main">3</span>Publish. Patients press play and are walked through it.</li>
+          </ol>
         </template>
       </div>
 
@@ -104,7 +111,7 @@
             id="create-name"
             v-model="tourName" 
             type="text" 
-            :placeholder="isCar ? 'e.g. 2019 Toyota Prado TX' : 'e.g. 123 Main Street'" 
+            :placeholder="isCar ? 'e.g. 2019 Toyota Prado TX' : isHospital ? 'e.g. Riverside Hospital' : 'e.g. 123 Main Street'" 
             autofocus
             @keydown.enter="handleCreateTour"
             class="w-full px-4 py-3.5 bg-surface-alt border border-border rounded-xl text-main text-base outline-none focus:bg-surface focus:border-main focus:ring-1 focus:ring-main transition-all placeholder:text-dim"
@@ -178,11 +185,13 @@ const typeOptions = [
   { id: 'automotive', title: 'Car / Vehicle', description: 'One car: photos around it, plus 360° interior' },
   { id: 'commercial', title: 'Business / Institution', description: 'Schools, offices, showrooms, facilities' },
   { id: 'land', title: 'Land / Plots', description: 'Drone views, plot boundaries, beacons' },
+  { id: 'hospital', title: 'Hospital / Clinic', description: 'Walk patients through a visit, from the gate to the exit' },
   { id: 'other', title: 'Multiple Items', description: 'Show multiple tours in one link' },
 ]
 
 const selectedOptionData = computed(() => typeOptions.find(o => o.id === selectedType.value))
 const isCar = computed(() => selectedType.value === 'automotive')
+const isHospital = computed(() => selectedType.value === 'hospital')
 
 const handleCreateTour = async () => {
   if (!tourName.value.trim() || !selectedType.value || creating.value) return

@@ -175,7 +175,7 @@
     </Transition>
 
     <!-- Interaction hint (shared with the car spin) — pointer-events:none so the first touch/click ALSO rotates the panorama -->
-    <ViewerDragHint :show="showInteractionHint" :touch="isTouchInput" />
+    <ViewerDragHint :show="showInteractionHint && !(journeys.length && journeyOn) && !props.journeyPreview" :touch="isTouchInput" />
 
     <!-- Control stack: toggle always visible, rail hides with chrome.
          Hidden entirely when hideOwnChrome is set — the host page (e.g. the
@@ -587,10 +587,22 @@
       @end="endRouteGuide"
     />
 
+    <!-- ── Journey (prototype): the tour plays itself, stop by stop ── -->
+    <JourneyPlayer
+      v-if="journeys.length && journeyOn && hasTourData && vtReady && !showVenue && !routeGuide"
+      :journeys="journeys"
+      :api="journeyApi"
+      :preview="props.journeyPreview"
+      :command="props.journeyCommand"
+      @state="onJourneyState"
+      @chapter="(i: number) => emit('journey-chapter', i)"
+      @end="endJourney"
+    />
+
     <!-- ── Scene dock (both modes) — hidden when hideOwnChrome is set; the
          host page drives scene switching itself via goToScene() ── -->
     <GlassDock
-      v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome && !routeGuide"
+      v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome && !routeGuide && !journeyRunning"
       v-show="floorMapView !== 'maximized'"
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
@@ -648,10 +660,12 @@ import { interiorScenes, isInteriorLink, sceneFolders } from '~/shared/utils/int
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
+import JourneyPlayer, { type JourneyApi, type JourneyCommand } from '~/components/viewer/JourneyPlayer.vue'
+import { tourJourneys } from '~/shared/utils/journey'
 import { socialIcons } from '~/shared/utils/socialLinks'
 import { copyText } from '~/shared/utils/copyText'
 import LeadForm from '~/components/viewer/LeadForm.vue'
-import { buildVenueFloors, venueKindOf, venueWords } from '~/shared/utils/venue'
+import { buildSceneGraph, buildVenueFloors, scenePath, venueKindOf, venueWords } from '~/shared/utils/venue'
 import {
   BACK_ITEM_ID, GROUP_ITEM_PREFIX, buildDockEntries, groupOf, positionLabel, scenesInGroup,
   type GroupableScene,
@@ -719,6 +733,10 @@ const props = defineProps<{
   // No "Preparing your tour" opening screen: the host loads this viewer out of
   // sight ahead of time (the car tour's interior) and shows its own small loader.
   hideIntro?: boolean
+  // The journey editor's preview: the player waits for journeyCommand
+  // ("play from step 3") instead of showing its start card.
+  journeyPreview?: boolean
+  journeyCommand?: JourneyCommand | null
 }>()
 
 const img = useImage()
@@ -738,6 +756,7 @@ const emit = defineEmits<{
   (e: 'remove-hotspot', id: string): void
   (e: 'chrome-toggle', hidden: boolean): void
   (e: 'scene-changed', sceneId: string): void
+  (e: 'journey-chapter', index: number): void
 }>()
 
 const { $posthog } = useNuxtApp()
@@ -1475,6 +1494,147 @@ function endRouteGuide() {
   routeGuide.value = null
 }
 
+// ── Journeys: guided visits that play themselves (shared/utils/journey.ts) ──
+// Only tours that carry published journeys get any of this; for every other
+// tour `journeys` is empty and nothing below runs.
+const journeys = computed(() => tourJourneys(props.tour, new Set(tourScenes.value.map((s: any) => s.id))))
+const journeyOn = ref(true)
+const journeyState = ref(props.journeyPreview ? 'idle' : 'intro')
+const journeyRunning = computed(() => journeys.value.length > 0 && journeyOn.value && journeyState.value !== 'intro' && journeyState.value !== 'idle')
+
+// Tours turn by themselves after 8 s without a touch. Mid-narration that
+// would swing the camera off what's being described, so it's off while a
+// journey is open and restored after.
+let savedAutorotate: { autostartDelay: any; autostartOnIdle: any } | null = null
+function holdAutorotate(hold: boolean) {
+  const ar = vtHandle.value?.viewer?.getPlugin?.('autorotate')
+  if (!ar) return
+  try {
+    if (hold) {
+      if (!savedAutorotate) savedAutorotate = { autostartDelay: ar.config.autostartDelay, autostartOnIdle: ar.config.autostartOnIdle }
+      ar.setOptions({ autostartDelay: null, autostartOnIdle: false })
+      ar.stop()
+    } else if (savedAutorotate) {
+      ar.setOptions(savedAutorotate)
+      savedAutorotate = null
+    }
+  } catch { /* noop */ }
+}
+watch([journeyOn, () => journeys.value.length > 0, vtReady], ([on, has, ready]) => { if (ready) holdAutorotate(on && has) }, { immediate: true })
+
+function onJourneyState(s: string) {
+  journeyState.value = s
+  $posthog?.capture('journey_state', { state: s })
+}
+function endJourney() {
+  // The editor's preview keeps its player (it waits for the next "Play").
+  if (props.journeyPreview) { journeyState.value = 'idle'; return }
+  journeyOn.value = false
+  journeyState.value = 'intro'
+}
+
+function waitFor(ok: () => boolean, ms: number, stopped: () => boolean = () => false) {
+  return new Promise<void>((resolve) => {
+    const until = Date.now() + ms
+    const t = setInterval(() => { if (ok() || stopped() || Date.now() > until) { clearInterval(t); resolve() } }, 50)
+  })
+}
+
+const easeInOut = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * t)
+let journeySpin = 0
+
+const journeyApi: JourneyApi = {
+  async walkTo(target, stopped, direct) {
+    // Straight there in one step (e.g. back to the middle of the room when
+    // the tour has no arrow that way): heading from the floor plan.
+    if (direct) {
+      const h = vtHandle.value
+      if (!h || vtActiveNodeId.value === target) return
+      if (vtFocusing.value) dismissInfoCard(h)
+      await waitFor(() => !vtTransitioning.value, 4000, stopped)
+      await walkThroughFloorCursor(h, target, null, 'journey')
+      await waitFor(() => vtActiveNodeId.value === target && !vtTransitioning.value, 10000, stopped)
+      return
+    }
+    // One room at a time along the tour's own links, each step the same walk
+    // as clicking that room's arrow, so arrivals face the way you're going.
+    for (let guard = 0; guard < 40 && !stopped(); guard++) {
+      const h = vtHandle.value
+      const here = vtActiveNodeId.value
+      if (!h || here === target) return
+      const path = scenePath(buildSceneGraph(tourScenes.value as any[]), venueFloors.value, here, target)
+      const next = path[1]
+      if (!next) { await journeyApi.jumpTo(target); return }
+      if (vtFocusing.value) dismissInfoCard(h)
+      await waitFor(() => !vtTransitioning.value, 4000, stopped)
+      const arrow = (buildAllHotspots()[here] ?? []).find(x => x.type === 'scene_link' && x.targetSceneId === next)
+      await walkThroughFloorCursor(h, next, arrow?.yaw ?? null, 'journey')
+      await waitFor(() => vtActiveNodeId.value === next && !vtTransitioning.value, 10000, stopped)
+      await waitFor(() => false, 250, stopped) // a beat in each room, like a step
+    }
+  },
+  async jumpTo(sceneId, view) {
+    const h = vtHandle.value
+    if (!h) return
+    if (vtFocusing.value) dismissInfoCard(h)
+    await waitFor(() => !vtTransitioning.value, 4000)
+    if (vtActiveNodeId.value !== sceneId) {
+      vtTransitioning.value = true
+      navVia = 'journey'
+      // With no view given, let the room open on its own start view.
+      walkedInto = view ? sceneId : null
+      const ok = await vtWalkToNode(h, sceneId, { step: false, arrive: view ?? null })
+      if (!ok) { vtTransitioning.value = false; walkedInto = null; navVia = null }
+      await waitFor(() => vtActiveNodeId.value === sceneId && !vtTransitioning.value, 10000)
+    } else if (view) {
+      await journeyApi.look(view, 900)
+    }
+  },
+  async look(to, ms) {
+    const v = vtHandle.value?.viewer
+    if (!v) return
+    try { await v.animate({ yaw: to.yaw, pitch: to.pitch, ...(to.zoom != null ? { zoom: to.zoom } : {}), speed: ms }) } catch { /* stopped */ }
+  },
+  lookAround(ms, stopped) {
+    // One continuous eased turn (a chain of animate() calls would stop and
+    // start at every leg), level-ish, back where it began.
+    const v = vtHandle.value?.viewer
+    if (!v) return Promise.resolve()
+    const me = ++journeySpin
+    const from = v.getPosition()
+    const pitch0 = from.pitch
+    const t0 = performance.now()
+    return new Promise<void>((resolve) => {
+      const tick = (now: number) => {
+        if (stopped() || me !== journeySpin) return resolve()
+        const t = Math.min(1, (now - t0) / ms)
+        const e = easeInOut(t)
+        // Drift toward the horizon on the way round, back to the start pitch at the end.
+        const pitch = pitch0 * (1 - Math.sin(Math.PI * t) * 0.8)
+        try { v.rotate({ yaw: from.yaw + e * Math.PI * 2, pitch }) } catch { return resolve() }
+        if (t < 1) requestAnimationFrame(tick)
+        else resolve()
+      }
+      requestAnimationFrame(tick)
+    })
+  },
+  stopCamera() {
+    journeySpin++
+    try { vtHandle.value?.viewer?.stopAnimation?.() } catch { /* noop */ }
+  },
+  async openCard(id) {
+    const h = vtHandle.value
+    if (!h) return
+    await waitFor(() => !vtTransitioning.value, 4000)
+    if (vtFocusing.value && activeInfoMarkerId === id) return
+    await handleMarkerClick(h, id, 'info')
+  },
+  closeCard() {
+    if (vtHandle.value && vtFocusing.value) dismissInfoCard(vtHandle.value)
+  },
+  container: () => vtContainerEl.value,
+}
+
 // ── Opening screen data ──
 // First room's photo, tiny (≈4 KB, instant) and medium (≈15–40 KB) — both
 // rendered blurred, so the low resolution never shows. Server-rendered with
@@ -2143,8 +2303,19 @@ async function handleDockSelect(sceneId: string, via: string = 'dock') {
 // Lets a host page using hideOwnChrome (e.g. the buyer-facing detail
 // screen, which hides this component's own scene dock) drive scene
 // switching from its own room list instead.
+/** Which photo is showing and which way it faces (the journey editor's "Use this view"). */
+function getView() {
+  const pos = vtHandle.value?.viewer?.getPosition?.()
+  return pos && vtActiveNodeId.value ? { sceneId: vtActiveNodeId.value, yaw: pos.yaw as number, pitch: pos.pitch as number } : null
+}
+/** Show a photo, facing `view` when given (the journey editor selecting a step). */
+function showScene(sceneId: string, view?: { yaw: number; pitch: number } | null) {
+  return journeyApi.jumpTo(sceneId, view ?? undefined)
+}
 defineExpose({
   goToScene: (sceneId: string) => handleDockSelect(sceneId, 'host-chrome'),
+  getView,
+  showScene,
 })
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -2636,6 +2807,8 @@ function scheduleNextAutoplayScene() {
 }
 
 function toggleAutoplay() {
+  // A tour with a journey: the Guided Tour button opens the journey instead.
+  if (journeys.value.length) { journeyOn.value = true; return }
   autoplaying.value = !autoplaying.value
   if (autoplaying.value) {
     scheduleNextAutoplayScene()
