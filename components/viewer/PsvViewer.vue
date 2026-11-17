@@ -642,6 +642,7 @@ import { useImage, useHead } from '#imports'
 import { factsLine, formatPrice } from '~/utils/listingDisplay'
 import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
+import { planWalk } from '~/shared/utils/walkHeading'
 import { safeHotspots } from '~/shared/utils/guards'
 import { interiorScenes, isInteriorLink, sceneFolders } from '~/shared/utils/interiorLinks'
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
@@ -850,21 +851,22 @@ let pendingEntry: EntryContext | null = null
 let walkedInto: string | null = null
 
 /**
- * Where to look when arriving in `targetId` from `fromId`: forward into the
- * room, i.e. directly away from the doorway that leads back (the way you'd be
- * facing after walking through it). Falls back to the scene's start view.
+ * How to walk from the current room into `targetId`: which way to turn first,
+ * how far to step, and which way to face on arrival so the visitor keeps
+ * walking the same way (shared/utils/walkHeading.ts). The start view is used
+ * only when the tour has no arrow back and no floor-plan direction to go on.
  */
-function arrivalView(targetId: string, fromId: string | null): { yaw: number; pitch: number } {
-  const back = fromId ? (buildAllHotspots()[targetId] ?? []).find(h => h.type === 'scene_link' && h.targetSceneId === fromId) : null
-  // Back out of a car: face the car you just left, not away from it.
-  if (back && isInteriorLink(back)) return { yaw: back.yaw, pitch: 0 }
-  if (back) {
-    let yaw = back.yaw + Math.PI
-    if (yaw > Math.PI * 2) yaw -= Math.PI * 2
-    return { yaw, pitch: 0 }
-  }
+function walkTo(targetId: string, clickedYaw?: number | null) {
+  const route = planWalk({
+    scenes: tourScenes.value as any[],
+    plans: ((props.tour as any)?.floor_plans ?? []) as any[],
+    linksByScene: buildAllHotspots() as any,
+  }, vtActiveNodeId.value, targetId, clickedYaw)
   const raw = tourScenes.value.find((x: any) => x.id === targetId)
-  return resolveStartView(raw, props.tour?.space?.property_360_settings?.[0])
+  const arrive = route.arriveYaw !== null
+    ? { yaw: route.arriveYaw, pitch: 0 }
+    : resolveStartView(raw, props.tour?.space?.property_360_settings?.[0])
+  return { towardYaw: route.travelYaw, arrive, stepScale: route.stepScale, step: route.step, previewUrl: previewFor(targetId) }
 }
 
 function previewFor(targetId: string): string | null {
@@ -902,8 +904,10 @@ async function backToShowroom() {
   try {
     const ok = await vtWalkToNode(handle, target, {
       // Facing the car again: where you were looking, or straight at its badge.
+      // No step forward: you're stepping back out of the car.
       arrive: ret ? { yaw: ret.yaw, pitch: ret.pitch } : { yaw: here.badgeYaw, pitch: 0 },
       previewUrl: previewFor(target),
+      step: false,
     })
     if (!ok) { vtTransitioning.value = false; walkedInto = null; navVia = null }
   } catch {
@@ -1790,6 +1794,11 @@ async function initVT() {
           ? { imageUrl: floorMapFloors.value[0].imageUrl, config: floorMapPluginConfig(floorMapFloors.value, { compact: floorMapCompact.value }) }
           : undefined,
         twoFingerTouch: false,
+        // The plugin's own floor arrows walk like ours do.
+        onLinkClick: (nodeId, yaw) => {
+          if (version !== vtInitVersion || !vtHandle.value) return
+          void walkThroughFloorCursor(vtHandle.value, nodeId, yaw, 'arrow')
+        },
         onReady: () => {
           if (version !== vtInitVersion) return
           // Complete the initial load progress bar
@@ -2081,11 +2090,7 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
         navVia = 'hotspot'
         pendingEntry = null
         walkedInto = targetSceneId
-        const success = await vtWalkToNode(handle, targetSceneId, {
-          towardYaw: clickedHotspot?.yaw,
-          arrive: arrivalView(targetSceneId, vtActiveNodeId.value),
-          previewUrl: previewFor(targetSceneId),
-        })
+        const success = await vtWalkToNode(handle, targetSceneId, walkTo(targetSceneId, clickedHotspot?.yaw))
         if (!success) { vtTransitioning.value = false; walkedInto = null; navVia = null }
       }
     } catch {
@@ -2098,18 +2103,14 @@ async function handleMarkerClick(handle: PsvViewerHandle, markerId: string, type
 }
 
 // Same walk as clicking the floor arrow of that link.
-async function walkThroughFloorCursor(handle: PsvViewerHandle, targetSceneId: string, yaw: number, via: string) {
+async function walkThroughFloorCursor(handle: PsvViewerHandle, targetSceneId: string, yaw: number | null, via: string) {
   if (vtTransitioning.value || vtActiveNodeId.value === targetSceneId) return
   vtTransitioning.value = true
   navVia = via
   pendingEntry = null
   walkedInto = targetSceneId
   try {
-    const success = await vtWalkToNode(handle, targetSceneId, {
-      towardYaw: yaw,
-      arrive: arrivalView(targetSceneId, vtActiveNodeId.value),
-      previewUrl: previewFor(targetSceneId),
-    })
+    const success = await vtWalkToNode(handle, targetSceneId, walkTo(targetSceneId, yaw))
     if (!success) { vtTransitioning.value = false; walkedInto = null; navVia = null }
   } catch {
     vtTransitioning.value = false
@@ -2126,12 +2127,10 @@ async function handleDockSelect(sceneId: string, via: string = 'dock') {
     vtTransitioning.value = true
     navVia = via
     try {
-      // Scene strip / guided tour: walk straight ahead, arrive on the scene's start view.
+      // Scene strip / guided tour / floor-plan map: walk toward that room
+      // when the tour knows where it is, else straight ahead.
       walkedInto = sceneId
-      const success = await vtWalkToNode(vtHandle.value, sceneId, {
-        arrive: arrivalView(sceneId, null),
-        previewUrl: previewFor(sceneId),
-      })
+      const success = await vtWalkToNode(vtHandle.value, sceneId, walkTo(sceneId))
       if (!success) { vtTransitioning.value = false; walkedInto = null; navVia = null }
     } catch {
       vtTransitioning.value = false

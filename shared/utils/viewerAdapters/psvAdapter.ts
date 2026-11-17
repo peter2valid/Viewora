@@ -34,6 +34,7 @@ import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON, floorGlyph, isFloorIcon } from
 import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, glPins, supportsFloorCursor } from './floorCursor'
 import { screenFitPass, screenSizeUnits } from './screenSprites'
 import { installPerfRecorder } from './perfRecorder'
+import { startWalkMotion, WALK_STEP, type WalkMotion } from './walkMotion'
 
 /** Master Handle: Unified state for a single viewer instance */
 export interface PsvViewerHandle {
@@ -1956,6 +1957,8 @@ export interface VirtualTourInitOptions {
    * Loads the MapPlugin; floorPlanMap.ts then drives its image/hotspots.
    */
   floorMap?: { imageUrl: string; config: Record<string, any> }
+  /** A click on the plugin's own floor arrow: the host walks there (vtWalkToNode). */
+  onLinkClick?: (nodeId: string, yaw: number | null) => void
 }
 
 /**
@@ -1981,6 +1984,7 @@ export async function initVirtualTourViewer(
     loadingImg = '/images/viewora-logo.png',
     twoFingerTouch = false,
     floorMap,
+    onLinkClick,
   } = options
 
   installTileFetchThrottle()
@@ -2151,6 +2155,14 @@ export async function initVirtualTourViewer(
   let requestedNodeId: string | null = null
   const setCurrentNodeOrig = virtualTour.setCurrentNode.bind(virtualTour)
   virtualTour.setCurrentNode = (nodeId: string, ...rest: unknown[]) => {
+    // The plugin's own floor arrows pass the link they came from. Hand those
+    // to the host so they get the same walk (turn, step, arrive facing the
+    // right way) as our arrows, instead of a plain jump to the start view.
+    const fromLink = rest[1] as { nodeId?: string; position?: { yaw?: number } } | undefined
+    if (onLinkClick && fromLink?.nodeId === nodeId) {
+      onLinkClick(nodeId, typeof fromLink.position?.yaw === 'number' ? fromLink.position.yaw : null)
+      return Promise.resolve(true)
+    }
     requestedNodeId = nodeId
     return setCurrentNodeOrig(nodeId, ...rest)
   }
@@ -2192,7 +2204,7 @@ export async function initVirtualTourViewer(
       const target = { yaw: targetHs.position.yaw, pitch: targetHs.position.pitch ?? 0 }
       const readyAt = performance.now()
       const turnCancelled = () =>
-        destroyed || userInteracted || virtualTour.getCurrentNode?.()?.id !== firstNode.id
+        destroyed || userInteracted || walkingViewers.has(viewer) || virtualTour.getCurrentNode?.()?.id !== firstNode.id
       const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
       void (async () => {
@@ -2383,66 +2395,86 @@ export async function vtGoToNode(handle: PsvViewerHandle | null, nodeId: string)
   } catch { return false }
 }
 
+/** Viewers that have walked to another room: the opening turn never starts after that. */
+const walkingViewers = new WeakSet<object>()
+
 /**
  * Walk into another room, so moving through a tour feels like walking rather
- * than loading pages:
- *  1. the camera turns toward the doorway and moves forward (zooms in) while
- *     the next room's preview downloads in parallel;
- *  2. crossfade into the next room — no loader spinner — arriving slightly
- *     zoomed in and facing `arrive` (forward into the room);
- *  3. settle back to the normal view, like taking in the room.
- * Respects prefers-reduced-motion (plain crossfade).
+ * than loading pages (see walkMotion.ts and shared/utils/walkHeading.ts):
+ *  1. turn toward the way you're going (`towardYaw`), level with the horizon;
+ *  2. step forward through the room while the next one downloads, and keep
+ *     stepping as it fades in on a sphere centred where the step ends;
+ *  3. arrive facing `arrive`: the same way you were walking, worked out from
+ *     the tour itself, so the view never swings round afterwards.
+ * Zoom is left as it was. Respects prefers-reduced-motion (plain crossfade,
+ * still facing the right way).
  */
 export async function vtWalkToNode(
   handle: PsvViewerHandle | null,
   nodeId: string,
-  opts: { towardYaw?: number; arrive?: { yaw: number; pitch: number } | null; previewUrl?: string | null } = {},
+  opts: {
+    towardYaw?: number | null
+    arrive?: { yaw: number; pitch: number } | null
+    previewUrl?: string | null
+    /** Step length relative to a typical one (walkHeading's stepScale). */
+    stepScale?: number
+    /** false: no turn and no step, just the crossfade onto `arrive` as given. */
+    step?: boolean
+  } = {},
 ): Promise<boolean> {
   if (!handle?.viewer) return false
   const viewer = handle.viewer
-  const vt = viewer.getPlugin(VirtualTourPlugin)
+  const vt = viewer.getPlugin(VirtualTourPlugin) as any
   if (!vt) return false
   const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  const startZoom: number = viewer.getZoomLevel?.() ?? 50
+  const zoom: number = viewer.getZoomLevel?.() ?? 50
   const pos = viewer.getPosition?.() ?? { yaw: 0, pitch: 0 }
+  const gyro = viewer.getPlugin(GyroscopePlugin) as GyroscopePlugin | undefined
+  const motion = !!gyro?.isEnabled()
 
-  // Next room's preview in the browser cache, so the crossfade can start the
-  // moment we arrive (PSV's own request for it is then a cache hit).
-  const preload = preloadPreview(opts.previewUrl ?? '')
+  // Next room's preview in the browser cache (PSV's own request is then a cache hit).
+  void preloadPreview(opts.previewUrl ?? '')
 
+  // The walk owns the camera: stop the opening turn, auto-rotate or any other
+  // camera animation, or it would carry on turning the view mid-step.
+  try { viewer.getPlugin(AutorotatePlugin)?.stop?.() } catch { /* noop */ }
+  try { viewer.stopAnimation?.() } catch { /* noop */ }
+  walkingViewers.add(viewer)
+
+  let step: WalkMotion | null = null
   try {
-    if (!reduce) {
-      const step = Promise.resolve(viewer.animate({
-        yaw: opts.towardYaw ?? pos.yaw,
-        // Look roughly ahead, not at the floor arrow that was clicked.
-        pitch: Math.max(-0.2, Math.min(0.1, pos.pitch)),
-        zoom: Math.min(100, startZoom + 28),
-        speed: 650,
-      })).catch(() => {})
-      // Never stall more than ~2s on a slow connection — the fade waits for the image anyway.
-      await Promise.race([Promise.all([step, preload]), new Promise(r => setTimeout(r, 2000))])
-    } else {
-      await Promise.race([preload, new Promise(r => setTimeout(r, 1500))])
+    const heading = typeof opts.towardYaw === 'number' && Number.isFinite(opts.towardYaw) ? opts.towardYaw : pos.yaw
+    const stepping = !reduce && !motion && opts.step !== false
+    if (stepping) {
+      // Turn to face the way we're going. Quicker for small turns, never a long sweep.
+      const turn = Math.abs(Math.atan2(Math.sin(heading - pos.yaw), Math.cos(heading - pos.yaw)))
+      if (turn > 0.02 || Math.abs(pos.pitch) > 0.02) {
+        await Promise.race([
+          Promise.resolve(viewer.animate({ yaw: heading, pitch: 0, speed: Math.round(250 + 400 * (turn / Math.PI)) })).catch(() => {}),
+          new Promise(r => setTimeout(r, 900)),
+        ])
+      }
+      step = startWalkMotion(viewer, heading, WALK_STEP * Math.min(1.35, Math.max(0.7, opts.stepScale ?? 1)))
     }
 
-    // With phone motion on, the tilt belongs to the phone: turn the heading
-    // into the room during the crossfade instead of jumping the camera.
-    const gyro = viewer.getPlugin(GyroscopePlugin) as GyroscopePlugin | undefined
-    const motion = !!gyro?.isEnabled()
+    // With phone motion on, the heading belongs to the phone: turn it into the
+    // room during the crossfade instead of jumping the camera.
     if (motion && opts.arrive) gyro!.alignYaw(opts.arrive.yaw, reduce ? 300 : 700)
+    const arrive = opts.arrive
+      ? { yaw: opts.arrive.yaw, pitch: stepping ? 0 : opts.arrive.pitch }
+      : null
     const ok = await vt.setCurrentNode(nodeId, {
       showLoader: false,
       effect: 'fade',
-      speed: reduce ? 300 : 550,
+      speed: reduce ? 300 : 700,
       rotation: false,
-      ...(opts.arrive && !motion ? { rotateTo: { yaw: opts.arrive.yaw, pitch: opts.arrive.pitch } } : {}),
-      zoomTo: reduce ? startZoom : Math.min(100, startZoom + 16),
+      ...(arrive && !motion ? { rotateTo: arrive } : {}),
+      zoomTo: zoom,
     })
-    if (ok && !reduce) {
-      Promise.resolve(viewer.animate({ zoom: startZoom, speed: 900 })).catch(() => {})
-    }
+    step?.stop()
     return !!ok
   } catch {
+    step?.stop()
     return false
   }
 }
