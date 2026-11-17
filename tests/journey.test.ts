@@ -49,3 +49,14 @@ test('a tour lists its published journeys in order, ignoring broken ones', () =>
   assert.deepEqual(tourJourneys({}, ids), [])
   assert.ok(journeyMinutes(list[0]!) >= 1)
 })
+
+test('a zoomed-in view is kept for the arrival and the step start; wide views carry no zoom', () => {
+  const j = compileJourney({ title: 't', steps: [
+    { id: '1', title: 'Entrance', scene_id: 'gate', view: { yaw: 0, pitch: 0, zoom: 60 }, sentences: [] },
+    { id: '2', title: 'Gift shop', scene_id: 'gate', view: { yaw: Math.PI / 2, pitch: 0, zoom: 45 }, sentences: [] },
+    { id: '3', title: 'Desk', scene_id: 'desk', view: { yaw: 0, pitch: 0 }, sentences: [] },
+  ] }, ids)!
+  assert.deepEqual(j.chapters[0]!.view, { yaw: 0, pitch: 0, zoom: 60 })
+  assert.deepEqual(j.chapters[1]!.actions[0], { walk: 'gate', face: { yaw: 90, pitch: 0, zoom: 45 } })
+  assert.deepEqual(j.chapters[2]!.actions[0], { walk: 'desk', face: { yaw: 0, pitch: 0 } })
+})

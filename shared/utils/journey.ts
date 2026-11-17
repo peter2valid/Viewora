@@ -98,8 +98,11 @@ export interface JourneyDocStep {
   id: string
   title: string
   scene_id: string | null
-  /** Where to face on arrival, radians as PSV reports them. Null = keep walking direction. */
-  view?: { yaw: number; pitch: number } | null
+  /**
+   * Where to face on arrival, radians as PSV reports them, and how close to
+   * zoom (PSV level 0–100; absent = wide). Null = keep walking direction.
+   */
+  view?: { yaw: number; pitch: number; zoom?: number } | null
   sentences: JourneyDocSentence[]
 }
 export interface JourneyDoc {
@@ -123,7 +126,9 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
   const steps = (doc.steps ?? []).filter(s => s.scene_id && sceneIds.has(s.scene_id))
   if (!steps.length) return null
   const chapters: JourneyChapter[] = steps.map((s, i) => {
-    const view = s.view ? { yaw: toDeg(s.view.yaw), pitch: toDeg(s.view.pitch) } : undefined
+    const view: JourneyView | undefined = s.view
+      ? { yaw: toDeg(s.view.yaw), pitch: toDeg(s.view.pitch), ...(s.view.zoom ? { zoom: s.view.zoom } : {}) }
+      : undefined
     const lines = (s.sentences ?? []).map(x => x.text.trim()).filter(Boolean)
     const actions: JourneyAction[] = []
     if (i > 0) actions.push({ walk: s.scene_id!, ...(view ? { face: view } : {}) })

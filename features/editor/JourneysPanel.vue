@@ -148,8 +148,8 @@
             <div class="jy-field">
               <p class="jy-label">Facing</p>
               <p class="jy-muted jy-facing">
-                {{ step.view ? 'Faces the direction you set.' : 'Faces the way patients walk in.' }}
-                Turn the preview to what patients should look at, then:
+                {{ step.view ? (step.view.zoom ? 'Faces and zooms in on the view you set.' : 'Faces the direction you set.') : 'Faces the way patients walk in.' }}
+                Turn the preview to what patients should look at (scroll or pinch to zoom in), then:
               </p>
               <div class="jy-facing__btns">
                 <button class="jy-btn" :disabled="!previewReady" @click="useCurrentView">Use this view</button>
@@ -499,9 +499,11 @@ function useCurrentView() {
   if (!v || !step.value) return
   const switched = step.value.scene_id && step.value.scene_id !== v.sceneId
   step.value.scene_id = v.sceneId
-  step.value.view = { yaw: v.yaw, pitch: v.pitch }
+  // Keep the zoom only when it is a real close-up, so "wide" stays wide.
+  step.value.view = { yaw: v.yaw, pitch: v.pitch, ...(v.zoom >= 5 ? { zoom: v.zoom } : {}) }
   saveNow()
-  toast.success(switched ? `This step now uses “${sceneName(v.sceneId)}”, facing this way.` : 'Patients will face this way here.')
+  const how = step.value.view.zoom ? 'facing and zoomed in like this' : 'facing this way'
+  toast.success(switched ? `This step now uses “${sceneName(v.sceneId)}”, ${how}.` : `Patients will see this step ${how}.`)
 }
 
 // ── Lines of narration ─────────────────────────────────────────────────────

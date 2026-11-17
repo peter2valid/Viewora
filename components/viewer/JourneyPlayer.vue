@@ -92,8 +92,10 @@ import { deg, journeyMinutes, speakMs, type Journey, type JourneyAction, type Jo
 export interface JourneyApi {
   /** Walk to a scene through the tour's links. Resolves on arrival (or when stopped). */
   walkTo(sceneId: string, stopped: () => boolean, direct?: boolean): Promise<void>
-  /** Straight to a scene (used by Next / Back), facing `view`. */
-  jumpTo(sceneId: string, view?: { yaw: number; pitch: number }): Promise<void>
+  /** Straight to a scene (used by Next / Back), facing `view` at its zoom (wide when none). */
+  jumpTo(sceneId: string, view?: { yaw: number; pitch: number; zoom?: number }): Promise<void>
+  /** Zoom back out to the normal wide view, keeping the direction. No-op when already wide. */
+  widen(ms: number): Promise<void>
   look(to: { yaw: number; pitch: number; zoom?: number }, ms: number): Promise<void>
   /** One slow eased turn of the whole room, ending where it started. */
   lookAround(ms: number, stopped: () => boolean): Promise<void>
@@ -185,11 +187,19 @@ async function exec(a: JourneyAction, stopped: () => boolean) {
   if ('walk' in a) {
     props.api.closeCard()
     if (!a.say) caption.value = '' // last line is done; don't leave it up while walking
+    // Step back from a close-up before moving on, like looking up before walking.
+    await props.api.widen(800)
+    if (stopped()) return
     await Promise.all([
       props.api.walkTo(a.walk, stopped, a.direct),
       a.say ? say(a.say, stopped) : Promise.resolve(),
     ])
-    if (a.face && !stopped()) await props.api.look(view(a.face), 900)
+    // Turn to what this step is about, then lean in when it was set zoomed.
+    if (a.face && !stopped()) {
+      const f = view(a.face)
+      await props.api.look({ yaw: f.yaw, pitch: f.pitch }, 900)
+      if (f.zoom && !stopped()) await props.api.look(f, 1100)
+    }
   } else if ('look' in a) {
     await props.api.look(view(a.look), a.ms ?? 1500)
   } else if ('around' in a) {

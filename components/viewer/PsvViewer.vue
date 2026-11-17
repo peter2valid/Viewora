@@ -1543,6 +1543,12 @@ function waitFor(ok: () => boolean, ms: number, stopped: () => boolean = () => f
 const easeInOut = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * t)
 let journeySpin = 0
 
+/** The viewer's normal (wide) zoom level, what a journey returns to between close-ups. */
+function restZoom(): number {
+  const z = vtHandle.value?.viewer?.config?.defaultZoomLvl
+  return typeof z === 'number' ? z : 0
+}
+
 const journeyApi: JourneyApi = {
   async walkTo(target, stopped, direct) {
     // Straight there in one step (e.g. back to the middle of the room when
@@ -1583,12 +1589,22 @@ const journeyApi: JourneyApi = {
       navVia = 'journey'
       // With no view given, let the room open on its own start view.
       walkedInto = view ? sceneId : null
-      const ok = await vtWalkToNode(h, sceneId, { step: false, arrive: view ?? null })
+      const ok = await vtWalkToNode(h, sceneId, { step: false, arrive: view ? { yaw: view.yaw, pitch: view.pitch } : null })
       if (!ok) { vtTransitioning.value = false; walkedInto = null; navVia = null }
       await waitFor(() => vtActiveNodeId.value === sceneId && !vtTransitioning.value, 10000)
+      // Arrive at the step's close-up, or wide when it has none.
+      if (view?.zoom) await journeyApi.look(view, 900)
+      else await journeyApi.widen(500)
     } else if (view) {
-      await journeyApi.look(view, 900)
+      await journeyApi.look({ ...view, zoom: view.zoom ?? restZoom() }, 900)
     }
+  },
+  async widen(ms) {
+    const v = vtHandle.value?.viewer
+    if (!v) return
+    const rest = restZoom()
+    if (Math.abs((v.getZoomLevel?.() ?? rest) - rest) < 1) return
+    try { await v.animate({ zoom: rest, speed: ms }) } catch { /* stopped */ }
   },
   async look(to, ms) {
     const v = vtHandle.value?.viewer
@@ -2306,10 +2322,12 @@ async function handleDockSelect(sceneId: string, via: string = 'dock') {
 /** Which photo is showing and which way it faces (the journey editor's "Use this view"). */
 function getView() {
   const pos = vtHandle.value?.viewer?.getPosition?.()
-  return pos && vtActiveNodeId.value ? { sceneId: vtActiveNodeId.value, yaw: pos.yaw as number, pitch: pos.pitch as number } : null
+  if (!pos || !vtActiveNodeId.value) return null
+  const zoom = Number(vtHandle.value?.viewer?.getZoomLevel?.() ?? 0)
+  return { sceneId: vtActiveNodeId.value, yaw: pos.yaw as number, pitch: pos.pitch as number, zoom: Math.round(zoom * 10) / 10 }
 }
-/** Show a photo, facing `view` when given (the journey editor selecting a step). */
-function showScene(sceneId: string, view?: { yaw: number; pitch: number } | null) {
+/** Show a photo, facing `view` (and at its zoom) when given: the journey editor selecting a step. */
+function showScene(sceneId: string, view?: { yaw: number; pitch: number; zoom?: number } | null) {
   return journeyApi.jumpTo(sceneId, view ?? undefined)
 }
 defineExpose({
