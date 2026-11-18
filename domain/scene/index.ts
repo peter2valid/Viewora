@@ -22,6 +22,8 @@ export interface Settings360 {
   pitch_default: number
   yaw_default: number
   auto_rotate_enabled: boolean
+  /** Tripod cover for the whole tour (null/absent: off). */
+  nadir_cover?: import('../../shared/utils/viewerAdapters/nadirCover').NadirCoverSettings | null
 }
 
 export interface Hotspot360 {
@@ -54,6 +56,8 @@ export interface TourScene {
   title?: string
   hotspots: Hotspot360[]
   settings: Pick<Settings360, 'hfov_default' | 'pitch_default' | 'yaw_default' | 'auto_rotate_enabled'>
+  /** Tripod cover for this scene (null: none here). See resolveNadirCover(). */
+  nadirCover?: import('../../shared/utils/viewerAdapters/nadirCover').NadirCover | null
 }
 
 /**

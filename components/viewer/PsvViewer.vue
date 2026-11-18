@@ -682,6 +682,7 @@ import {
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
 import { attachFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
+import { resolveNadirCover } from '~/shared/utils/viewerAdapters/nadirCover'
 import { floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
 import { buildDockFloors, dockFloorOf, withInteriorsTab, INTERIORS_TAB_ID, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
 import GlassDock from '~/components/ui/GlassDock.vue'
@@ -1859,6 +1860,7 @@ function mapRawScene(s: any): TourScene {
       yaw_default: resolveStartView(s, settings360).yaw,
       auto_rotate_enabled: settings360?.auto_rotate_enabled ?? false,
     },
+    nadirCover: resolveNadirCover(settings360?.nadir_cover, s.id),
   }
 }
 

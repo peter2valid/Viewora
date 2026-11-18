@@ -33,6 +33,7 @@ import {
 import { HOTSPOT_ICONS_BY_KEY, TYPE_DEFAULT_ICON, floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
 import { FLOOR_CURSOR_PREFIX, floorDiscMarker, floorPinMarker, glPins, supportsFloorCursor } from './floorCursor'
 import { screenFitPass, screenSizeUnits } from './screenSprites'
+import { installNadirCover, type NadirCover, type NadirCoverController } from './nadirCover'
 import { installPerfRecorder } from './perfRecorder'
 import { startWalkMotion, WALK_STEP, type WalkMotion } from './walkMotion'
 
@@ -44,6 +45,8 @@ export interface PsvViewerHandle {
   isEditing: boolean
   /** Resolved at init; loadScene() needs it to pick the same tile levels */
   performanceMode?: 'lite' | 'full'
+  /** The tripod cover (logo under the camera), see nadirCover.ts. */
+  nadir?: NadirCoverController
   cleanup?: () => void
 }
 
@@ -1365,12 +1368,20 @@ export async function initViewer(
   cleanupFns.push(() => arrowTracker.disconnect())
   cleanupFns.push(installKeyboardGuard(viewer, container))
 
+  // Tripod cover: shown once the first room is up; loadScene() shows it for each next room.
+  const nadir = installNadirCover(viewer)
+  const hideNadir = () => nadir.hide()
+  viewer.addEventListener('panorama-load', hideNadir)
+  viewer.addEventListener('ready', () => nadir.show(scene.nadirCover ?? null), { once: true })
+  cleanupFns.push(() => { viewer.removeEventListener('panorama-load', hideNadir); nadir.dispose() })
+
   return {
     viewer,
     markers,
     markerSignatures: new Map<string, string>(),
     isEditing,
     performanceMode: resolvedPerformanceMode,
+    nadir,
     cleanup: () => { for (const fn of cleanupFns) fn() },
   }
 }
@@ -1389,6 +1400,7 @@ export async function loadScene(handle: PsvViewerHandle | null, scene: TourScene
       zoom: 0,
       transition: { speed: 800, rotation: false, effect: 'fade' },
     })
+    handle.nadir?.show(scene.nadirCover ?? null)
 
     // Enforce hotspots after panorama is set
     if (hotspots?.length) {
@@ -2266,9 +2278,17 @@ export async function initVirtualTourViewer(
     })
   }
 
+  // Tripod cover: out while the next room loads, back (that room's own) once it is up.
+  const nadir = installNadirCover(viewer)
+  const nadirByScene = new Map(scenes.map(s => [s.id, s.nadirCover ?? null]))
+  const hideNadir = () => nadir.hide()
+  viewer.addEventListener('panorama-load', hideNadir)
+  cleanupFns.push(() => { viewer.removeEventListener('panorama-load', hideNadir); nadir.dispose() })
+
   let firstNodeChange = true
   const handleNodeChanged = (e: any) => {
     onNodeChanged?.(e.node.id)
+    nadir.show(nadirByScene.get(e.node.id) ?? null)
 
     // Prefetch tiles for all scenes reachable from the new node so the next
     // navigation feels instant. We schedule this after a short delay so the
@@ -2381,6 +2401,7 @@ export async function initVirtualTourViewer(
     markerSignatures: new Map(),
     isEditing: false,
     performanceMode: resolvedPerformanceMode,
+    nadir,
     cleanup: () => { for (const fn of cleanupFns) fn() },
   }
 }
@@ -2603,6 +2624,11 @@ export function applyLiveSettings(
   } catch (err) {
     console.warn('[psvAdapter] applyLiveSettings failed:', err)
   }
+}
+
+/** Change the tripod cover of the room on screen (the editor's live preview). */
+export function setNadirCover(handle: PsvViewerHandle | null, cover: NadirCover | null): void {
+  handle?.nadir?.show(cover)
 }
 
 export function toggleGyroscope(handle: PsvViewerHandle | null): void {

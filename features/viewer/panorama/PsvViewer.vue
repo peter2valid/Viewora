@@ -70,6 +70,7 @@ import {
   focusHotspot,
   toggleHotspotActive,
   applyLiveSettings,
+  setNadirCover,
   openSettings,
   toggleAutorotate,
   toggleStereo,
@@ -661,6 +662,16 @@ onBeforeUnmount(() => {
   destroy(handle.value)
   handle.value = null
 })
+
+// Tripod cover edited in the settings panel → show it at once on this scene.
+// A scene change shows the next scene's own cover through loadScene().
+watch(
+  () => [props.scene?.id, JSON.stringify(props.scene?.nadirCover ?? null)] as const,
+  (next, prev) => {
+    if (!handle.value || next[0] !== prev?.[0]) return
+    setNadirCover(handle.value, props.scene?.nadirCover ?? null)
+  },
+)
 
 // Scene change → keep current panorama visible and switch smoothly.
 // PSV can load the next panorama without showing a blocking loader.

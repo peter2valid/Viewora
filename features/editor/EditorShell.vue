@@ -327,7 +327,7 @@
            stays scoped to the one thing worth adjusting while looking at
            the live panorama, since you see the framing change immediately. -->
       <Transition name="ts-slide">
-        <div v-if="showSettingsPanel" class="ts-overlay" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Viewer settings">
+        <div v-if="showSettingsPanel" class="ts-overlay" :class="{ 'ts-overlay--peek': nadirPeek }" @click.self="showSettingsPanel = false" role="dialog" aria-modal="true" aria-label="Viewer settings">
           <div class="ts-panel">
 
             <!-- Header -->
@@ -383,11 +383,23 @@
                 </div>
               </div>
 
+              <div class="ts-section">
+                <TripodCoverSection
+                  v-model="nadirDraft"
+                  :space-id="props.spaceId"
+                  :brand-logo-url="space?.logo_url"
+                  :active-scene-id="activeScene?.id ?? null"
+                  :scenes="nadirScenes"
+                  @look-down="lookAtTripod"
+                  @error="showToast($event, 'error')"
+                />
+              </div>
+
             </div><!-- end ts-body -->
 
             <!-- Footer -->
             <div class="ts-footer">
-              <button class="ts-btn-save" @click="saveSettings">Save Changes</button>
+              <button class="ts-btn-save" @click="saveViewerSettings">Save Changes</button>
               <button class="ts-btn-cancel" @click="showSettingsPanel = false">Cancel</button>
             </div>
 
@@ -599,6 +611,8 @@ import {
 } from '~/shared/utils/sceneGroups'
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
+import TripodCoverSection from '~/features/editor/components/TripodCoverSection.vue'
+import { resolveNadirCover, type NadirCoverSettings } from '~/shared/utils/viewerAdapters/nadirCover'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
 import SceneDock from '~/features/editor/components/SceneDock.vue'
@@ -873,6 +887,65 @@ const {
   // Apply settings to the live viewer immediately after a successful save
   (settings) => viewerCanvasRef.value?.refreshSettings(settings),
 )
+
+// ── Tripod cover (logo under the camera, every scene) ─────────────────────────
+// Edited as a draft in the settings panel: the viewer previews the draft while
+// the panel is open, and Save keeps it. Its own request, so the view settings
+// still save on a database where migration-nadir-cover.sql hasn't run yet.
+const savedNadirCover = computed<NadirCoverSettings | null>(() => space.value?.property_360_settings?.[0]?.nadir_cover ?? null)
+const nadirDraft = ref<NadirCoverSettings | null>(null)
+/** The panel steps aside (no dimming, panel on the right) so the floor can be seen. */
+const nadirPeek = ref(false)
+/** Scenes the cover can be placed on: saved ones (an uploading scene has no id the server knows yet), dock order. */
+const nadirScenes = computed(() => scenes.value
+  .filter((sc: any) => sc?.id && !isLocalSceneId(sc.id))
+  .slice()
+  .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+  .map((sc: any) => ({ id: sc.id as string, name: (sc.name as string) || 'Untitled scene', thumb: (sc.thumbnail_url as string) || null })))
+const liveNadirCover = computed(() => (showSettingsPanel.value ? nadirDraft.value : savedNadirCover.value))
+
+watch(showSettingsPanel, (open) => {
+  nadirPeek.value = false
+  if (open) nadirDraft.value = savedNadirCover.value ? JSON.parse(JSON.stringify(savedNadirCover.value)) : null
+})
+
+function lookAtTripod() {
+  nadirPeek.value = true
+  viewerCanvasRef.value?.refreshSettings({ pitch: -90 })
+}
+
+let nadirSaveQueue: Promise<unknown> = Promise.resolve()
+function saveNadirCover() {
+  const next = nadirDraft.value ? JSON.parse(JSON.stringify(nadirDraft.value)) as NadirCoverSettings : null
+  if (next) {
+    // Only ids of scenes that still exist (and are saved): deleted or uploading ones are dropped.
+    const known = new Set(nadirScenes.value.map(sc => sc.id))
+    next.scene_ids = (next.scene_ids ?? []).filter(id => known.has(id))
+    next.hidden_scene_ids = next.hidden_scene_ids.filter(id => known.has(id))
+    next.mode = next.mode === 'some' ? 'some' : 'all'
+  }
+  const prev = savedNadirCover.value
+  if (JSON.stringify(next) === JSON.stringify(prev)) return
+  const setLocal = (v: NadirCoverSettings | null) => {
+    if (!space.value) return
+    const s0 = space.value.property_360_settings?.[0] ?? {}
+    space.value = { ...space.value, property_360_settings: [{ ...s0, nadir_cover: v }] }
+  }
+  setLocal(next)
+  const request = nadirSaveQueue.then(() => apiFetch(`/spaces/${props.spaceId}/settings`, { method: 'PATCH', body: { nadir_cover: next } }))
+  nadirSaveQueue = request.catch(() => {})
+  request.catch((e: any) => {
+    // Only roll back if nothing newer was saved meanwhile.
+    if (JSON.stringify(savedNadirCover.value) === JSON.stringify(next)) setLocal(prev)
+    showToast(e?.data?.statusMessage || 'Failed to save the tripod cover', 'error')
+  })
+}
+
+function saveViewerSettings() {
+  // Before saveSettings(): it closes the panel and keeps the settings row as it is then.
+  saveNadirCover()
+  void saveSettings()
+}
 
 // ── AI Auto-link ──────────────────────────────────────────────────────────────
 const {
@@ -1244,6 +1317,7 @@ const activeViewerScene = computed(() => {
       yaw_default: startView.yaw,
       auto_rotate_enabled: s?.auto_rotate_enabled ?? false,
     },
+    nadirCover: resolveNadirCover(liveNadirCover.value, activeScene.value?.id ?? ''),
   }
 })
 
@@ -2630,6 +2704,8 @@ defineExpose({
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center; padding: 20px;
 }
+.ts-overlay--peek { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; justify-content: flex-end; pointer-events: none; }
+.ts-overlay--peek .ts-panel { pointer-events: auto; }
 .ts-panel {
   width: 100%; max-width: 480px; max-height: 88vh;
   background: #0e0e12;
