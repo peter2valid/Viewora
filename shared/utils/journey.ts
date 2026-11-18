@@ -202,3 +202,15 @@ export function tourJourneys(tour: any, sceneIds: Set<string>): Journey[] {
 export function newLocalId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
+
+/** Voices a journey can be read in: exactly the ones baked into the voice worker.
+ *  Same ids as viewora-backend src/utils/narration.ts and tts-worker/narration.py
+ *  (tts-worker/tests/test_voices.py checks). Samples: public/voices/<id>.mp3. */
+export const JOURNEY_VOICES = [
+  { id: 'af_heart', name: 'Heart', about: 'Warm, calm · American · woman' },
+  { id: 'af_bella', name: 'Bella', about: 'Bright, friendly · American · woman' },
+  { id: 'bf_emma', name: 'Emma', about: 'Clear, gentle · British · woman' },
+  { id: 'am_michael', name: 'Michael', about: 'Steady, low · American · man' },
+] as const
+export type JourneyVoice = typeof JOURNEY_VOICES[number]['id']
+export const DEFAULT_JOURNEY_VOICE: JourneyVoice = 'af_heart'

@@ -101,6 +101,25 @@
           <!-- Voice: one recording per line, made in one go when you're done writing. -->
           <div class="jy-voice">
             <p class="jy-label">Voice</p>
+            <div class="jy-voices" role="radiogroup" aria-label="Who reads this journey">
+              <div
+                v-for="v in JOURNEY_VOICES" :key="v.id" class="jy-voicepick"
+                :class="{ 'jy-voicepick--on': journey.narration_voice === v.id }"
+              >
+                <button
+                  class="jy-voicepick__main" role="radio" :aria-checked="journey.narration_voice === v.id"
+                  :disabled="voiceBusy || voiceSaving || !voiceEnabled" @click="setVoice(v.id)"
+                >
+                  <span class="jy-voicepick__dot" aria-hidden="true" />
+                  <span><b>{{ v.name }}</b><small>{{ v.about }}</small></span>
+                </button>
+                <button
+                  class="jy-hear" :class="{ 'jy-hear--on': sampling === v.id }"
+                  :aria-label="sampling === v.id ? 'Stop' : `Hear ${v.name}`" :title="sampling === v.id ? 'Stop' : `Hear ${v.name}`"
+                  @click="sample(v.id)"
+                >{{ sampling === v.id ? '■' : '▶' }}</button>
+              </div>
+            </div>
             <p class="jy-muted">{{ voiceText }}</p>
             <div v-if="voiceBusy" class="jy-voice__bar" aria-hidden="true"><i :style="{ width: voicePct + '%' }" /></div>
             <button
@@ -274,14 +293,14 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 import RoomSphere from '~/features/editor/components/RoomSphere.vue'
 import type { JourneyCommand } from '~/components/viewer/JourneyPlayer.vue'
-import { compileJourney, freshAudio, journeyMinutes, newLocalId, normalizeLine, type JourneyDocSentence, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
+import { compileJourney, freshAudio, JOURNEY_VOICES, DEFAULT_JOURNEY_VOICE, type JourneyVoice, journeyMinutes, newLocalId, normalizeLine, type JourneyDocSentence, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
 import { buildSceneGraph, buildVenueFloors, scenePath } from '~/shared/utils/venue'
 import { createSerialWrites } from '~/shared/utils/editorWrites'
 
 const props = defineProps<{ spaceId: string }>()
 const emit = defineEmits<{ (e: 'fix-link', sceneId: string): void }>()
 
-interface JourneyRow { id: string; title: string; steps: JourneyDocStep[]; is_published: boolean }
+interface JourneyRow { id: string; title: string; steps: JourneyDocStep[]; is_published: boolean; narration_voice: JourneyVoice }
 
 const { apiFetch } = useApiFetch()
 const serial = createSerialWrites()
@@ -437,6 +456,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onPickerKey)
   stopVoicePoll()
   hearClip?.pause()
+  stopSample()
 })
 
 // ── Loading ────────────────────────────────────────────────────────────────
@@ -472,6 +492,7 @@ function normalise(r: any): JourneyRow {
     id: r.id,
     title: r.title ?? '',
     is_published: !!r.is_published,
+    narration_voice: JOURNEY_VOICES.some(v => v.id === r.narration_voice) ? r.narration_voice : DEFAULT_JOURNEY_VOICE,
     steps: (Array.isArray(r.steps) ? r.steps : []).map((s: any) => ({
       id: s.id || newLocalId(),
       title: s.title ?? '',
@@ -547,7 +568,7 @@ function selectJourney(i: number) {
 // Nothing is recorded while you write. "Generate voice" records every line
 // that's new or changed, in one go (one wake-up of the voice service), and
 // leaves lines that already have a voice alone.
-interface VoiceJob { id: string; status: 'queued' | 'running' | 'done' | 'failed'; total: number; done_count: number; error?: string | null }
+interface VoiceJob { id: string; status: 'queued' | 'running' | 'done' | 'failed'; total: number; done_count: number; error?: string | null; created_at?: string }
 const voiceJob = ref<VoiceJob | null>(null)
 const voiceEnabled = ref(true)
 const voiceWorker = ref(true)
@@ -573,6 +594,9 @@ const voiceText = computed(() => {
   const j = voiceJob.value
   if (!voiceEnabled.value) return 'Recorded voices need one database update before they can be made.'
   if (j?.status === 'queued' && !voiceWorker.value) return 'Waiting: the voice service isn’t set up on the server yet.'
+  if (j?.status === 'queued' && j.created_at && Date.now() - Date.parse(j.created_at) > 3 * 60_000) {
+    return 'The voice service hasn’t started after 3 minutes. Your lines are saved and will be recorded when it does; if this keeps happening, the voice service needs checking on the server.'
+  }
   if (j?.status === 'queued') return 'Starting the voice service… this can take a minute.'
   if (j?.status === 'running') return `Recording ${Math.min(j.done_count + 1, j.total)} of ${j.total} ${j.total === 1 ? 'line' : 'lines'}… you can keep working.`
   if (j?.status === 'failed' && st.need) return `Recording stopped (${j.error || 'unknown error'}). Try again.`
@@ -637,8 +661,47 @@ async function refreshAudio(journeyId: string) {
   for (const st of fresh.steps ?? []) for (const x of st.sentences ?? []) if (x?.id) byId.set(x.id, x.audio ?? null)
   for (const st of mine.steps) for (const x of st.sentences) {
     const a = byId.get(x.id)
+    // The API is the truth: a line it has no recording for (e.g. after a voice change) has none here.
     if (a) x.audio = a
+    else delete x.audio
   }
+}
+
+// ── Voice picker ───────────────────────────────────────────────────────────
+// Changing the voice keeps the old recordings (switching back reuses them);
+// lines just need "Generate voice" again in the new one.
+const voiceSaving = ref(false)
+async function setVoice(v: JourneyVoice) {
+  const j = journey.value
+  if (!j || j.narration_voice === v || voiceBusy.value || voiceSaving.value) return
+  const before = j.narration_voice
+  j.narration_voice = v
+  voiceSaving.value = true
+  stopSample()
+  try {
+    await serial.run(j.id, () => apiFetch(`/journeys/${j.id}`, { method: 'PUT', body: { narration_voice: v } }))
+    await refreshAudio(j.id)
+  } catch (e: any) {
+    j.narration_voice = before
+    if (e?.response?.status === 503 || e?.statusCode === 503) voiceEnabled.value = false
+    else toast.error(e?.data?.statusMessage || 'Could not change the voice.')
+  } finally {
+    voiceSaving.value = false
+  }
+}
+
+// Hear a short sample of each voice before choosing.
+const sampling = ref<string | null>(null)
+let sampleClip: HTMLAudioElement | null = null
+function stopSample() { sampleClip?.pause(); sampling.value = null }
+function sample(v: string) {
+  if (sampling.value === v) return stopSample()
+  stopSample()
+  hearClip?.pause(); hearing.value = null
+  sampleClip = new Audio(`/voices/${v}.mp3`)
+  sampling.value = v
+  sampleClip.onended = () => { if (sampling.value === v) sampling.value = null }
+  sampleClip.play().catch(() => { sampling.value = null })
 }
 
 // Status of the journey on screen (a recording may already be running).
@@ -656,6 +719,7 @@ function hear(t: JourneyDocSentence) {
   if (!a) return
   if (hearing.value === t.id) { hearClip?.pause(); hearing.value = null; return }
   hearClip?.pause()
+  stopSample()
   hearClip = new Audio(a.url)
   hearing.value = t.id
   hearClip.onended = () => { if (hearing.value === t.id) hearing.value = null }
@@ -950,6 +1014,15 @@ watch(viewerRef, (v) => {
 .jy-select { width: 100%; height: 30px; margin-top: 2px; padding: 0 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14); background: #161a22; color: #fff; font-size: 11.5px; font-family: inherit; }
 .jy-voice { margin-top: 14px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
 .jy-voice .jy-label { margin-top: 0; }
+.jy-voices { display: grid; gap: 6px; margin: 4px 0 10px; }
+.jy-voicepick { display: flex; align-items: center; gap: 6px; padding: 2px 8px 2px 2px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
+.jy-voicepick--on { border-color: #e11d48; background: rgba(225,29,72,0.08); }
+.jy-voicepick__main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 7px 6px; border: 0; background: none; color: #fff; text-align: left; font: inherit; cursor: pointer; }
+.jy-voicepick__main:disabled { cursor: default; opacity: 0.75; }
+.jy-voicepick__main b { display: block; font-size: 12.5px; font-weight: 600; }
+.jy-voicepick__main small { display: block; font-size: 11px; color: rgba(255,255,255,0.55); }
+.jy-voicepick__dot { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); }
+.jy-voicepick--on .jy-voicepick__dot { border-color: #e11d48; background: radial-gradient(#e11d48 0 3px, transparent 4px); }
 .jy-voice__bar { height: 5px; margin-top: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
 .jy-voice__bar i { display: block; height: 100%; background: #e11d48; transition: width 0.4s; }
 .jy-sentence .jy-textarea { flex: 1; min-height: 78px; }
