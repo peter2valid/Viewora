@@ -98,6 +98,17 @@
             <li v-for="c in checks" :key="c">{{ c }}</li>
           </ul>
 
+          <!-- Voice: one recording per line, made in one go when you're done writing. -->
+          <div class="jy-voice">
+            <p class="jy-label">Voice</p>
+            <p class="jy-muted">{{ voiceText }}</p>
+            <div v-if="voiceBusy" class="jy-voice__bar" aria-hidden="true"><i :style="{ width: voicePct + '%' }" /></div>
+            <button
+              class="jy-btn jy-btn--wide" :disabled="!voiceStats.need || voiceBusy || !voiceEnabled"
+              @click="generateVoice()"
+            >{{ voiceBusy ? 'Recording…' : voiceStats.need ? `Generate voice (${voiceStats.need} ${voiceStats.need === 1 ? 'line' : 'lines'})` : 'Every line has a voice' }}</button>
+          </div>
+
           <div class="jy-side__foot">
             <span class="jy-muted">{{ saveLabel }}</span>
             <button class="jy-linkbtn jy-linkbtn--danger" @click="deleteJourney">Delete this journey</button>
@@ -154,7 +165,15 @@
             turn the preview (scroll or pinch to zoom in), then press <b>Use this view</b>.
           </p>
           <div v-for="(t, k) in step.sentences" :key="t.id" class="jy-sentence">
-            <span class="jy-sentence__n">{{ k + 1 }}</span>
+            <div class="jy-sentence__side">
+              <span class="jy-sentence__n">{{ k + 1 }}</span>
+              <button
+                v-if="freshAudio(t)" class="jy-hear" :class="{ 'jy-hear--on': hearing === t.id }"
+                :title="hearing === t.id ? 'Stop' : 'Hear this line'" :aria-label="hearing === t.id ? 'Stop' : `Hear line ${k + 1}`"
+                @click="hear(t)"
+              >{{ hearing === t.id ? '■' : '▶' }}</button>
+              <span v-else-if="t.audio" class="jy-hear jy-hear--stale" title="Edited since it was recorded: Generate voice records it again">●</span>
+            </div>
             <textarea
               v-model="t.text" class="jy-input jy-textarea" rows="2" maxlength="400"
               :placeholder="k === 0 ? promptFor(step.title) : 'Anything else they should know?'"
@@ -174,6 +193,14 @@
                 <button class="jy-linkbtn" :disabled="!previewReady" @click="setLineView(k)">{{ lineView(k) ? 'Update' : 'Use this view' }}</button>
                 <button v-if="lineView(k)" class="jy-linkbtn jy-linkbtn--muted" @click="clearLineView(k)">Clear</button>
               </div>
+              <select
+                v-if="infoSpots.length" class="jy-select" :value="t.hotspot_id || ''" :aria-label="`Info card for line ${k + 1}`"
+                title="Open one of this photo's info hotspots while the line is read"
+                @change="setLineHotspot(k, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">No info card</option>
+                <option v-for="h in infoSpots" :key="h.id" :value="h.id">Show “{{ h.label }}”</option>
+              </select>
             </div>
             <button class="jy-btn jy-btn--icon" title="Remove this line" @click="removeSentence(k)">✕</button>
           </div>
@@ -247,7 +274,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 import RoomSphere from '~/features/editor/components/RoomSphere.vue'
 import type { JourneyCommand } from '~/components/viewer/JourneyPlayer.vue'
-import { compileJourney, journeyMinutes, newLocalId, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
+import { compileJourney, freshAudio, journeyMinutes, newLocalId, normalizeLine, type JourneyDocSentence, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
 import { buildSceneGraph, buildVenueFloors, scenePath } from '~/shared/utils/venue'
 import { createSerialWrites } from '~/shared/utils/editorWrites'
 
@@ -406,7 +433,11 @@ function onPickerKey(e: KeyboardEvent) {
   e.preventDefault()
 }
 onMounted(() => window.addEventListener('keydown', onPickerKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onPickerKey))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onPickerKey)
+  stopVoicePoll()
+  hearClip?.pause()
+})
 
 // ── Loading ────────────────────────────────────────────────────────────────
 async function init() {
@@ -446,7 +477,12 @@ function normalise(r: any): JourneyRow {
       title: s.title ?? '',
       scene_id: s.scene_id ?? null,
       view: s.view ?? null,
-      sentences: (Array.isArray(s.sentences) ? s.sentences : []).map((x: any) => ({ id: x.id || newLocalId(), text: x.text ?? '', ...(x.view ? { view: x.view } : {}) })),
+      sentences: (Array.isArray(s.sentences) ? s.sentences : []).map((x: any) => ({
+        id: x.id || newLocalId(), text: x.text ?? '',
+        ...(x.view ? { view: x.view } : {}),
+        ...(x.hotspot_id ? { hotspot_id: x.hotspot_id } : {}),
+        ...(x.audio ? { audio: x.audio } : {}),
+      })),
     })),
   }
 }
@@ -465,7 +501,9 @@ function saveNow() {
   dirty.value = true
   saving.value = true
   const v = ++saveVersion
-  const body = { title: j.title.trim() || 'Patient visit', steps: JSON.parse(JSON.stringify(j.steps)), is_published: j.is_published }
+  // Recordings are looked up by the API, never saved inside the journey.
+  const steps = JSON.parse(JSON.stringify(j.steps, (k, v) => k === 'audio' ? undefined : v))
+  const body = { title: j.title.trim() || 'Patient visit', steps, is_published: j.is_published }
   serial.patch(j.id, body, b => apiFetch(`/journeys/${j.id}`, { method: 'PUT', body: b }))
     .then(() => { saveFailed.value = false })
     .catch((e: any) => {
@@ -504,6 +542,140 @@ function selectJourney(i: number) {
   selected.value = 0
   showStarters.value = false
 }
+
+// ── Voice (recorded narration) ─────────────────────────────────────────────
+// Nothing is recorded while you write. "Generate voice" records every line
+// that's new or changed, in one go (one wake-up of the voice service), and
+// leaves lines that already have a voice alone.
+interface VoiceJob { id: string; status: 'queued' | 'running' | 'done' | 'failed'; total: number; done_count: number; error?: string | null }
+const voiceJob = ref<VoiceJob | null>(null)
+const voiceEnabled = ref(true)
+const voiceWorker = ref(true)
+const voiceBusy = computed(() => voiceJob.value?.status === 'queued' || voiceJob.value?.status === 'running')
+const voicePct = computed(() => {
+  const j = voiceJob.value
+  return j && j.total ? Math.round((100 * j.done_count) / j.total) : 4
+})
+const voiceStats = computed(() => {
+  const all = new Map<string, boolean>()
+  for (const st of journey.value?.steps ?? []) {
+    for (const x of st.sentences) {
+      const text = normalizeLine(x.text)
+      if (text) all.set(text, (all.get(text) ?? false) || !!freshAudio(x))
+    }
+  }
+  const lines = all.size
+  const voiced = [...all.values()].filter(Boolean).length
+  return { lines, voiced, need: lines - voiced }
+})
+const voiceText = computed(() => {
+  const st = voiceStats.value
+  const j = voiceJob.value
+  if (!voiceEnabled.value) return 'Recorded voices need one database update before they can be made.'
+  if (j?.status === 'queued' && !voiceWorker.value) return 'Waiting: the voice service isn’t set up on the server yet.'
+  if (j?.status === 'queued') return 'Starting the voice service… this can take a minute.'
+  if (j?.status === 'running') return `Recording ${Math.min(j.done_count + 1, j.total)} of ${j.total} ${j.total === 1 ? 'line' : 'lines'}… you can keep working.`
+  if (j?.status === 'failed' && st.need) return `Recording stopped (${j.error || 'unknown error'}). Try again.`
+  if (!st.lines) return 'Write what happens at each step; then give it a voice here.'
+  if (!st.need) return `All ${st.lines} ${st.lines === 1 ? 'line has' : 'lines have'} a voice.`
+  return `${st.need} of ${st.lines} ${st.lines === 1 ? 'line needs' : 'lines need'} a voice. Until then they show as captions only.`
+})
+
+let voicePoll: ReturnType<typeof setInterval> | null = null
+function stopVoicePoll() { if (voicePoll) { clearInterval(voicePoll); voicePoll = null } }
+
+async function generateVoice(quiet = false) {
+  const j = journey.value
+  if (!j) return
+  saveNow() // the worker reads the saved journey: send the latest text first
+  try {
+    const res: any = await serial.run(j.id, () => apiFetch(`/journeys/${j.id}/narration`, { method: 'POST', body: {} }))
+    voiceWorker.value = res?.worker !== false
+    if (!res?.job) {
+      // Already recorded (e.g. the same sentence in another journey): just bring the files in.
+      await refreshAudio(j.id)
+      if (!quiet) toast.success('Every line already has a voice.')
+      return
+    }
+    voiceJob.value = res.job
+    watchVoice(j.id)
+  } catch (e: any) {
+    if (e?.response?.status === 503 || e?.statusCode === 503) voiceEnabled.value = false
+    else if (!quiet) toast.error(e?.data?.statusMessage || 'Could not start recording.')
+  }
+}
+
+function watchVoice(journeyId: string) {
+  stopVoicePoll()
+  voicePoll = setInterval(() => void checkVoice(journeyId), 3000)
+}
+
+async function checkVoice(journeyId: string) {
+  try {
+    const res: any = await apiFetch(`/journeys/${journeyId}/narration`)
+    if (journey.value?.id !== journeyId) return stopVoicePoll()
+    voiceEnabled.value = res?.enabled !== false
+    voiceWorker.value = res?.worker !== false
+    const before = voiceJob.value?.status
+    voiceJob.value = res?.job ?? null
+    if (voiceBusy.value) { if (!voicePoll) watchVoice(journeyId); return }
+    stopVoicePoll()
+    if (before && before !== 'done' && res?.job?.status === 'done') {
+      await refreshAudio(journeyId)
+      toast.success('Voice ready. Press ▶ on a line to hear it.')
+    }
+  } catch { /* try again on the next tick */ }
+}
+
+/** Bring in the new recordings without touching anything being edited. */
+async function refreshAudio(journeyId: string) {
+  const res: any = await apiFetch(`/spaces/${props.spaceId}/journeys`)
+  const fresh = (res?.journeys ?? []).find((r: any) => r.id === journeyId)
+  const mine = journeys.value.find(r => r.id === journeyId)
+  if (!fresh || !mine) return
+  const byId = new Map<string, any>()
+  for (const st of fresh.steps ?? []) for (const x of st.sentences ?? []) if (x?.id) byId.set(x.id, x.audio ?? null)
+  for (const st of mine.steps) for (const x of st.sentences) {
+    const a = byId.get(x.id)
+    if (a) x.audio = a
+  }
+}
+
+// Status of the journey on screen (a recording may already be running).
+watch(() => journey.value?.id, (id) => {
+  stopVoicePoll()
+  voiceJob.value = null
+  if (id) void checkVoice(id)
+})
+
+// ▶ on a line: hear its recording in the editor.
+const hearing = ref<string | null>(null)
+let hearClip: HTMLAudioElement | null = null
+function hear(t: JourneyDocSentence) {
+  const a = freshAudio(t)
+  if (!a) return
+  if (hearing.value === t.id) { hearClip?.pause(); hearing.value = null; return }
+  hearClip?.pause()
+  hearClip = new Audio(a.url)
+  hearing.value = t.id
+  hearClip.onended = () => { if (hearing.value === t.id) hearing.value = null }
+  hearClip.play().catch(() => { hearing.value = null; toast.error('Could not play this recording.') })
+}
+
+// Info hotspots in this step's photo, for "Show … while this line is read".
+const infoSpots = computed(() => {
+  const sc = step.value?.scene_id ? sceneById.value.get(step.value.scene_id) : null
+  return (sc?.hotspots ?? [])
+    .filter((h: any) => h?.type === 'info' && h.id)
+    .map((h: any) => ({ id: h.id as string, label: String(h.label || h.title || 'Info point') }))
+})
+function setLineHotspot(k: number, id: string) {
+  const x = step.value?.sentences[k]
+  if (!x) return
+  if (id) x.hotspot_id = id
+  else delete x.hotspot_id
+  saveNow()
+}
 function togglePublished() {
   if (!journey.value) return
   if (!journey.value.is_published && !playable.value) {
@@ -512,6 +684,8 @@ function togglePublished() {
   }
   journey.value.is_published = !journey.value.is_published
   saveNow()
+  // Going live: record whatever still needs a voice, in the same one batch.
+  if (journey.value.is_published && voiceStats.value.need && voiceEnabled.value && !voiceBusy.value) void generateVoice(true)
 }
 async function deleteJourney() {
   const j = journey.value
@@ -572,7 +746,8 @@ function choosePhoto(sceneId: string) {
 // later lines may each look somewhere else in the same photo.
 function clearViews(s: JourneyDocStep) {
   s.view = null
-  for (const x of s.sentences) delete x.view
+  // Directions and info cards only mean something in their own photo.
+  for (const x of s.sentences) { delete x.view; delete x.hotspot_id }
 }
 function lineView(k: number): JourneyDocView | null {
   const s = step.value
@@ -768,6 +943,15 @@ watch(viewerRef, (v) => {
 .jy-photo__thumb { flex: none; width: 88px; height: 44px; border-radius: 8px; background: #1f2430 center / cover; }
 .jy-hint { margin: -2px 0 8px; }
 .jy-sentence { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.jy-sentence__side { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.jy-hear { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(225,29,72,0.18); color: #fda4af; font-size: 9px; cursor: pointer; }
+.jy-hear:hover, .jy-hear--on { background: #e11d48; color: #fff; }
+.jy-hear--stale { background: none; color: #fbbf24; font-size: 10px; cursor: help; }
+.jy-select { width: 100%; height: 30px; margin-top: 2px; padding: 0 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14); background: #161a22; color: #fff; font-size: 11.5px; font-family: inherit; }
+.jy-voice { margin-top: 14px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+.jy-voice .jy-label { margin-top: 0; }
+.jy-voice__bar { height: 5px; margin-top: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.jy-voice__bar i { display: block; height: 100%; background: #e11d48; transition: width 0.4s; }
 .jy-sentence .jy-textarea { flex: 1; min-height: 78px; }
 .jy-field--photo { margin-bottom: 16px; }
 .jy-lines__head { display: flex; align-items: baseline; gap: 8px; }
