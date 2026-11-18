@@ -586,7 +586,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, reactive, markRaw } from 'vue'
 import { navigateTo } from '#imports'
 import { usePlanStore } from '~/stores/plan'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -617,6 +617,7 @@ import HotspotPanel from '~/features/editor/components/HotspotPanel.vue'
 import HotspotTypePicker from '~/features/editor/components/HotspotTypePicker.vue'
 import HotspotQuickEditor from '~/features/editor/components/HotspotQuickEditor.vue'
 import { toast } from 'vue-sonner'
+import SceneProgressToast, { type SceneProgressState } from '~/features/editor/components/SceneProgressToast.vue'
 
 const editorStore = useEditorStore()
 const analytics = useAnalytics()
@@ -1253,6 +1254,79 @@ const hasProcessingScenes = computed(() =>
     return state !== 'ready' && state !== 'failed'
   }) || localUploads.value.length > 0
 )
+
+// Progress toast while scenes upload/process: "12 / 30" bar plus a time-left
+// estimate from how fast scenes have been finishing since the batch began.
+// Sits in the same bottom-right toast stack as the hotspot hint.
+const SCENE_PROGRESS_TOAST_ID = 'scene-progress'
+const sceneProgress = reactive<SceneProgressState>({ ready: 0, total: 0, failed: 0, etaMs: null })
+let progressBatch: { startedAt: number; readyAtStart: number; lastDoneAt: number } | null = null
+let progressTicker: ReturnType<typeof setInterval> | null = null
+
+const sceneProgressCounts = computed(() => {
+  let ready = 0
+  let failed = 0
+  for (const s of scenes.value) {
+    const state = sceneUploadStateById.value[s.id] || backendSceneStatusToUploadState(s.status)
+    if (state === 'ready') ready++
+    else if (state === 'failed') failed++
+  }
+  return { ready, failed, total: scenes.value.length }
+})
+
+function updateSceneEta() {
+  if (!progressBatch) { sceneProgress.etaMs = null; return }
+  const done = sceneProgress.ready - progressBatch.readyAtStart
+  const remaining = sceneProgress.total - sceneProgress.ready - sceneProgress.failed
+  if (done <= 0 || remaining <= 0) { sceneProgress.etaMs = null; return }
+  const perScene = (progressBatch.lastDoneAt - progressBatch.startedAt) / done
+  const sinceLast = Date.now() - progressBatch.lastDoneAt
+  sceneProgress.etaMs = Math.max(0, remaining * perScene - sinceLast)
+}
+
+function stopSceneProgress(showDone: boolean) {
+  if (progressTicker) { clearInterval(progressTicker); progressTicker = null }
+  toast.dismiss(SCENE_PROGRESS_TOAST_ID)
+  if (showDone && progressBatch && sceneProgress.ready > progressBatch.readyAtStart) {
+    const n = sceneProgress.ready - progressBatch.readyAtStart
+    if (sceneProgress.failed) toast.warning(`${n} scene${n === 1 ? '' : 's'} ready, ${sceneProgress.failed} failed`)
+    else toast.success(n === 1 ? 'Scene ready' : `All ${n} scenes ready`)
+  }
+  progressBatch = null
+}
+
+watch([hasProcessingScenes, sceneProgressCounts], ([processing, counts]) => {
+  if (!import.meta.client) return
+  const prevReady = sceneProgress.ready
+  sceneProgress.ready = counts.ready
+  sceneProgress.failed = counts.failed
+  sceneProgress.total = counts.total
+
+  if (!processing) {
+    if (progressBatch) stopSceneProgress(true)
+    return
+  }
+  if (!progressBatch) {
+    const now = Date.now()
+    progressBatch = { startedAt: now, readyAtStart: counts.ready, lastDoneAt: now }
+    toast.custom(markRaw(SceneProgressToast), {
+      id: SCENE_PROGRESS_TOAST_ID,
+      duration: Number.POSITIVE_INFINITY,
+      dismissible: false,
+      unstyled: true,
+      componentProps: { progress: sceneProgress },
+    })
+    progressTicker = setInterval(updateSceneEta, 1000)
+  } else if (counts.ready > prevReady) {
+    progressBatch.lastDoneAt = Date.now()
+  } else if (counts.ready < progressBatch.readyAtStart) {
+    // A ready scene was deleted mid-batch; keep "done" counting from here.
+    progressBatch.readyAtStart = counts.ready
+  }
+  updateSceneEta()
+}, { immediate: true })
+
+onBeforeUnmount(() => stopSceneProgress(false))
 
 function unwrapApiData<T = any>(value: any): T {
   if (value && typeof value === 'object' && 'data' in value && value.data !== undefined) return value.data as T
