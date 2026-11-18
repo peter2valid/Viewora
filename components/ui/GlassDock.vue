@@ -60,7 +60,9 @@
           <div v-if="$slots.header" class="glass-dock__header" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
             <slot name="header" />
           </div>
-          <div v-if="items.length" ref="stripEl" class="glass-dock__strip" :style="{ maxWidth: `min(${maxStripVw}vw, ${maxStripPx}px)` }">
+          <!-- Strip scrolls; "Add scene" sits outside it so it stays put. -->
+          <div v-if="items.length" class="glass-dock__row">
+          <div ref="stripEl" class="glass-dock__strip" :style="{ maxWidth: stripMaxWidth }">
             <!-- One section per category when `branches` is on: the category
                  name is the branch, a line runs over its scenes, and a stem
                  drops to each card. The name sticks to the strip's left edge
@@ -171,6 +173,7 @@
             </button>
             </div>
             </div>
+          </div>
             <button
               v-if="showAdd"
               class="glass-dock__item glass-dock__item--add"
@@ -697,6 +700,11 @@ onBeforeUnmount(() => {
 
 const paddedClass = computed(() => 'glass-dock--padded')
 const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
+// The fixed "Add scene" card sits beside the strip, so the strip gives up its
+// width (card + gap) to keep the whole dock inside the same bounds as before.
+const stripMaxWidth = computed(() => props.showAdd
+  ? `min(calc(${props.maxStripVw}vw - 116px), ${props.maxStripPx - 150}px)`
+  : `min(${props.maxStripVw}vw, ${props.maxStripPx}px)`)
 </script>
 
 <style scoped>
@@ -975,7 +983,32 @@ const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
   }
 }
 
-.glass-dock__item--add { align-self: flex-end; }
+.glass-dock__item--add { align-self: flex-end; flex-shrink: 0; }
+
+/* Strip + the fixed "Add scene" card. The line marks where the scroll ends. */
+.glass-dock__row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+.glass-dock__row > .glass-dock__item--add {
+  position: relative;
+  margin-left: 1px;
+}
+.glass-dock__row > .glass-dock__item--add::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 14%;
+  bottom: 14%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+@media (min-width: 640px) {
+  .glass-dock__row { gap: 14px; }
+  .glass-dock__row > .glass-dock__item--add::before { left: -8px; }
+}
 
 .glass-dock__item:hover {
   background: rgba(255,255,255,0.04);
