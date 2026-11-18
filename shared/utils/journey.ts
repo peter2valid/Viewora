@@ -33,10 +33,14 @@ export type JourneyAction =
   | { look: JourneyView; ms?: number; reframe?: boolean }
   /** A slow full turn round the room, back to where it started. */
   | { around: number; say?: string }
-  /** Narrate a line (caption + voice). The next action waits for it. */
-  | { say: string }
+  /**
+   * Narrate a line (caption + voice). The next action waits for it.
+   * audio: the line's recording (MP3); ms: its length. Without audio the
+   * caption shows for a reading time instead.
+   */
+  | { say: string; audio?: string; ms?: number }
   /** Open an info hotspot's card, narrate, then close it. */
-  | { card: string; say?: string; hold?: number }
+  | { card: string; say?: string; hold?: number; audio?: string; ms?: number }
   | { wait: number }
 
 export interface JourneyChapter {
@@ -80,7 +84,7 @@ export function journeyMinutes(j: Journey): number {
   let ms = 0
   for (const c of j.chapters) {
     for (const a of c.actions) {
-      if ('say' in a && a.say) ms += speakMs(a.say)
+      if ('say' in a && a.say) ms += ('ms' in a && a.ms) ? a.ms : speakMs(a.say)
       if ('walk' in a) ms += 3000
       // A turn and its line run together: count whichever is longer.
       if ('around' in a) ms += Math.max(0, a.around - (a.say ? speakMs(a.say) : 0))
@@ -97,11 +101,32 @@ export function journeyMinutes(j: Journey): number {
 // front desk"); the walks, turns and timing are worked out here, never by them.
 
 export interface JourneyDocView { yaw: number; pitch: number; zoom?: number }
+/** A line's recording, added by the API (never saved in the journey itself). */
+export interface JourneyDocAudio {
+  url: string
+  duration_ms: number
+  /** What was recorded; when the line's text differs, the recording is out of date. */
+  text: string
+}
 export interface JourneyDocSentence {
   id: string
   text: string
   /** Where to look while this line is read (lines 2+; line 1 uses the step's view). Absent = keep looking. */
   view?: JourneyDocView | null
+  /** An info hotspot (in this step's photo) whose card opens while the line is read. */
+  hotspot_id?: string | null
+  audio?: JourneyDocAudio | null
+}
+
+/** What is actually said: trimmed, runs of whitespace as one space (as the API hashes it). */
+export function normalizeLine(text: string): string {
+  return String(text ?? '').trim().replace(/\s+/g, ' ')
+}
+
+/** The line's recording, only if it still matches what the line says. */
+export function freshAudio(x: JourneyDocSentence): JourneyDocAudio | null {
+  const a = x.audio
+  return a && a.url && a.text === normalizeLine(x.text) ? a : null
 }
 export interface JourneyDocStep {
   id: string
@@ -144,9 +169,17 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
     // turns there first. Empty lines are skipped, but their view still counts.
     let said = 0
     ;(s.sentences ?? []).forEach((x, k) => {
+      const text = normalizeLine(x.text ?? '')
+      const a = freshAudio(x)
+      const voice = a ? { audio: a.url, ms: a.duration_ms } : {}
+      if (x.hotspot_id) {
+        // Opening the card turns the camera to the hotspot itself: no separate look.
+        actions.push(text ? { card: x.hotspot_id, say: text, ...voice } : { card: x.hotspot_id, hold: 4000 })
+        if (text) said++
+        return
+      }
       if (k > 0 && x.view) actions.push({ look: toView(x.view), reframe: true })
-      const text = (x.text ?? '').trim()
-      if (text) { actions.push({ say: text }); said++ }
+      if (text) { actions.push({ say: text, ...voice }); said++ }
     })
     if (!said) actions.push({ wait: QUIET_STEP_MS })
     return { title: s.title.trim() || `Step ${i + 1}`, scene: s.scene_id!, ...(view ? { view } : {}), actions }

@@ -80,3 +80,33 @@ test('a line with its own facing turns there before it is read; empty lines keep
     { look: { yaw: 180, pitch: 0 }, reframe: true },
   ])
 })
+
+test('a line plays its recording only while it still says what was recorded', async () => {
+  const { freshAudio } = await import('../shared/utils/journey.ts')
+  const rec = { url: 'https://cdn/narration/h.mp3', duration_ms: 2400, text: 'Pay at the counter.' }
+  const j = compileJourney({ title: 't', steps: [
+    { id: '1', title: 'Pharmacy', scene_id: 'lab', sentences: [
+      { id: 'a', text: '  Pay at the   counter. ', audio: rec },
+      { id: 'b', text: 'Pay at the front counter.', audio: rec }, // edited since recording
+    ] },
+  ] }, ids)!
+  assert.deepEqual(j.chapters[0]!.actions, [
+    { say: 'Pay at the counter.', audio: rec.url, ms: 2400 },
+    { say: 'Pay at the front counter.' },
+  ])
+  assert.equal(freshAudio({ id: 'x', text: 'Other', audio: rec }), null)
+})
+
+test('a line tied to a hotspot opens its card for the length of the line', () => {
+  const rec = { url: 'u.mp3', duration_ms: 3000, text: 'The pharmacy window is ahead.' }
+  const j = compileJourney({ title: 't', steps: [
+    { id: '1', title: 'Pharmacy', scene_id: 'lab', sentences: [
+      { id: 'a', text: 'The pharmacy window is ahead.', hotspot_id: 'h1', view: { yaw: 1, pitch: 0 }, audio: rec },
+      { id: 'b', text: '', hotspot_id: 'h2' },
+    ] },
+  ] }, ids)!
+  assert.deepEqual(j.chapters[0]!.actions, [
+    { card: 'h1', say: 'The pharmacy window is ahead.', audio: 'u.mp3', ms: 3000 },
+    { card: 'h2', hold: 4000 },
+  ])
+})

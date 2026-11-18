@@ -38,11 +38,11 @@
         <button type="button" class="jp-x" aria-label="End the visit" title="End the visit" @click="end">×</button>
       </div>
 
-      <p class="jp-caption">
+      <p class="jp-caption" :class="{ 'jp-caption--off': !captionsOn && state === 'playing' }">
         <template v-if="state === 'paused' && pausedByUser">You're looking around. The visit carries on from here when you're ready.</template>
         <template v-else-if="state === 'done' && stopAfter !== null">End of this step.</template>
         <template v-else-if="state === 'done'">Thanks for visiting. Look around as long as you like.</template>
-        <template v-else>{{ caption || ' ' }}</template>
+        <template v-else-if="captionsOn">{{ caption || ' ' }}</template>
       </p>
 
       <div class="jp-progress" aria-hidden="true">
@@ -69,6 +69,7 @@
           <button type="button" class="jp-icon" aria-label="Next step" title="Next step" :disabled="chapter >= journey.chapters.length - 1" @click="goChapter(chapter + 1, stopAfter !== null)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 18V6l10.5 6z"/></svg>
           </button>
+          <button type="button" class="jp-icon jp-icon--cc" :class="{ 'is-on': captionsOn }" :aria-pressed="captionsOn" :aria-label="captionsOn ? 'Hide captions' : 'Show captions'" :title="captionsOn ? 'Hide captions' : 'Show captions'" @click="toggleCaptions">CC</button>
           <button type="button" class="jp-icon" :aria-label="muted ? 'Sound on' : 'Sound off'" :title="muted ? 'Sound on' : 'Sound off'" @click="toggleMute">
             <svg v-if="!muted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>
             <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6"/></svg>
@@ -85,9 +86,11 @@
 //
 // Every action can be run again from its beginning (walk = "be in that room",
 // card = "this card open"), so Pause just stops the current action and Resume
-// starts it over. Dragging the view pauses; Resume carries on from there.
+// starts it over, except a line of narration, which carries on mid-sentence.
+// Dragging the view pauses; Resume carries on from there.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { deg, journeyMinutes, speakMs, type Journey, type JourneyAction, type JourneyView } from '~/shared/utils/journey'
+import { runLine } from '~/shared/utils/lineClock'
 
 export interface JourneyApi {
   /** Walk to a scene through the tour's links. Resolves on arrival (or when stopped). */
@@ -140,39 +143,79 @@ function setState(s: typeof state.value) {
 }
 
 // ── Narration ──────────────────────────────────────────────────────────────
-// Prototype voice: the browser's own text-to-speech. A real journey would
-// carry recorded audio per line; the caption and timing work the same way.
-const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined
-let voice: SpeechSynthesisVoice | null = null
-function pickVoice() {
-  const all = synth?.getVoices?.() ?? []
-  voice = all.find(v => /en[-_]GB/i.test(v.lang)) ?? all.find(v => /^en/i.test(v.lang)) ?? null
+// Each line plays its own recording (made once by the TTS worker, served from
+// R2) through one <audio> element. The clip is the clock: the visit moves on
+// when it ends, and Pause/Resume pick it up mid-sentence. A line without a
+// recording shows its caption for a reading time.
+let clip: HTMLAudioElement | null = null
+let unlocked = false
+// A moment of silence, played on the visitor's first tap so iOS lets this
+// element play later lines by itself (Safari only allows sound after a tap).
+const SILENCE = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA=='
+function unlockAudio() {
+  // Once is enough, and never over a line that's loaded (e.g. paused mid-sentence).
+  if (!clip || unlocked || (clip.getAttribute('src') && clip.getAttribute('src') !== SILENCE)) return
+  unlocked = true
+  try {
+    clip.src = SILENCE
+    const p = clip.play()
+    // Only a refusal means "still locked". AbortError just means the first line
+    // took over the element before the silence finished, which is fine.
+    if (p) p.catch((e: any) => { if (e?.name === 'NotAllowedError') unlocked = false })
+  } catch { unlocked = false }
 }
 
-function say(text: string, stopped: () => boolean): Promise<void> {
+/** Where a paused line got to, so Resume carries on mid-sentence. */
+let resumeAt: { key: string; at: number } | null = null
+const lineKey = () => `${ji.value}:${chapter.value}:${action.value}`
+
+async function say(text: string, stopped: () => boolean, audio?: string, ms?: number): Promise<void> {
   caption.value = text
-  return new Promise((resolve) => {
-    let finished = false
-    const finish = () => { if (finished) return; finished = true; clearInterval(poll); clearTimeout(timer); resolve() }
-    // Stop promptly when paused, whichever way the line is being timed.
-    const poll = setInterval(() => { if (stopped()) { synth?.cancel(); finish() } }, 100)
-    const fallbackMs = speakMs(text)
-    let timer: ReturnType<typeof setTimeout>
-    if (!muted.value && synth && voice) {
-      const u = new SpeechSynthesisUtterance(text)
-      u.voice = voice
-      u.lang = voice.lang
-      u.rate = 0.95
-      u.onend = finish
-      u.onerror = finish
-      synth.cancel()
-      synth.speak(u)
-      // Some engines never fire onend: don't hang the visit on them.
-      timer = setTimeout(finish, fallbackMs * 2 + 3000)
-    } else {
-      timer = setTimeout(finish, fallbackMs)
+  const key = lineKey()
+  const from = resumeAt?.key === key ? resumeAt.at : 0
+  resumeAt = null
+  let use: HTMLAudioElement | null = null
+  if (audio && clip) {
+    if (clip.getAttribute('src') !== audio) clip.src = audio
+    clip.muted = muted.value
+    use = clip
+  }
+  preloadAhead()
+  const r = await runLine({ clip: use, ms: ms ?? speakMs(text), from, stopped })
+  if (!r.finished) resumeAt = { key, at: r.at }
+}
+
+// Fetch the next couple of recordings ahead of time (they're cached for good).
+const preloaded = new Map<string, HTMLAudioElement>()
+function preloadAhead() {
+  if (typeof Audio === 'undefined') return
+  const want: string[] = []
+  const chapters = journey.value.chapters
+  for (let c = chapter.value, a = action.value + 1; c < chapters.length && want.length < 2; c++, a = 0) {
+    for (const act of chapters[c]!.actions.slice(a)) {
+      if ('audio' in act && act.audio) want.push(act.audio)
+      if (want.length >= 2) break
     }
-  })
+  }
+  for (const url of want) {
+    if (preloaded.has(url)) continue
+    const el = new Audio()
+    el.preload = 'auto'
+    el.src = url
+    preloaded.set(url, el)
+  }
+  while (preloaded.size > 4) {
+    const [url, el] = preloaded.entries().next().value!
+    el.removeAttribute('src')
+    preloaded.delete(url)
+  }
+}
+
+const CAPTIONS_KEY = 'viewora:journey-captions'
+const captionsOn = ref(true)
+function toggleCaptions() {
+  captionsOn.value = !captionsOn.value
+  try { localStorage.setItem(CAPTIONS_KEY, captionsOn.value ? '1' : '0') } catch { /* private mode */ }
 }
 
 const sleep = (ms: number, stopped: () => boolean) => new Promise<void>((resolve) => {
@@ -217,14 +260,14 @@ async function exec(a: JourneyAction, stopped: () => boolean) {
     ])
   } else if ('card' in a) {
     await props.api.openCard(a.card)
-    if (a.say) await say(a.say, stopped)
+    if (a.say) await say(a.say, stopped, a.audio, a.ms)
     else await sleep(a.hold ?? 4000, stopped)
     if (!stopped()) {
       props.api.closeCard()
       await sleep(900, stopped) // let the camera settle back before moving on
     }
   } else if ('say' in a) {
-    await say(a.say, stopped)
+    await say(a.say, stopped, a.audio, a.ms)
   } else if ('wait' in a) {
     await sleep(a.wait, stopped)
   }
@@ -257,12 +300,12 @@ async function play() {
 
 function halt() {
   run++
-  synth?.cancel()
+  clip?.pause()
   props.api.stopCamera()
 }
 
 function start(i: number) {
-  pickVoice()
+  unlockAudio()
   ji.value = i
   stopAfter.value = null
   void goChapter(0) // straight to the first step, facing its view
@@ -277,13 +320,16 @@ function pause(byUser: boolean) {
 
 function resume() {
   if (state.value !== 'paused') return
-  void play() // the interrupted action starts over
+  unlockAudio()
+  void play() // the interrupted action starts over; a line picks up where it stopped
 }
 
 async function goChapter(i: number, only = false) {
   const c = journey.value.chapters[i]
   if (!c) return
+  unlockAudio() // Next, Back, Watch again: all taps
   halt()
+  resumeAt = null
   stopAfter.value = only ? i : null
   props.api.closeCard()
   chapter.value = i
@@ -297,7 +343,7 @@ async function goChapter(i: number, only = false) {
 
 function toggleMute() {
   muted.value = !muted.value
-  if (muted.value) synth?.cancel()
+  if (clip) clip.muted = muted.value // the line keeps its timing, just silent
 }
 
 function end() {
@@ -312,7 +358,7 @@ function end() {
 watch(() => props.command?.nonce, () => {
   const c = props.command
   if (!c) return
-  pickVoice()
+  unlockAudio()
   ji.value = Math.min(Math.max(0, c.journey), props.journeys.length - 1)
   void goChapter(c.chapter, !!c.only)
 })
@@ -321,15 +367,20 @@ watch(() => props.command?.nonce, () => {
 function onUserMove() { pause(true) }
 let watched: HTMLElement | null = null
 onMounted(() => {
-  pickVoice()
-  synth?.addEventListener?.('voiceschanged', pickVoice)
+  clip = new Audio()
+  clip.preload = 'auto'
+  clip.setAttribute('playsinline', '')
+  try { captionsOn.value = localStorage.getItem(CAPTIONS_KEY) !== '0' } catch { /* private mode */ }
   watched = props.api.container()
   watched?.addEventListener('pointerdown', onUserMove, true)
   watched?.addEventListener('wheel', onUserMove, { capture: true, passive: true })
 })
 onBeforeUnmount(() => {
   halt()
-  synth?.removeEventListener?.('voiceschanged', pickVoice)
+  clip?.removeAttribute('src')
+  clip = null
+  for (const el of preloaded.values()) el.removeAttribute('src')
+  preloaded.clear()
   watched?.removeEventListener('pointerdown', onUserMove, true)
   watched?.removeEventListener('wheel', onUserMove, true)
 })
@@ -364,6 +415,7 @@ onBeforeUnmount(() => {
 .jp-x { flex-shrink: 0; align-self: center; width: 30px; height: 30px; border: 0; border-radius: 10px; background: transparent; color: #6b7280; font-size: 22px; line-height: 1; cursor: pointer; }
 .jp-x:hover { background: #f3f4f6; }
 .jp-caption { margin: 8px 0 0; min-height: 2.8em; font-size: 15px; line-height: 1.4; color: #1f2937; }
+.jp-caption--off { min-height: 0; margin: 0; }
 
 .jp-progress { display: flex; gap: 4px; margin: 10px 0 0; }
 .jp-progress i { flex: 1; height: 5px; border-radius: 4px; background: #e5e7eb; cursor: pointer; transition: background 0.3s; }
@@ -382,6 +434,8 @@ onBeforeUnmount(() => {
 .jp-icon { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 12px; background: #f3f4f6; color: #111827; cursor: pointer; }
 .jp-icon:hover { background: #e5e7eb; }
 .jp-icon:disabled { opacity: 0.4; cursor: default; }
+.jp-icon--cc { font-size: 12px; font-weight: 800; letter-spacing: 0.02em; color: #6b7280; }
+.jp-icon--cc.is-on { color: #111827; box-shadow: inset 0 0 0 2px #111827; }
 
 @media (max-width: 480px) {
   .jp-bar { padding: 10px 12px; }
