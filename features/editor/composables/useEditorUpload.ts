@@ -2,6 +2,7 @@ import { ref, watch, type Ref } from 'vue'
 import { navigateTo } from '#imports'
 import { toast } from 'vue-sonner'
 import { withRetry } from '~/shared/utils/retry'
+import { sortBySequenceNumber } from '~/shared/utils/sceneOrder'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { mapDbHotspot, mapDbHotspots, type EditorHotspot } from '~/features/editor/mappers'
 import { hotspotToPayload } from '~/features/editor/hotspotPayload'
@@ -171,7 +172,9 @@ export function useEditorUpload(
 
   function createOptimisticLocalScene(file: File, previewUrl?: string, options?: { select?: boolean }): string {
     const id = `local_scene_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const orderIndex = scenes.value.length
+    // After the last scene, not at scenes.length: deletes leave gaps in
+    // order_index, so the count can land in the middle of the tour.
+    const orderIndex = scenes.value.reduce((max, s) => Math.max(max, Number(s.order_index ?? -1)), -1) + 1
     const name = deriveSceneName(file.name, orderIndex + 1)
     scenes.value = [...scenes.value, {
       id, name, status: 'processing', order_index: orderIndex,
@@ -249,6 +252,10 @@ export function useEditorUpload(
 
   async function createSceneWithPanorama(rawImageUrl: string, name?: string, localSceneId?: string, initialPitchDeg = 0) {
     const sceneNumber = (scenes.value?.length || 0) + 1
+    // The dock slot this upload was given (file-number order). Without it the
+    // server numbers scenes in the order their uploads happen to finish, so
+    // 038 could land before 037. A taken slot falls back to the end.
+    const localOrder = localSceneId ? scenes.value.find((s) => s.id === localSceneId)?.order_index : undefined
     // Retried through short outages. A try that timed out may still have
     // created the scene, so each retry first looks for it by its photo.
     const createdScene = await withRetry(async (attempt) => {
@@ -263,6 +270,7 @@ export function useEditorUpload(
         method: 'POST',
         body: {
           name: name || `Scene ${sceneNumber}`,
+          ...(Number.isInteger(localOrder) && localOrder >= 0 ? { order_index: localOrder } : {}),
           raw_image_url: rawImageUrl,
           initial_yaw: 0,
           initial_pitch: Math.max(-90, Math.min(90, Math.round(initialPitchDeg))),
@@ -357,7 +365,7 @@ export function useEditorUpload(
 
     // Sequential: conversion is CPU/memory heavy, and phones can't hold several at once.
     const prepared: Array<{ file: File; initialPitchDeg: number }> = []
-    for (const f of rawFiles) prepared.push(await prepareForPanorama(f))
+    for (const f of sortBySequenceNumber(rawFiles)) prepared.push(await prepareForPanorama(f))
     const files = prepared.map(p => p.file)
 
     // Every scene shows in the dock at once; its small thumbnail follows. The dock used to show the
