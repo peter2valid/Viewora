@@ -85,6 +85,8 @@ import { computed, ref } from 'vue'
 import { useHead, useSeoMeta } from '#imports'
 import CarTour from '~/features/viewer/car/CarTour.vue'
 import { buildCarTourItems, vehicleName } from '~/shared/utils/carTour'
+import { cleanOrigins, withFrameAncestors } from '~/shared/utils/embedPolicy'
+import { getResponseHeader, setResponseHeader } from 'h3'
 import { tourShareImage } from '~/shared/utils/shareImage'
 
 const { apiFetch } = useApiFetch()
@@ -92,12 +94,30 @@ const runtimeConfig = useRuntimeConfig()
 const route = useRoute()
 const slug = route.params.slug as string
 
+// Partner tours may only be framed by the partner's own sites. Started now so
+// it runs alongside the tour fetch. If it fails, the embed is not restricted.
+const embedEvent = import.meta.server ? useRequestEvent() : null
+const embedPolicy = import.meta.server
+  ? $fetch<{ frame_ancestors: string[] | null }>(
+      `${String(runtimeConfig.apiBaseUrl || runtimeConfig.public.apiBaseUrl || '').replace(/\/+$/, '')}/embed-policy/${encodeURIComponent(slug)}`,
+      { timeout: 1500 },
+    ).catch(() => null)
+  : null
+
 // SSR fetch — data embedded in HTML payload, no client re-fetch on hydration
 const { data: _payload, error: _error, pending } = await useAsyncData(
   `embed:${slug}`,
   () => apiFetch<any>(`/p/${encodeURIComponent(slug)}`),
   { server: true, lazy: false }
 )
+
+if (import.meta.server && embedEvent && embedPolicy) {
+  const origins = cleanOrigins((await embedPolicy)?.frame_ancestors)
+  if (origins.length) {
+    const csp = String(getResponseHeader(embedEvent, 'content-security-policy') || '')
+    setResponseHeader(embedEvent, 'content-security-policy', withFrameAncestors(csp, origins, String(runtimeConfig.public.appUrl || '')))
+  }
+}
 
 const fetchError = computed(() => {
   if (!_error.value) return ''
