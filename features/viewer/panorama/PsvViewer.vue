@@ -753,9 +753,15 @@ watch(
   (next) => {
     if (state.value !== 'ready' || !handle.value) return
     if (!next || !Array.isArray(next)) return
+    // A scene switch swaps the hotspot list at the same moment as the scene.
+    // loadScene adds the new markers once the fade to the new panorama ends
+    // (and re-syncs 300ms later for edits made meanwhile); syncing here would
+    // pin the new scene's markers onto the old panorama mid-transition.
+    if (sceneLoadInProgress) return
     
     if (hotspotSyncTimer) clearTimeout(hotspotSyncTimer)
     hotspotSyncTimer = setTimeout(() => {
+      if (sceneLoadInProgress) return
       try {
         syncHotspots(handle.value, next ?? [])
       } catch (err) {
