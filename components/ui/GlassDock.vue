@@ -176,6 +176,7 @@
           </div>
             <button
               v-if="showAdd"
+              ref="addEl"
               class="glass-dock__item glass-dock__item--add"
               data-dock-item="true"
               :disabled="addDisabled"
@@ -700,11 +701,42 @@ onBeforeUnmount(() => {
 
 const paddedClass = computed(() => 'glass-dock--padded')
 const isSoloAdd = computed(() => props.showAdd && props.items.length === 0)
-// The fixed "Add scene" card sits beside the strip, so the strip gives up its
-// width (card + gap) to keep the whole dock inside the same bounds as before.
-const stripMaxWidth = computed(() => props.showAdd
-  ? `min(calc(${props.maxStripVw}vw - 116px), ${props.maxStripPx - 150}px)`
+
+// The strip is as wide as a whole number of cards, so the last visible card
+// is never cut off. maxStripPx caps the strip; maxStripVw caps the strip plus
+// the fixed "Add scene" card, so the dock stays on screen. Before the first
+// measurement (and with no cards) the plain CSS cap is used.
+const addEl = ref<HTMLElement | null>(null)
+const fittedStripPx = ref<number | null>(null)
+const stripMaxWidth = computed(() => fittedStripPx.value != null
+  ? `${fittedStripPx.value}px`
   : `min(${props.maxStripVw}vw, ${props.maxStripPx}px)`)
+
+function fitStrip() {
+  const strip = stripEl.value
+  const card = strip?.querySelector<HTMLElement>('[data-dock-id]')
+  if (!strip || !card) { fittedStripPx.value = null; return }
+  const cardW = card.offsetWidth
+  const gap = parseFloat(getComputedStyle(card.parentElement!).columnGap) || 0
+  const row = strip.parentElement
+  const rowGap = row ? parseFloat(getComputedStyle(row).columnGap) || 0 : 0
+  const addW = addEl.value ? addEl.value.offsetWidth + rowGap : 0
+  const budget = Math.min(window.innerWidth * props.maxStripVw / 100 - addW, props.maxStripPx)
+  const n = Math.max(1, Math.floor((budget + gap) / (cardW + gap)))
+  fittedStripPx.value = n * cardW + (n - 1) * gap
+}
+
+let fitRaf = 0
+function scheduleFit() {
+  cancelAnimationFrame(fitRaf)
+  fitRaf = requestAnimationFrame(fitStrip)
+}
+watch([stripEl, addEl, () => props.items.length, () => props.showAdd, () => props.maxStripVw, () => props.maxStripPx], () => nextTick(scheduleFit))
+onMounted(() => window.addEventListener('resize', scheduleFit, { passive: true }))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', scheduleFit)
+  cancelAnimationFrame(fitRaf)
+})
 </script>
 
 <style scoped>
