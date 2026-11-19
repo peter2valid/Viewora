@@ -670,8 +670,14 @@ async function checkVoice(journeyId: string) {
     voiceEnabled.value = res?.enabled !== false
     voiceWorker.value = res?.worker !== false
     const before = voiceJob.value?.status
+    const doneBefore = voiceJob.value?.done_count ?? 0
     voiceJob.value = res?.job ?? null
-    if (voiceBusy.value) { if (!voicePoll || voicePollMs !== voicePollEvery()) watchVoice(journeyId); return }
+    if (voiceBusy.value) {
+      if (!voicePoll || voicePollMs !== voicePollEvery()) watchVoice(journeyId)
+      // A line just finished: bring it in, so its ▶ works before the rest are done.
+      if ((res?.job?.done_count ?? 0) > doneBefore) await refreshAudio(journeyId)
+      return
+    }
     stopVoicePoll()
     if (before && before !== 'done' && res?.job?.status === 'done') {
       await refreshAudio(journeyId)
