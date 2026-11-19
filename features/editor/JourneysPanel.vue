@@ -206,9 +206,13 @@
             One idea per line, read out and shown as a caption. Beside each line, choose what the patient looks at:
             turn the preview (scroll or pinch to zoom in), then press <b>Use this view</b>.
           </p>
-          <div v-for="(t, k) in step.sentences" :key="t.id" class="jy-sentence">
+          <div v-for="(t, k) in step.sentences" :key="t.id" class="jy-sentence" :class="{ 'jy-sentence--on': activeLineId === t.id }">
             <div class="jy-sentence__side">
-              <span class="jy-sentence__n">{{ k + 1 }}</span>
+              <button
+                type="button" class="jy-sentence__n" :aria-pressed="activeLineId === t.id"
+                :title="`Show what line ${k + 1} faces`" :aria-label="`Line ${k + 1}: show what it faces in the preview`"
+                @click="selectLine(k)"
+              >{{ k + 1 }}</button>
               <button
                 v-if="freshAudio(t)" class="jy-hear" :class="{ 'jy-hear--on': hearing === t.id }"
                 :title="hearing === t.id ? 'Stop' : 'Hear this line'" :aria-label="hearing === t.id ? 'Stop' : `Hear line ${k + 1}`"
@@ -219,10 +223,11 @@
             <textarea
               v-model="t.text" class="jy-input jy-textarea" rows="2" maxlength="400"
               :placeholder="k === 0 ? promptFor(step.title) : 'Anything else they should know?'"
+              @focus="selectLine(k)"
               @input="saveSoon"
               @keydown.enter.exact.prevent="addSentence(k + 1)"
             />
-            <div class="jy-look" :class="{ 'jy-look--set': !!lineView(k) }">
+            <div class="jy-look" :class="{ 'jy-look--set': !!lineView(k) }" @click.capture="markLine(k)">
               <button
                 class="jy-look__view" :style="lookStyle(lineView(k))" :disabled="!lineView(k)"
                 :title="lineView(k) ? 'Show this view in the preview' : ''" :aria-label="`Facing for line ${k + 1}`"
@@ -918,6 +923,26 @@ async function deleteJourney() {
 }
 
 // ── Steps ──────────────────────────────────────────────────────────────────
+// ── The line being worked on ─────────────────────────────────────────────
+// Like the steps on the left: the chosen line is marked red, and the preview
+// shows what it faces (its own view, or the one it carries on from). The
+// Facing column marks its line without moving the preview, so "Use this view"
+// and "Update" still take whatever the preview is showing.
+const activeLineId = ref<string | null>(null)
+function markLine(k: number) {
+  const id = step.value?.sentences[k]?.id
+  if (id) activeLineId.value = id
+}
+function selectLine(k: number) {
+  const s = step.value
+  const x = s?.sentences[k]
+  if (!s || !x || activeLineId.value === x.id || placing.value) return
+  activeLineId.value = x.id
+  if (s.scene_id) void (viewerRef.value as any)?.showScene?.(s.scene_id, facingFor(k))
+}
+// A step opens on its line 1 (the preview already shows the step's view).
+watch(() => step.value?.id, () => { activeLineId.value = step.value?.sentences[0]?.id ?? null }, { immediate: true })
+
 function selectStep(i: number) {
   selected.value = i
   const s = journey.value?.steps[i]
@@ -1210,7 +1235,12 @@ watch(viewerRef, (v) => {
 .jy-look__spot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #e11d48; box-shadow: 0 0 0 2px #fff, 0 0 0 6px rgba(225, 29, 72, 0.35); }
 .jy-linkbtn:disabled { opacity: 0.45; cursor: not-allowed; }
 .jy-linkbtn--muted { color: rgba(255,255,255,0.55); }
-.jy-sentence__n { flex: none; width: 22px; height: 22px; margin-top: 9px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.08); font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.7); }
+.jy-sentence__n { flex: none; width: 22px; height: 22px; margin-top: 9px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.08); font: inherit; font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.7); cursor: pointer; }
+.jy-sentence__n:hover { background: rgba(255,255,255,0.16); color: #fff; }
+/* The line being worked on: red, like the chosen step on the left. */
+.jy-sentence--on .jy-sentence__n { background: #e11d48; color: #fff; }
+.jy-sentence--on .jy-textarea { border-color: #e11d48; box-shadow: 0 0 0 1px #e11d48; }
+.jy-sentence--on .jy-look--set .jy-look__view { border-color: #e11d48; }
 
 .jy-modal { position: fixed; inset: 0; z-index: 500; color: #fff; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,0.6); }
 .jy-modal__box { width: min(960px, 100%); max-height: 86vh; display: flex; flex-direction: column; border-radius: 18px; background: #12151c; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
