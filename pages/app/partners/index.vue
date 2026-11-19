@@ -167,8 +167,10 @@
           </button>
         </div>
         <p v-if="payoutError" class="text-sm font-bold text-red-500 mb-4">{{ payoutError }}</p>
+        <p v-if="commissionError" class="card-glass p-4 mb-4 text-sm font-bold text-red-500">Commission could not load: {{ commissionError }}</p>
 
-        <div v-if="!visibleRows.length" class="card-glass p-10 text-center">
+        <div v-if="commissionError" />
+        <div v-else-if="!visibleRows.length" class="card-glass p-10 text-center">
           <p class="text-sm text-dim font-bold">
             {{ rows.length ? 'Nothing matches that filter.' : 'No partner jobs yet. When a credited client books, the job shows up here.' }}
           </p>
@@ -298,13 +300,10 @@ async function load() {
     pending.value = false
     return
   }
-  try {
-    await Promise.all([loadPartners(), canSeeMoney.value ? loadCommission() : null])
-  } catch (e: any) {
-    blocked.value = errMessage(e, 'Could not load partners. Try again in a moment.')
-  } finally {
-    pending.value = false
-  }
+  // Partners and commission load apart, so a commission problem still shows the partners
+  const [partnersRes] = await Promise.allSettled([loadPartners(), canSeeMoney.value ? loadCommission() : null])
+  if (partnersRes.status === 'rejected') blocked.value = errMessage(partnersRes.reason, 'Could not load partners. Try again in a moment.')
+  pending.value = false
 }
 
 async function loadPartners() {
@@ -313,8 +312,16 @@ async function loadPartners() {
   formUrl.value = res.formUrl
 }
 
+const commissionError = ref<string | null>(null)
 async function loadCommission() {
-  const res = await apiFetch<{ rows: CommissionRow[]; totals: typeof totals.value }>('/staff/quote/commission')
+  let res: { rows: CommissionRow[]; totals: typeof totals.value }
+  try {
+    res = await apiFetch('/staff/quote/commission')
+    commissionError.value = null
+  } catch (e: any) {
+    commissionError.value = errMessage(e, 'Could not load commission.')
+    return
+  }
   rows.value = res.rows
   totals.value = res.totals
   const owed = new Set(res.rows.filter(r => r.commissionStatus === 'owed').map(r => r.jobId))
