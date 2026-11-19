@@ -45,6 +45,11 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>
         Directions
       </button>
+      <!-- Always there: leave the guided layout for the usual tour, at any point -->
+      <button type="button" class="ar-action" @click="pick('explore')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>
+        Explore on my own
+      </button>
     </div>
 
     <!-- "I'm at A, take me to B" -->
@@ -110,6 +115,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'area', a: TourArea): void
   (e: 'visits'): void
+  /** Leave the guided layout: the usual tour with its dock. */
+  (e: 'explore'): void
   /** from: a scene id, or null = where the visitor stands. */
   (e: 'route', from: string | null, to: string): void
 }>()
@@ -166,8 +173,9 @@ function toggleRoute() {
   }
 }
 
-function pick(a: TourArea | 'visits') {
+function pick(a: TourArea | 'visits' | 'explore') {
   if (a === 'visits') emit('visits')
+  else if (a === 'explore') emit('explore')
   else emit('area', a)
   open.value = false
 }

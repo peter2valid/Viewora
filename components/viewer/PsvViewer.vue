@@ -596,7 +596,16 @@
       @area="onAreaPick"
       @visits="openVisits"
       @route="onRoutePick"
+      @explore="exploreOnMyOwn"
     />
+    <!-- Exploring on their own: one tap back to the guided layout -->
+    <button
+      v-if="exploring && areas.length && hasTourData && vtReady && !chromeHidden && !props.hideOwnChrome && !showVenue && !routeGuide"
+      type="button" class="guided-back" @click.stop="openVisits"
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      Guided visit
+    </button>
 
     <!-- ── Journey: the tour plays itself, stop by stop ── -->
     <JourneyPlayer
@@ -4071,6 +4080,19 @@ watch(() => vtTransitioning.value, (loading) => {
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
 }
 :global(.vhs-nav:hover) { transform: scale(1.18); }
+
+/* Explore mode on a hospital tour: the way back to the guided layout (top right,
+   where the "Areas" button sits on phones in guided mode). */
+.guided-back {
+  position: absolute; z-index: 47; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px;
+  display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px;
+  border: 0; border-radius: 999px; background: #e11d48; color: #fff;
+  font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.guided-back:hover { background: #be123c; }
+/* Phones: the tour's brand card can reach the right half; sit just below it. */
+@media (max-width: 600px) { .guided-back { top: calc(92px + env(safe-area-inset-top, 0px)); height: 38px; padding: 0 14px; } }
 
 /* "Mark the spot": a journey line's pulsing marker (journeyApi.showPin).
    Rings spread out from a dot; transform + opacity only, so it costs no layout. */
