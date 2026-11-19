@@ -33,29 +33,31 @@
     <!-- Playing / paused / finished -->
     <div v-else class="jp-bar">
       <div class="jp-bar__head">
-        <span class="jp-bar__step">{{ state === 'done' && stopAfter === null ? 'Visit complete' : `Step ${chapter + 1} of ${journey.chapters.length}` }}</span>
-        <span class="jp-bar__title">{{ state === 'done' && stopAfter === null ? journey.title : journey.chapters[chapter]?.title }}</span>
+        <span class="jp-bar__step">{{ stepLabel }}</span>
+        <span class="jp-bar__title">{{ kind === 'area' || (state === 'done' && stopAfter === null) ? journey.title : journey.chapters[chapter]?.title }}</span>
         <button type="button" class="jp-x" aria-label="End the visit" title="End the visit" @click="end">×</button>
       </div>
 
       <p class="jp-caption" :class="{ 'jp-caption--off': !captionsOn && state === 'playing' }">
         <template v-if="state === 'paused' && pausedByUser">You're looking around. The visit carries on from here when you're ready.</template>
         <template v-else-if="state === 'done' && stopAfter !== null">End of this step.</template>
+        <template v-else-if="state === 'done' && kind === 'area'">That's {{ journey.title }}. Pick another area, or look around.</template>
+        <template v-else-if="state === 'done' && kind === 'route'">You're here. Look around, or pick another area.</template>
         <template v-else-if="state === 'done'">Thanks for visiting. Look around as long as you like.</template>
         <template v-else-if="captionsOn">{{ caption || ' ' }}</template>
       </p>
 
-      <div class="jp-progress" aria-hidden="true">
+      <div v-if="journey.chapters.length > 1" class="jp-progress" aria-hidden="true">
         <i v-for="(c, i) in journey.chapters" :key="i" :class="{ 'is-done': i < chapter || state === 'done', 'is-now': i === chapter && state !== 'done' }" @click="goChapter(i, stopAfter !== null)" />
       </div>
 
       <div class="jp-controls">
         <template v-if="state === 'done'">
-          <button type="button" class="jp-btn jp-btn--ghost" @click="goChapter(stopAfter ?? 0, stopAfter !== null)">Watch again</button>
+          <button v-if="kind !== 'route'" type="button" class="jp-btn jp-btn--ghost" @click="goChapter(stopAfter ?? 0, stopAfter !== null)">Watch again</button>
           <button type="button" class="jp-btn" @click="end">Explore on my own</button>
         </template>
         <template v-else>
-          <button type="button" class="jp-icon" aria-label="Previous step" title="Previous step" :disabled="chapter === 0" @click="goChapter(chapter - 1, stopAfter !== null)">
+          <button v-if="journey.chapters.length > 1" type="button" class="jp-icon" aria-label="Previous step" title="Previous step" :disabled="chapter === 0" @click="goChapter(chapter - 1, stopAfter !== null)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6v12L9.5 12z"/></svg>
           </button>
           <button v-if="state === 'paused'" type="button" class="jp-btn jp-btn--primary jp-btn--play" @click="resume">
@@ -66,7 +68,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
             Pause
           </button>
-          <button type="button" class="jp-icon" aria-label="Next step" title="Next step" :disabled="chapter >= journey.chapters.length - 1" @click="goChapter(chapter + 1, stopAfter !== null)">
+          <button v-if="journey.chapters.length > 1" type="button" class="jp-icon" aria-label="Next step" title="Next step" :disabled="chapter >= journey.chapters.length - 1" @click="goChapter(chapter + 1, stopAfter !== null)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 18V6l10.5 6z"/></svg>
           </button>
           <button type="button" class="jp-icon jp-icon--cc" :class="{ 'is-on': captionsOn }" :aria-pressed="captionsOn" :aria-label="captionsOn ? 'Hide captions' : 'Show captions'" :title="captionsOn ? 'Hide captions' : 'Show captions'" @click="toggleCaptions">CC</button>
@@ -109,8 +111,15 @@ export interface JourneyApi {
   container(): HTMLElement | null
 }
 
-/** The editor's preview: play from a step, or just that step. */
-export interface JourneyCommand { journey: number; chapter: number; only?: boolean; nonce: number }
+/**
+ * Play something now. The editor's preview: from a step of `journey`, or just
+ * that step. The tour: `adhoc` = an area's guide or directions, played
+ * straight away (no start card).
+ */
+export interface JourneyCommand { journey: number; chapter: number; only?: boolean; nonce: number; adhoc?: Journey | null }
+
+/** What visitors do, for the owner's dashboard (visit_events). Never sent from the editor's preview. */
+export interface JourneyTrack { event: 'visit_start' | 'step_reached' | 'visit_complete' | 'visit_exit' | 'area_complete' | 'route_arrive'; journeyId?: string; sceneId?: string; step?: number; value?: number }
 
 const props = defineProps<{
   journeys: Journey[]
@@ -119,11 +128,20 @@ const props = defineProps<{
   preview?: boolean
   command?: JourneyCommand | null
 }>()
-const emit = defineEmits<{ (e: 'end'): void; (e: 'state', s: string): void; (e: 'chapter', i: number): void }>()
+const emit = defineEmits<{ (e: 'end'): void; (e: 'state', s: string): void; (e: 'chapter', i: number): void; (e: 'track', t: JourneyTrack): void }>()
 
 const state = ref<'idle' | 'intro' | 'playing' | 'paused' | 'done'>(props.preview ? 'idle' : 'intro')
 const ji = ref(0)
-const journey = computed<Journey>(() => props.journeys[ji.value] ?? props.journeys[0]!)
+/** An area's guide or directions, played instead of a visit until the next Start. */
+const adhoc = ref<Journey | null>(null)
+const journey = computed<Journey>(() => adhoc.value ?? props.journeys[ji.value] ?? props.journeys[0]!)
+const kind = computed(() => journey.value.kind ?? 'visit')
+const stepLabel = computed(() => {
+  const finished = state.value === 'done' && stopAfter.value === null
+  if (kind.value === 'area') return finished ? 'Area guide · done' : 'Area guide'
+  if (kind.value === 'route') return finished ? 'Arrived' : `Directions · ${chapter.value + 1} of ${journey.value.chapters.length}`
+  return finished ? 'Visit complete' : `Step ${chapter.value + 1} of ${journey.value.chapters.length}`
+})
 /** Set when only one step is being played (editor "Play this step"). */
 const stopAfter = ref<number | null>(null)
 const chapter = ref(0)
@@ -133,6 +151,33 @@ const muted = ref(false)
 const pausedByUser = ref(false)
 const minutesOf = (j: Journey) => journeyMinutes(j)
 watch(chapter, (i) => emit('chapter', i))
+
+// ── Analytics: a visit's start, each step reached, and how it ended ────────
+// One "run" per Start / area / directions; Watch again starts a new one.
+let tracked: { journey: Journey; at: number; steps: Set<number>; ended: boolean } | null = null
+function track(t: JourneyTrack) { if (!props.preview) emit('track', t) }
+function beginTracking() {
+  tracked = { journey: journey.value, at: Date.now(), steps: new Set(), ended: false }
+  if (kind.value === 'visit' && journey.value.id) track({ event: 'visit_start', journeyId: journey.value.id })
+}
+function trackStep(i: number) {
+  const t = tracked
+  if (!t || t.journey !== journey.value || t.steps.has(i) || stopAfter.value !== null) return
+  t.steps.add(i)
+  if (kind.value === 'visit' && t.journey.id) track({ event: 'step_reached', journeyId: t.journey.id, step: i })
+}
+function trackEnd(finished: boolean) {
+  const t = tracked
+  if (!t || t.ended || t.journey !== journey.value) return
+  t.ended = true
+  const j = t.journey
+  if (j.kind === 'area' && finished && j.sceneId) track({ event: 'area_complete', sceneId: j.sceneId })
+  else if (j.kind === 'route' && finished && j.sceneId) track({ event: 'route_arrive', sceneId: j.sceneId })
+  else if ((j.kind ?? 'visit') === 'visit' && j.id) {
+    if (finished) track({ event: 'visit_complete', journeyId: j.id, value: Date.now() - t.at })
+    else track({ event: 'visit_exit', journeyId: j.id, step: Math.max(0, ...t.steps) })
+  }
+}
 
 /** Each run gets a number; anything from an older run sees it is stopped. */
 let run = 0
@@ -281,6 +326,7 @@ async function play() {
   while (!stopped()) {
     const c = journey.value.chapters[chapter.value]
     if (!c) break
+    trackStep(chapter.value)
     const a = c.actions[action.value]
     if (!a) {
       if (stopAfter.value === chapter.value) break
@@ -295,6 +341,7 @@ async function play() {
   }
   if (stopped()) return
   caption.value = ''
+  if (stopAfter.value === null) trackEnd(true)
   setState('done')
 }
 
@@ -306,8 +353,11 @@ function halt() {
 
 function start(i: number) {
   unlockAudio()
+  trackEnd(false)
+  adhoc.value = null
   ji.value = i
   stopAfter.value = null
+  beginTracking()
   void goChapter(0) // straight to the first step, facing its view
 }
 
@@ -327,6 +377,7 @@ function resume() {
 async function goChapter(i: number, only = false) {
   const c = journey.value.chapters[i]
   if (!c) return
+  if (state.value === 'done' && i === 0 && !only) beginTracking() // Watch again
   unlockAudio() // Next, Back, Watch again: all taps
   halt()
   resumeAt = null
@@ -347,6 +398,7 @@ function toggleMute() {
 }
 
 function end() {
+  if (state.value !== 'done') trackEnd(false)
   halt()
   props.api.closeCard()
   caption.value = ''
@@ -354,14 +406,27 @@ function end() {
   emit('end')
 }
 
-// Editor preview: each new command plays from that step (or just that step).
+// Each new command plays from that step (or just that step), or an area's
+// guide / directions. Immediate: the tour mounts the player with one when the
+// visitor picks an area after closing the visit.
+let mounting = true
 watch(() => props.command?.nonce, () => {
+  const initial = mounting
+  mounting = false
   const c = props.command
   if (!c) return
+  // On mount, only an area / directions plays at once (an editor command left
+  // over from before a remount must not replay).
+  if (initial && !c.adhoc) return
   unlockAudio()
-  ji.value = Math.min(Math.max(0, c.journey), props.journeys.length - 1)
+  // Whatever was playing ends here (a visit left for an area counts as left).
+  if (state.value === 'playing' || state.value === 'paused') trackEnd(false)
+  adhoc.value = c.adhoc ?? null
+  if (!c.adhoc) ji.value = Math.min(Math.max(0, c.journey), props.journeys.length - 1)
+  stopAfter.value = c.only ? c.chapter : null
+  if (c.adhoc || c.chapter === 0) beginTracking()
   void goChapter(c.chapter, !!c.only)
-})
+}, { immediate: true })
 
 // Dragging, scrolling or tapping the view takes the camera back: pause.
 function onUserMove() { pause(true) }
@@ -376,6 +441,7 @@ onMounted(() => {
   watched?.addEventListener('wheel', onUserMove, { capture: true, passive: true })
 })
 onBeforeUnmount(() => {
+  if (state.value === 'playing' || state.value === 'paused') trackEnd(false)
   halt()
   clip?.removeAttribute('src')
   clip = null

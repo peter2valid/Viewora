@@ -587,22 +587,35 @@
       @end="endRouteGuide"
     />
 
-    <!-- ── Journey (prototype): the tour plays itself, stop by stop ── -->
+    <!-- ── Areas down the left (hospital tours): each photo the visits use, once ── -->
+    <AreaRail
+      v-if="showAreaRail"
+      :areas="areas"
+      :active-scene-id="vtActiveNodeId"
+      :has-visits="journeys.length > 0"
+      @area="onAreaPick"
+      @visits="openVisits"
+      @route="onRoutePick"
+    />
+
+    <!-- ── Journey: the tour plays itself, stop by stop ── -->
     <JourneyPlayer
-      v-if="journeys.length && journeyOn && hasTourData && vtReady && !showVenue && !routeGuide"
+      v-if="(journeys.length || viewerCommand) && journeyOn && hasTourData && vtReady && !showVenue && !routeGuide"
+      :key="playerKey"
       :journeys="journeys"
       :api="journeyApi"
       :preview="props.journeyPreview"
-      :command="props.journeyCommand"
+      :command="props.journeyCommand ?? viewerCommand"
       @state="onJourneyState"
       @chapter="(i: number) => emit('journey-chapter', i)"
+      @track="onJourneyTrack"
       @end="endJourney"
     />
 
     <!-- ── Scene dock (both modes) — hidden when hideOwnChrome is set; the
          host page drives scene switching itself via goToScene() ── -->
     <GlassDock
-      v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome && !routeGuide && !journeyRunning"
+      v-if="sceneCount > 0 && !chromeHidden && !props.hideOwnChrome && !routeGuide && !journeyRunning && !showAreaRail"
       v-show="floorMapView !== 'maximized'"
       v-model:collapsed="dockCollapsed"
       :items="dockItems"
@@ -650,7 +663,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import QRCode from 'qrcode'
-import { useImage, useHead } from '#imports'
+import { useImage, useHead, useRuntimeConfig } from '#imports'
 import { factsLine, formatPrice } from '~/utils/listingDisplay'
 import type { Hotspot } from '~/domain/hotspot'
 import { resolveStartView, type TourScene } from '~/domain/scene'
@@ -660,8 +673,10 @@ import { interiorScenes, isInteriorLink, sceneFolders } from '~/shared/utils/int
 import AerialMapViewer from '~/components/viewer/AerialMapViewer.vue'
 import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/components/viewer/VenueMapViewer.vue'
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
-import JourneyPlayer, { type JourneyApi, type JourneyCommand } from '~/components/viewer/JourneyPlayer.vue'
-import { tourJourneys } from '~/shared/utils/journey'
+import JourneyPlayer, { type JourneyApi, type JourneyCommand, type JourneyTrack } from '~/components/viewer/JourneyPlayer.vue'
+import AreaRail from '~/components/viewer/AreaRail.vue'
+import { routeJourney, tourAreas, tourJourneys, type TourArea } from '~/shared/utils/journey'
+import { createVisitEvents } from '~/composables/useVisitEvents'
 import { socialIcons } from '~/shared/utils/socialLinks'
 import { copyText } from '~/shared/utils/copyText'
 import LeadForm from '~/components/viewer/LeadForm.vue'
@@ -738,6 +753,9 @@ const props = defineProps<{
   // ("play from step 3") instead of showing its start card.
   journeyPreview?: boolean
   journeyCommand?: JourneyCommand | null
+  // Public tour pages: report what visitors do (guided visits, areas,
+  // directions, photos seen) to the owner's dashboard. Tours with guided visits only.
+  trackVisits?: boolean
 }>()
 
 const img = useImage()
@@ -1532,7 +1550,73 @@ function endJourney() {
   if (props.journeyPreview) { journeyState.value = 'idle'; return }
   journeyOn.value = false
   journeyState.value = 'intro'
+  viewerCommand.value = null
 }
+
+// ── Areas (left list) and directions ──
+// Every photo the published visits use, listed once however many steps use
+// it; choosing one plays all that's said there (tourAreas in journey.ts).
+const areas = computed<TourArea[]>(() => (props.journeyPreview ? [] : tourAreas(props.tour, tourScenes.value)))
+const showAreaRail = computed(() => areas.value.length > 0 && hasTourData.value && vtReady.value
+  && !showVenue.value && !routeGuide.value && !chromeHidden.value && !props.hideOwnChrome)
+// The host page's brand card sits top-left too: it moves right of the list
+// while the list shows (CSS on :root[data-area-rail] in pages/p and pages/embed).
+watch(showAreaRail, (on) => {
+  if (typeof document === 'undefined') return
+  if (on) document.documentElement.dataset.areaRail = '1'
+  else delete document.documentElement.dataset.areaRail
+}, { immediate: true })
+onUnmounted(() => { if (typeof document !== 'undefined') delete document.documentElement.dataset.areaRail })
+/** An area's guide or directions for the player; null = the visits' own start card. */
+const viewerCommand = ref<JourneyCommand | null>(null)
+const playerKey = ref(0)
+let commandNonce = 0
+function playNow(j: NonNullable<JourneyCommand['adhoc']>) {
+  viewerCommand.value = { journey: 0, chapter: 0, nonce: ++commandNonce, adhoc: j }
+  journeyOn.value = true
+}
+function onAreaPick(a: TourArea) {
+  visitEvents?.track('area_open', { sceneId: a.sceneId })
+  $posthog?.capture('area_opened', { area: a.title })
+  if (a.guide) { playNow(a.guide); return }
+  // Nothing said there yet: just go.
+  if (journeyRunning.value) endJourney()
+  void openSceneFromMap(a.sceneId)
+}
+function openVisits() {
+  viewerCommand.value = null
+  playerKey.value++ // a fresh player opens on "What brings you here?"
+  journeyState.value = 'intro'
+  journeyOn.value = true
+}
+function onRoutePick(from: string | null, to: string) {
+  const start = from ?? vtActiveNodeId.value
+  if (!start || start === to) return
+  let path = scenePath(buildSceneGraph(tourScenes.value as any[]), venueFloors.value, start, to)
+  if (path.length < 2) path = [start, to] // not linked by arrows: the player goes straight there
+  const names = new Map(areas.value.map(a => [a.sceneId, a.title]))
+  const j = routeJourney(path, id => names.get(id) ?? null)
+  if (!j) return
+  visitEvents?.track('route_start', { sceneId: to, meta: { from: start } })
+  $posthog?.capture('route_started', { from: names.get(start), to: names.get(to), rooms: path.length })
+  playNow(j)
+}
+
+// ── Visit analytics (public tours with guided visits only) ──
+let visitEvents: ReturnType<typeof createVisitEvents> | null = null
+const apiBase = (useRuntimeConfig().public.apiBaseUrl as string) || ''
+function onJourneyTrack(t: JourneyTrack) {
+  const { event, ...data } = t
+  visitEvents?.track(event, data)
+}
+onMounted(() => {
+  const spaceId = (props.tour as any)?.space?.id
+  if (!props.trackVisits || props.journeyPreview || !spaceId || !journeys.value.length) return
+  visitEvents = createVisitEvents(spaceId, apiBase)
+  visitEvents.start()
+})
+onUnmounted(() => { visitEvents?.stop(); visitEvents = null })
+watch(vtActiveNodeId, (id) => { if (id) visitEvents?.track('scene_view', { sceneId: id }) })
 
 function waitFor(ok: () => boolean, ms: number, stopped: () => boolean = () => false) {
   return new Promise<void>((resolve) => {

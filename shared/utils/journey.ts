@@ -55,6 +55,12 @@ export interface Journey {
   title: string
   subtitle?: string
   chapters: JourneyChapter[]
+  /** visit: a whole guided visit · area: one area's guide · route: directions. */
+  kind?: 'visit' | 'area' | 'route'
+  /** The saved journey's id (visits), for analytics. */
+  id?: string
+  /** The area's photo (area guides) or the destination (routes), for analytics. */
+  sceneId?: string
 }
 
 export function isJourney(v: any): v is Journey {
@@ -184,7 +190,7 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
     if (!said) actions.push({ wait: QUIET_STEP_MS })
     return { title: s.title.trim() || `Step ${i + 1}`, scene: s.scene_id!, ...(view ? { view } : {}), actions }
   })
-  return { title: doc.title.trim() || 'Guided visit', chapters }
+  return { title: doc.title.trim() || 'Guided visit', chapters, kind: 'visit', ...(doc.id ? { id: doc.id } : {}) }
 }
 
 /** Every journey a tour carries: the saved ones, plus a hand-written prototype one. */
@@ -197,6 +203,96 @@ export function tourJourneys(tour: any, sceneIds: Set<string>): Journey[] {
   const proto = parseJourney(tour?.journey, sceneIds)
   if (proto) out.push(proto)
   return out
+}
+
+// ── Areas: each photo used by a visit, listed once ──────────────────────────
+// The same photo can be a step in several visits (Reception in "Outpatient"
+// and in "Lab test"), or twice in one (check in, then pay). Patients see it
+// once in the side list, and choosing it plays everything said there: every
+// line from every step on that photo, each line once.
+
+export interface TourArea {
+  sceneId: string
+  /** The first step's title on that photo ("Reception"); the photo's own name when steps have none. */
+  title: string
+  thumb: string
+  /** Its guide; null when no step on it says anything yet (choosing it just goes there). */
+  guide: Journey | null
+  /** How many steps across the visits use this photo. */
+  uses: number
+}
+
+function linesKey(x: JourneyDocSentence): string {
+  const t = normalizeLine(x.text ?? '').toLowerCase()
+  return t ? `t:${t}` : x.hotspot_id ? `h:${x.hotspot_id}` : ''
+}
+
+/** One area's guide: the first step on that photo sets the arrival view; lines from all its steps, each once. */
+export function compileAreaGuide(docs: JourneyDoc[], sceneId: string, title: string, sceneIds: Set<string>): Journey | null {
+  const steps = docs.flatMap(d => d.steps ?? []).filter(s => s.scene_id === sceneId)
+  if (!steps.length || !sceneIds.has(sceneId)) return null
+  const seen = new Set<string>()
+  const sentences: JourneyDocSentence[] = []
+  for (const st of steps) {
+    // A step's line 1 has no view of its own: it's said facing the step's view.
+    // Once merged after another step's lines, it needs that view to turn back.
+    ;(st.sentences ?? []).forEach((x, k) => {
+      const key = linesKey(x)
+      if (!key || seen.has(key)) return
+      seen.add(key)
+      const view = x.view ?? (k === 0 && st !== steps[0] ? st.view ?? null : null)
+      sentences.push({ ...x, view })
+    })
+  }
+  if (!sentences.length) return null
+  const j = compileJourney({ title, steps: [{ id: 'area', title, scene_id: sceneId, view: steps[0]!.view ?? null, sentences }] }, sceneIds)
+  return j ? { ...j, kind: 'area', sceneId, subtitle: undefined } : null
+}
+
+/** Every photo the tour's visits use, once each, in the order patients meet them. */
+export function tourAreas(tour: any, scenes: { id: string; title?: string; name?: string; thumbnail_url?: string | null }[]): TourArea[] {
+  const docs: JourneyDoc[] = (Array.isArray(tour?.journeys) ? tour.journeys : []).filter((d: any) => d && Array.isArray(d.steps))
+  const byId = new Map(scenes.map(s => [s.id, s]))
+  const sceneIds = new Set(byId.keys())
+  const order: string[] = []
+  const uses = new Map<string, number>()
+  const named = new Map<string, string>()
+  for (const d of docs) {
+    for (const st of d.steps) {
+      if (!st.scene_id || !byId.has(st.scene_id)) continue
+      if (!uses.has(st.scene_id)) order.push(st.scene_id)
+      uses.set(st.scene_id, (uses.get(st.scene_id) ?? 0) + 1)
+      const t = (st.title ?? '').trim()
+      if (t && !named.has(st.scene_id)) named.set(st.scene_id, t)
+    }
+  }
+  return order.map((id) => {
+    const sc = byId.get(id)!
+    const title = named.get(id) || (sc.title || sc.name || '').trim() || 'Untitled area'
+    return { sceneId: id, title, thumb: sc.thumbnail_url || '', guide: compileAreaGuide(docs, id, title, sceneIds), uses: uses.get(id) ?? 0 }
+  })
+}
+
+// ── Directions: "I'm at A, take me to B" ────────────────────────────────────
+/**
+ * A walk along `path` (scene ids, from the tour's links), played like a visit:
+ * one chapter per room, so the progress bar shows the way and Pause / Next work.
+ * Rooms that are areas say their name as you pass; the last says you've arrived.
+ */
+export function routeJourney(path: string[], nameOf: (id: string) => string | null): Journey | null {
+  if (path.length < 2) return null
+  const to = nameOf(path.at(-1)!) ?? 'your destination'
+  const from = nameOf(path[0]!) ?? 'here'
+  const chapters: JourneyChapter[] = path.map((id, i) => {
+    const name = nameOf(id)
+    const actions: JourneyAction[] = []
+    if (i > 0) actions.push({ walk: id })
+    if (i === 0) actions.push({ say: `From ${from} to ${to}. Follow along, or pause to look around.`, ms: 3200 })
+    else if (i === path.length - 1) actions.push({ say: `You've arrived at ${to}.`, ms: 2600 })
+    else if (name) actions.push({ say: `Passing ${name}.`, ms: 1400 })
+    return { title: i === 0 ? from : i === path.length - 1 ? to : (name ?? 'On the way'), scene: id, actions }
+  })
+  return { title: `To ${to}`, chapters, kind: 'route', sceneId: path.at(-1)! }
 }
 
 export function newLocalId(): string {

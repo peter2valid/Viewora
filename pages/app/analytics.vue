@@ -266,6 +266,9 @@
         </div>
       </div>
 
+      <!-- Guided visits (tours with patient journeys only) -->
+      <GuidedVisitInsights :days="rangeDays" :space-id="selectedInsightsTourId" :range-label="activeRangeLabel" />
+
       <!-- performance Table Card -->
       <div class="bg-card rounded-2xl border border-border dark:border-transparent overflow-hidden flex flex-col">
           <header class="p-6 border-b border-black/[0.08] dark:border-white/20 flex items-center justify-between">
@@ -324,6 +327,7 @@
 </template>
 
 <script setup lang="ts">
+import GuidedVisitInsights from '~/components/analytics/GuidedVisitInsights.vue'
 import { ref, computed, onMounted } from 'vue'
 import { definePageMeta, useSeoMeta, navigateTo } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -348,6 +352,7 @@ const ranges = [
   { label: 'All', value: 'all' },
 ]
 
+const rangeDays = computed(() => ({ '7d': 7, '30d': 30, '90d': 90, 'all': 365 } as Record<string, number>)[activeRange.value] ?? 30)
 const activeRangeLabel = computed(() => {
   const map: Record<string, string> = { '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days', 'all': 'All time' }
   return map[activeRange.value]

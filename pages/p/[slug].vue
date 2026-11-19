@@ -51,6 +51,7 @@
       <ViewerPsvViewer
         :tour="tour"
         :share-url="shareUrl"
+        :track-visits="true"
         @chrome-toggle="viewerChromeHidden = $event"
         @loaded="viewerLoaded = true"
       />
@@ -958,5 +959,12 @@ useHead(computed(() => {
   letter-spacing: -0.05em;
   color: #ffffff;
   line-height: 1;
+}
+
+/* Hospital tours: the list of areas runs down the left (components/viewer/AreaRail.vue). */
+@media (min-width: 901px) and (min-height: 521px) {
+  :root[data-area-rail] .brand-card,
+  :root[data-area-rail] .viewora-free-brand,
+  :root[data-area-rail] .embed-watermark { left: 176px; }
 }
 </style>

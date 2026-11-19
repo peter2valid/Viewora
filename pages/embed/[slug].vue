@@ -27,6 +27,7 @@
           :tour="tour"
           :share-url="shareUrl"
           :is-embed="true"
+          :track-visits="true"
           @chrome-toggle="chromeHidden = $event"
         />
       </div>
@@ -344,4 +345,10 @@ useHead(computed(() => {
   z-index: 10;
 }
 .embed-watermark:hover { opacity: 1; }
+
+/* Hospital tours: the list of areas runs down the left (components/viewer/AreaRail.vue). */
+@media (min-width: 901px) and (min-height: 521px) {
+  :root[data-area-rail] .brand-card,
+  :root[data-area-rail] .viewora-free-brand { left: 176px; }
+}
 </style>

@@ -98,6 +98,25 @@
             <li v-for="c in checks" :key="c">{{ c }}</li>
           </ul>
 
+          <!-- The list down the left of the tour: each photo once, however many steps use it. -->
+          <div class="jy-areas">
+            <p class="jy-label">Areas on your tour <span class="jy-muted">· {{ tourAreaList.length }}</span></p>
+            <p class="jy-muted">
+              Patients see each photo once in the list down the left of your tour, however many steps use it.
+              Choosing one plays everything said there, each line once.
+            </p>
+            <ul v-if="tourAreaList.length" class="jy-areas__list">
+              <li v-for="a in tourAreaList" :key="a.sceneId" class="jy-area">
+                <span class="jy-area__thumb" :style="thumbStyle(a.sceneId)" />
+                <span class="jy-area__text">
+                  <b>{{ a.title }}</b>
+                  <small>{{ a.uses === 1 ? 'in 1 step' : `in ${a.uses} steps, listed once` }}{{ a.guide ? ` · ${a.guide.chapters[0]?.actions.filter(x => 'say' in x).length ?? 0} lines` : ' · nothing said yet' }}</small>
+                </span>
+              </li>
+            </ul>
+            <p v-else class="jy-muted"><i>Turn a journey on (“Shown on your tour”) to list its areas.</i></p>
+          </div>
+
           <!-- Voice: one recording per line, made in one go when you're done writing. -->
           <div class="jy-voice">
             <p class="jy-label">Voice</p>
@@ -293,7 +312,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import PsvViewer from '~/components/viewer/PsvViewer.vue'
 import RoomSphere from '~/features/editor/components/RoomSphere.vue'
 import type { JourneyCommand } from '~/components/viewer/JourneyPlayer.vue'
-import { compileJourney, freshAudio, JOURNEY_VOICES, DEFAULT_JOURNEY_VOICE, type JourneyVoice, journeyMinutes, newLocalId, normalizeLine, type JourneyDocSentence, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
+import { compileJourney, tourAreas, freshAudio, JOURNEY_VOICES, DEFAULT_JOURNEY_VOICE, type JourneyVoice, journeyMinutes, newLocalId, normalizeLine, type JourneyDocSentence, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
 import { buildSceneGraph, buildVenueFloors, scenePath } from '~/shared/utils/venue'
 import { createSerialWrites } from '~/shared/utils/editorWrites'
 
@@ -351,6 +370,8 @@ function promptFor(title: string): string {
 
 // ── Data ───────────────────────────────────────────────────────────────────
 const scenes = computed<any[]>(() => (tour.value?.scenes ?? []).filter((s: any) => s?.id))
+/** What the tour's left-hand list will show: the published journeys' photos, once each. */
+const tourAreaList = computed(() => tourAreas({ journeys: journeys.value.filter(j => j.is_published) }, scenes.value))
 const sceneIds = computed(() => new Set(scenes.value.map(s => s.id)))
 const sceneById = computed(() => new Map(scenes.value.map(s => [s.id, s])))
 const journey = computed<JourneyRow | null>(() => journeys.value[current.value] ?? null)
@@ -988,6 +1009,13 @@ watch(viewerRef, (v) => {
 .jy-step__meta { font-size: 11.5px; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jy-link { display: flex; align-items: center; gap: 8px; padding: 4px 0 4px 40px; font-size: 11.5px; color: rgba(255,255,255,0.45); }
 .jy-link--gap { color: #fca5a5; flex-wrap: wrap; }
+.jy-areas { margin-top: 16px; }
+.jy-areas__list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.jy-area { display: flex; align-items: center; gap: 10px; }
+.jy-area__thumb { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.1) center/cover no-repeat; box-shadow: 0 0 0 2px rgba(255,255,255,0.6); }
+.jy-area__text { display: grid; min-width: 0; font-size: 13px; }
+.jy-area__text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jy-area__text small { color: rgba(255,255,255,0.55); font-size: 11.5px; }
 .jy-checks { margin: 12px 0 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: rgba(250,204,21,0.08); color: #fde68a; font-size: 12px; line-height: 1.6; }
 
 .jy-main { min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
