@@ -157,6 +157,15 @@
             :collapsed="isSidebarCollapsed"
             @click="isSidebarOpen = false"
           />
+          <SidebarLink
+            v-if="isStaff"
+            to="/app/partners"
+            icon="partners"
+            label="Partners"
+            :is-active="route.path.startsWith('/app/partners')"
+            :collapsed="isSidebarCollapsed"
+            @click="isSidebarOpen = false"
+          />
         </nav>
 
         <div class="border-t border-border dark:border-white/5 mx-2"></div>
@@ -359,6 +368,21 @@ const planStore = usePlanStore();
 const { isDark, toggle: toggleTheme, init: initTheme } = useTheme();
 
 const isExactRoute = (path: string) => route.path === path;
+
+// Staff see Partners in the sidebar. The check answers role null for everyone else.
+const isStaff = ref(false)
+const { apiFetch: staffFetch } = useApiFetch()
+async function checkStaff() {
+  if (!useRuntimeConfig().public.quoteEngine || !user.value) { isStaff.value = false; return }
+  try {
+    const res = await staffFetch<{ role: string | null }>('/staff/quote/me')
+    isStaff.value = !!res.role
+  } catch {
+    isStaff.value = false
+  }
+}
+onMounted(checkStaff)
+watch(() => user.value?.sub, checkStaff)
 
 const mainScrollRef = ref<HTMLElement | null>(null)
 
