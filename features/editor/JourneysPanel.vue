@@ -169,8 +169,12 @@
               @journey-chapter="onChapter"
             />
           </ClientOnly>
-          <div class="jy-preview__bar">
+          <div v-if="!placing" class="jy-preview__bar">
             <button class="jy-btn jy-btn--primary" :disabled="!playable" @click="playAll">▶ Play the whole visit</button>
+          </div>
+          <div v-else class="jy-placebar" role="status">
+            <span>📍 Drag the marker onto the spot, or click where it should go.</span>
+            <button class="jy-btn jy-btn--primary" @click="finishPlacing">Done</button>
           </div>
         </div>
 
@@ -226,22 +230,32 @@
               >
                 <span v-if="!lineView(k)" class="jy-look__empty">{{ k === 0 ? 'The way they walk in' : `Same as line ${k}` }}</span>
                 <span v-else-if="lineView(k)!.zoom" class="jy-look__tag">Zoomed in</span>
-                <span v-if="t.pin && lineView(k)" class="jy-look__spot" aria-hidden="true" />
+                <span v-if="t.pin && lineView(k) && spotStyle(k)" class="jy-look__spot" :style="spotStyle(k)!" aria-hidden="true" />
               </button>
               <div class="jy-look__btns">
                 <button class="jy-linkbtn" :disabled="!previewReady" @click="setLineView(k)">{{ lineView(k) ? 'Update' : 'Use this view' }}</button>
                 <button v-if="lineView(k)" class="jy-linkbtn jy-linkbtn--muted" @click="clearLineView(k)">Clear</button>
               </div>
-              <!-- Mark the spot: only once there's a view to mark the middle of -->
-              <template v-if="lineView(k) && !t.hotspot_id">
-                <label class="jy-spotbox" title="A pulsing marker in the middle of this view while the line is read. Turn the preview so the spot is in the middle, then Update.">
-                  <input type="checkbox" :checked="!!t.pin" @change="toggleLinePin(k, ($event.target as HTMLInputElement).checked)">
-                  Mark the spot
-                </label>
+              <!-- Mark a spot: a pulsing marker, placed by dragging it in the preview -->
+              <template v-if="step.scene_id && !t.hotspot_id">
+                <div v-if="placing === t.id" class="jy-spotrow">
+                  <span class="jy-spotrow__now">Placing in the preview…</span>
+                  <button class="jy-linkbtn" @click="finishPlacing">Done</button>
+                </div>
+                <div v-else-if="t.pin" class="jy-spotrow">
+                  <span class="jy-spotrow__on">📍 Spot marked</span>
+                  <button class="jy-linkbtn" :disabled="!previewReady" @click="placeLineSpot(k)">Move</button>
+                  <button class="jy-linkbtn jy-linkbtn--muted" @click="removeLinePin(k)">Remove</button>
+                </div>
+                <button
+                  v-else class="jy-linkbtn jy-spotadd" :disabled="!previewReady"
+                  title="Show a pulsing marker on something while this line is read: drag it onto the spot in the preview"
+                  @click="placeLineSpot(k)"
+                >📍 Mark a spot</button>
                 <input
                   v-if="t.pin" v-model="t.pin.label" class="jy-input jy-spotname" maxlength="40"
                   placeholder="Name it (optional)" :aria-label="`Name of the marked spot, line ${k + 1}`"
-                  @input="saveSoon"
+                  @input="onSpotName(t)"
                 >
               </template>
               <select
@@ -536,7 +550,10 @@ function normalise(r: any): JourneyRow {
         id: x.id || newLocalId(), text: x.text ?? '',
         ...(x.view ? { view: x.view } : {}),
         ...(x.hotspot_id ? { hotspot_id: x.hotspot_id } : {}),
-        ...(x.pin ? { pin: { label: String(x.pin.label ?? '') } } : {}),
+        ...(x.pin ? { pin: {
+          label: String(x.pin.label ?? ''),
+          ...(typeof x.pin.yaw === 'number' && typeof x.pin.pitch === 'number' ? { yaw: x.pin.yaw, pitch: x.pin.pitch } : {}),
+        } } : {}),
         ...(x.audio ? { audio: x.audio } : {}),
       })),
     })),
@@ -753,6 +770,12 @@ function sample(v: string) {
   sampleClip.play().catch(() => { sampling.value = null })
 }
 
+// Placing a spot ends when another step or journey is shown, or Escape is pressed.
+watch(() => [journey.value?.id, step.value?.id], () => finishPlacing())
+function onPlacingKey(e: KeyboardEvent) { if (e.key === 'Escape') finishPlacing() }
+onMounted(() => window.addEventListener('keydown', onPlacingKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', onPlacingKey))
+
 // Status of the journey on screen (a recording may already be running).
 watch(() => journey.value?.id, (id) => {
   stopVoicePoll()
@@ -782,13 +805,86 @@ const infoSpots = computed(() => {
     .filter((h: any) => h?.type === 'info' && h.id)
     .map((h: any) => ({ id: h.id as string, label: String(h.label || h.title || 'Info point') }))
 })
-/** A pulsing marker in the middle of the line's view while it's read. */
-function toggleLinePin(k: number, on: boolean) {
+// ── Mark a spot ───────────────────────────────────────────────────────────
+// A pulsing marker shown while the line is read. "Mark a spot" / "Move" turn
+// the preview to where the line is said and show the marker there: drag it
+// onto the spot (or click the photo). Its position saves as it moves.
+const placing = ref<string | null>(null)
+/** Where the camera points while line k is read: its own view, else the last one before it. */
+function facingFor(k: number): JourneyDocView | null {
+  const s = step.value
+  if (!s) return null
+  for (let i = k; i > 0; i--) if (s.sentences[i]?.view) return s.sentences[i]!.view!
+  return s.view ?? null
+}
+async function placeLineSpot(k: number) {
+  const s = step.value
+  const x = s?.sentences[k]
+  const viewer = viewerRef.value as any
+  if (!s || !x || !s.scene_id || !viewer?.placeSpot) return
+  finishPlacing()
+  await viewer.showScene?.(s.scene_id, facingFor(k))
+  if (step.value !== s) return
+  if (!x.pin) x.pin = { label: '' }
+  const pin = x.pin
+  const at = typeof pin.yaw === 'number' && typeof pin.pitch === 'number' ? { yaw: pin.yaw, pitch: pin.pitch } : null
+  const ok = viewer.placeSpot(at, pin.label?.trim() || undefined, (p: { yaw: number; pitch: number }) => {
+    pin.yaw = p.yaw
+    pin.pitch = p.pitch
+    saveSoon()
+  })
+  if (!ok) return
+  placing.value = x.id
+  if (!at) {
+    // New: starts in the middle of the view; saved there until it's moved.
+    const v = viewer.getView?.()
+    if (v) { pin.yaw = v.yaw; pin.pitch = v.pitch }
+    saveNow()
+  }
+}
+function finishPlacing() {
+  if (!placing.value) return
+  placing.value = null
+  ;(viewerRef.value as any)?.endSpotPlacing?.()
+}
+function removeLinePin(k: number) {
   const x = step.value?.sentences[k]
   if (!x) return
-  if (on) x.pin = { label: '' }
-  else delete x.pin
+  if (placing.value === x.id) finishPlacing()
+  delete x.pin
   saveNow()
+}
+/** Renaming while placing: show the new name on the marker straight away. */
+function onSpotName(t: JourneyDocSentence) {
+  saveSoon()
+  if (placing.value !== t.id || !t.pin || typeof document === 'undefined') return
+  const spot = document.querySelector<HTMLElement>('.jy-spot--edit')
+  if (!spot) return
+  const name = t.pin.label?.trim() ?? ''
+  let label = spot.querySelector<HTMLElement>('.jy-spot__label')
+  if (!name) { label?.remove(); return }
+  if (!label) { label = document.createElement('span'); label.className = 'jy-spot__label'; spot.appendChild(label) }
+  label.textContent = name
+}
+/** The marked spot on a line's thumbnail (null when it's outside the picture). */
+function spotStyle(k: number): Record<string, string> | null {
+  const v = lineView(k)
+  const pin = step.value?.sentences[k]?.pin
+  if (!v || !pin) return null
+  if (typeof pin.yaw !== 'number' || typeof pin.pitch !== 'number') return { left: '50%', top: '50%' }
+  const vfov = 90 - 60 * Math.min(100, Math.max(0, v.zoom ?? 0)) / 100
+  const hfov = Math.min(300, vfov * (LOOK_W / LOOK_H))
+  const bgW = LOOK_W * 360 / hfov
+  const bgH = bgW / 2
+  const tau = Math.PI * 2
+  let dx = ((pin.yaw - v.yaw) / tau) * bgW
+  dx = ((dx % bgW) + bgW + bgW / 2) % bgW - bgW / 2 // the short way round
+  const cy = (0.5 - v.pitch / Math.PI) * bgH
+  const y0 = Math.min(0, Math.max(LOOK_H - bgH, LOOK_H / 2 - cy))
+  const x = LOOK_W / 2 + dx
+  const y = y0 + (0.5 - pin.pitch / Math.PI) * bgH
+  if (x < 0 || x > LOOK_W || y < 0 || y > LOOK_H) return null
+  return { left: `${x}px`, top: `${y}px` }
 }
 function setLineHotspot(k: number, id: string) {
   const x = step.value?.sentences[k]
@@ -905,7 +1001,6 @@ function clearLineView(k: number) {
   if (!s) return
   if (k === 0) s.view = null
   else delete s.sentences[k]!.view
-  delete s.sentences[k]!.pin // a marked spot is the middle of the view
   saveNow()
 }
 function showLineView(k: number) {
@@ -961,9 +1056,11 @@ function chapterOf(i: number) {
 }
 function playStep(only: boolean) {
   if (!step.value?.scene_id) return
+  finishPlacing()
   command.value = { journey: 0, chapter: chapterOf(selected.value), only, nonce: ++nonce }
 }
 function playAll() {
+  finishPlacing()
   command.value = { journey: 0, chapter: 0, only: false, nonce: ++nonce }
 }
 /** Follow the visit in the list while it plays. */
@@ -1103,11 +1200,14 @@ watch(viewerRef, (v) => {
 .jy-look__empty { display: grid; place-items: center; height: 100%; padding: 0 10px; text-align: center; line-height: 1.3; }
 .jy-look__tag { position: absolute; right: 5px; bottom: 5px; padding: 2px 7px; border-radius: 999px; background: rgba(12,14,22,0.75); color: #fff; font-size: 10px; font-weight: 800; }
 .jy-look__btns { display: flex; gap: 12px; padding-left: 2px; }
-.jy-spotbox { display: flex; align-items: center; gap: 6px; padding-left: 2px; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8); cursor: pointer; }
-.jy-spotbox input { accent-color: #e11d48; margin: 0; }
+.jy-spotadd { align-self: flex-start; padding-left: 2px; }
+.jy-spotrow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding-left: 2px; font-size: 12px; font-weight: 700; }
+.jy-spotrow__on { color: rgba(255,255,255,0.85); }
+.jy-spotrow__now { color: #fda4af; }
+.jy-placebar { position: absolute; left: 12px; right: 12px; top: 12px; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 12px; background: rgba(12,14,20,0.85); color: #fff; font-size: 13px; font-weight: 600; backdrop-filter: blur(8px); }
 .jy-spotname { height: 28px; padding: 0 8px; font-size: 12px; }
 /* The marked spot on the thumbnail: the middle of the view. */
-.jy-look__spot { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #e11d48; box-shadow: 0 0 0 2px #fff, 0 0 0 6px rgba(225, 29, 72, 0.35); }
+.jy-look__spot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #e11d48; box-shadow: 0 0 0 2px #fff, 0 0 0 6px rgba(225, 29, 72, 0.35); }
 .jy-linkbtn:disabled { opacity: 0.45; cursor: not-allowed; }
 .jy-linkbtn--muted { color: rgba(255,255,255,0.55); }
 .jy-sentence__n { flex: none; width: 22px; height: 22px; margin-top: 9px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.08); font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.7); }

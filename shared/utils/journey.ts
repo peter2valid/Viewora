@@ -124,8 +124,11 @@ export interface JourneyDocSentence {
   view?: JourneyDocView | null
   /** An info hotspot (in this step's photo) whose card opens while the line is read. */
   hotspot_id?: string | null
-  /** Mark the spot: a pulsing marker in the middle of the line's view while it's read. */
-  pin?: { label?: string } | null
+  /**
+   * Mark the spot: a pulsing marker while the line is read. yaw / pitch
+   * (radians) = where it was placed; absent = the middle of the line's view.
+   */
+  pin?: { label?: string; yaw?: number; pitch?: number } | null
   audio?: JourneyDocAudio | null
 }
 
@@ -192,7 +195,8 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
         return
       }
       if (k > 0 && x.view) { actions.push({ look: toView(x.view), reframe: true }); facing = x.view }
-      const pin = x.pin && facing ? { pin: { yaw: toDeg(facing.yaw), pitch: toDeg(facing.pitch), ...(x.pin.label?.trim() ? { label: x.pin.label.trim() } : {}) } } : {}
+      const at = x.pin && typeof x.pin.yaw === 'number' && typeof x.pin.pitch === 'number' ? { yaw: x.pin.yaw, pitch: x.pin.pitch } : facing
+      const pin = x.pin && at ? { pin: { yaw: toDeg(at.yaw), pitch: toDeg(at.pitch), ...(x.pin.label?.trim() ? { label: x.pin.label.trim() } : {}) } } : {}
       if (text) { actions.push({ say: text, ...voice, ...pin }); said++ }
     })
     if (!said) actions.push({ wait: QUIET_STEP_MS })

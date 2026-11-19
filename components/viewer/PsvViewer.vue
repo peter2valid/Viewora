@@ -1771,6 +1771,86 @@ const journeyApi: JourneyApi = {
 /** The one "mark the spot" marker a journey line can show (JourneyPlayer showPin). */
 const JOURNEY_PIN_ID = 'journey-spot'
 
+// ── Placing a marked spot (journey editor) ──
+// The editor's "Place it" shows the marker on the preview: drag it onto the
+// spot, or click the photo to drop it there. Each move is reported back.
+// While placing, clicking the floor doesn't walk to another room.
+const spotPlacing = ref(false)
+let stopSpotPlacing: (() => void) | null = null
+function placeSpot(at: { yaw: number; pitch: number } | null, label: string | undefined, onMove: (p: { yaw: number; pitch: number }) => void): boolean {
+  endSpotPlacing()
+  const h = vtHandle.value
+  const viewer = h?.viewer
+  if (!h || !viewer) return false
+  let cur = at ?? (viewer.getPosition?.() as { yaw: number; pitch: number })
+  journeyApi.showPin!({ yaw: cur.yaw, pitch: cur.pitch, label })
+  const el = (viewer.container as HTMLElement | undefined)?.querySelector<HTMLElement>('.jy-spot')
+  if (!el) return false
+  el.classList.add('jy-spot--edit')
+  spotPlacing.value = true
+  const toSphere = (e: PointerEvent) => {
+    const r = (viewer.container as HTMLElement).getBoundingClientRect()
+    return viewer.dataHelper.viewerCoordsToSphericalCoords({ x: e.clientX - r.left, y: e.clientY - r.top }) as { yaw: number; pitch: number } | null
+  }
+  const moveTo = (p: { yaw: number; pitch: number }) => {
+    cur = { yaw: p.yaw, pitch: p.pitch }
+    try { h.markers.updateMarker({ id: JOURNEY_PIN_ID, position: cur }) } catch { /* scene changed */ }
+  }
+  let dragging = false
+  let droppedAt = 0
+  const stop = (e: Event) => e.stopPropagation()
+  const down = (e: PointerEvent) => {
+    if (e.button !== 0) return
+    e.stopPropagation(); e.preventDefault() // the photo mustn't turn under the marker
+    dragging = true
+    el.classList.add('is-dragging')
+  }
+  const move = (e: PointerEvent) => {
+    if (!dragging) return
+    e.preventDefault()
+    const p = toSphere(e)
+    if (p) moveTo(p)
+  }
+  const up = () => {
+    if (!dragging) return
+    dragging = false
+    droppedAt = Date.now()
+    el.classList.remove('is-dragging')
+    onMove(cur)
+  }
+  // A click on the photo drops the marker there (not the click that ends a drag).
+  const click = (e: any) => {
+    if (Date.now() - droppedAt < 300 || e?.data?.rightclick) return
+    if (typeof e?.data?.yaw !== 'number') return
+    moveTo({ yaw: e.data.yaw, pitch: e.data.pitch })
+    onMove(cur)
+  }
+  el.addEventListener('pointerdown', down)
+  el.addEventListener('mousedown', stop)
+  el.addEventListener('touchstart', stop, { passive: true })
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', up)
+  window.addEventListener('pointercancel', up)
+  viewer.addEventListener('click', click)
+  stopSpotPlacing = () => {
+    el.removeEventListener('pointerdown', down)
+    el.removeEventListener('mousedown', stop)
+    el.removeEventListener('touchstart', stop)
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+    window.removeEventListener('pointercancel', up)
+    try { viewer.removeEventListener('click', click) } catch { /* viewer gone */ }
+  }
+  return true
+}
+function endSpotPlacing() {
+  stopSpotPlacing?.()
+  stopSpotPlacing = null
+  if (spotPlacing.value) journeyApi.hidePin!()
+  spotPlacing.value = false
+}
+onUnmounted(endSpotPlacing)
+
 // ── Opening screen data ──
 // First room's photo, tiny (≈4 KB, instant) and medium (≈15–40 KB) — both
 // rendered blurred, so the low resolution never shows. Server-rendered with
@@ -2246,7 +2326,7 @@ async function initVT() {
               hotspotId: h.id, targetSceneId: h.targetSceneId!, name: sceneName(h.targetSceneId!), yaw: h.yaw, pitch: h.pitch,
               glyph: floorGlyph(h.icon), scale: Number(h.scale || 1), hoverScale: Number(h.hoverScale || 1.3),
             })),
-          isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value,
+          isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value || spotPlacing.value,
           onWalk: (targetSceneId, yaw, via) => walkThroughFloorCursor(handle, targetSceneId, yaw, via),
           cursor: floorNav,
         })
@@ -2455,6 +2535,8 @@ defineExpose({
   goToScene: (sceneId: string) => handleDockSelect(sceneId, 'host-chrome'),
   getView,
   showScene,
+  placeSpot,
+  endSpotPlacing,
 })
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -4003,6 +4085,10 @@ watch(() => vtTransitioning.value, (loading) => {
   animation: jy-spot-pulse 1.8s ease-out infinite; opacity: 0;
 }
 :global(.jy-spot__ring--late) { animation-delay: 0.9s; }
+/* Being placed in the editor: grab it and drag. */
+:global(.jy-spot--edit) { pointer-events: auto; cursor: grab; touch-action: none; }
+:global(.jy-spot--edit.is-dragging) { cursor: grabbing; }
+:global(.jy-spot--edit .jy-spot__dot) { width: 22px; height: 22px; }
 :global(.jy-spot__label) {
   position: absolute; top: calc(100% + 2px); left: 50%; transform: translateX(-50%);
   padding: 4px 10px; border-radius: 999px; background: #fff; color: #111827;

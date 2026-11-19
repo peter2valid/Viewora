@@ -39,3 +39,13 @@ test('the area guide keeps the marked spots', () => {
   const pins = area!.guide!.chapters[0]!.actions.filter((a: any) => a.pin)
   assert.equal(pins.length, 3)
 })
+
+test('a placed spot sits where it was dragged, not in the middle of the view', () => {
+  const d: JourneyDoc = { title: 'x', steps: [{ id: 's', title: 'Gate', scene_id: 'gate', view: { yaw: 0, pitch: 0 }, sentences: [
+    { id: 'a', text: 'Parking on the right.', pin: { label: 'Parking', yaw: R(75), pitch: R(-20) } },
+  ] }] }
+  const say = compileJourney(d, new Set(['gate']))!.chapters[0]!.actions.find((a: any) => a.pin) as any
+  assert.equal(Math.round(say.pin.yaw), 75)
+  assert.equal(Math.round(say.pin.pitch), -20)
+  assert.equal(say.pin.label, 'Parking')
+})
