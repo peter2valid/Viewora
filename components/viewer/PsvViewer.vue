@@ -529,7 +529,7 @@
           'vt-canvas--ready': vtReady,
           'vt-canvas--focused': vtBlur,
           'vt-canvas--embed': props.isEmbed,
-          'hide-nav-arrows': !dockCollapsed || props.hideNavArrows || compactNavActive
+          'hide-nav-arrows': !dockCollapsed || props.hideNavArrows || compactNavActive || showAreaRail
         }"
       />
 
@@ -610,6 +610,7 @@
       @chapter="(i: number) => emit('journey-chapter', i)"
       @track="onJourneyTrack"
       @end="endJourney"
+      @explore="exploreOnMyOwn"
     />
 
     <!-- ── Scene dock (both modes) — hidden when hideOwnChrome is set; the
@@ -1557,8 +1558,18 @@ function endJourney() {
 // Every photo the published visits use, listed once however many steps use
 // it; choosing one plays all that's said there (tourAreas in journey.ts).
 const areas = computed<TourArea[]>(() => (props.journeyPreview ? [] : tourAreas(props.tour, tourScenes.value)))
+/**
+ * "Explore on my own" on a hospital tour: the usual tour (the dock at the
+ * bottom, the floor arrows) instead of the list of areas. The Guided Tour
+ * button brings the guided layout back.
+ */
+const exploring = ref(false)
 const showAreaRail = computed(() => areas.value.length > 0 && hasTourData.value && vtReady.value
-  && !showVenue.value && !routeGuide.value && !chromeHidden.value && !props.hideOwnChrome)
+  && !exploring.value && !showVenue.value && !routeGuide.value && !chromeHidden.value && !props.hideOwnChrome)
+function exploreOnMyOwn() {
+  exploring.value = true
+  endJourney()
+}
 // The host page's brand card sits top-left too: it moves right of the list
 // while the list shows (CSS on :root[data-area-rail] in pages/p and pages/embed).
 watch(showAreaRail, (on) => {
@@ -1584,6 +1595,7 @@ function onAreaPick(a: TourArea) {
   void openSceneFromMap(a.sceneId)
 }
 function openVisits() {
+  exploring.value = false
   viewerCommand.value = null
   playerKey.value++ // a fresh player opens on "What brings you here?"
   journeyState.value = 'intro'
@@ -1733,8 +1745,31 @@ const journeyApi: JourneyApi = {
   closeCard() {
     if (vtHandle.value && vtFocusing.value) dismissInfoCard(vtHandle.value)
   },
+  showPin(p) {
+    const m = vtHandle.value?.markers
+    if (!m || typeof document === 'undefined') return
+    // Two rings spreading out from a dot, and the spot's name under it.
+    const el = document.createElement('div')
+    el.className = 'jy-spot'
+    el.innerHTML = '<span class="jy-spot__ring"></span><span class="jy-spot__ring jy-spot__ring--late"></span><span class="jy-spot__dot"></span>'
+    if (p.label) {
+      const t = document.createElement('span')
+      t.className = 'jy-spot__label'
+      t.textContent = p.label
+      el.appendChild(t)
+    }
+    try { m.removeMarker(JOURNEY_PIN_ID) } catch { /* none yet */ }
+    try {
+      m.addMarker({ id: JOURNEY_PIN_ID, position: { yaw: p.yaw, pitch: p.pitch }, element: el, size: { width: 64, height: 64 }, anchor: 'center center', hoverScale: 1 })
+    } catch { /* the scene is changing: no marker this time */ }
+  },
+  hidePin() {
+    try { vtHandle.value?.markers?.removeMarker(JOURNEY_PIN_ID) } catch { /* not shown */ }
+  },
   container: () => vtContainerEl.value,
 }
+/** The one "mark the spot" marker a journey line can show (JourneyPlayer showPin). */
+const JOURNEY_PIN_ID = 'journey-spot'
 
 // ── Opening screen data ──
 // First room's photo, tiny (≈4 KB, instant) and medium (≈15–40 KB) — both
@@ -2912,7 +2947,7 @@ function scheduleNextAutoplayScene() {
 
 function toggleAutoplay() {
   // A tour with a journey: the Guided Tour button opens the journey instead.
-  if (journeys.value.length) { journeyOn.value = true; return }
+  if (journeys.value.length) { openVisits(); return }
   autoplaying.value = !autoplaying.value
   if (autoplaying.value) {
     scheduleNextAutoplayScene()
@@ -3954,6 +3989,33 @@ watch(() => vtTransitioning.value, (loading) => {
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
 }
 :global(.vhs-nav:hover) { transform: scale(1.18); }
+
+/* "Mark the spot": a journey line's pulsing marker (journeyApi.showPin).
+   Rings spread out from a dot; transform + opacity only, so it costs no layout. */
+:global(.jy-spot) { position: relative; width: 64px; height: 64px; pointer-events: none; }
+:global(.jy-spot__dot) {
+  position: absolute; inset: 0; margin: auto; width: 18px; height: 18px; border-radius: 50%;
+  background: #e11d48; box-shadow: 0 0 0 3px #fff, 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+:global(.jy-spot__ring) {
+  position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 50%;
+  border: 3px solid #fff; background: rgba(225, 29, 72, 0.25);
+  animation: jy-spot-pulse 1.8s ease-out infinite; opacity: 0;
+}
+:global(.jy-spot__ring--late) { animation-delay: 0.9s; }
+:global(.jy-spot__label) {
+  position: absolute; top: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+  padding: 4px 10px; border-radius: 999px; background: #fff; color: #111827;
+  font: 700 13px/1.2 system-ui, sans-serif; white-space: nowrap; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+@keyframes jy-spot-pulse {
+  0%   { transform: scale(0.3); opacity: 0.95; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :global(.jy-spot__ring) { animation: none; opacity: 0.7; transform: scale(0.9); }
+  :global(.jy-spot__ring--late) { display: none; }
+}
 
 :global(.vhs-nav__pulse) {
   position: absolute;

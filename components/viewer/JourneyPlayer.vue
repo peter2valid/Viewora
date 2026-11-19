@@ -14,7 +14,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
         </button>
       </div>
-      <button type="button" class="jp-link" @click="emit('end')">Explore on my own</button>
+      <button type="button" class="jp-link" @click="explore">Explore on my own</button>
     </div>
     <div v-else-if="state === 'intro'" class="jp-intro">
       <p class="jp-intro__eyebrow">Guided visit · about {{ minutesOf(journey) }} min</p>
@@ -27,7 +27,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
         Start the visit
       </button>
-      <button type="button" class="jp-link" @click="emit('end')">Explore on my own</button>
+      <button type="button" class="jp-link" @click="explore">Explore on my own</button>
     </div>
 
     <!-- Playing / paused / finished -->
@@ -47,14 +47,15 @@
         <template v-else-if="captionsOn">{{ caption || ' ' }}</template>
       </p>
 
-      <div v-if="journey.chapters.length > 1" class="jp-progress" aria-hidden="true">
-        <i v-for="(c, i) in journey.chapters" :key="i" :class="{ 'is-done': i < chapter || state === 'done', 'is-now': i === chapter && state !== 'done' }" @click="goChapter(i, stopAfter !== null)" />
+      <!-- One segment per line of this step, filling as it's said (like a status clip) -->
+      <div class="jp-progress" aria-hidden="true">
+        <i v-for="(f, n) in segFills" :key="`${chapter}:${n}`"><b :style="{ transform: `scaleX(${f})` }" /></i>
       </div>
 
       <div class="jp-controls">
         <template v-if="state === 'done'">
           <button v-if="kind !== 'route'" type="button" class="jp-btn jp-btn--ghost" @click="goChapter(stopAfter ?? 0, stopAfter !== null)">Watch again</button>
-          <button type="button" class="jp-btn" @click="end">Explore on my own</button>
+          <button type="button" class="jp-btn" @click="explore">Explore on my own</button>
         </template>
         <template v-else>
           <button v-if="journey.chapters.length > 1" type="button" class="jp-icon" aria-label="Previous step" title="Previous step" :disabled="chapter === 0" @click="goChapter(chapter - 1, stopAfter !== null)">
@@ -107,6 +108,9 @@ export interface JourneyApi {
   stopCamera(): void
   openCard(hotspotId: string): Promise<void>
   closeCard(): void
+  /** A pulsing marker at a spot (radians) while a line is read; hidePin takes it away. */
+  showPin?(pin: { yaw: number; pitch: number; label?: string }): void
+  hidePin?(): void
   /** The element the visitor drags; pressing on it pauses the visit. */
   container(): HTMLElement | null
 }
@@ -128,7 +132,7 @@ const props = defineProps<{
   preview?: boolean
   command?: JourneyCommand | null
 }>()
-const emit = defineEmits<{ (e: 'end'): void; (e: 'state', s: string): void; (e: 'chapter', i: number): void; (e: 'track', t: JourneyTrack): void }>()
+const emit = defineEmits<{ (e: 'end'): void; (e: 'explore'): void; (e: 'state', s: string): void; (e: 'chapter', i: number): void; (e: 'track', t: JourneyTrack): void }>()
 
 const state = ref<'idle' | 'intro' | 'playing' | 'paused' | 'done'>(props.preview ? 'idle' : 'intro')
 const ji = ref(0)
@@ -150,6 +154,24 @@ const caption = ref('')
 const muted = ref(false)
 const pausedByUser = ref(false)
 const minutesOf = (j: Journey) => journeyMinutes(j)
+
+// ── Progress: one segment per line of the step on screen ──────────────────
+// Like a status clip: the line being said fills its segment as the voice goes,
+// lines already said are full, and the next step starts a fresh set.
+/** How far the line being said has got (0–1). */
+const lineFrac = ref(0)
+const speaks = (a: JourneyAction | undefined) => !!a && 'say' in a && !!a.say
+const segFills = computed<number[]>(() => {
+  const acts = journey.value.chapters[chapter.value]?.actions ?? []
+  let idx = acts.map((a, i) => (speaks(a) ? i : -1)).filter(i => i >= 0)
+  if (!idx.length) idx = [Math.max(0, acts.length - 1)] // a quiet step: one segment
+  if (state.value === 'done') return idx.map(() => 1)
+  return idx.map((i) => {
+    if (action.value > i) return 1
+    if (action.value < i) return 0
+    return speaks(acts[i]) ? Math.min(1, Math.max(0, lineFrac.value)) : 0
+  })
+})
 watch(chapter, (i) => emit('chapter', i))
 
 // ── Analytics: a visit's start, each step reached, and how it ended ────────
@@ -215,6 +237,7 @@ let resumeAt: { key: string; at: number } | null = null
 const lineKey = () => `${ji.value}:${chapter.value}:${action.value}`
 
 async function say(text: string, stopped: () => boolean, audio?: string, ms?: number): Promise<void> {
+  lineFrac.value = 0
   caption.value = text
   const key = lineKey()
   const from = resumeAt?.key === key ? resumeAt.at : 0
@@ -226,7 +249,10 @@ async function say(text: string, stopped: () => boolean, audio?: string, ms?: nu
     use = clip
   }
   preloadAhead()
-  const r = await runLine({ clip: use, ms: ms ?? speakMs(text), from, stopped })
+  const r = await runLine({
+    clip: use, ms: ms ?? speakMs(text), from, stopped,
+    onProgress: (at, of) => { if (!stopped()) lineFrac.value = of > 0 ? at / of : 0 },
+  })
   if (!r.finished) resumeAt = { key, at: r.at }
 }
 
@@ -312,7 +338,9 @@ async function exec(a: JourneyAction, stopped: () => boolean) {
       await sleep(900, stopped) // let the camera settle back before moving on
     }
   } else if ('say' in a) {
+    if (a.pin) props.api.showPin?.({ yaw: deg(a.pin.yaw), pitch: deg(a.pin.pitch), label: a.pin.label })
     await say(a.say, stopped, a.audio, a.ms)
+    if (a.pin && !stopped()) props.api.hidePin?.()
   } else if ('wait' in a) {
     await sleep(a.wait, stopped)
   }
@@ -338,6 +366,7 @@ async function play() {
     try { await exec(a, stopped) } catch { /* a failed step shouldn't end the visit */ }
     if (stopped()) return
     action.value++
+    lineFrac.value = 0
   }
   if (stopped()) return
   caption.value = ''
@@ -383,6 +412,8 @@ async function goChapter(i: number, only = false) {
   resumeAt = null
   stopAfter.value = only ? i : null
   props.api.closeCard()
+  props.api.hidePin?.()
+  lineFrac.value = 0
   chapter.value = i
   action.value = 0
   caption.value = ''
@@ -401,9 +432,16 @@ function end() {
   if (state.value !== 'done') trackEnd(false)
   halt()
   props.api.closeCard()
+  props.api.hidePin?.()
   caption.value = ''
   if (props.preview) setState('idle')
   emit('end')
+}
+
+/** "Explore on my own": end, and tell the tour the visitor wants to look around freely. */
+function explore() {
+  end()
+  emit('explore')
 }
 
 // Each new command plays from that step (or just that step), or an area's
@@ -443,6 +481,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (state.value === 'playing' || state.value === 'paused') trackEnd(false)
   halt()
+  props.api.hidePin?.()
   clip?.removeAttribute('src')
   clip = null
   for (const el of preloaded.values()) el.removeAttribute('src')
@@ -484,9 +523,9 @@ onBeforeUnmount(() => {
 .jp-caption--off { min-height: 0; margin: 0; }
 
 .jp-progress { display: flex; gap: 4px; margin: 10px 0 0; }
-.jp-progress i { flex: 1; height: 5px; border-radius: 4px; background: #e5e7eb; cursor: pointer; transition: background 0.3s; }
-.jp-progress i.is-done { background: #fda4af; }
-.jp-progress i.is-now { background: #e11d48; }
+.jp-progress i { flex: 1; height: 5px; border-radius: 4px; background: #e5e7eb; overflow: hidden; }
+/* Scaled, not resized: the fill moves on the compositor, no layout per tick. */
+.jp-progress b { display: block; height: 100%; background: #e11d48; transform-origin: left center; transition: transform 0.12s linear; }
 
 .jp-controls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
 .jp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 42px; padding: 0 18px; border: 0; border-radius: 12px; background: #111827; color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }

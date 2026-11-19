@@ -49,20 +49,27 @@
 
     <!-- "I'm at A, take me to B" -->
     <form v-if="showRoute" class="ar-route" @submit.prevent="go">
-      <label class="ar-field">
-        <span>From</span>
-        <select v-model="from">
-          <option v-if="activeSceneId" value="__here">Where I am now</option>
-          <option v-for="a in areas" :key="a.sceneId" :value="a.sceneId">{{ a.title }}</option>
-        </select>
-      </label>
-      <label class="ar-field">
-        <span>To</span>
-        <select v-model="to">
-          <option value="" disabled>Choose a place</option>
-          <option v-for="a in areas" :key="a.sceneId" :value="a.sceneId" :disabled="a.sceneId === fromScene">{{ a.title }}</option>
-        </select>
-      </label>
+      <!-- Not native selects: those cut long names off. These wrap. -->
+      <div v-for="f in fields" :key="f.key" class="ar-field">
+        <span :id="`ar-${f.key}-label`">{{ f.label }}</span>
+        <button
+          type="button" class="ar-pick" :class="{ 'is-open': openField === f.key, 'is-empty': !f.value }"
+          :aria-expanded="openField === f.key" :aria-labelledby="`ar-${f.key}-label`"
+          @click="openField = openField === f.key ? null : f.key"
+        >
+          <span class="ar-pick__text">{{ f.text }}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <ul v-if="openField === f.key" class="ar-opts" role="listbox" :aria-labelledby="`ar-${f.key}-label`">
+          <li v-for="o in f.options" :key="o.id">
+            <button
+              type="button" role="option" class="ar-opt" :class="{ 'is-on': o.id === f.value }"
+              :aria-selected="o.id === f.value" :disabled="o.disabled"
+              @click="choose(f.key, o.id)"
+            >{{ o.title }}</button>
+          </li>
+        </ul>
+      </div>
       <button type="submit" class="ar-go" :disabled="!to || to === fromScene">Walk me there</button>
     </form>
 
@@ -124,7 +131,34 @@ const to = ref<string>('')
 const fromScene = computed(() => (from.value === '__here' ? props.activeSceneId : from.value))
 watch(() => props.activeSceneId, (id) => { if (!id && from.value === '__here') from.value = props.areas[0]?.sceneId ?? '' }, { immediate: true })
 
+// From / To pickers
+const openField = ref<'from' | 'to' | null>(null)
+const titleOf = (id: string) => (id === '__here' ? 'Where I am now' : props.areas.find(a => a.sceneId === id)?.title ?? '')
+const fields = computed(() => [
+  {
+    key: 'from' as const, label: 'From', value: from.value, text: titleOf(from.value) || 'Choose a place',
+    options: [
+      ...(props.activeSceneId ? [{ id: '__here', title: 'Where I am now', disabled: false }] : []),
+      ...props.areas.map(a => ({ id: a.sceneId, title: a.title, disabled: false })),
+    ],
+  },
+  {
+    key: 'to' as const, label: 'To', value: to.value, text: titleOf(to.value) || 'Choose a place',
+    options: props.areas.map(a => ({ id: a.sceneId, title: a.title, disabled: a.sceneId === fromScene.value })),
+  },
+])
+function choose(key: 'from' | 'to', id: string) {
+  if (key === 'from') {
+    from.value = id
+    if (to.value && to.value === fromScene.value) to.value = props.areas.find(a => a.sceneId !== fromScene.value)?.sceneId ?? ''
+  } else {
+    to.value = id
+  }
+  openField.value = null
+}
+
 function toggleRoute() {
+  openField.value = null
   showRoute.value = !showRoute.value
   if (showRoute.value && !to.value) {
     // Suggest somewhere other than here.
@@ -182,19 +216,36 @@ function go() {
 }
 .ar-action:hover, .ar-action.is-on { background: #fff; color: #111827; }
 
-.ar-route { display: grid; gap: 8px; padding: 10px 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); }
+.ar-route { flex-shrink: 0; display: grid; gap: 8px; padding: 10px 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); }
 .ar-field { display: grid; gap: 3px; font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, 0.7); }
-.ar-field select {
-  width: 100%; min-height: 34px; padding: 4px 6px; border: 0; border-radius: 8px;
-  background: #fff; color: #111827; font: inherit; font-size: 13px; font-weight: 600;
+.ar-pick {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-height: 34px;
+  padding: 6px 8px; border: 0; border-radius: 8px; background: #fff; color: #111827;
+  font: inherit; font-size: 13px; font-weight: 600; line-height: 1.25; text-align: left; cursor: pointer;
 }
+.ar-pick__text { min-width: 0; overflow-wrap: anywhere; }
+.ar-pick.is-empty { color: #6b7280; }
+.ar-pick svg { flex-shrink: 0; transition: transform 0.15s; }
+.ar-pick.is-open svg { transform: rotate(180deg); }
+.ar-opts {
+  list-style: none; margin: 4px 0 0; padding: 4px; display: grid; gap: 2px; border-radius: 8px;
+  background: #fff; max-height: 220px; overflow-y: auto; overscroll-behavior: contain;
+}
+.ar-opt {
+  display: block; width: 100%; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent;
+  color: #111827; font: inherit; font-size: 13px; font-weight: 600; line-height: 1.25; text-align: left;
+  overflow-wrap: anywhere; cursor: pointer;
+}
+.ar-opt:hover:not(:disabled) { background: #f3f4f6; }
+.ar-opt.is-on { background: #ffe4e6; color: #be123c; }
+.ar-opt:disabled { color: #9ca3af; cursor: default; }
 .ar-go {
   min-height: 36px; border: 0; border-radius: 10px; background: #e11d48; color: #fff;
   font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
 }
 .ar-go:disabled { opacity: 0.45; cursor: default; }
 
-.ar-list { list-style: none; margin: 0; padding: 2px 0; display: grid; gap: 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.ar-list { list-style: none; margin: 0; padding: 2px 0; display: grid; gap: 4px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .ar-item {
   display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; padding: 6px 4px;
   border: 0; border-radius: 12px; background: transparent; color: #fff; font: inherit; cursor: pointer;

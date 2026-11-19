@@ -38,10 +38,13 @@ export type JourneyAction =
    * audio: the line's recording (MP3); ms: its length. Without audio the
    * caption shows for a reading time instead.
    */
-  | { say: string; audio?: string; ms?: number }
+  | { say: string; audio?: string; ms?: number; pin?: JourneyPin }
   /** Open an info hotspot's card, narrate, then close it. */
   | { card: string; say?: string; hold?: number; audio?: string; ms?: number }
   | { wait: number }
+
+/** A pulsing marker shown while a line is read ("Parking"). Degrees, like views. */
+export interface JourneyPin { yaw: number; pitch: number; label?: string }
 
 export interface JourneyChapter {
   title: string
@@ -121,6 +124,8 @@ export interface JourneyDocSentence {
   view?: JourneyDocView | null
   /** An info hotspot (in this step's photo) whose card opens while the line is read. */
   hotspot_id?: string | null
+  /** Mark the spot: a pulsing marker in the middle of the line's view while it's read. */
+  pin?: { label?: string } | null
   audio?: JourneyDocAudio | null
 }
 
@@ -174,6 +179,8 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
     // Line 1 is said facing the arrival view; a later line with its own view
     // turns there first. Empty lines are skipped, but their view still counts.
     let said = 0
+    // Where the camera points while each line is read: a marked spot sits there.
+    let facing: JourneyDocView | null = s.view ?? null
     ;(s.sentences ?? []).forEach((x, k) => {
       const text = normalizeLine(x.text ?? '')
       const a = freshAudio(x)
@@ -184,8 +191,9 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
         if (text) said++
         return
       }
-      if (k > 0 && x.view) actions.push({ look: toView(x.view), reframe: true })
-      if (text) { actions.push({ say: text, ...voice }); said++ }
+      if (k > 0 && x.view) { actions.push({ look: toView(x.view), reframe: true }); facing = x.view }
+      const pin = x.pin && facing ? { pin: { yaw: toDeg(facing.yaw), pitch: toDeg(facing.pitch), ...(x.pin.label?.trim() ? { label: x.pin.label.trim() } : {}) } } : {}
+      if (text) { actions.push({ say: text, ...voice, ...pin }); said++ }
     })
     if (!said) actions.push({ wait: QUIET_STEP_MS })
     return { title: s.title.trim() || `Step ${i + 1}`, scene: s.scene_id!, ...(view ? { view } : {}), actions }

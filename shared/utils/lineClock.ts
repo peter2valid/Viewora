@@ -28,6 +28,8 @@ export interface LineOptions {
   every?: (fn: () => void) => () => void
   /** A clip that doesn't move for this long is given up on (timer takes over). */
   stallMs?: number
+  /** How far the line has got, on every tick (e.g. to fill a progress bar). */
+  onProgress?: (atMs: number, totalMs: number) => void
 }
 
 export interface LineResult {
@@ -84,12 +86,15 @@ export function runLine(o: LineOptions): Promise<LineResult> {
       }
     }
 
+    const report = (at: number, of: number) => { try { o.onProgress?.(Math.min(at, of), of) } catch { /* ignore */ } }
+    report(from, total)
     const cancel = every(() => {
       if (done) return
       if (clip) {
         const pos = clip.currentTime * 1000
         if (o.stopped()) { try { clip.pause() } catch { /* ignore */ } return finish({ finished: false, at: pos }) }
         const end = Number.isFinite(clip.duration) && clip.duration > 0 ? clip.duration * 1000 : total
+        report(pos, end)
         if (clip.ended || pos >= end - 30) return finish({ finished: true, at: end })
         if (pos !== lastPos) { lastPos = pos; lastMoveAt = now() }
         else if (now() - lastMoveAt > stallMs) toTimer(pos)
@@ -97,6 +102,7 @@ export function runLine(o: LineOptions): Promise<LineResult> {
       }
       const at = base + (now() - startedAt)
       if (o.stopped()) return finish({ finished: false, at: Math.min(at, total) })
+      report(at, total)
       if (at >= total) finish({ finished: true, at: total })
     })
   })

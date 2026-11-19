@@ -226,11 +226,24 @@
               >
                 <span v-if="!lineView(k)" class="jy-look__empty">{{ k === 0 ? 'The way they walk in' : `Same as line ${k}` }}</span>
                 <span v-else-if="lineView(k)!.zoom" class="jy-look__tag">Zoomed in</span>
+                <span v-if="t.pin && lineView(k)" class="jy-look__spot" aria-hidden="true" />
               </button>
               <div class="jy-look__btns">
                 <button class="jy-linkbtn" :disabled="!previewReady" @click="setLineView(k)">{{ lineView(k) ? 'Update' : 'Use this view' }}</button>
                 <button v-if="lineView(k)" class="jy-linkbtn jy-linkbtn--muted" @click="clearLineView(k)">Clear</button>
               </div>
+              <!-- Mark the spot: only once there's a view to mark the middle of -->
+              <template v-if="lineView(k) && !t.hotspot_id">
+                <label class="jy-spotbox" title="A pulsing marker in the middle of this view while the line is read. Turn the preview so the spot is in the middle, then Update.">
+                  <input type="checkbox" :checked="!!t.pin" @change="toggleLinePin(k, ($event.target as HTMLInputElement).checked)">
+                  Mark the spot
+                </label>
+                <input
+                  v-if="t.pin" v-model="t.pin.label" class="jy-input jy-spotname" maxlength="40"
+                  placeholder="Name it (optional)" :aria-label="`Name of the marked spot, line ${k + 1}`"
+                  @input="saveSoon"
+                >
+              </template>
               <select
                 v-if="infoSpots.length" class="jy-select" :value="t.hotspot_id || ''" :aria-label="`Info card for line ${k + 1}`"
                 title="Open one of this photo's info hotspots while the line is read"
@@ -523,6 +536,7 @@ function normalise(r: any): JourneyRow {
         id: x.id || newLocalId(), text: x.text ?? '',
         ...(x.view ? { view: x.view } : {}),
         ...(x.hotspot_id ? { hotspot_id: x.hotspot_id } : {}),
+        ...(x.pin ? { pin: { label: String(x.pin.label ?? '') } } : {}),
         ...(x.audio ? { audio: x.audio } : {}),
       })),
     })),
@@ -768,6 +782,14 @@ const infoSpots = computed(() => {
     .filter((h: any) => h?.type === 'info' && h.id)
     .map((h: any) => ({ id: h.id as string, label: String(h.label || h.title || 'Info point') }))
 })
+/** A pulsing marker in the middle of the line's view while it's read. */
+function toggleLinePin(k: number, on: boolean) {
+  const x = step.value?.sentences[k]
+  if (!x) return
+  if (on) x.pin = { label: '' }
+  else delete x.pin
+  saveNow()
+}
 function setLineHotspot(k: number, id: string) {
   const x = step.value?.sentences[k]
   if (!x) return
@@ -846,7 +868,7 @@ function choosePhoto(sceneId: string) {
 function clearViews(s: JourneyDocStep) {
   s.view = null
   // Directions and info cards only mean something in their own photo.
-  for (const x of s.sentences) { delete x.view; delete x.hotspot_id }
+  for (const x of s.sentences) { delete x.view; delete x.hotspot_id; delete x.pin }
 }
 function lineView(k: number): JourneyDocView | null {
   const s = step.value
@@ -883,6 +905,7 @@ function clearLineView(k: number) {
   if (!s) return
   if (k === 0) s.view = null
   else delete s.sentences[k]!.view
+  delete s.sentences[k]!.pin // a marked spot is the middle of the view
   saveNow()
 }
 function showLineView(k: number) {
@@ -1080,6 +1103,11 @@ watch(viewerRef, (v) => {
 .jy-look__empty { display: grid; place-items: center; height: 100%; padding: 0 10px; text-align: center; line-height: 1.3; }
 .jy-look__tag { position: absolute; right: 5px; bottom: 5px; padding: 2px 7px; border-radius: 999px; background: rgba(12,14,22,0.75); color: #fff; font-size: 10px; font-weight: 800; }
 .jy-look__btns { display: flex; gap: 12px; padding-left: 2px; }
+.jy-spotbox { display: flex; align-items: center; gap: 6px; padding-left: 2px; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8); cursor: pointer; }
+.jy-spotbox input { accent-color: #e11d48; margin: 0; }
+.jy-spotname { height: 28px; padding: 0 8px; font-size: 12px; }
+/* The marked spot on the thumbnail: the middle of the view. */
+.jy-look__spot { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #e11d48; box-shadow: 0 0 0 2px #fff, 0 0 0 6px rgba(225, 29, 72, 0.35); }
 .jy-linkbtn:disabled { opacity: 0.45; cursor: not-allowed; }
 .jy-linkbtn--muted { color: rgba(255,255,255,0.55); }
 .jy-sentence__n { flex: none; width: 22px; height: 22px; margin-top: 9px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.08); font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.7); }

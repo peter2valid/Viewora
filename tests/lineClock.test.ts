@@ -111,3 +111,26 @@ test('a clip that stops moving (network gone) hands over to the timer from where
   assert.equal(r?.finished, true)
   assert.ok(h.now() >= 5000 && h.now() <= 6400, `ended at ${h.now()}`)
 })
+
+test('reports how far the line has got, for the progress bar', async () => {
+  const h = harness()
+  const seen: number[] = []
+  const done = runLine({ ms: 1000, stopped: () => false, now: h.now, every: h.every, onProgress: (at, of) => seen.push(at / of) })
+  await h.crank(250); await h.crank(250); await h.crank(600)
+  await done
+  assert.equal(seen[0], 0, 'starts empty')
+  assert.deepEqual(seen.slice(1, 3), [0.25, 0.5])
+  assert.equal(seen.at(-1), 1, 'ends full, never past it')
+})
+
+test('progress follows the recording, and resumes where it paused', async () => {
+  const h = harness()
+  const clip = new FakeClip(2)
+  const seen: number[] = []
+  const done = runLine({ clip, ms: 2000, from: 500, stopped: () => false, now: h.now, every: h.every, onProgress: (at, of) => seen.push(at / of) })
+  assert.equal(seen[0], 0.25, 'a resumed line starts part-filled')
+  await h.crank(500, clip)
+  assert.equal(seen.at(-1), 0.5)
+  await h.crank(1100, clip)
+  await done
+})
