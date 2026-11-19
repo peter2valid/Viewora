@@ -627,7 +627,11 @@ const voiceText = computed(() => {
 })
 
 let voicePoll: ReturnType<typeof setInterval> | null = null
-function stopVoicePoll() { if (voicePoll) { clearInterval(voicePoll); voicePoll = null } }
+let voicePollMs = 0
+function stopVoicePoll() { if (voicePoll) { clearInterval(voicePoll); voicePoll = null; voicePollMs = 0 } }
+/** Every 3 s while recording; once a minute while the server has no voice
+ *  service (nothing can change until it's set up, so don't load the API). */
+const voicePollEvery = () => (voiceWorker.value ? 3000 : 60_000)
 
 async function generateVoice(quiet = false) {
   const j = journey.value
@@ -652,7 +656,11 @@ async function generateVoice(quiet = false) {
 
 function watchVoice(journeyId: string) {
   stopVoicePoll()
-  voicePoll = setInterval(() => void checkVoice(journeyId), 3000)
+  voicePollMs = voicePollEvery()
+  voicePoll = setInterval(() => {
+    if (document.hidden) return // tab in the background: skip this check
+    void checkVoice(journeyId)
+  }, voicePollMs)
 }
 
 async function checkVoice(journeyId: string) {
@@ -663,7 +671,7 @@ async function checkVoice(journeyId: string) {
     voiceWorker.value = res?.worker !== false
     const before = voiceJob.value?.status
     voiceJob.value = res?.job ?? null
-    if (voiceBusy.value) { if (!voicePoll) watchVoice(journeyId); return }
+    if (voiceBusy.value) { if (!voicePoll || voicePollMs !== voicePollEvery()) watchVoice(journeyId); return }
     stopVoicePoll()
     if (before && before !== 'done' && res?.job?.status === 'done') {
       await refreshAudio(journeyId)
