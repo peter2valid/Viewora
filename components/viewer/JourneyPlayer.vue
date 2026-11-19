@@ -48,8 +48,19 @@
       </p>
 
       <!-- One segment per line of this step, filling as it's said (like a status clip) -->
-      <div class="jp-progress" aria-hidden="true">
-        <i v-for="(f, n) in segFills" :key="`${chapter}:${n}`"><b :style="{ transform: `scaleX(${f})` }" /></i>
+      <!-- ‹ › skip line by line within this step (the buttons below skip steps) -->
+      <div class="jp-seek">
+        <button
+          v-if="segFills.length > 1" type="button" class="jp-chev" aria-label="Previous line" title="Previous line"
+          :disabled="lineNow <= 0" @click="goLine(lineNow - 1)"
+        ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <div class="jp-progress" aria-hidden="true">
+          <i v-for="(f, n) in segFills" :key="`${chapter}:${n}`"><b :style="{ transform: `scaleX(${f})` }" /></i>
+        </div>
+        <button
+          v-if="segFills.length > 1" type="button" class="jp-chev" aria-label="Next line" title="Next line"
+          :disabled="lineNow >= segFills.length - 1" @click="goLine(lineNow + 1)"
+        ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
 
       <div class="jp-controls">
@@ -161,10 +172,21 @@ const minutesOf = (j: Journey) => journeyMinutes(j)
 /** How far the line being said has got (0–1). */
 const lineFrac = ref(0)
 const speaks = (a: JourneyAction | undefined) => !!a && 'say' in a && !!a.say
+/** Where each segment's line sits in this step's actions. */
+const segAt = computed<number[]>(() => {
+  const acts = journey.value.chapters[chapter.value]?.actions ?? []
+  const idx = acts.map((a, i) => (speaks(a) ? i : -1)).filter(i => i >= 0)
+  return idx.length ? idx : [Math.max(0, acts.length - 1)] // a quiet step: one segment
+})
+/** The line on screen (or coming up next); past the end once the step is done. */
+const lineNow = computed(() => {
+  if (state.value === 'done') return segAt.value.length
+  const n = segAt.value.findIndex(i => i >= action.value)
+  return n < 0 ? segAt.value.length - 1 : n
+})
 const segFills = computed<number[]>(() => {
   const acts = journey.value.chapters[chapter.value]?.actions ?? []
-  let idx = acts.map((a, i) => (speaks(a) ? i : -1)).filter(i => i >= 0)
-  if (!idx.length) idx = [Math.max(0, acts.length - 1)] // a quiet step: one segment
+  const idx = segAt.value
   if (state.value === 'done') return idx.map(() => 1)
   return idx.map((i) => {
     if (action.value > i) return 1
@@ -423,6 +445,41 @@ async function goChapter(i: number, only = false) {
   if (me === run) void play()
 }
 
+/**
+ * ‹ / ›: play line n of this step. The camera first turns to where that line
+ * is said (its own turn, or the last one before it), then the visit carries
+ * on from there as usual.
+ */
+async function goLine(n: number) {
+  const c = journey.value.chapters[chapter.value]
+  const idx = segAt.value
+  if (!c || n < 0 || n >= idx.length) return
+  if (n === 0) return goChapter(chapter.value, stopAfter.value !== null) // from the top of the step
+  unlockAudio()
+  halt()
+  resumeAt = null
+  props.api.closeCard()
+  props.api.hidePin?.()
+  const start = idx[n - 1]! + 1 // right after the line before: includes this line's own turn
+  action.value = start
+  lineFrac.value = 0
+  caption.value = ''
+  setState('playing')
+  const me = run
+  const first = c.actions[start]
+  // A turn or an info card moves the camera itself; otherwise face where the line is said.
+  if (!(first && ('look' in first || 'card' in first))) {
+    let face: JourneyView | undefined = c.view
+    for (let i = start - 1; i >= 0; i--) {
+      const a = c.actions[i]!
+      if ('look' in a) { face = a.look; break }
+      if ('walk' in a && a.face) { face = a.face; break }
+    }
+    if (face) await props.api.look(view(face), 700)
+  }
+  if (me === run) void play()
+}
+
 function toggleMute() {
   muted.value = !muted.value
   if (clip) clip.muted = muted.value // the line keeps its timing, just silent
@@ -522,6 +579,11 @@ onBeforeUnmount(() => {
 .jp-caption { margin: 8px 0 0; min-height: 2.8em; font-size: 15px; line-height: 1.4; color: #1f2937; }
 .jp-caption--off { min-height: 0; margin: 0; }
 
+.jp-seek { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; }
+.jp-seek .jp-progress { flex: 1; margin: 0; }
+.jp-chev { flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; background: #f3f4f6; color: #111827; cursor: pointer; }
+.jp-chev:hover:not(:disabled) { background: #e5e7eb; }
+.jp-chev:disabled { opacity: 0.35; cursor: default; }
 .jp-progress { display: flex; gap: 4px; margin: 10px 0 0; }
 .jp-progress i { flex: 1; height: 5px; border-radius: 4px; background: #e5e7eb; overflow: hidden; }
 /* Scaled, not resized: the fill moves on the compositor, no layout per tick. */
