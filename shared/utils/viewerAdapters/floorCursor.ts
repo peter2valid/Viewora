@@ -183,6 +183,11 @@ export function isRaisedSpot(pitch: number): boolean {
   return pitch > SPOT_MAX_PITCH
 }
 
+/** Disc under the glyph: not for raised spots, and never for the door (it stands on its own). */
+export function hasFloorDisc(spot: { pitch: number; glyph?: FloorGlyph }): boolean {
+  return !isRaisedSpot(spot.pitch) && spot.glyph !== 'door'
+}
+
 export function supportsFloorCursor(): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 }
@@ -192,10 +197,10 @@ const TOUCH_PIN_PAD = 8
 
 /**
  * Disc lying flat on the floor under a navigation hotspot (MarkersPlugin
- * config). Hidden for raised hotspots (isRaisedSpot): always built, so the
+ * config). Hidden for raised hotspots (isRaisedSpot) and doors: always built, so the
  * editor can show/hide it as a pin is dragged across the floor line.
  */
-export function floorDiscMarker(id: string, spot: { yaw: number; pitch: number; scale: number }) {
+export function floorDiscMarker(id: string, spot: { yaw: number; pitch: number; scale: number; glyph?: FloorGlyph }) {
   const position = { yaw: spot.yaw, pitch: spot.pitch }
   const size = sizeAt(SPOT_SIZE, spotPitch(spot)) * spot.scale
   return {
@@ -204,7 +209,7 @@ export function floorDiscMarker(id: string, spot: { yaw: number; pitch: number; 
     position,
     size: { width: size, height: size },
     rotation: { pitch: Math.PI / 2 },
-    visible: !isRaisedSpot(spot.pitch),
+    visible: hasFloorDisc(spot),
     zIndex: 1,
   }
 }
@@ -401,8 +406,8 @@ export function attachFloorCursor(
 
   function highlight(link: FloorCursorLink, at: { x: number; y: number }) {
     ensureCursorMarkers()
-    if (isRaisedSpot(link.pitch)) {
-      // No disc to outline on a raised pin: just the room name.
+    if (!hasFloorDisc(link)) {
+      // No disc to outline (raised pin, door): just the room name.
       hideHighlight()
     } else {
       const s = sizeAt(SPOT_SIZE, link.pitch) * link.scale * 1.15

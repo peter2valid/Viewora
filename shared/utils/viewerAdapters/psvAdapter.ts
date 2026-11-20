@@ -984,7 +984,7 @@ export function moveHotspotMarkers(handle: PsvViewerHandle | null, hs: Hotspot, 
   const moved = { ...hs, ...position }
   handle.markers.updateMarker({ id: hs.id, position: hotspotDrawPosition(moved) })
   if (hs.type !== 'scene_link' || isInteriorLink(hs)) return
-  const disc = floorDiscMarker(`${hs.id}${FLOOR_DISC_SUFFIX}`, { ...moved, scale: Number(hs.scale || 1) })
+  const disc = floorDiscMarker(`${hs.id}${FLOOR_DISC_SUFFIX}`, { ...moved, scale: Number(hs.scale || 1), glyph: floorGlyph(hs.icon) })
   // The disc hides while the pin is above the floor line and comes back below it.
   try { handle.markers.updateMarker({ id: disc.id, position: disc.position, size: disc.size, visible: disc.visible }) } catch { /* noop */ }
 }
