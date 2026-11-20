@@ -71,7 +71,7 @@
             />
           </div>
 
-          <!-- Navigation icons (floor pin, up, down) — shown directly, no "Edit more" -->
+          <!-- Navigation icons (floor pin, up, down, door) — shown directly, no "Edit more" -->
           <div v-if="draft.linkStyle !== 'interior'" class="qe-section">
             <span class="qe-section-label">Navigation Icon</span>
             <div class="qe-nav-icons">
@@ -556,11 +556,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 /* ── Navigation icons (Move type) ── */
 .qe-nav-icons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
 .qe-nav-icon-btn {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;

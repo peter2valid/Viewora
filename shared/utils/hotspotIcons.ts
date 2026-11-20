@@ -35,10 +35,11 @@ export const HOTSPOT_ICON_DEFS: HotspotIconDef[] = [
   { key: 'star-green',         label: 'Star Green',      group: 'star',   url: '/hotspot-icons/star-green.png' },
 
   // ── Navigation (scene links) ──────────────────────────────
-  // Drawn as a disc on the floor with a pin or arrow standing on it (floorCursor.ts).
+  // Drawn as a disc on the floor with a pin, arrow or door standing on it (floorCursor.ts).
   { key: 'nav-floor-pin',      label: 'Floor Pin',       group: 'nav',    url: '/hotspot-icons/nav-floor-pin.svg' },
   { key: 'nav-floor-up',       label: 'Floor Up',        group: 'nav',    url: '/hotspot-icons/nav-floor-up.svg' },
   { key: 'nav-floor-down',     label: 'Floor Down',      group: 'nav',    url: '/hotspot-icons/nav-floor-down.svg' },
+  { key: 'nav-floor-door',     label: 'Door',            group: 'nav',    url: '/hotspot-icons/nav-floor-door.svg' },
   // Older nav icons: drawn as the Floor Pin since floor navigation became the default.
   { key: 'nav-up',             label: 'Arrow (White)',   group: 'nav',    url: '/hotspot-icons/nav-floor-white.svg', legacy: true },
   { key: 'nav-up-white',       label: 'Arrow (Black)',   group: 'nav',    url: '/hotspot-icons/nav-floor-black.svg', legacy: true },
@@ -52,17 +53,21 @@ export const PICKER_ICON_DEFS = HOTSPOT_ICON_DEFS.filter(d => !d.legacy)
 export const FLOOR_PIN_ICON = 'nav-floor-pin'
 export const FLOOR_UP_ICON = 'nav-floor-up'
 export const FLOOR_DOWN_ICON = 'nav-floor-down'
+export const FLOOR_DOOR_ICON = 'nav-floor-door'
 
 /** What stands on a navigation hotspot's floor disc. */
-export type FloorGlyph = 'pin' | 'up' | 'down'
+export type FloorGlyph = 'pin' | 'up' | 'down' | 'door'
 
 export function isFloorIcon(icon: string | null | undefined): boolean {
-  return icon === FLOOR_PIN_ICON || icon === FLOOR_UP_ICON || icon === FLOOR_DOWN_ICON
+  return icon === FLOOR_PIN_ICON || icon === FLOOR_UP_ICON || icon === FLOOR_DOWN_ICON || icon === FLOOR_DOOR_ICON
 }
 
 /** Older and missing nav icons get the pin. */
 export function floorGlyph(icon: string | null | undefined): FloorGlyph {
-  return icon === FLOOR_UP_ICON ? 'up' : icon === FLOOR_DOWN_ICON ? 'down' : 'pin'
+  return icon === FLOOR_UP_ICON ? 'up'
+    : icon === FLOOR_DOWN_ICON ? 'down'
+    : icon === FLOOR_DOOR_ICON ? 'door'
+    : 'pin'
 }
 
 /** The picker entry a navigation hotspot shows as selected. */

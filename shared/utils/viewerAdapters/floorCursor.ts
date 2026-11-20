@@ -1,8 +1,8 @@
 // Street View-style floor navigation for the public viewer.
 //
 //   - Every navigation hotspot (scene link) is drawn as a disc lying flat on
-//     the floor, with an upright location pin (or an up/down arrow for the
-//     "Floor Up"/"Floor Down" icons) standing on it so it can be spotted from
+//     the floor, with an upright location pin (or an up/down arrow or a door
+//     for the "Floor Up"/"Floor Down"/"Door" icons) standing on it so it can be spotted from
 //     afar; its usual DOM chevron is hidden. The editor draws the same disc and
 //     pin (floorDiscMarker/floorPinMarker, used by psvAdapter.addHotspot). Tapping or clicking
 //     the disc or pin walks there. All devices. (With ?floorcursor=0 only
@@ -68,6 +68,11 @@ const GLYPH_PATHS: Record<FloorGlyph, string> = {
     + '<circle cx="15" cy="14.5" r="5.5" fill="#fff"/>',
   up: '<path d="M15 2L28 17.5H20.5V38H9.5V17.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
   down: '<path d="M15 39L28 23.5H20.5V2H9.5V23.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
+  // Open door: frame, lit doorway, leaf swung toward the viewer (hinged on the right), knob.
+  door: '<path d="M3 2H27V39H3ZM6.5 5.5V35.5H23.5V5.5Z" fill="#1f2328" fill-rule="evenodd" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>'
+    + '<rect x="6.5" y="5.5" width="17" height="30" fill="#fff" fill-opacity="0.92"/>'
+    + '<path d="M23.5 5.5L11.5 2.5V38.5L23.5 35.5Z" fill="#1f2328" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>'
+    + '<circle cx="14.2" cy="21" r="1.4" fill="#fff"/>',
 }
 /**
  * Pins are drawn inside the 3D scene, like the floor discs, instead of as
