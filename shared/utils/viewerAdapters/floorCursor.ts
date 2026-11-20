@@ -69,9 +69,9 @@ const GLYPH_PATHS: Record<FloorGlyph, string> = {
   up: '<path d="M15 2L28 17.5H20.5V38H9.5V17.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
   down: '<path d="M15 39L28 23.5H20.5V2H9.5V23.5H2Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
   // Open door: frame, lit doorway, leaf swung toward the viewer (hinged on the right), knob.
-  door: '<path d="M3 2H27V39H3ZM6.5 5.5V35.5H23.5V5.5Z" fill="#1f2328" fill-rule="evenodd" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>'
+  door: '<path d="M3 2H27V39H3ZM6.5 5.5V35.5H23.5V5.5Z" fill="#e53935" fill-rule="evenodd"/>'
     + '<rect x="6.5" y="5.5" width="17" height="30" fill="#fff" fill-opacity="0.92"/>'
-    + '<path d="M23.5 5.5L11.5 2.5V38.5L23.5 35.5Z" fill="#1f2328" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>'
+    + '<path d="M23.5 5.5L11.5 2.5V38.5L23.5 35.5Z" fill="#e53935" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>'
     + '<circle cx="14.2" cy="21" r="1.4" fill="#fff"/>',
 }
 /**

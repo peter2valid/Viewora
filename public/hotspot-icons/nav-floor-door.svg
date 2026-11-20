@@ -2,9 +2,9 @@
   <ellipse cx="24" cy="38" rx="17" ry="6" fill="#ffffff" fill-opacity="0.35" stroke="#ffffff" stroke-width="2.5"/>
   <ellipse cx="24" cy="38" rx="4.5" ry="1.6" fill="#ffffff"/>
   <g transform="translate(12 6.8) scale(0.8)">
-    <path d="M3 2H27V39H3ZM6.5 5.5V35.5H23.5V5.5Z" fill="#1f2328" fill-rule="evenodd" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M3 2H27V39H3ZM6.5 5.5V35.5H23.5V5.5Z" fill="#e53935" fill-rule="evenodd"/>
     <rect x="6.5" y="5.5" width="17" height="30" fill="#ffffff" fill-opacity="0.92"/>
-    <path d="M23.5 5.5L11.5 2.5V38.5L23.5 35.5Z" fill="#1f2328" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M23.5 5.5L11.5 2.5V38.5L23.5 35.5Z" fill="#e53935" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
     <circle cx="14.2" cy="21" r="1.4" fill="#ffffff"/>
   </g>
 </svg>
