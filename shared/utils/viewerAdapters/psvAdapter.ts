@@ -37,6 +37,9 @@ import { installNadirCover, type NadirCover, type NadirCoverController } from '.
 import { installPerfRecorder } from './perfRecorder'
 import { startWalkMotion, WALK_STEP, type WalkMotion } from './walkMotion'
 
+// Autorotate starts only after the viewer has been left untouched this long.
+const AUTOROTATE_IDLE_MS = 10 * 60 * 1000
+
 /** Master Handle: Unified state for a single viewer instance */
 export interface PsvViewerHandle {
   viewer: any
@@ -1262,7 +1265,7 @@ export async function initViewer(
     autorotateSpeed: '0.5rpm',
     autorotatePitch: scene.settings.pitch_default ?? 0,
     // A delay alone starts it once after load; null keeps it off.
-    autostartDelay: autorotate ? 8000 : null,
+    autostartDelay: autorotate ? AUTOROTATE_IDLE_MS : null,
     // Off in the editor (autorotate: false). Idle autorotate there kept the view turning for as
     // long as the editor stayed open: a WebGL frame every vsync plus a stream of
     // new tiles as the view swept round. On Firefox with an integrated GPU every
@@ -2040,7 +2043,7 @@ export async function initVirtualTourViewer(
   plugins.push([AutorotatePlugin, {
     autorotateSpeed: '0.5rpm',
     autorotatePitch: 0,
-    autostartDelay: 8000,
+    autostartDelay: AUTOROTATE_IDLE_MS,
     autostartOnIdle: true,
   }])
 

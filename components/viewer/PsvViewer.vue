@@ -181,25 +181,39 @@
           <div v-if="introLogo" class="vt-intro__logo" :class="{ 'vt-intro__logo--shown': introLogoReady }">
             <img :ref="onIntroLogoEl" :src="introLogo" :alt="introTitle" decoding="async" @load="introLogoReady = true" @error="introLogoFailed = true" />
           </div>
-          <span class="vt-intro__badge">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></svg>
-            360° Virtual Tour
-          </span>
           <p class="vt-intro__title">{{ introTitle }}</p>
           <p v-if="introLocation" class="vt-intro__loc">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
             {{ introLocation }}
           </p>
+
           <div v-if="introChips.length" class="vt-intro__chips">
             <span v-for="c in introChips" :key="c" class="vt-intro__chip">{{ c }}</span>
           </div>
 
-          <div class="vt-intro__progress">
-            <svg class="vt-intro__ring" viewBox="0 0 44 44" aria-hidden="true">
-              <circle cx="22" cy="22" r="19" class="vt-intro__ring-track" />
-              <circle cx="22" cy="22" r="19" class="vt-intro__ring-fill" :style="{ strokeDashoffset: `${119.4 * (1 - Math.min(100, Math.max(6, loadProgressValue)) / 100)}` }" />
+          <!-- 360° loader: two arrows orbit the number, passing behind it -->
+          <div class="vt-intro__progress" role="progressbar" aria-label="Preparing your tour" :aria-valuenow="Math.round(loadProgressValue)" aria-valuemin="0" aria-valuemax="100">
+            <svg class="vt-intro__loader" viewBox="0 0 200 92" aria-hidden="true">
+              <defs>
+                <path id="vt-intro-orbit" d="M 18 56 A 82 22 0 0 0 182 56 A 82 22 0 0 0 18 56"/>
+                <mask id="vt-intro-behind" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="92">
+                  <rect width="200" height="92" fill="#fff"/>
+                  <rect x="44" y="12" width="112" height="47" rx="6" fill="#000"/>
+                </mask>
+              </defs>
+              <text x="100" y="54" text-anchor="middle" font-weight="800" font-size="46" fill="currentColor">360°</text>
+              <g mask="url(#vt-intro-behind)" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M 18 56 A 82 22 0 0 0 182 56 A 82 22 0 0 0 18 56" stroke-width="8" pathLength="100" stroke-dasharray="30 20" class="vt-intro__orbit">
+                  <animate attributeName="stroke-dashoffset" values="0;-100" dur="1.8s" repeatCount="indefinite"/>
+                </path>
+                <path d="M -9 -8 L 3 0 L -9 8" stroke-width="7">
+                  <animateMotion dur="1.8s" begin="-0.54s" repeatCount="indefinite" rotate="auto"><mpath href="#vt-intro-orbit"/></animateMotion>
+                </path>
+                <path d="M -9 -8 L 3 0 L -9 8" stroke-width="7">
+                  <animateMotion dur="1.8s" begin="-1.44s" repeatCount="indefinite" rotate="auto"><mpath href="#vt-intro-orbit"/></animateMotion>
+                </path>
+              </g>
             </svg>
-            <span class="vt-intro__status">Preparing your tour<span class="vt-intro__dots"><i>.</i><i>.</i><i>.</i></span></span>
           </div>
         </div>
       </div>
@@ -258,7 +272,7 @@
         </button>
 
         <!-- Guided Tour (multi-scene only) -->
-        <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn" :class="{ 'viewer-rail__btn--active': autoplaying }" type="button" aria-label="Guided tour" :aria-pressed="autoplaying" data-tooltip="Guided Tour" @click.stop="toggleAutoplay">
+        <button v-if="sceneCount > 1 && hasTourData" class="viewer-rail__btn viewer-rail__btn--guided" :class="{ 'viewer-rail__btn--active': autoplaying }" type="button" aria-label="Guided tour" :aria-pressed="autoplaying" data-tooltip="Guided Tour" @click.stop="toggleAutoplay">
           <svg v-if="!autoplaying" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M8 5v14l11-7z" />
           </svg>
@@ -1253,6 +1267,22 @@ const EDGE_GAP_PX = 16        // phone left column with nothing under it
 const TOP_RESERVED_PX = 110   // branding block, top left (when it can't be measured)
 let railNaturalH = 0          // control rail height at full button size
 
+/** Phones: distance of the Guided Tour button's middle from the viewer's bottom,
+ *  where the rail will sit after this measure (it sits on the dock when the dock
+ *  reaches under it). Null when the button isn't shown. */
+function guidedTourCentre(root: HTMLElement, rootRect: DOMRect, rootH: number, clear: number, underDock: (l: number, r: number) => boolean): number | null {
+  const stack = controlStackEl.value
+  const btn = root.querySelector('.viewer-rail__btn--guided') as HTMLElement | null
+  if (!stack || !btn || !btn.offsetHeight) return null
+  const s = stack.getBoundingClientRect()
+  const b = btn.getBoundingClientRect()
+  const fromStackBottom = s.bottom - (b.top + b.height / 2)
+  const stackBottom = underDock(s.left - rootRect.left, s.right - rootRect.left)
+    ? clear + DOCK_GAP_PX
+    : rootH - (s.bottom - rootRect.top)
+  return stackBottom + fromStackBottom
+}
+
 function measureDockLift() {
   const root = viewerRootEl.value
   if (!root || chromeHidden.value || props.hideOwnChrome) {
@@ -1291,7 +1321,13 @@ function measureDockLift() {
     // Phones: one column, bottom-up, always stacked.
     let y = underDock(0, Math.max(rightOf(cta), rightOf(wa), hasMap ? mapRight : 0)) ? clear + DOCK_GAP_PX : EDGE_GAP_PX
     if (cta) { ctaBottom = y; y += cta.offsetHeight + DOCK_GAP_PX }
-    if (wa) { waBottom = y; y += wa.offsetHeight + DOCK_GAP_PX }
+    if (wa) {
+      // Line the column's middle up with the rail's Guided Tour button, so the
+      // two sides read as one row; never lower than the stack below allows.
+      const lineUp = guidedTourCentre(root, rootRect, rootH, clear, underDock)
+      waBottom = lineUp === null ? y : Math.max(y, Math.round(lineUp - wa.offsetHeight / 2))
+      y = waBottom + wa.offsetHeight + DOCK_GAP_PX
+    }
     mapBottom = y
   } else {
     // Larger screens: the CTA and map only move when the dock reaches them;
@@ -1969,8 +2005,6 @@ const introChips = computed(() => {
   if (sp.price_kes) chips.push(formatPrice(sp.price_kes, sp.price_period))
   const facts = factsLine(sp)
   if (facts) chips.push(facts)
-  const n = tourScenes.value.length
-  if (n > 1) chips.push(`${n} ${sp.space_type === 'land' ? 'views' : 'rooms'}`)
   return chips
 })
 useHead(() => introLo.value && !props.hideIntro ? { link: [{ rel: 'preload', as: 'image', href: introLo.value, fetchpriority: 'high' } as any] } : {})
@@ -4506,12 +4540,6 @@ watch(() => vtTransitioning.value, (loading) => {
   .vt-intro__logo { padding: 10px 14px; border-radius: 14px; }
   .vt-intro__logo img { max-height: 48px; }
 }
-.vt-intro__badge {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
-  background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
-  font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-}
 .vt-intro__title {
   margin: 4px 0 0; font-size: clamp(26px, 5.2vw, 48px); font-weight: 900; line-height: 1.08; letter-spacing: -0.02em;
   text-shadow: 0 2px 24px rgba(0,0,0,0.45);
@@ -4523,15 +4551,18 @@ watch(() => vtTransitioning.value, (loading) => {
   background: rgba(10, 12, 20, 0.45); border: 1px solid rgba(255,255,255,0.16);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
-.vt-intro__progress { margin-top: 18px; display: flex; align-items: center; gap: 10px; }
-.vt-intro__ring { width: 30px; height: 30px; transform: rotate(-90deg); }
-.vt-intro__ring-track { fill: none; stroke: rgba(255,255,255,0.18); stroke-width: 3; }
-.vt-intro__ring-fill { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 119.4; transition: stroke-dashoffset 0.3s ease; }
-.vt-intro__status { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.8); }
-.vt-intro__dots i { font-style: normal; animation: vt-intro-dot 1.2s infinite; opacity: 0; }
-.vt-intro__dots i:nth-child(2) { animation-delay: 0.2s; }
-.vt-intro__dots i:nth-child(3) { animation-delay: 0.4s; }
-@keyframes vt-intro-dot { 0%, 100% { opacity: 0; } 40% { opacity: 1; } }
+.vt-intro__progress { margin-top: 18px; display: flex; justify-content: center; }
+/* 360° loader: comes in out of a blur with a soft glow, then the arrows orbit.
+   The glow is static: a filter animating every frame would compete with the
+   first tiles loading. */
+.vt-intro__loader {
+  width: 120px; height: auto; overflow: visible; color: #fff;
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.35)) drop-shadow(0 2px 14px rgba(0,0,0,0.45));
+  animation: vt-intro-loader-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+@keyframes vt-intro-loader-in {
+  from { opacity: 0; transform: scale(0.82); filter: blur(6px); }
+}
 
 /* Ready: the blur dissolves into the live 360 of the same room. */
 .vt-intro-leave-active { transition: opacity 0.9s ease 0.15s; }
@@ -4541,6 +4572,14 @@ watch(() => vtTransitioning.value, (loading) => {
 @media (prefers-reduced-motion: reduce) {
   .vt-intro__bg { animation: none; }
   .vt-intro__content { animation: none; }
+  .vt-intro__loader { animation: none; }
+}
+/* Phones: the contact column (left) and control rail (right) sit over the
+   opening screen, so the text keeps to the space between them and wraps. */
+@media (max-width: 640px) {
+  .vt-intro__content { max-width: calc(100% - 2 * 64px); max-width: calc(100% - 2 * (64px + env(safe-area-inset-right, 0px))); }
+  .vt-intro__title { overflow-wrap: break-word; }
+  .vt-intro__loader { width: 104px; }
 }
 @media (max-width: 480px) {
   .vt-intro__loc { font-size: 13px; }
@@ -4554,11 +4593,11 @@ watch(() => vtTransitioning.value, (loading) => {
   .vt-intro__logo img { max-height: 44px; }
   .vt-intro__title { font-size: clamp(24px, 4.4vw, 40px); }
   .vt-intro__progress { margin-top: 8px; }
+  .vt-intro__loader { width: 96px; }
 }
 @media (max-height: 560px) {
   .vt-intro__content { gap: 6px; }
   .vt-intro__logo img { max-height: 32px; }
-  .vt-intro__badge { padding: 4px 10px; font-size: 10px; }
   .vt-intro__title { margin: 0; font-size: clamp(20px, 3.6vw, 30px); }
   .vt-intro__chips { display: none; }
   .vt-intro__progress { margin-top: 4px; }
@@ -4915,7 +4954,16 @@ watch(() => vtTransitioning.value, (loading) => {
   @keyframes mode-switch-in { from { opacity: 0; transform: translateY(-8px); } }
   .mode-switch__btn { height: 32px; padding: 0 12px; font-size: 12.5px; }
   .mode-switch__long { display: none; }
-  .public-viewer--mode-switch .venue-map-btn { margin-top: 8px; }
+  /* Stacked (360° over Photos) so it fits beside the tour's logo. */
+  .mode-switch { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; border-radius: 20px; }
+  .mode-switch__btn { justify-content: flex-start; border-radius: 16px; }
+  .mode-switch__pill { top: 4px; bottom: auto; left: 4px; right: 4px; width: auto; height: calc(50% - 4px); border-radius: 16px; }
+  .mode-switch--photos .mode-switch__pill { transform: translateY(100%); }
+  /* The taller switch: things under it drop down to clear it. */
+  .public-viewer--mode-switch .venue-map-btn { margin-top: 42px; }
+  .public-viewer--mode-switch .scene-toast { top: 100px; }
+  .public-viewer--mode-switch .plot-map-btn,
+  .public-viewer--mode-switch .plot-legend { margin-top: 48px; }
 }
 @media (hover: none) and (pointer: coarse) {
   .mode-switch { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(10, 12, 18, 0.88); }
