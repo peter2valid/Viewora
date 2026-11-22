@@ -6,9 +6,10 @@
       <h2 class="jp-intro__title">What brings you here?</h2>
       <p class="jp-intro__sub">Pick a visit and we'll walk you through it, step by step.</p>
       <div class="jp-choices">
-        <button v-for="(j, i) in journeys" :key="i" type="button" class="jp-choice" @click="start(i)">
+        <button v-for="(j, i) in journeys" :key="i" type="button" class="jp-choice" @click="leftAt(i) ? continueVisit(i) : start(i)">
           <span class="jp-choice__text">
             <span class="jp-choice__title">{{ j.title }}</span>
+            <span v-if="leftAt(i)" class="jp-choice__meta jp-choice__meta--resume">Continue · {{ leftAtLabel(i) }}</span>
             <span class="jp-choice__meta">{{ j.chapters.length }} {{ j.chapters.length === 1 ? 'step' : 'steps' }} · about {{ minutesOf(j) }} min</span>
           </span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -23,7 +24,17 @@
       <ol class="jp-intro__steps">
         <li v-for="(c, i) in journey.chapters" :key="i"><span>{{ i + 1 }}</span>{{ c.title }}</li>
       </ol>
-      <button type="button" class="jp-btn jp-btn--primary" @click="start(0)">
+      <template v-if="leftAt(ji)">
+        <button type="button" class="jp-btn jp-btn--primary jp-btn--resume" @click="continueVisit(ji)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <span class="jp-resume">
+            <span>Continue where you left off</span>
+            <small>{{ leftAtLabel(ji) }}</small>
+          </span>
+        </button>
+        <button type="button" class="jp-btn jp-btn--ghost jp-btn--again" @click="start(ji)">Start from the beginning</button>
+      </template>
+      <button v-else type="button" class="jp-btn jp-btn--primary" @click="start(0)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
         Start the visit
       </button>
@@ -435,6 +446,71 @@ function start(i: number) {
   void goChapter(0) // straight to the first step, facing its view
 }
 
+// ── Continue where you left off ────────────────────────────────────────────
+// Where a visit was left (step + line), kept for this browser session, so the
+// visit's intro can offer to carry on from there instead of the first step.
+type LeftAt = { chapter: number; line: number }
+const LEFT_KEY = 'vw-visit-left:'
+const leftKey = (j: Journey | undefined) => (j ? LEFT_KEY + (j.id || j.title) : '')
+const leftTick = ref(0) // re-reads storage after a save or clear
+function leftAt(i: number): LeftAt | null {
+  void leftTick.value
+  const j = props.journeys[i]
+  if (!j || props.preview) return null
+  try {
+    const v = JSON.parse(sessionStorage.getItem(leftKey(j)) || 'null') as LeftAt | null
+    if (!v || !j.chapters[v.chapter] || (v.chapter === 0 && v.line === 0)) return null
+    return v
+  } catch { return null }
+}
+function leftAtLabel(i: number) {
+  const v = leftAt(i)!
+  const j = props.journeys[i]!
+  const c = j.chapters[v.chapter]!
+  const lines = c.actions.filter(speaks).length || 1
+  return `Step ${v.chapter + 1}: ${c.title} · line ${Math.min(v.line, lines - 1) + 1} of ${lines}`
+}
+function saveLeftAt(v: LeftAt | null) {
+  if (props.preview || adhoc.value || kind.value !== 'visit') return
+  try {
+    if (v) sessionStorage.setItem(leftKey(journey.value), JSON.stringify(v))
+    else sessionStorage.removeItem(leftKey(journey.value))
+  } catch { /* private mode: nothing to offer later */ }
+  leftTick.value++
+}
+// Kept up to date as the visit goes (not "Play this step" from the editor).
+watch([chapter, lineNow, state], () => {
+  if (stopAfter.value !== null) return
+  if (state.value === 'done') saveLeftAt(null) // finished: the next one starts fresh
+  else if (state.value === 'playing' || state.value === 'paused') saveLeftAt({ chapter: chapter.value, line: lineNow.value })
+})
+
+/** "Continue where you left off": the step's photo, then that line, said again from its start. */
+async function continueVisit(i: number) {
+  const v = leftAt(i)
+  if (!v) return start(i)
+  unlockAudio()
+  trackEnd(false)
+  adhoc.value = null
+  ji.value = i
+  stopAfter.value = null
+  beginTracking()
+  if (v.line === 0) return goChapter(v.chapter)
+  const c = journey.value.chapters[v.chapter]!
+  halt()
+  resumeAt = null
+  props.api.closeCard()
+  props.api.hidePin?.()
+  chapter.value = v.chapter
+  action.value = 0
+  lineFrac.value = 0
+  caption.value = ''
+  setState('playing')
+  const me = run
+  await props.api.jumpTo(c.scene, c.view ? view(c.view) : undefined)
+  if (me === run) void goLine(Math.min(v.line, segAt.value.length - 1))
+}
+
 function pause(byUser: boolean) {
   if (state.value !== 'playing') return
   halt()
@@ -620,6 +696,11 @@ onBeforeUnmount(() => {
 .jp-intro .jp-btn { width: 100%; height: 48px; font-size: 15px; }
 .jp-btn--ghost { background: #f3f4f6; color: #111827; }
 .jp-btn--ghost:hover { background: #e5e7eb; }
+.jp-intro .jp-btn--resume { height: auto; min-height: 56px; padding: 8px 18px; }
+.jp-resume { display: grid; gap: 1px; text-align: left; }
+.jp-resume small { font-size: 12px; font-weight: 600; opacity: 0.9; }
+.jp-intro .jp-btn--again { margin-top: 8px; height: 44px; }
+.jp-choice__meta--resume { color: #e11d48; }
 .jp-btn--play { min-width: 150px; }
 .jp-icon { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 12px; background: #f3f4f6; color: #111827; cursor: pointer; }
 .jp-icon:hover { background: #e5e7eb; }
