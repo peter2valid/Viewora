@@ -1620,12 +1620,6 @@ const areas = computed<TourArea[]>(() => (props.journeyPreview ? [] : tourAreas(
  * button brings the guided layout back.
  */
 const exploring = ref(false)
-const showAreaRail = computed(() => areas.value.length > 0 && hasTourData.value && vtReady.value
-  && !exploring.value && !showVenue.value && !routeGuide.value && !chromeHidden.value && !props.hideOwnChrome)
-function exploreOnMyOwn() {
-  exploring.value = true
-  endJourney()
-}
 // ── Regular photos (gallery_image), served with the tour as `gallery` ──
 // A listing can have both a 360 walk-through and normal photos; the switch
 // at the top flips between them. The panorama stays mounted underneath, so
@@ -1658,6 +1652,12 @@ function onPhotoViewed(i: number) {
 // Anything that takes over the screen (VR, a journey, the maps) closes the photos.
 watch(() => showPhotos.value && !showPhotoSwitch.value && !chromeHidden.value, (stray) => { if (stray) setPhotosOpen(false) })
 
+const showAreaRail = computed(() => areas.value.length > 0 && hasTourData.value && vtReady.value
+  && !exploring.value && !showVenue.value && !routeGuide.value && !chromeHidden.value && !props.hideOwnChrome)
+function exploreOnMyOwn() {
+  exploring.value = true
+  endJourney()
+}
 // The host page's brand card sits top-left too: it moves right of the list
 // while the list shows (CSS on :root[data-area-rail] in pages/p and pages/embed).
 watch(showAreaRail, (on) => {
@@ -4863,12 +4863,6 @@ watch(() => vtTransitioning.value, (loading) => {
   .dock-floors__btn--here::before { left: 8px; }
 }
 
-.scene-toast {
-  position: absolute;
-  top: 18px; left: 50%; transform: translateX(-50%);
-  z-index: 60;
-  display: flex; align-items: center; gap: 7px;
-  padding: 6px 14px 6px 10px;
 /* ── 360° / Photos switch ──
    Same glass track + white sliding pill as the dock's floor tabs. */
 .mode-switch {
@@ -4934,6 +4928,12 @@ watch(() => vtTransitioning.value, (loading) => {
   .photos-fade-enter-active, .photos-fade-leave-active { transition: opacity 0.15s linear; transform: none; }
 }
 
+.scene-toast {
+  position: absolute;
+  top: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 60;
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 14px 6px 10px;
   border-radius: 8px;
   background: rgba(10, 11, 16, 0.92);
   border: 1px solid rgba(255,255,255,0.09);
