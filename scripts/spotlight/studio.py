@@ -214,7 +214,9 @@ def api_space(q: dict) -> dict:
                             "tourTitle": space.get("title") or "", "spaceId": space["id"], "published": space.get("is_published")}
         scenes.append({"id": s["id"], "name": s["name"], "thumb": s.get("thumb"), "count": counts.get(s["id"], 0),
                        "local": len(local_objects(s["id"]))})
-    return {"enabled": r.get("enabled", True), "slug": space.get("slug"), "title": space.get("title"), "scenes": scenes}
+    # The tour's narration voice (its guided visit), so spotlights sound the same.
+    voice = r.get("voice") if r.get("voice") in VOICES else None
+    return {"enabled": r.get("enabled", True), "slug": space.get("slug"), "title": space.get("title"), "scenes": scenes, "voice": voice}
 
 
 def api_tour(q: dict) -> dict:

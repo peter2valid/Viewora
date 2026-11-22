@@ -197,7 +197,7 @@
         <input id="f-title" placeholder="e.g. Black leather armchairs">
         <label>Lines (one per line, short; they're read aloud)</label>
         <textarea id="f-lines" placeholder="e.g. Five high-back armchairs line the lounge wall.&#10;A quiet place to wait or meet."></textarea>
-        <label>Voice</label>
+        <label>Voice <span id="voice-hint" class="muted"></span></label>
         <select id="f-voice"></select>
         <label>How close the camera goes</label>
         <div class="zoomrow">
@@ -357,6 +357,7 @@ async function openScene(s) {
     S.voices = r.voices
     S.sphere = r.sphere
     $('f-voice').innerHTML = r.voices.map(v => `<option value="${v}">${v}</option>`).join('') + '<option value="none">No voice</option>'
+    setDefaultVoice()
     $('pano').src = r.pano
     msg($('scene-msg'), '')
     renderExisting(r)
@@ -651,8 +652,15 @@ function resetObject() {
   $('pano-stage').querySelectorAll('.cross').forEach(n => n.remove())
   for (const id of ['f-label', 'f-title', 'f-lines']) $(id).value = ''
   $('f-zauto').checked = true; $('f-zoom').disabled = true
-  $('save').disabled = true; resetSaveLabel()
+  $('save').disabled = true; resetSaveLabel(); setDefaultVoice()
   msg($('save-msg'), ''); msg($('trace-msg'), '')
+}
+// New spotlights use the tour's own narration voice (its guided visit), when it has one.
+function setDefaultVoice() {
+  const v = S.tour && S.tour.voice
+  if (v && (S.voices || []).includes(v)) $('f-voice').value = v
+  else if ((S.voices || []).length) $('f-voice').value = S.voices[0]
+  $('voice-hint').textContent = v ? `(this tour's guided visit uses ${v})` : ''
 }
 function resetSaveLabel() {
   if (S.editId) $('save').textContent = S.canPublish ? 'Publish changes' : 'Save changes as a file'
