@@ -246,6 +246,11 @@ export default defineNuxtConfig({
     // The car finder for video spins (MediaPipe WebAssembly + model). File names carry the version,
     // so a year's cache is safe: an owner downloads it once.
     '/mediapipe/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+    // Object Spotlight data (shared/spotlight), fetched only when its scene opens.
+    // Same names on every deploy, so an hour in the browser; Vercel's edge copy
+    // is replaced on each deploy. The voices carry a content hash: kept for good.
+    '/spotlight/**': { headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=86400' } },
+    '/spotlight/voice/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
   },
 
   nitro: {

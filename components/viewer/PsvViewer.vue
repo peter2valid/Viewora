@@ -707,6 +707,7 @@ import {
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
 import { attachFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
+import { attachSpotlights, spotlightWeakDevice, type SpotlightController } from '~/shared/spotlight'
 import { resolveNadirCover } from '~/shared/utils/viewerAdapters/nadirCover'
 import { floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
 import { buildDockFloors, dockFloorOf, withInteriorsTab, INTERIORS_TAB_ID, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
@@ -846,6 +847,14 @@ function floorNavEnabled(): boolean {
 function destroyFloorCursor() {
   floorCursorCtl?.destroy()
   floorCursorCtl = null
+}
+
+// ── Object Spotlight (shared/spotlight): a HUD callout on objects in the
+// photo, for scenes that have spotlight data. Its effect code loads on first use.
+let spotlightCtl: SpotlightController | null = null
+function destroySpotlights() {
+  spotlightCtl?.destroy()
+  spotlightCtl = null
 }
 const vtError = ref('')
 /** The scene that failed to open (retry target) — null when the tour itself never opened. */
@@ -2132,6 +2141,7 @@ async function initVT() {
     stereoActive.value = false
     destroyFloorMap()
     destroyFloorCursor()
+    destroySpotlights()
     destroy(vtHandle.value)
     vtHandle.value = null
   }
@@ -2335,7 +2345,7 @@ async function initVT() {
               hotspotId: h.id, targetSceneId: h.targetSceneId!, name: sceneName(h.targetSceneId!), yaw: h.yaw, pitch: h.pitch,
               glyph: floorGlyph(h.icon), scale: Number(h.scale || 1), hoverScale: Number(h.hoverScale || 1.3),
             })),
-          isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value || spotPlacing.value,
+          isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || chromeHidden.value || spotPlacing.value || !!spotlightCtl?.claimsPointer(),
           onWalk: (targetSceneId, yaw, via) => walkThroughFloorCursor(handle, targetSceneId, yaw, via),
           cursor: floorNav,
         })
@@ -2343,6 +2353,20 @@ async function initVT() {
         console.warn('[Viewora] Floor cursor failed to start', err)
         floorCursorCtl = null
       }
+    }
+    try {
+      spotlightCtl = attachSpotlights(handle, {
+        isBlocked: () => vtTransitioning.value || vtFocusing.value || stereoActive.value || gyroscopeActive.value
+          || chromeHidden.value || spotPlacing.value || journeyRunning.value || !!routeGuide.value || showVenue.value || autoplaying.value,
+        // Autorotate would swing the camera off the object (and close it).
+        onStart: () => { holdAutorotate(true); dismissHint() },
+        onEnd: () => holdAutorotate(journeyOn.value && journeys.value.length > 0),
+        lite: () => isLiteMode.value || spotlightWeakDevice(),
+      })
+      if (vtActiveNodeId.value) spotlightCtl.setScene(vtActiveNodeId.value)
+    } catch (err) {
+      console.warn('[Viewora] Spotlight failed to start', err)
+      spotlightCtl = null
     }
     // Buttons follow the real state, however motion/VR turned on or off.
     _removeMotionSync()
@@ -2728,6 +2752,7 @@ onUnmounted(() => {
   stopVrLoop()
   destroyFloorMap()
   destroyFloorCursor()
+  destroySpotlights()
   if (vtHandle.value) { destroy(vtHandle.value); vtHandle.value = null }
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   if (progressTimer) clearInterval(progressTimer)
@@ -3087,6 +3112,7 @@ watch(vtActiveNodeId, (newId, oldId) => {
   if (!newId || newId === oldId) return
 
   emit('scene-changed', newId)
+  spotlightCtl?.setScene(newId)
 
   // ── Persist current scene in URL hash ─────────────────────────────────
   // Allows the viewer to resume from this scene on refresh, and makes the
@@ -5269,4 +5295,45 @@ watch(() => vtTransitioning.value, (loading) => {
 :global(.device-tier-mid .vhs-info__pin-ring) {
   animation-duration: 3.5s !important;
 }
+
+/* ── Object Spotlight hint ring (shared/spotlight): marks an object that
+   opens a spotlight. The effect's own styles load with its chunk. ── */
+:global(.vw-spot-hint) {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1.5px solid rgba(127, 231, 247, 0.85);
+  border-radius: 50%;
+  background: rgba(5, 11, 19, 0.35);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+:global(.vw-spot-hint__dot) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7fe7f7;
+}
+:global(.vw-spot-hint::after) {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(127, 231, 247, 0.7);
+  animation: vw-spot-hint 2.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes vw-spot-hint {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  70%  { transform: scale(1.7); opacity: 0;   }
+  100% { transform: scale(1.7); opacity: 0;   }
+}
+@media (hover: none) and (pointer: coarse), (prefers-reduced-motion: reduce) {
+  :global(.vw-spot-hint::after) { animation: none; opacity: 0; }
+}
+:global(.device-tier-low .vw-spot-hint::after) { animation: none; opacity: 0; }
+/* Hidden while its spotlight is open (the outline marks the object then). */
+:global(.vw-spot-on .vw-spot-hint) { visibility: hidden; }
 </style>

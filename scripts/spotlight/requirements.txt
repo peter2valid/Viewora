@@ -1,0 +1,12 @@
+# Dev machine only (never deployed). Python 3.11 or 3.12.
+# torch: install the CPU build first, from PyTorch's CPU index (see README.md).
+opencv-python-headless
+numpy
+pillow
+huggingface_hub
+hydra-core
+iopath
+sam2            # install with SAM2_BUILD_CUDA=0 and --no-build-isolation (README.md)
+kokoro==0.9.4   # same version as viewora-backend/tts-worker
+soundfile
+pip             # spaCy fetches its English model with pip on the first voice

@@ -1,0 +1,130 @@
+/* Object Spotlight overlay (lazy: ships with runSpotlight.ts, not the tour).
+   Nothing here animates by itself: GSAP moves opacity / transform / dashoffset
+   and nothing else. No filters, blurs or shadows (the glow is a faint stroke). */
+
+.vw-spot {
+  position: absolute;
+  inset: 0;
+  z-index: 36; /* over the hotspots (35), under the tour's own menus */
+  pointer-events: none;
+  contain: strict;
+  --vw-spot-ink: #7fe7f7;
+  --vw-spot-ink-soft: rgba(127, 231, 247, 0.32);
+  font-family: inherit;
+}
+
+.vw-spot > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.vw-spot__dim {
+  opacity: 0;
+  contain: strict;
+}
+.vw-spot__dim path { fill: rgba(3, 7, 13, 0.6); }
+
+.vw-spot__outline,
+.vw-spot__leader {
+  overflow: visible;
+  contain: strict;
+}
+
+.vw-spot__line,
+.vw-spot__glow,
+.vw-spot__corners,
+.vw-spot__leader path {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.vw-spot__line { stroke: var(--vw-spot-ink); stroke-width: 1.6; }
+.vw-spot__glow { stroke: var(--vw-spot-ink); stroke-width: 7; stroke-opacity: 0.16; }
+.vw-spot__corners { stroke: var(--vw-spot-ink); stroke-width: 1.4; opacity: 0; }
+.vw-spot__scan { fill: var(--vw-spot-ink); opacity: 0; fill-opacity: 0.55; }
+
+.vw-spot__leader { opacity: 0; }
+.vw-spot__leader path { stroke: var(--vw-spot-ink); stroke-width: 1.2; }
+.vw-spot__leader circle { fill: var(--vw-spot-ink); }
+
+/* Holds the panel's place; never animated. */
+.vw-spot__wrap { contain: layout style; }
+.vw-spot__wrap--up { display: flex; flex-direction: column; justify-content: flex-end; }
+
+.vw-spot__panel {
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 10px 14px 12px;
+  border-radius: 4px 14px 14px 14px;
+  background: rgba(5, 11, 19, 0.84);
+  border: 1px solid var(--vw-spot-ink-soft);
+  color: #fff;
+  pointer-events: auto;
+  contain: layout paint style;
+}
+
+.vw-spot__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.vw-spot__label {
+  /* The page's own font: a new family here costs a font lookup on first use. */
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vw-spot-ink);
+}
+
+.vw-spot__x {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: -4px -6px -4px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+.vw-spot__x:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.vw-spot__x:focus-visible { outline: 2px solid var(--vw-spot-ink); outline-offset: 1px; }
+
+.vw-spot__title,
+.vw-spot__ln {
+  position: relative;
+  margin: 0;
+}
+.vw-spot__title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.vw-spot__ln {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+}
+.vw-spot__ln + .vw-spot__ln { margin-top: 4px; }
+
+/* The full text holds the box at its final size; the typed copy sits on top. */
+.vw-spot__ghost { visibility: hidden; }
+.vw-spot__typed { position: absolute; inset: 0; }
+
+.vw-spot__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  margin: 0;
+}

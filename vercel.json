@@ -11,6 +11,14 @@
     {
       "source": "/embed.js",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=86400" }]
+    },
+    {
+      "source": "/spotlight/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=86400" }]
+    },
+    {
+      "source": "/spotlight/voice/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ]
 }

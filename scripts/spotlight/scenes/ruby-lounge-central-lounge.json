@@ -1,0 +1,54 @@
+{
+  "name": "Ruby Lounge (Panari Hotel) · Central Lounge",
+  "scene": "f50045a6-bfcd-4a7c-b137-c1c6534f7477",
+  "image": "https://media.viewora.software/users/e42de142-9369-4c98-8d78-784ff3e44461/spaces/75ed2e08-7a6c-47bd-9c77-da6bf515848c/panorama/1795000062854-5n1byq.png",
+  "voice": "af_heart",
+  "objects": [
+    {
+      "id": "black-chairs",
+      "label": "Seating",
+      "at": [
+        13.1,
+        -12.4
+      ],
+      "points": [
+        [
+          3.6,
+          -10.9
+        ],
+        [
+          7.8,
+          -11.7
+        ],
+        [
+          17.1,
+          -15.5
+        ],
+        [
+          12.8,
+          -25.0
+        ]
+      ],
+      "exclude": [
+        [
+          23.4,
+          -24.6
+        ],
+        [
+          -6.5,
+          -30.5
+        ],
+        [
+          26.2,
+          -14.1
+        ]
+      ],
+      "zoom": 62,
+      "title": "Black leather armchairs",
+      "lines": [
+        "Five high-back armchairs line the lounge wall.",
+        "A quiet place to wait or meet, steps from the bar and the terrace windows."
+      ]
+    }
+  ]
+}
