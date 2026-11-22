@@ -262,6 +262,7 @@ def to_page(row: dict) -> dict:
         "at": src.get("at") or deg, "points": src.get("points", []), "exclude": src.get("exclude", []),
         "zoom": src.get("zoom", d.get("zoom", "auto")), "voice": src.get("voice"),
         "region": src.get("region"), "exact": bool(src.get("exact")), "atAuto": bool(src.get("atAuto")),
+        "straight": bool(src.get("straight")),
         "hasVoice": bool(row.get("voice_url")), "remote": True,
     }
 
@@ -304,10 +305,10 @@ def area_of(q: dict):
     return region, bool(region and q.get("exact"))
 
 
-def run_trace(sid: str, pos: list, neg: list, region, exact: bool, zoom, auto_exact: bool = False):
+def run_trace(sid: str, pos: list, neg: list, region, exact: bool, zoom, auto_exact: bool = False, straight: bool = False):
     """Trace; with only an area (no dot), the area's centre stands in for the first dot."""
     t = sp.trace(pano(sid), segmenter(), pos[0] if pos else None, pos[1:], neg, zoom_arg(zoom),
-                 region=region, region_exact=exact, auto_exact=auto_exact)
+                 region=region, region_exact=exact, auto_exact=auto_exact, straight=straight)
     centre = [round(math.degrees(t["yaw"]), 2), round(math.degrees(t["pitch"]), 2)]
     return t, (pos[0] if pos else centre), not pos
 
@@ -319,7 +320,7 @@ def api_trace(q: dict) -> dict:
     if not pos and not region:
         raise ValueError("click on the object, or draw an area around it")
     with heavy:
-        t, at, auto = run_trace(sid, pos, neg, region, exact, q.get("zoom"), bool(q.get("autoExact")))
+        t, at, auto = run_trace(sid, pos, neg, region, exact, q.get("zoom"), bool(q.get("autoExact")), bool(q.get("straight")))
     return {
         "at": at, "autoAt": auto, "points": pos[1:], "exclude": neg,
         "zoom": t["zoom"], "fit": round(t["fit"], 3), "score": round(t["score"], 2),
@@ -351,13 +352,15 @@ def build_payload(sid: str, o: dict) -> tuple[str, dict, dict, bytes | None, lis
         source["region"] = region
         if exact:
             source["exact"] = True
+    if o.get("straight") and not exact:
+        source["straight"] = True
     if o.get("say"):
         source["say"] = o["say"]
     lines = [l.strip() for l in o.get("lines", []) if l.strip()]
     with heavy:
         if not pos and not region:
             raise ValueError("click on the object, or draw an area around it")
-        t, at, auto = run_trace(sid, pos, source["exclude"], region, exact, source["zoom"])
+        t, at, auto = run_trace(sid, pos, source["exclude"], region, exact, source["zoom"], straight=bool(source.get("straight")))
         # Viewora needs a first dot: an area alone gives its centre, marked as such.
         source = {"at": at, **({"atAuto": True} if auto else {}), **source}
         mp3 = None

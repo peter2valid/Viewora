@@ -361,7 +361,7 @@ def centre_of(yaws: np.ndarray, pitches: np.ndarray) -> tuple[float, float]:
 
 def trace(pano: np.ndarray, seg: Segmenter, at=None, points=(), exclude=(), zoom: float | None = None,
           close_px: int = 9, context: float = 1.35, smooth: float = SMOOTH,
-          region=None, region_exact: bool = False, auto_exact: bool = False) -> dict:
+          region=None, region_exact: bool = False, auto_exact: bool = False, straight: bool = False) -> dict:
     """Outline one object. at / points / exclude / region are [yaw, pitch] degrees.
 
     Pass 1 looks at the object in a view a bit wider than the landing view.
@@ -377,7 +377,7 @@ def trace(pano: np.ndarray, seg: Segmenter, at=None, points=(), exclude=(), zoom
     if region is not None and len(region) < 3:
         region = None
     if region is not None:
-        return trace_region(pano, seg, region, region_exact, at, points, exclude, zoom, close_px, smooth, auto_exact)
+        return trace_region(pano, seg, region, region_exact, at, points, exclude, zoom, close_px, smooth, auto_exact, straight)
     if at is None:
         raise ValueError("click on the object first")
     notes: list[str] = []
@@ -460,13 +460,13 @@ def trace(pano: np.ndarray, seg: Segmenter, at=None, points=(), exclude=(), zoom
         if touched1:
             notes.append("mask touches the edge of the view: the object may be cut off. Lower its zoom or raise context.")
 
-    return finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2 if use2 else None, dyaw, dpitch, dfov, pos2, neg2)
+    return finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2 if use2 else None, dyaw, dpitch, dfov, pos2, neg2, straight)
 
 
 AREA_LOW = 0.35   # the AI's outline covering less of the drawn area than this: probably not what was meant
 
 
-def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, smooth, auto_exact=False) -> dict:
+def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, smooth, auto_exact=False, straight=False) -> dict:
     """auto_exact: with no dots, an AI outline covering only a small part of the
     area (the kerb inside a parking bay) is replaced by the area itself."""
     notes: list[str] = []
@@ -527,11 +527,34 @@ def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, 
                          "choose \"Use my area as the outline\".")
         elif not pos2:
             notes.append("traced from the area alone: add a green dot on the object if it picked the wrong thing")
-    out = finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2)
+    out = finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2, straight and not exact)
     return {**out, "areaCover": round(cover, 3), "switchedExact": switched}
 
 
-def finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2) -> dict:
+STRAIGHT = 0.012   # straight edges: corners kept where the outline turns by more than this share of its length
+
+
+def straighten(pyaw, ppitch, dyaw, dpitch, dfov):
+    """The AI's outline → its few real corners, joined by straight edges
+    (great circles: straight on screen too). For windows, doors, signs, screens.
+    Simplified in the close-up view, where a straight edge is a straight line."""
+    x, y, _ = sphere_to_screen(pyaw, ppitch, dyaw, dpitch, dfov, DETAIL, DETAIL)
+    c = np.stack([x, y], 1).astype(np.float32).reshape(-1, 1, 2)
+    a = cv2.approxPolyDP(c, STRAIGHT * cv2.arcLength(c, True), True).reshape(-1, 2)
+    if len(a) < 3:
+        return None
+    cy, cp = screen_to_sphere(a[:, 0].astype(np.float64), a[:, 1].astype(np.float64), dyaw, dpitch, dfov, DETAIL, DETAIL)
+    corners = [[math.degrees(float(u)), math.degrees(float(v))] for u, v in zip(cy, cp)]
+    ry, rp = densify(corners, max(2, 60 // len(corners)))
+    return ry, rp, len(corners)
+
+
+def finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2, straight=False) -> dict:
+    if straight:
+        st = straighten(pyaw, ppitch, dyaw, dpitch, dfov)
+        if st:
+            pyaw, ppitch, n = st
+            notes.append(f"straight edges: {n} corners")
     rel = np.array([wrap(y - cyaw) for y in pyaw])
     tyaw = wrap(cyaw + (rel.min() + rel.max()) / 2)
     tpitch = float((ppitch.min() + ppitch.max()) / 2)
@@ -613,7 +636,8 @@ def build_object(o: dict, pano: np.ndarray, seg: Segmenter, spec: dict, voice_on
     zoom = o.get("zoom")
     t = trace(pano, seg, o["at"], o.get("points", []), o.get("exclude", []),
               None if zoom in (None, "auto") else float(zoom),
-              int(o.get("close_px", 9)), float(o.get("context", 1.35)), float(o.get("smooth", SMOOTH)))
+              int(o.get("close_px", 9)), float(o.get("context", 1.35)), float(o.get("smooth", SMOOTH)),
+              straight=bool(o.get("straight")))
     OUT.mkdir(exist_ok=True)
     stem = f"{spec['scene'][:8]}-{o['id']}"
     cv2.imwrite(str(OUT / f"{stem}.jpg"), draw_landing(*t["landing"]), [cv2.IMWRITE_JPEG_QUALITY, 85])

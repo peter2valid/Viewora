@@ -42,9 +42,10 @@ scripts/spotlight/studio       # opens http://127.0.0.1:8765 in your browser
      the outline* for things that aren't one object: a parking bay, a stretch
      of floor or wall. With no dot, if the AI finds only a small part of the
      area (the kerb in a parking bay), Studio switches to *use my area* by
-     itself. Drag a corner to move it; Backspace removes the last one.
+     itself. Drag a corner to move it; right-click a corner (or Backspace
+     for the last one) to remove it.
 
-   Click a dot or corner to remove it. It re-traces after each change.
+   Click a dot to remove it. It re-traces after each change.
 5. Type the tag, title and lines, pick a voice, press **Publish & record
    voice**. It's live on the tour.
 
