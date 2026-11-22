@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spotlight Studio</title>
+<!-- The tour's own 360 viewer, served from viewora-app/node_modules by studio.py (no internet needed). -->
+<script type="importmap">{ "imports": {
+  "three": "/vendor/three/build/three.module.js",
+  "@photo-sphere-viewer/core": "/vendor/@photo-sphere-viewer/core/index.module.js",
+  "@photo-sphere-viewer/markers-plugin": "/vendor/@photo-sphere-viewer/markers-plugin/index.module.js"
+} }</script>
+<link rel="stylesheet" href="/vendor/@photo-sphere-viewer/core/index.css">
+<link rel="stylesheet" href="/vendor/@photo-sphere-viewer/markers-plugin/index.css">
 <style>
   :root { --ink: #7fe7f7; --bg: #0b1118; --panel: #121b25; --line: #233241; --text: #e8eef3; --muted: #8fa1b1; --ok: #3ad07a; --no: #ff5a5a; --warn: #f5c451; }
   * { box-sizing: border-box; }
@@ -37,7 +45,7 @@
   .dot.pos { background: var(--ok); } .dot.neg { background: var(--no); }
   .dot.at { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
   .cross { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 2px solid var(--ink); border-radius: 50%; pointer-events: none; }
-  .two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: start; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
   @media (max-width: 1100px) { .two { grid-template-columns: 1fr; } }
   .result img { width: 100%; border-radius: 8px; display: block; }
   .result .small { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
@@ -58,6 +66,23 @@
   pre { padding: 10px; white-space: pre-wrap; }
   .zoomrow { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
   .zoomrow input[type=range] { padding: 0; }
+  #sphere { position: relative; width: 100%; height: min(66vh, 680px); min-height: 360px; border-radius: 8px; overflow: hidden; background: #0a1017; }
+  #sphere-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--muted); z-index: 1; }
+  #sphere-msg:empty { display: none; }
+  #pano-stage { display: inline-block; max-width: 100%; }
+  #pano-stage img { width: auto; max-width: 100%; height: 200px; }
+  #sphere .psv-container { cursor: crosshair; }
+  #sphere.tool-area .psv-container { cursor: cell; }
+  #sphere .nohit, #sphere .nohit * { pointer-events: none !important; }
+  .tools { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; align-items: center; }
+  .tools button.on { border-color: var(--ink); color: var(--ink); background: rgba(127,231,247,.1); }
+  .sdot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); cursor: pointer; }
+  .sdot.pos { background: var(--ok); } .sdot.neg { background: var(--no); } .sdot.at { width: 18px; height: 18px; }
+  .scorner { width: 12px; height: 12px; background: #fff; border: 2px solid var(--warn); cursor: pointer; }
+  .scorner.first { width: 16px; height: 16px; background: var(--warn); }
+  .area-opts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .area-opts label { display: inline-flex; gap: 6px; align-items: center; margin: 0; font-size: 13px; }
+  .area-opts input { width: auto; }
   .conn { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
   .conn b { color: var(--text); font-weight: 600; }
   .conn .on { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; }
@@ -112,7 +137,27 @@
   <section class="hidden" id="step-object">
     <div class="card">
       <h2>3 · Click the object</h2>
-      <p class="help">Click once on the thing you want to spotlight. A close-up opens below and the outline is traced automatically.</p>
+      <p class="help">Drag to look around, scroll to zoom. Click once on the thing you want to spotlight: the outline is traced automatically and shows in light blue.</p>
+      <div class="tools">
+        <button id="tool-dots" class="on">Dots</button>
+        <button id="tool-area">Draw an area</button>
+        <span class="legend" id="legend-dots"><span><i style="background:var(--ok)"></i>click: part of it</span><span><i style="background:var(--no)"></i>right-click: not part of it</span></span>
+        <span class="muted" id="legend-area" style="display:none;font-size:13px">Click the corners in turn (A, B, C, D…). Click the first corner again to close it.</span>
+      </div>
+      <div id="sphere"><div id="sphere-msg"></div></div>
+      <div class="area-opts hidden" id="area-opts">
+        <span>Area:</span>
+        <label><input type="radio" name="area-use" value="hint" checked> The AI finds the object inside it</label>
+        <label><input type="radio" name="area-use" value="exact"> Use my area as the outline</label>
+        <button id="area-undo">Undo corner</button>
+        <button id="area-clear">Remove area</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="clear">Start over</button>
+        <span id="trace-msg"></span>
+      </div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">Click a dot or corner to remove it. It re-traces after each change.</p>
+      <p class="muted" style="font-size:12px;margin:14px 0 6px">The whole room: click anywhere to look there.</p>
       <div class="stage" id="pano-stage"><img id="pano" alt="panorama"></div>
       <p id="scene-msg"></p>
       <div class="list hidden" id="existing">
@@ -128,21 +173,8 @@
     </div>
 
     <div class="two hidden" id="work">
-      <div class="card">
-        <h2>4 · Check the outline</h2>
-        <p class="help">Is something missing? <b>Click</b> on that part. Did it take too much? <b>Right-click</b> (or Shift-click) on what isn't part of it. Click a dot to remove it. It re-traces each time.</p>
-        <div class="legend"><span><i style="background:var(--ok)"></i>part of it</span><span><i style="background:var(--no)"></i>not part of it</span></div>
-        <div class="stage" id="view-stage" style="margin-top:10px"><img id="view" alt="close-up"></div>
-        <div class="row" style="margin-top:10px">
-          <button id="closer">Closer</button>
-          <button id="wider">Wider</button>
-          <button id="clear">Start over</button>
-          <span id="trace-msg"></span>
-        </div>
-      </div>
-
       <div class="card result">
-        <h2>What visitors will see</h2>
+        <h2>4 · What visitors will see</h2>
         <div id="result-empty" class="muted">The outline shows up here.</div>
         <div id="result" class="hidden">
           <img id="landing" alt="landing view">
@@ -150,8 +182,10 @@
           <ul class="notes" id="notes"></ul>
           <details style="margin-top:8px"><summary class="muted">Close-up of the trace</summary><img id="detail" alt="detail" style="margin-top:8px"></details>
         </div>
+      </div>
 
-        <h2 style="margin-top:18px">5 · Write the text</h2>
+      <div class="card">
+        <h2>5 · Write the text</h2>
         <label>Tag (small word over the title)</label>
         <input id="f-label" placeholder="e.g. Seating">
         <label>Title</label>
@@ -184,7 +218,7 @@
 <script>
 const $ = (id) => document.getElementById(id)
 const rad = (d) => d * Math.PI / 180, deg = (r) => r * 180 / Math.PI
-const S = { tour: null, scene: null, view: null, at: null, points: [], exclude: [], editId: null, traced: null, seq: 0, voices: [], conn: null, canPublish: false }
+const S = { tour: null, scene: null, sphere: null, at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, exact: false, tool: 'dots', editId: null, traced: null, seq: 0, voices: [], conn: null, canPublish: false }
 
 async function api(name, body) {
   const r = await fetch('/api/' + name, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -252,30 +286,6 @@ async function startup() {
   else if ($('tour-link').value && !S.conn?.connected) loadTour()
 }
 
-// Same projection as spotlight.py (PSV's perspective camera, vertical fov).
-function basis(yaw, pitch) {
-  return {
-    f: [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)],
-    r: [Math.cos(yaw), 0, -Math.sin(yaw)],
-    u: [-Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch), -Math.cos(yaw) * Math.sin(pitch)],
-  }
-}
-const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-function screenToDeg(v, x, y) {
-  const tv = Math.tan(rad(v.fov) / 2), th = tv * v.w / v.h
-  const sx = (2 * (x + 0.5) / v.w - 1) * th, sy = (1 - 2 * (y + 0.5) / v.h) * tv
-  const { f, r, u } = basis(rad(v.yaw), rad(v.pitch))
-  const d = [0, 1, 2].map(i => f[i] + sx * r[i] + sy * u[i]); const n = Math.hypot(...d)
-  return [+deg(Math.atan2(d[0], d[2])).toFixed(2), +deg(Math.asin(d[1] / n)).toFixed(2)]
-}
-function degToScreen(v, p) {
-  const tv = Math.tan(rad(v.fov) / 2), th = tv * v.w / v.h
-  const { f, r, u } = basis(rad(v.yaw), rad(v.pitch))
-  const y = rad(p[0]), pt = rad(p[1])
-  const d = [Math.sin(y) * Math.cos(pt), Math.sin(pt), Math.cos(y) * Math.cos(pt)]
-  const z = dot3(d, f); if (z <= 0) return null
-  return [(dot3(d, r) / z / th + 1) * v.w / 2 - 0.5, (1 - dot3(d, u) / z / tv) * v.h / 2 - 0.5]
-}
 function imgPoint(img, e) {
   const b = img.getBoundingClientRect()
   return [(e.clientX - b.left) * img.naturalWidth / b.width, (e.clientY - b.top) * img.naturalHeight / b.height]
@@ -332,16 +342,21 @@ function show(step) {
 
 // ── 3. Scene / object ──
 async function openScene(s) {
-  S.scene = s; resetObject(); show('object')
+  S.scene = s; S.sphere = null; resetObject(); show('object')
   $('pano').removeAttribute('src')
+  if (PSV) { PSV.destroy(); PSV = null; markers = null }
+  sphereMsg('Loading the 360…')
   msg($('scene-msg'), 'Loading the panorama (the first time downloads it)…', 'busy')
   try {
     const r = await api('scene', { scene: s.id })
     S.voices = r.voices
+    S.sphere = r.sphere
     $('f-voice').innerHTML = r.voices.map(v => `<option value="${v}">${v}</option>`).join('') + '<option value="none">No voice</option>'
     $('pano').src = r.pano
     msg($('scene-msg'), '')
     renderExisting(r)
+    if (!r.sphere) sphereMsg('This Studio was started before an update. Stop it (Ctrl+C in its window) and run scripts/spotlight/studio again.')
+    else openView(0, -10, false)
   } catch (e) { msg($('scene-msg'), e.message, 'err') }
 }
 
@@ -398,50 +413,132 @@ $('pano').addEventListener('click', e => {
   const stage = $('pano-stage'); stage.querySelectorAll('.cross').forEach(n => n.remove())
   const c = document.createElement('div'); c.className = 'cross'
   c.style.left = (100 * x / img.naturalWidth) + '%'; c.style.top = (100 * y / img.naturalHeight) + '%'; stage.append(c)
-  if (!S.at) { S.at = [+yaw.toFixed(2), +pitch.toFixed(2)]; S.points = []; S.exclude = [] }
-  openView(yaw, pitch, S.view?.fov || 50)
-  if (S.points.length === 0 && S.exclude.length === 0) trace()
+  openView(yaw, pitch)   // just looks there: you click the object in the 360
 })
 
-async function openView(yaw, pitch, fov) {
-  $('work').classList.remove('hidden'); $('done').classList.add('hidden')
-  S.view = { yaw, pitch, fov, w: 1280, h: 800 }
-  const r = await api('view', { scene: S.scene.id, yaw, pitch, fov })
-  $('view').src = r.src
-  drawDots()
-  $('work').scrollIntoView({ behavior: 'smooth', block: 'start' })
+// ── 4. The 360 view: dots and areas ──
+let PSV = null, markers = null, psvLoad = null
+const toRad = (p) => ({ yaw: rad(p[0]), pitch: rad(p[1]) })
+function loadPsv() {
+  psvLoad = psvLoad || Promise.all([import('@photo-sphere-viewer/core'), import('@photo-sphere-viewer/markers-plugin')])
+  return psvLoad
 }
-
-function drawDots() {
-  const stage = $('view-stage'); stage.querySelectorAll('.dot').forEach(n => n.remove())
-  if (!S.view) return
-  const add = (p, cls, remove) => {
-    const s = degToScreen(S.view, p); if (!s || s[0] < 0 || s[1] < 0 || s[0] > S.view.w || s[1] > S.view.h) return
-    const d = document.createElement('div'); d.className = 'dot ' + cls
-    d.style.left = (100 * s[0] / S.view.w) + '%'; d.style.top = (100 * s[1] / S.view.h) + '%'
-    d.title = 'click to remove'
-    d.addEventListener('click', ev => { ev.stopPropagation(); remove(); drawDots(); trace() })
-    d.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation() })
-    stage.append(d)
+function sphereMsg(text) { $('sphere-msg').textContent = text }
+async function openView(yaw, pitch, scroll = true) {
+  if (!S.sphere) return
+  let mods
+  try { mods = await loadPsv() }
+  catch (e) { psvLoad = null; sphereMsg('The 360 view could not load (' + e.message + '). Run npm install in viewora-app, then restart Studio.'); return }
+  const [{ Viewer }, { MarkersPlugin }] = mods
+  const pos = { yaw: rad(yaw), pitch: rad(pitch) }
+  if (PSV && PSV.__scene === S.scene.id) {
+    PSV.autoSize()
+    PSV.animate({ ...pos, zoom: Math.max(PSV.getZoomLevel(), 40), speed: '6rpm' })
+  } else {
+    if (PSV) { PSV.destroy(); PSV = null }
+    sphereMsg('')
+    PSV = new Viewer({
+      container: $('sphere'), panorama: S.sphere, defaultYaw: pos.yaw, defaultPitch: pos.pitch, defaultZoomLevel: 40,
+      navbar: ['zoom', 'move', 'fullscreen'], mousewheelCtrlKey: false, touchmoveTwoFingers: false,
+      loadingTxt: 'Loading the 360…', plugins: [[MarkersPlugin, {}]],
+    })
+    PSV.__scene = S.scene.id
+    markers = PSV.getPlugin(MarkersPlugin)
+    // Clicks are read here, not from PSV's click event: that one drops a
+    // second click within 0.3 s (its double-click rule), and corners or dots
+    // are often clicked faster than that.
   }
-  if (S.at) add(S.at, 'pos at', () => { S.at = S.points.shift() || null })
-  S.points.forEach((p, i) => add(p, 'pos', () => S.points.splice(i, 1)))
-  S.exclude.forEach((p, i) => add(p, 'neg', () => S.exclude.splice(i, 1)))
+  drawMarks()
+  if (scroll) $('sphere').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 }
 
-function addPoint(e, negative) {
-  const [x, y] = imgPoint($('view'), e)
-  const p = screenToDeg(S.view, x, y)
+let press = null
+$('sphere').addEventListener('pointerdown', e => { press = { x: e.clientX, y: e.clientY, button: e.button } })
+$('sphere').addEventListener('pointerup', e => {
+  const start = press; press = null
+  if (!PSV || !start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) return   // a drag: looking around
+  if (e.target.closest('.psv-navbar, .psv-panel, .psv-notification, .psv-loader-container')) return
+  const m = e.target.closest('.psv-marker')
+  if (m && m.psvMarker) return onMarkerClick(m.psvMarker.id)
+  const r = $('sphere').getBoundingClientRect()
+  const c = PSV.dataHelper.viewerCoordsToSphericalCoords({ x: e.clientX - r.left, y: e.clientY - r.top })
+  if (!c) return
+  onSphereClick({ yaw: c.yaw, pitch: c.pitch, rightclick: start.button === 2, shift: e.shiftKey })
+})
+
+function onSphereClick(data) {
+  const p = [+deg(data.yaw > Math.PI ? data.yaw - 2 * Math.PI : data.yaw).toFixed(2), +deg(data.pitch).toFixed(2)]
+  if (S.tool === 'area') {
+    if (S.regionClosed) { S.region = []; S.regionClosed = false }
+    S.region.push(p)
+    drawMarks()
+    return
+  }
+  const negative = data.rightclick || data.shift
   if (negative) S.exclude.push(p)
-  else if (!S.at) S.at = p
+  else if (!S.at || S.atAuto) { S.at = p; S.atAuto = false }
   else S.points.push(p)
-  drawDots(); trace()
+  drawMarks(); trace()
 }
-$('view').addEventListener('click', e => addPoint(e, e.shiftKey))
-$('view').addEventListener('contextmenu', e => { e.preventDefault(); addPoint(e, true) })
-$('closer').onclick = () => S.view && openView(S.view.yaw, S.view.pitch, Math.max(10, S.view.fov / 1.4))
-$('wider').onclick = () => S.view && openView(S.view.yaw, S.view.pitch, Math.min(100, S.view.fov * 1.4))
-$('clear').onclick = () => { S.at = null; S.points = []; S.exclude = []; S.traced = null; drawDots(); $('result').classList.add('hidden'); $('result-empty').classList.remove('hidden'); $('save').disabled = true; msg($('trace-msg'), 'Click on the object.', 'muted') }
+
+function onMarkerClick(id) {
+  const [kind, i] = id.split(':'); const n = +i
+  if (kind === 'corner') {
+    if (S.tool === 'area' && n === 0 && !S.regionClosed && S.region.length >= 3) { S.regionClosed = true; drawMarks(); trace(); return }
+    S.region.splice(n, 1)
+    if (S.region.length < 3) S.regionClosed = false
+  } else if (kind === 'at') { S.at = S.points.shift() || null }
+  else if (kind === 'pos') S.points.splice(n, 1)
+  else if (kind === 'neg') S.exclude.splice(n, 1)
+  else return
+  drawMarks(); trace()
+}
+
+function drawMarks() {
+  if (!markers) return
+  markers.clearMarkers()
+  const dot = (id, p, cls, tip) => markers.addMarker({ id, position: toRad(p), html: `<div class="sdot ${cls}"></div>`, size: { width: 18, height: 18 }, anchor: 'center center', tooltip: tip })
+  if (S.traced && S.traced.outline && S.traced.outline.length > 2) {
+    markers.addMarker({ id: 'outline', className: 'nohit', polygon: S.traced.outline.map(p => [rad(p[0]), rad(p[1])]), svgStyle: { fill: 'rgba(127,231,247,0.18)', stroke: 'rgba(127,231,247,0.95)', strokeWidth: '2px' } })
+  }
+  if (S.region.length >= 2) {
+    const pts = S.region.map(p => [rad(p[0]), rad(p[1])])
+    if (S.regionClosed) markers.addMarker({ id: 'region', className: 'nohit', polygon: pts, svgStyle: { fill: 'rgba(245,196,81,0.08)', stroke: 'rgba(245,196,81,0.95)', strokeWidth: '2px', strokeDasharray: '6 4' } })
+    else markers.addMarker({ id: 'region', className: 'nohit', polyline: pts, svgStyle: { stroke: 'rgba(245,196,81,0.95)', strokeWidth: '2px', strokeDasharray: '6 4' } })
+  }
+  S.region.forEach((p, i) => markers.addMarker({ id: 'corner:' + i, position: toRad(p), html: `<div class="scorner ${i === 0 ? 'first' : ''}"></div>`, size: { width: 16, height: 16 }, anchor: 'center center',
+    tooltip: i === 0 && !S.regionClosed && S.region.length >= 3 ? 'click to close the area' : 'click to remove' }))
+  if (S.at && !S.atAuto) dot('at:0', S.at, 'pos at', 'click to remove')
+  S.points.forEach((p, i) => dot('pos:' + i, p, 'pos', 'click to remove'))
+  S.exclude.forEach((p, i) => dot('neg:' + i, p, 'neg', 'click to remove'))
+  $('area-opts').classList.toggle('hidden', !S.region.length)
+}
+
+function setTool(t) {
+  S.tool = t
+  $('tool-dots').classList.toggle('on', t === 'dots'); $('tool-area').classList.toggle('on', t === 'area')
+  $('legend-dots').style.display = t === 'dots' ? '' : 'none'; $('legend-area').style.display = t === 'area' ? '' : 'none'
+  $('sphere').classList.toggle('tool-area', t === 'area')
+}
+$('tool-dots').onclick = () => setTool('dots')
+$('tool-area').onclick = () => setTool('area')
+$('sphere').addEventListener('contextmenu', e => e.preventDefault())
+for (const r of document.querySelectorAll('input[name=area-use]')) r.onchange = () => { S.exact = r.value === 'exact' && r.checked; trace() }
+$('area-undo').onclick = () => { S.region.pop(); if (S.region.length < 3) S.regionClosed = false; drawMarks(); trace() }
+$('area-clear').onclick = () => { S.region = []; S.regionClosed = false; drawMarks(); trace() }
+document.addEventListener('keydown', e => {
+  if (S.tool !== 'area' || $('step-object').classList.contains('hidden') || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return
+  if (e.key === 'Enter' && S.region.length >= 3 && !S.regionClosed) { S.regionClosed = true; drawMarks(); trace() }
+  if (e.key === 'Backspace' && S.region.length) { e.preventDefault(); $('area-undo').onclick() }
+  if (e.key === 'Escape') setTool('dots')
+})
+$('clear').onclick = () => {
+  Object.assign(S, { at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, traced: null })
+  drawMarks(); $('result').classList.add('hidden'); $('result-empty').classList.remove('hidden'); $('save').disabled = true; $('work').classList.add('hidden')
+  msg($('trace-msg'), 'Click on the object, or draw an area around it.', 'muted')
+}
+function hasArea() { return S.regionClosed && S.region.length >= 3 }
+function setAreaUse(exact) { S.exact = !!exact; for (const r of document.querySelectorAll('input[name=area-use]')) r.checked = (r.value === 'exact') === S.exact }
 $('cancel').onclick = () => resetObject()
 
 $('f-zauto').onchange = () => { $('f-zoom').disabled = $('f-zauto').checked; trace() }
@@ -451,20 +548,24 @@ $('f-zoom').onchange = () => trace()
 let traceTimer = 0
 function trace() {
   clearTimeout(traceTimer)
-  if (!S.at) return
+  if (!(S.at && !S.atAuto) && !hasArea()) { S.traced = null; drawMarks(); $('save').disabled = true; return }
   traceTimer = setTimeout(doTrace, 350)
 }
 async function doTrace() {
   const seq = ++S.seq
   $('save').disabled = true
+  $('work').classList.remove('hidden'); $('done').classList.add('hidden')
   msg($('trace-msg'), 'Tracing… (the first one loads the AI, ~10 s)', 'busy')
   try {
     const r = await api('trace', {
-      scene: S.scene.id, view: S.view, points: [S.at, ...S.points], exclude: S.exclude,
+      scene: S.scene.id, points: (S.at && !S.atAuto ? [S.at] : []).concat(S.points), exclude: S.exclude,
+      region: hasArea() ? S.region : null, exact: hasArea() && S.exact,
       zoom: $('f-zauto').checked ? 'auto' : +$('f-zoom').value,
     })
     if (seq !== S.seq) return
     S.traced = r
+    if (r.autoAt) { S.at = r.at; S.atAuto = true }
+    drawMarks()
     $('landing').src = r.landing; $('detail').src = r.detail
     $('fit').textContent = Math.round(r.fit * 100) + '%'
     $('zoomv').textContent = r.zoom + ($('f-zauto').checked ? ' (auto)' : '')
@@ -474,12 +575,13 @@ async function doTrace() {
     for (const n of r.notes) { const li = document.createElement('li'); li.textContent = n; $('notes').append(li) }
     $('result').classList.remove('hidden'); $('result-empty').classList.add('hidden')
     $('save').disabled = false
-    msg($('trace-msg'), 'Traced. Not right? Add a point.', 'muted')
+    msg($('trace-msg'), hasArea() && S.exact ? 'Your area is the outline.' : 'Traced. Not right? Add a dot, or draw an area around it.', 'muted')
   } catch (e) { if (seq === S.seq) msg($('trace-msg'), e.message, 'err') }
 }
 
 function resetObject() {
-  Object.assign(S, { view: null, at: null, points: [], exclude: [], editId: null, traced: null })
+  Object.assign(S, { at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, editId: null, traced: null })
+  setAreaUse(false); setTool('dots'); drawMarks()
   $('work').classList.add('hidden'); $('done').classList.add('hidden')
   $('result').classList.add('hidden'); $('result-empty').classList.remove('hidden')
   $('pano-stage').querySelectorAll('.cross').forEach(n => n.remove())
@@ -495,13 +597,14 @@ function resetSaveLabel() {
 
 function editObject(o) {
   resetObject()
-  S.editId = o.id; S.at = o.at; S.points = o.points || []; S.exclude = o.exclude || []
+  S.editId = o.id; S.at = o.at; S.atAuto = !!o.atAuto; S.points = o.points || []; S.exclude = o.exclude || []
+  S.region = o.region || []; S.regionClosed = S.region.length >= 3; setAreaUse(o.exact)
   $('f-label').value = o.label || ''; $('f-title').value = o.title || ''; $('f-lines').value = (o.lines || []).join('\n')
   if (o.voice === false) $('f-voice').value = 'none'
   else if (o.voice) $('f-voice').value = o.voice
   if (typeof o.zoom === 'number') { $('f-zauto').checked = false; $('f-zoom').disabled = false; $('f-zoom').value = o.zoom; $('f-zoomv').textContent = o.zoom }
   resetSaveLabel()
-  openView(o.at[0], o.at[1], 50); trace()
+  openView(o.at[0], o.at[1]); trace()
 }
 
 $('save').onclick = async () => {
@@ -515,7 +618,8 @@ $('save').onclick = async () => {
       scene: S.scene.id,
       object: {
         id: S.editId, title, label: $('f-label').value, lines: $('f-lines').value.split('\n'),
-        voice: $('f-voice').value, at: S.at, points: S.points, exclude: S.exclude,
+        voice: $('f-voice').value, at: S.at, atAuto: S.atAuto, points: S.points, exclude: S.exclude,
+        region: hasArea() ? S.region : null, exact: hasArea() && S.exact,
         zoom: $('f-zauto').checked ? 'auto' : +$('f-zoom').value,
       },
     })
@@ -545,7 +649,7 @@ $('save').onclick = async () => {
     again.onclick = () => { resetObject(); window.scrollTo({ top: 0, behavior: 'smooth' }) }
     b.append(again)
     $('done').classList.remove('hidden'); $('done').scrollIntoView({ behavior: 'smooth' })
-    Object.assign(S, { at: null, points: [], exclude: [], editId: null, traced: null })
+    Object.assign(S, { at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, editId: null, traced: null }); drawMarks()
   } catch (e) { msg($('save-msg'), e.message, 'err'); $('save').disabled = false }
 }
 

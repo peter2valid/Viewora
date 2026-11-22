@@ -162,8 +162,8 @@ class Segmenter:
              box: tuple[float, float, float, float] | None = None) -> tuple[np.ndarray, float]:
         import torch
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-        pts = np.array(pos + neg, dtype=np.float32)
-        labels = np.array([1] * len(pos) + [0] * len(neg), dtype=np.int32)
+        pts = np.array(pos + neg, dtype=np.float32) if pos or neg else None
+        labels = np.array([1] * len(pos) + [0] * len(neg), dtype=np.int32) if pos or neg else None
         with torch.inference_mode():
             self.predictor.set_image(rgb)
             masks, scores, _ = self.predictor.predict(
@@ -333,15 +333,53 @@ def auto_zoom(span_v: float, span_h: float) -> int:
     return 0
 
 
-def trace(pano: np.ndarray, seg: Segmenter, at, points=(), exclude=(), zoom: float | None = None,
-          close_px: int = 9, context: float = 1.35, smooth: float = SMOOTH) -> dict:
-    """Outline one object. at / points / exclude are [yaw, pitch] degrees.
+def densify(corners_deg, per_edge: int = 10) -> tuple[np.ndarray, np.ndarray]:
+    """Corners ([yaw, pitch] degrees) → the outline along great circles
+    (what a straight edge looks like on screen), in radians."""
+    v = np.array([[math.sin(y) * math.cos(p), math.sin(p), math.cos(y) * math.cos(p)] for y, p in (rad(c) for c in corners_deg)])
+    pts = []
+    for i in range(len(v)):
+        a, b = v[i], v[(i + 1) % len(v)]
+        ang = math.acos(float(np.clip(a @ b, -1, 1)))
+        n = max(1, min(per_edge, int(math.degrees(ang) / 2) + 1))
+        for k in range(n):
+            t = k / n
+            if ang < 1e-6:
+                q = a
+            else:
+                q = (math.sin((1 - t) * ang) * a + math.sin(t * ang) * b) / math.sin(ang)
+            pts.append(q / np.linalg.norm(q))
+    d = np.array(pts)
+    return np.arctan2(d[:, 0], d[:, 2]), np.arcsin(np.clip(d[:, 1], -1, 1))
+
+
+def centre_of(yaws: np.ndarray, pitches: np.ndarray) -> tuple[float, float]:
+    d = np.stack([np.sin(yaws) * np.cos(pitches), np.sin(pitches), np.cos(yaws) * np.cos(pitches)], 1).mean(0)
+    d /= np.linalg.norm(d)
+    return float(math.atan2(d[0], d[2])), float(math.asin(float(np.clip(d[1], -1, 1))))
+
+
+def trace(pano: np.ndarray, seg: Segmenter, at=None, points=(), exclude=(), zoom: float | None = None,
+          close_px: int = 9, context: float = 1.35, smooth: float = SMOOTH,
+          region=None, region_exact: bool = False) -> dict:
+    """Outline one object. at / points / exclude / region are [yaw, pitch] degrees.
 
     Pass 1 looks at the object in a view a bit wider than the landing view.
     Pass 2 re-renders a square view just around what pass 1 found, so SAM sees
     the object at full resolution (several times larger), and segments again
     with pass 1's box as an extra prompt. That pass is the outline kept.
+
+    region (3+ corners drawn around the object): pass 1 is skipped and the
+    close-up is framed on it; SAM only keeps what is inside. region_exact:
+    no SAM at all, the outline is the drawn shape (a parking bay, a stretch
+    of floor or wall: things that aren't one "object").
     """
+    if region is not None and len(region) < 3:
+        region = None
+    if region is not None:
+        return trace_region(pano, seg, region, region_exact, at, points, exclude, zoom, close_px, smooth)
+    if at is None:
+        raise ValueError("click on the object first")
     notes: list[str] = []
     cyaw, cpitch = rad(at)
     zoom1 = float(zoom) if zoom is not None else 50.0
@@ -422,6 +460,62 @@ def trace(pano: np.ndarray, seg: Segmenter, at, points=(), exclude=(), zoom: flo
         if touched1:
             notes.append("mask touches the edge of the view: the object may be cut off. Lower its zoom or raise context.")
 
+    return finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2 if use2 else None, dyaw, dpitch, dfov, pos2, neg2)
+
+
+def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, smooth) -> dict:
+    notes: list[str] = []
+    ry, rp = densify(region, max(2, 60 // len(region)))
+    dyaw, dpitch = centre_of(ry, rp)
+    cyaw = dyaw
+    f, r, u = camera_basis(dyaw, dpitch)
+    d = np.stack([np.sin(ry) * np.cos(rp), np.sin(rp), np.cos(ry) * np.cos(rp)], axis=1)
+    if (d @ f).min() <= 0.05:
+        raise ValueError("that area is too wide (over half the room): draw it in parts")
+    z = d @ f
+    ext = float(max(np.abs(d @ r / z).max(), np.abs(d @ u / z).max()))
+    dfov = min(MAX_FOV * 1.2, max(6.0, math.degrees(2 * math.atan(ext * 1.15))))
+    dview = render_view(pano, dyaw, dpitch, dfov, DETAIL, DETAIL)
+    bx, by, _ = sphere_to_screen(ry, rp, dyaw, dpitch, dfov, DETAIL, DETAIL)
+    region_px = np.stack([bx, by], 1)
+
+    def to_px(deg_pairs):
+        if not deg_pairs:
+            return []
+        ys, ps = zip(*[rad(p) for p in deg_pairs])
+        x, y, ok = sphere_to_screen(np.array(ys), np.array(ps), dyaw, dpitch, dfov, DETAIL, DETAIL)
+        return [(float(a), float(b)) for a, b, k in zip(x, y, ok) if k and 0 <= a < DETAIL and 0 <= b < DETAIL]
+
+    pos_deg = ([list(at)] if at else []) + [list(p) for p in points]
+    pos2, neg2 = to_px(pos_deg), to_px([list(p) for p in exclude])
+    inside = np.zeros((DETAIL, DETAIL), np.uint8)
+    cv2.fillPoly(inside, [region_px.astype(np.int32)], 1)
+    if exact:
+        pyaw, ppitch = ry, rp
+        mask2, score, fit = inside, 1.0, 1.0
+    else:
+        pos2 = [p for p in pos2 if inside[int(p[1]), int(p[0])]]
+        neg2 = [p for p in neg2 if inside[int(p[1]), int(p[0])]]
+        box = (max(0, bx.min()), max(0, by.min()), min(DETAIL - 1, bx.max()), min(DETAIL - 1, by.max()))
+        mask2, score = seg.mask(dview, pos2, neg2, box)
+        # Keep to the drawn area (a little slack for its edges).
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(0.02 * DETAIL) | 1,) * 2)
+        mask2 = mask2 & cv2.dilate(inside, k)
+        ys2, xs2 = np.nonzero(mask2)
+        if not len(xs2):
+            raise ValueError("nothing found inside that area: add a green dot on the object, or use the area as the outline")
+        close2 = int(close_px * 1.5) | 1 if close_px > 0 else 0
+        if smooth > 0:
+            close2 = max(close2, int(smooth * math.hypot(xs2.max() - xs2.min(), ys2.max() - ys2.min())) | 1)
+        poly_px, n2, fit = mask_to_polygon(mask2, min(close2, 121))
+        notes += n2
+        pyaw, ppitch = screen_to_sphere(poly_px[:, 0], poly_px[:, 1], dyaw, dpitch, dfov, DETAIL, DETAIL)
+        if not pos2:
+            notes.append("traced from the area alone: add a green dot on the object if it picked the wrong thing")
+    return finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2)
+
+
+def finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2) -> dict:
     rel = np.array([wrap(y - cyaw) for y in pyaw])
     tyaw = wrap(cyaw + (rel.min() + rel.max()) / 2)
     tpitch = float((ppitch.min() + ppitch.max()) / 2)
@@ -447,7 +541,7 @@ def trace(pano: np.ndarray, seg: Segmenter, at, points=(), exclude=(), zoom: flo
         "polygon": [[round(float(y), 4), round(float(p), 4)] for y, p in zip(pyaw, ppitch)],
         "score": score, "fit": fit, "notes": notes,
         "landing": (land, land_poly),
-        "detail": (dview, mask2 if use2 else None, np.stack([dx, dy], 1), pos2, neg2),
+        "detail": (dview, mask2, np.stack([dx, dy], 1), pos2, neg2),
     }
 
 

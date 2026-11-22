@@ -28,10 +28,21 @@ scripts/spotlight/studio       # opens http://127.0.0.1:8765 in your browser
    your user can read it). See or turn off connected computers in Viewora →
    Settings → Connected apps.
 2. Pick one of your tours, then a scene.
-3. Click the object on the panorama. A close-up opens and the outline is
-   traced by itself (~10-20 s; the first one also loads the AI).
-4. Check "What visitors will see". Something missing? Click on it. Took too
-   much? Right-click what isn't part of it. It re-traces each time.
+3. The scene opens in a 360 view (the tour's own viewer: drag to look around,
+   scroll to zoom; the small flat picture under it jumps the view). Click the
+   object and the outline is traced by itself (~10-20 s; the first one also
+   loads the AI). It shows in light blue.
+4. Fix it up in the 360 view, with either tool:
+   - **Dots**: something missing? Click on it. Took too much? Right-click
+     (or Shift-click) what isn't part of it.
+   - **Draw an area**: click the corners in turn (A, B, C, D… any shape, 3
+     to 20 corners), then the first corner again (or Enter) to close it.
+     Then either *the AI finds the object inside it* (add a green dot on the
+     object too: an area alone can pick the wrong thing), or *use my area as
+     the outline* for things that aren't one object: a parking bay, a stretch
+     of floor or wall. Backspace removes the last corner.
+
+   Click a dot or corner to remove it. It re-traces after each change.
 5. Type the tag, title and lines, pick a voice, press **Publish & record
    voice**. It's live on the tour.
 

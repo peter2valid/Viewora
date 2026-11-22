@@ -40,8 +40,10 @@ import spotlight as sp
 API = os.environ.get("VIEWORA_API", "https://api.viewora.software").rstrip("/")
 APP = os.environ.get("VIEWORA_APP", "https://app.viewora.software").rstrip("/")
 UA = "viewora-spotlight-studio/1.0"
-VIEW_W, VIEW_H = 1280, 800        # the "look closer" view you click points on
 PANO_W = 4096                      # the flat panorama you pick the object on
+SPHERE_W = 8192                    # the 360 view you click dots and areas on (sharp when zoomed)
+VENDOR = sp.APP / "node_modules"   # the tour's own viewer, served to the page
+VENDOR_OK = ("three/build/", "@photo-sphere-viewer/core/", "@photo-sphere-viewer/markers-plugin/")
 CONN_FILE = sp.CACHE / "studio-connection.json"
 VOICE_DIR = sp.CACHE / "studio-voices"
 EXPORT_DIR = sp.HERE / "out"
@@ -259,6 +261,7 @@ def to_page(row: dict) -> dict:
         "id": row["object_key"], "title": d.get("title", ""), "label": d.get("label", ""), "lines": d.get("lines", []),
         "at": src.get("at") or deg, "points": src.get("points", []), "exclude": src.get("exclude", []),
         "zoom": src.get("zoom", d.get("zoom", "auto")), "voice": src.get("voice"),
+        "region": src.get("region"), "exact": bool(src.get("exact")), "atAuto": bool(src.get("atAuto")),
         "hasVoice": bool(row.get("voice_url")), "remote": True,
     }
 
@@ -269,7 +272,10 @@ def api_scene(q: dict) -> dict:
         img = pano(sid)
         h = int(PANO_W * img.shape[0] / img.shape[1])
         flat = cv2.resize(img, (PANO_W, h), interpolation=cv2.INTER_AREA)
-    return {"pano": jpg(flat, 80), "voices": VOICES, **scene_objects(sid)}
+        sw = min(SPHERE_W, img.shape[1])
+        sphere = img if sw == img.shape[1] else cv2.resize(img, (sw, sw // 2), interpolation=cv2.INTER_AREA)
+        sphere_src = jpg(sphere, 88)
+    return {"pano": jpg(flat, 80), "sphere": sphere_src, "voices": VOICES, **scene_objects(sid)}
 
 
 def scene_objects(sid: str) -> dict:
@@ -285,29 +291,39 @@ def scene_objects(sid: str) -> dict:
 
 # ── Tracing ───────────────────────────────────────────────────────────────────
 
-def api_view(q: dict) -> dict:
-    """A perspective view to click points on (what the camera would see)."""
-    sid, yaw, pitch, fov = q["scene"], float(q["yaw"]), float(q["pitch"]), float(q["fov"])
-    with heavy:
-        v = sp.render_view(pano(sid), math.radians(yaw), math.radians(pitch), fov, VIEW_W, VIEW_H)
-    return {"src": jpg(v), "w": VIEW_W, "h": VIEW_H}
-
-
 def zoom_arg(z):
     return None if z in (None, "auto", "") else float(z)
 
 
+def area_of(q: dict):
+    region = q.get("region") or None
+    if region is not None:
+        if not (3 <= len(region) <= 20):
+            raise ValueError("an area needs 3 to 20 corners")
+        region = [[float(y), float(p)] for y, p in region]
+    return region, bool(region and q.get("exact"))
+
+
+def run_trace(sid: str, pos: list, neg: list, region, exact: bool, zoom):
+    """Trace; with only an area (no dot), the area's centre stands in for the first dot."""
+    t = sp.trace(pano(sid), segmenter(), pos[0] if pos else None, pos[1:], neg, zoom_arg(zoom), region=region, region_exact=exact)
+    centre = [round(math.degrees(t["yaw"]), 2), round(math.degrees(t["pitch"]), 2)]
+    return t, (pos[0] if pos else centre), not pos
+
+
 def api_trace(q: dict) -> dict:
     sid = q["scene"]
-    pos, neg = q["points"], q.get("exclude", [])
-    if not pos:
-        raise ValueError("click on the object first")
+    pos, neg = q.get("points") or [], q.get("exclude") or []
+    region, exact = area_of(q)
+    if not pos and not region:
+        raise ValueError("click on the object, or draw an area around it")
     with heavy:
-        t = sp.trace(pano(sid), segmenter(), pos[0], pos[1:], neg, zoom_arg(q.get("zoom")))
+        t, at, auto = run_trace(sid, pos, neg, region, exact, q.get("zoom"))
     return {
-        "at": pos[0], "points": pos[1:], "exclude": neg,
+        "at": at, "autoAt": auto, "points": pos[1:], "exclude": neg,
         "zoom": t["zoom"], "fit": round(t["fit"], 3), "score": round(t["score"], 2),
         "nPoints": len(t["polygon"]), "notes": t["notes"],
+        "outline": [[round(math.degrees(y), 3), round(math.degrees(p), 3)] for y, p in t["polygon"]],
         "landing": jpg(sp.draw_landing(*t["landing"])),
         "detail": jpg(sp.draw_detail(*t["detail"])),
     }
@@ -322,16 +338,27 @@ def build_payload(sid: str, o: dict) -> tuple[str, dict, dict, bytes | None, lis
     if not title:
         raise ValueError("give it a title")
     key = o.get("id") or slugify(title)
+    region, exact = area_of(o)
+    auto = bool(o.get("atAuto")) or not o.get("at")
+    pos = ([] if auto else [o["at"]]) + list(o.get("points", []))
     source = {
-        "at": o["at"], "points": o.get("points", []), "exclude": o.get("exclude", []),
+        "points": o.get("points", []), "exclude": o.get("exclude", []),
         "zoom": o.get("zoom", "auto"),
         "voice": False if o.get("voice") == "none" else (o.get("voice") or "af_heart"),
     }
+    if region:
+        source["region"] = region
+        if exact:
+            source["exact"] = True
     if o.get("say"):
         source["say"] = o["say"]
     lines = [l.strip() for l in o.get("lines", []) if l.strip()]
     with heavy:
-        t = sp.trace(pano(sid), segmenter(), source["at"], source["points"], source["exclude"], zoom_arg(source["zoom"]))
+        if not pos and not region:
+            raise ValueError("click on the object, or draw an area around it")
+        t, at, auto = run_trace(sid, pos, source["exclude"], region, exact, source["zoom"])
+        # Viewora needs a first dot: an area alone gives its centre, marked as such.
+        source = {"at": at, **({"atAuto": True} if auto else {}), **source}
         mp3 = None
         if source["voice"] is not False:
             text = source.get("say") or " ".join([title + "."] + lines)
@@ -416,7 +443,7 @@ def api_publish_local(q: dict) -> dict:
 ROUTES = {
     "status": api_status, "connect/start": api_connect_start, "connect/finish": api_connect_finish,
     "connect/paste": api_connect_paste, "disconnect": api_disconnect,
-    "space": api_space, "tour": api_tour, "scene": api_scene, "view": api_view, "trace": api_trace,
+    "space": api_space, "tour": api_tour, "scene": api_scene, "trace": api_trace,
     "save": api_save, "delete": api_delete, "publish-local": api_publish_local,
 }
 
@@ -443,6 +470,14 @@ class Handler(BaseHTTPRequestHandler):
         m = re.fullmatch(r"/img/([0-9a-f]+)\.jpg", u.path)
         if m and m.group(1) in _images:
             return self.send(200, _images[m.group(1)], "image/jpeg")
+        if u.path.startswith("/vendor/"):
+            rel = u.path.removeprefix("/vendor/")
+            f = (VENDOR / rel).resolve()
+            if ".." not in rel and rel.startswith(VENDOR_OK) and f.is_file() and str(f).startswith(str(VENDOR.resolve())):
+                ctype = "text/css" if f.suffix == ".css" else "text/javascript" if f.suffix == ".js" else "application/octet-stream"
+                return self.send(200, f.read_bytes(), ctype + "; charset=utf-8", {"Cache-Control": "max-age=3600"})
+            if not VENDOR.exists():
+                return self.send(404, b"run npm install in viewora-app first", "text/plain")
         m = re.fullmatch(r"/download/([0-9a-f]+)/[^/]+", u.path)
         if m and m.group(1) in _downloads:
             p = _downloads[m.group(1)]
