@@ -1917,13 +1917,13 @@ const journeyApi: JourneyApi = {
   hidePin() {
     try { vtHandle.value?.markers?.removeMarker(JOURNEY_PIN_ID) } catch { /* not shown */ }
   },
-  async playSpotlight(key, voice) {
+  async playSpotlight(key, voice, bottomInset) {
     const ctl = spotlightCtl
     if (!ctl) return
     await waitFor(() => !vtTransitioning.value, 4000)
     if (vtFocusing.value && vtHandle.value) dismissInfoCard(vtHandle.value)
     if (vtActiveNodeId.value) ctl.setScene(vtActiveNodeId.value)
-    await ctl.play(key, { voice })
+    await ctl.play(key, { voice, bottomInset })
   },
   stopSpotlight() {
     spotlightCtl?.close()

@@ -42,7 +42,7 @@
     </div>
 
     <!-- Playing / paused / finished -->
-    <div v-else class="jp-bar">
+    <div v-else ref="barEl" class="jp-bar" :class="{ 'jp-bar--spot': spotOn }">
       <div class="jp-bar__head">
         <span class="jp-bar__step">{{ stepLabel }}</span>
         <span class="jp-bar__title">{{ kind === 'area' || (state === 'done' && stopAfter === null) ? journey.title : journey.chapters[chapter]?.title }}</span>
@@ -85,11 +85,11 @@
           </button>
           <button v-if="state === 'paused'" type="button" class="jp-btn jp-btn--primary jp-btn--play" @click="resume">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            {{ pausedByUser ? 'Resume visit' : 'Play' }}
+            <span class="jp-btn__label">{{ pausedByUser ? 'Resume visit' : 'Play' }}</span>
           </button>
           <button v-else type="button" class="jp-btn jp-btn--play" @click="pause(false)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
-            Pause
+            <span class="jp-btn__label">Pause</span>
           </button>
           <button v-if="journey.chapters.length > 1" type="button" class="jp-icon" aria-label="Next step" title="Next step" :disabled="chapter >= journey.chapters.length - 1" @click="goChapter(chapter + 1, stopAfter !== null)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 18V6l10.5 6z"/></svg>
@@ -113,7 +113,7 @@
 // card = "this card open"), so Pause just stops the current action and Resume
 // starts it over, except a line of narration, which carries on mid-sentence.
 // Dragging the view pauses; Resume carries on from there.
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { deg, journeyMinutes, speakMs, type Journey, type JourneyAction, type JourneyView } from '~/shared/utils/journey'
 import { runLine } from '~/shared/utils/lineClock'
 
@@ -138,7 +138,8 @@ export interface JourneyApi {
    * `voice` (the visit's own audio element, already allowed to play) for its
    * recording. Resolves once it has closed; stopSpotlight closes it early.
    */
-  playSpotlight?(key: string, voice: HTMLAudioElement | null): Promise<void>
+  /** bottomInset: px of the view the visit's bar covers (the spotlight keeps clear of it). */
+  playSpotlight?(key: string, voice: HTMLAudioElement | null, bottomInset?: number): Promise<void>
   stopSpotlight?(): void
   /** The element the visitor drags; pressing on it pauses the visit. */
   container(): HTMLElement | null
@@ -182,6 +183,17 @@ const action = ref(0)
 const caption = ref('')
 const muted = ref(false)
 const pausedByUser = ref(false)
+/** A spotlight is playing as part of the visit: the bar folds down to its controls. */
+const spotOn = ref(false)
+const barEl = ref<HTMLElement | null>(null)
+/** How much of the view's bottom the bar covers, plus a little air (read once, before the effect). */
+function barInset(): number {
+  const bar = barEl.value
+  const view = props.api.container()
+  if (!bar || !view) return 0
+  const b = bar.getBoundingClientRect(), v = view.getBoundingClientRect()
+  return Math.max(0, Math.round(v.bottom - b.top + 12))
+}
 const minutesOf = (j: Journey) => journeyMinutes(j)
 
 // ── Progress: one segment per line of the step on screen ──────────────────
@@ -383,14 +395,19 @@ async function exec(a: JourneyAction, stopped: () => boolean) {
     if (stopped() || !props.api.playSpotlight) return
     caption.value = ''
     lineFrac.value = 0
+    // The bar folds to its controls (the spotlight's own panel has the words),
+    // and the spotlight is told how much of the view the bar still covers.
+    spotOn.value = true
+    await nextTick()
+    const inset = barInset()
     // Its recording plays through the visit's own element (sound is allowed on
     // it), so the segment fills from that clip as the spotlight reads.
     const el = clip
     const tick = () => { if (el && el.duration > 0 && !stopped()) lineFrac.value = Math.min(1, el.currentTime / el.duration) }
     el?.addEventListener('timeupdate', tick)
     if (el) el.muted = muted.value
-    try { await props.api.playSpotlight(a.spot, el) }
-    finally { el?.removeEventListener('timeupdate', tick) }
+    try { await props.api.playSpotlight(a.spot, el, inset) }
+    finally { el?.removeEventListener('timeupdate', tick); spotOn.value = false }
     if (!stopped()) await sleep(500, stopped) // a breath before the visit carries on
   } else if ('say' in a) {
     if (a.pin) props.api.showPin?.({ yaw: deg(a.pin.yaw), pitch: deg(a.pin.pitch), label: a.pin.label })
@@ -702,6 +719,12 @@ onBeforeUnmount(() => {
 .jp-intro .jp-btn--again { margin-top: 8px; height: 44px; }
 .jp-choice__meta--resume { color: #e11d48; }
 .jp-btn--play { min-width: 150px; }
+/* If a narrow phone wraps the label, the words sit close, left-aligned
+   ("Visit" right under "Resume"), next to the icon. */
+.jp-btn__label { line-height: 1.1; text-align: left; }
+.jp-btn--play svg { flex-shrink: 0; }
+/* While a spotlight plays in the visit: no caption (its panel has the words). */
+.jp-bar--spot .jp-caption { display: none; }
 .jp-icon { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 12px; background: #f3f4f6; color: #111827; cursor: pointer; }
 .jp-icon:hover { background: #e5e7eb; }
 .jp-icon:disabled { opacity: 0.4; cursor: default; }
@@ -711,6 +734,6 @@ onBeforeUnmount(() => {
 @media (max-width: 480px) {
   .jp-bar { padding: 10px 12px; }
   .jp-caption { font-size: 14px; }
-  .jp-btn--play { min-width: 0; flex: 1; }
+  .jp-btn--play { min-width: 0; flex: 1; padding: 0 12px; gap: 8px; }
 }
 </style>

@@ -23,6 +23,12 @@ export interface RunOptions {
   voice: HTMLAudioElement | null
   lite: boolean
   onEnd: (reason: SpotlightEndReason) => void
+  /**
+   * Pixels at the bottom of the view covered by something that stays up (a
+   * guided visit's bar): the object is framed in the view above it, and the
+   * panel never goes under it.
+   */
+  bottomInset?: number
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg'
@@ -35,6 +41,19 @@ const MAX_CPS = 60
 /** A drag or zoom smaller than this is PSV settling, not the visitor. */
 const MOVE_EPS = 0.002
 const ZOOM_EPS = 0.5
+
+/**
+ * The pitch to aim at so obj sits in the middle of the view above a covered
+ * band of `inset` px (the camera looks a little lower, the object rides up).
+ */
+function framedPitch(viewer: any, obj: SpotlightObject, inset: number): number {
+  const h: number = viewer.state?.size?.height || viewer.container?.clientHeight || 0
+  if (!inset || !h) return obj.pitch
+  let vfov = 60
+  try { vfov = viewer.dataHelper.zoomLevelToFov(obj.zoom) } catch { /* default */ }
+  const shift = ((Math.min(inset, h * 0.6) / 2) / h) * (vfov * Math.PI / 180)
+  return Math.max(-Math.PI / 2, Math.min(Math.PI / 2, obj.pitch - shift))
+}
 
 // Open spotlights and their listeners, for the leak check (window.__vwSpotlight()).
 let liveRuns = 0
@@ -148,7 +167,8 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
   // ── 1. Camera: PSV's own animate. Tiles swept past aren't worth loading,
   // and the sharper tiles for the zoomed view wait until the outline is drawn:
   // their uploads made the landing frames 40-150 ms at 4x CPU throttle. ──
-  const to = { yaw: obj.yaw, pitch: obj.pitch }
+  const inset = Math.max(0, opts.bottomInset ?? 0)
+  const to = { yaw: obj.yaw, pitch: framedPitch(viewer, obj, inset) }
   let tilesHeld = true
   const releaseTiles = () => { if (tilesHeld) { tilesHeld = false; adapter?.vwHoldTiles?.(false) } }
   adapter?.vwHoldTiles?.(true)
@@ -178,6 +198,8 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
     const size = viewer.state?.size
     const w: number = size?.width || container.clientWidth
     const h: number = size?.height || container.clientHeight
+    // The part of the view not covered at the bottom (the panel stays inside it).
+    const hv = Math.max(h * 0.4, h - inset)
     const pts = obj.polygon
       .map(([yaw, pitch]) => { try { return viewer.dataHelper.sphericalCoordsToViewerCoords({ yaw, pitch }) } catch { return null } })
       .filter((q: any): q is { x: number; y: number } => !!q && Number.isFinite(q.x) && Number.isFinite(q.y))
@@ -278,7 +300,7 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
     let side: 'right' | 'left' | 'below' | 'above'
     if (bx1 + gap + panelW <= w - margin) side = 'right'
     else if (bx0 - gap - panelW >= margin) side = 'left'
-    else side = (h - by1 >= by0) ? 'below' : 'above'
+    else side = (hv - by1 >= by0) ? 'below' : 'above'
     const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
     let px: number; let py: number
     let anchor: { x: number; y: number }
@@ -286,12 +308,12 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
     const pick = (score: (q: { x: number; y: number }) => number) => pts.reduce((best, q) => (score(q) > score(best) ? q : best), pts[0]!)
     if (side === 'right' || side === 'left') {
       px = side === 'right' ? bx1 + gap : bx0 - gap - panelW
-      py = clamp(cy - ph / 2 - 24, margin, h - ph - margin)
+      py = clamp(cy - ph / 2 - 24, margin, hv - ph - margin)
       anchor = side === 'right' ? pick(q => q.x - (q.y - by0) * 0.6) : pick(q => -q.x - (q.y - by0) * 0.6)
       attach = { x: side === 'right' ? px : px + panelW, y: py + 30 }
     } else {
       px = clamp((bx0 + bx1) / 2 - panelW / 2, margin, w - panelW - margin)
-      py = side === 'below' ? Math.min(by1 + gap, h - ph - margin) : Math.max(by0 - gap - ph, margin)
+      py = side === 'below' ? Math.min(by1 + gap, hv - ph - margin) : Math.max(by0 - gap - ph, margin)
       anchor = side === 'below' ? pick(q => q.y) : pick(q => -q.y)
       attach = { x: clamp(anchor.x, px + 20, px + panelW - 20), y: side === 'below' ? py : py + ph }
     }

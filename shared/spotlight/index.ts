@@ -36,6 +36,8 @@ export interface SpotlightRingMove { sceneId: string; key: string; yaw: number; 
 /** How a guided visit plays one: its own audio element (already allowed to play) and progress. */
 export interface SpotlightPlayOptions {
   voice?: HTMLAudioElement | null
+  /** Pixels covered at the bottom by the visit's bar: framed above it, panel kept clear. */
+  bottomInset?: number
 }
 
 export interface SpotlightController {
@@ -307,7 +309,7 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
    * whatever the tour is doing, with its own audio element. done() runs once
    * it has closed, however that happened.
    */
-  function trigger(o: Prepared, forced?: { voice: HTMLAudioElement | null; done: () => void }) {
+  function trigger(o: Prepared, forced?: { voice: HTMLAudioElement | null; done: () => void; bottomInset?: number }) {
     if (run || (forced ? destroyed || !!opening : blocked())) { forced?.done(); return }
     const token = {}
     opening = token
@@ -333,7 +335,7 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
       .then(({ runSpotlight }) => {
         if (opening !== token || destroyed) { voice?.removeAttribute('src'); end('cancelled'); return }
         opening = null
-        run = runSpotlight(viewer, o.obj, { voice, lite: host.lite(), onEnd: end })
+        run = runSpotlight(viewer, o.obj, { voice, lite: host.lite(), onEnd: end, bottomInset: forced?.bottomInset })
       })
       .catch(() => {
         // The chunk didn't load (offline): nothing opened, nothing to undo.
@@ -444,7 +446,7 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
       const o = objects.find(p => p.obj.id === key)
       if (!o) return
       if (run || opening) close('scene')
-      await new Promise<void>(resolve => trigger(o, { voice: opts?.voice ?? null, done: resolve }))
+      await new Promise<void>(resolve => trigger(o, { voice: opts?.voice ?? null, done: resolve, bottomInset: opts?.bottomInset }))
     },
     destroy() {
       if (destroyed) return
