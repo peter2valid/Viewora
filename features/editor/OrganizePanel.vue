@@ -98,9 +98,21 @@
             {{ saving ? 'Saving…' : 'Apply' }}
           </button>
           <button class="og-btn" :disabled="saving" @click="apply('')">Remove category</button>
+          <button class="og-btn og-btn--move" :disabled="saving" title="Make a separate tour, with its own link, from these scenes" @click="moveOpen = true">Move to new tour…</button>
           <button class="og-btn og-btn--icon" aria-label="Clear selection" @click="clearSelection">✕</button>
         </div>
       </Transition>
+
+      <MoveToTourDialog
+        v-if="moveOpen"
+        :space-id="spaceId"
+        :scene-ids="[...selected]"
+        :shared-category="sharedCategory"
+        :total-scenes="scenes.length"
+        :has-pins="selectedHasPins"
+        @close="moveOpen = false"
+        @moved="onMoved"
+      />
     </template>
   </div>
 </template>
@@ -112,11 +124,14 @@ import { useImage } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { isPlaced } from '~/shared/utils/floorPlan'
 import { CATEGORY_SUGGESTIONS, normalizeGroup } from '~/shared/utils/sceneGroups'
+import MoveToTourDialog, { type MoveResult } from '~/features/editor/components/MoveToTourDialog.vue'
 
 const props = defineProps<{ spaceId: string }>()
 const emit = defineEmits<{
   /** Categories saved — lets the 360° Tour tab update its own scene list. */
   (e: 'categories-changed', payload: { sceneIds: string[]; groupName: string | null }): void
+  /** Scenes (and maybe photos) moved to a new tour — the other tabs must drop them. */
+  (e: 'scenes-moved', payload: { sceneIds: string[]; photoIds: string[]; result: MoveResult }): void
 }>()
 
 const { apiFetch } = useApiFetch()
@@ -295,9 +310,26 @@ async function apply(raw: string) {
   }
 }
 
+// ── Move to a new tour ──────────────────────────────────────
+// e.g. two units shot in one session that belong to different owners.
+const moveOpen = ref(false)
+const sharedCategory = computed(() => {
+  const groups = new Set(scenes.value.filter(s => selected.value.has(s.id)).map(s => s.group))
+  return groups.size === 1 ? [...groups][0] : ''
+})
+const selectedHasPins = computed(() => scenes.value.some(s => selected.value.has(s.id) && !!s.floorId))
+
+function onMoved({ sceneIds, photoIds, result }: { sceneIds: string[]; photoIds: string[]; result: MoveResult }) {
+  const gone = new Set(sceneIds)
+  scenes.value = scenes.value.filter(s => !gone.has(s.id))
+  clearSelection()
+  emit('scenes-moved', { sceneIds, photoIds, result })
+}
+
 // ── Keyboard ────────────────────────────────────────────────
 function onKey(e: KeyboardEvent) {
   const typing = (e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable="true"]')
+  if (moveOpen.value) return
   if (e.key === 'Escape' && selected.value.size) { clearSelection(); return }
   if (typing) return
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && shown.value.length) {
@@ -341,6 +373,7 @@ onBeforeUnmount(() => listen(false))
 .og-btn--primary { background: #22c55e; border-color: #22c55e; color: #0b0d14; }
 .og-btn--primary:hover:not(:disabled) { background: #4ade80; }
 .og-btn--icon { width: 36px; padding: 0; }
+.og-btn--move { border-color: rgba(147,197,253,0.4); color: #bfdbfe; }
 
 /* Filters: the root's top padding keeps them clear of TopBar + the editor's tab switch. */
 .og-bar { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 0 16px 8px; }

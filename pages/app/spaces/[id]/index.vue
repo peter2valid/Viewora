@@ -101,7 +101,7 @@
          loading spinner + refetch each time, and (for Details specifically)
          silently discarded unsaved form edits the instant you switched away. -->
     <KeepAlive>
-      <PhotosPanel v-if="mode === 'photos'" :space-id="spaceId" />
+      <PhotosPanel v-if="mode === 'photos'" :key="photosKey" :space-id="spaceId" />
     </KeepAlive>
     <!-- v-show, not KeepAlive: mounted as soon as we know it is a car, so photos are already loading
          and the editor is on screen the moment the tab is clicked (same as the 360 tab). -->
@@ -118,7 +118,7 @@
       <FloorPlanPanel v-if="mode === 'floorplan'" :space-id="spaceId" />
     </KeepAlive>
     <KeepAlive>
-      <OrganizePanel v-if="mode === 'organize'" :space-id="spaceId" @categories-changed="onCategoriesChanged" />
+      <OrganizePanel v-if="mode === 'organize'" :space-id="spaceId" @categories-changed="onCategoriesChanged" @scenes-moved="onScenesMoved" />
     </KeepAlive>
     <KeepAlive>
       <DetailsPanel v-if="mode === 'details'" :space-id="spaceId" @published="editorShellRef?.fetchSpace(true)" />
@@ -276,6 +276,24 @@ function onCategoriesChanged({ sceneIds, groupName }: { sceneIds: string[]; grou
   if (!shell || !Array.isArray(shell.scenes)) return
   const hit = new Set(sceneIds)
   shell.scenes = shell.scenes.map((s: any) => (hit.has(s?.id) ? { ...s, group_name: groupName } : s))
+}
+
+// Scenes (and maybe photos) moved to a new tour from the Organize tab. The
+// 360° Tour tab reloads its scenes (arrows to the moved scenes are gone too)
+// and leaves a scene that no longer belongs here; the kept-alive Photos tab
+// is remounted so moved photos disappear from it.
+const photosKey = ref(0)
+async function onScenesMoved({ sceneIds, photoIds }: { sceneIds: string[]; photoIds: string[] }) {
+  if (photoIds.length) photosKey.value++
+  const shell = editorShellRef.value as any
+  if (!shell) return
+  const gone = new Set(sceneIds)
+  if (Array.isArray(shell.scenes)) shell.scenes = shell.scenes.filter((s: any) => !gone.has(s?.id))
+  await shell.fetchSpace?.(true)
+  const list: any[] = Array.isArray(shell.scenes) ? shell.scenes : []
+  if (list.some((s) => s?.id === shell.selectedSceneId)) return
+  if (list[0]?.id) shell.selectScene?.(list[0].id)
+  else shell.selectedSceneId = null
 }
 
 // Lets a child panel's own "Next"/"Skip" links (plain NuxtLinks to
