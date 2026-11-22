@@ -265,7 +265,32 @@ onMounted(() => {
   if (space.value?.id) {
     fireViewEvent(space.value.id)
   }
+  refreshListingDetails()
 })
+
+// Vercel keeps this page's HTML at the edge for up to ~6 minutes (routeRules
+// '/p/**': s-maxage=300 + stale-while-revalidate), and the tour data is baked
+// into that HTML. So right after an owner saves Details, the page still showed
+// the old name, logo and social links. The API's own cache is cleared on every
+// save, so one quiet request after load brings the listing details up to date.
+// Scenes are left alone: swapping them would restart the 360 mid-look.
+async function refreshListingDetails() {
+  if (!tour.value || state.value !== 'ready') return
+  try {
+    const fresh: any = await apiFetch<any>(`/p/${encodeURIComponent(slug)}`)
+    const data = fresh?.tour ?? fresh
+    if (!data?.space || data.space.id !== tour.value.space?.id) return
+    const t = tour.value
+    const changed = (k: string) => JSON.stringify(data[k] ?? null) !== JSON.stringify(t[k] ?? null)
+    if (changed('space')) {
+      t.space = data.space
+      space.value = data.space
+    }
+    for (const k of ['gallery', 'seller', 'share_image']) {
+      if (k in data && changed(k)) t[k] = data[k]
+    }
+  } catch { /* the cached page is still a working tour */ }
+}
 
 onBeforeUnmount(() => {
   if (space.value?.id && tourStartTime) {
