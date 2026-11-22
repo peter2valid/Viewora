@@ -126,6 +126,14 @@
             @click="isSidebarOpen = false"
           />
           <SidebarLink
+            to="/app/showcases"
+            icon="showcases"
+            label="Showcases"
+            :is-active="route.path.startsWith('/app/showcases')"
+            :collapsed="isSidebarCollapsed"
+            @click="isSidebarOpen = false"
+          />
+          <SidebarLink
             to="/app/analytics"
             icon="analytics"
             label="Insights"
@@ -365,6 +373,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const planStore = usePlanStore();
 const { resetSpaces } = useSpaces()
+const { resetShowcases } = useShowcases()
 
 const { isDark, toggle: toggleTheme, init: initTheme } = useTheme();
 
@@ -417,6 +426,7 @@ const logout = async () => {
   authStore.$reset();
   planStore.$reset();
   resetSpaces();
+  resetShowcases();
   await supabase.auth.signOut();
   await navigateTo("/");
 };

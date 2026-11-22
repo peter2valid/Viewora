@@ -21,7 +21,7 @@ import type { IconName } from '~/types/icon'
 const props = defineProps<{
   to: string
   label: string
-  icon: 'dashboard' | 'spaces' | 'leads' | 'analytics' | 'billing' | 'settings' | 'capture' | 'route-gaps' | 'partners'
+  icon: 'dashboard' | 'spaces' | 'showcases' | 'leads' | 'analytics' | 'billing' | 'settings' | 'capture' | 'route-gaps' | 'partners'
   isActive?: boolean
   collapsed?: boolean
 }>()
@@ -29,6 +29,7 @@ const props = defineProps<{
 const iconMap: Record<typeof props.icon, IconName> = {
   dashboard: 'dashboard',
   spaces: 'spaces',
+  showcases: 'grid',
   leads: 'users',
   analytics: 'bar-chart',
   billing: 'billing',
