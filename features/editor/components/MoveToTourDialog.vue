@@ -30,29 +30,45 @@
           <label class="mt-label" for="mt-name">Name of the new tour</label>
           <input id="mt-name" ref="nameInput" v-model="title" class="mt-input" maxlength="120" :disabled="busy" @keydown.enter.prevent="submit" />
 
-          <div class="mt-label-row">
-            <span class="mt-label">Photos to move <span class="mt-muted">(optional)</span></span>
-            <span v-if="photos.length" class="mt-links">
-              <button type="button" class="mt-linkbtn" :disabled="busy" @click="pickAll">Select all</button>
-              <button v-if="picked.size" type="button" class="mt-linkbtn" :disabled="busy" @click="picked = new Set()">None</button>
-            </span>
-          </div>
-          <p v-if="loadingPhotos" class="mt-muted">Loading photos…</p>
-          <p v-else-if="!photos.length" class="mt-muted">This tour has no regular photos.</p>
-          <template v-else>
-            <div class="mt-photos">
+          <!-- Photos: folded into one line by default, most moves take none. -->
+          <div class="mt-section">
+            <div class="mt-section__head">
+              <div class="mt-section__text">
+                <span class="mt-label">Photos to move <span class="mt-muted">(optional)</span></span>
+                <span class="mt-muted">
+                  <template v-if="loadingPhotos">Loading photos…</template>
+                  <template v-else-if="!photos.length">This tour has no regular photos.</template>
+                  <template v-else-if="picked.size">{{ picked.size }} of {{ photos.length }} photos move with the scenes.</template>
+                  <template v-else>None picked: the new tour starts without photos.</template>
+                </span>
+              </div>
               <button
-                v-for="p in photos" :key="p.id" type="button"
-                class="mt-photo" :class="{ 'mt-photo--on': picked.has(p.id) }"
-                :aria-pressed="picked.has(p.id)" :disabled="busy"
-                @click="togglePhoto(p.id)"
-              >
-                <img :src="p.thumb" alt="" loading="lazy" draggable="false" />
-                <span class="mt-check" aria-hidden="true">✓</span>
-              </button>
+                v-if="photos.length"
+                type="button" class="mt-btn mt-btn--small" :disabled="busy"
+                :aria-expanded="photosOpen" aria-controls="mt-photo-grid"
+                @click="photosOpen = !photosOpen"
+              >{{ photosOpen ? 'Hide photos' : `Choose photos (${photos.length})` }}</button>
             </div>
-            <p class="mt-muted">{{ picked.size ? `${picked.size} of ${photos.length} photos move with the scenes.` : 'None picked: the new tour starts without photos.' }}</p>
-          </template>
+
+            <div v-if="photosOpen && photos.length" id="mt-photo-grid" class="mt-picker">
+              <div class="mt-picker__bar">
+                <span class="mt-picker__count">{{ picked.size }} selected</span>
+                <button type="button" class="mt-linkbtn" :disabled="busy || picked.size === photos.length" @click="pickAll">Select all</button>
+                <button type="button" class="mt-linkbtn" :disabled="busy || !picked.size" @click="picked = new Set()">Clear</button>
+              </div>
+              <div class="mt-photos">
+                <button
+                  v-for="(p, i) in photos" :key="p.id" type="button"
+                  class="mt-photo" :class="{ 'mt-photo--on': picked.has(p.id) }"
+                  :aria-pressed="picked.has(p.id)" :aria-label="`Photo ${i + 1}`" :disabled="busy"
+                  @click="togglePhoto(p.id)"
+                >
+                  <img :src="p.thumb" alt="" loading="lazy" decoding="async" draggable="false" />
+                  <span class="mt-check" aria-hidden="true">✓</span>
+                </button>
+              </div>
+            </div>
+          </div>
 
           <label class="mt-toggle">
             <input v-model="publish" type="checkbox" :disabled="busy" />
@@ -111,6 +127,7 @@ const title = ref('')
 const publish = ref(true)
 const photos = ref<Array<{ id: string; thumb: string }>>([])
 const picked = ref(new Set<string>())
+const photosOpen = ref(false)
 const loadingPhotos = ref(true)
 const busy = ref(false)
 const result = ref<MoveResult | null>(null)
@@ -191,28 +208,42 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 <style scoped>
 .mt-backdrop { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
 .mt-dialog {
-  width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  width: min(600px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 10px; padding: 22px;
   border-radius: 18px; background: #12141a; border: 1px solid rgba(255,255,255,0.1);
   box-shadow: 0 24px 60px rgba(0,0,0,0.55); color: #fff;
 }
+/* The dialog scrolls when the screen is short; its rows never get squeezed. */
+.mt-dialog > * { flex-shrink: 0; }
 .mt-title { margin: 0; font-size: 18px; font-weight: 800; }
 .mt-muted { margin: 0; color: rgba(255,255,255,0.55); font-size: 12.5px; line-height: 1.5; font-weight: 500; }
 .mt-label { margin-top: 6px; font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,0.85); }
-.mt-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 6px; }
-.mt-label-row .mt-label { margin-top: 0; }
 .mt-input { height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #fff; font-size: 14px; font-weight: 600; outline: none; }
 .mt-input:focus { border-color: rgba(96,165,250,0.7); }
-.mt-links { display: flex; gap: 12px; }
 .mt-linkbtn { border: 0; background: none; padding: 0; color: #93c5fd; font-size: 12px; font-weight: 700; cursor: pointer; }
 .mt-linkbtn:disabled { opacity: 0.4; cursor: default; }
 
-.mt-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; max-height: 220px; overflow-y: auto; padding: 2px; }
-.mt-photo { position: relative; aspect-ratio: 4 / 3; padding: 0; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: #1f2430; cursor: pointer; }
-.mt-photo img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.6; transition: opacity 0.15s; }
+.mt-section { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
+.mt-section__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mt-section__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mt-section__text .mt-label { margin-top: 0; }
+
+/* flex: none — inside the dialog's column layout the grid must keep its own
+   height and scroll, not be squeezed (that is what stacked the tiles). */
+.mt-picker { flex: none; display: flex; flex-direction: column; gap: 8px; }
+.mt-picker__bar { display: flex; align-items: center; gap: 14px; }
+.mt-picker__count { flex: 1; font-size: 12px; font-weight: 700; color: #93c5fd; }
+.mt-photos {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); grid-auto-rows: 78px; gap: 8px;
+  max-height: 268px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 2px 4px 2px 2px; scrollbar-width: thin;
+}
+.mt-photo { position: relative; display: block; width: 100%; height: 100%; padding: 0; border-radius: 10px; overflow: hidden; border: 2px solid transparent; background: #1f2430; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.mt-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.7; transition: opacity 0.15s; }
+.mt-photo:hover:not(:disabled) { transform: translateY(-1px); }
 .mt-photo:hover img, .mt-photo--on img { opacity: 1; }
 .mt-photo--on { border-color: #3b82f6; }
-.mt-check { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; border: 2px solid rgba(255,255,255,0.85); background: rgba(0,0,0,0.35); color: transparent; }
+.mt-check { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; border: 2px solid rgba(255,255,255,0.9); background: rgba(0,0,0,0.4); color: transparent; }
 .mt-photo--on .mt-check { background: #3b82f6; border-color: #fff; color: #fff; }
 
 .mt-toggle { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -224,6 +255,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 .mt-btn { display: inline-flex; align-items: center; height: 38px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.07); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; white-space: nowrap; }
 .mt-btn:hover:not(:disabled) { background: rgba(255,255,255,0.13); }
 .mt-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.mt-btn--small { flex: none; height: 32px; padding: 0 12px; font-size: 12px; }
 .mt-btn--primary { background: #22c55e; border-color: #22c55e; color: #0b0d14; }
 .mt-btn--primary:hover:not(:disabled) { background: #4ade80; }
 
@@ -233,6 +265,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 
 @media (max-width: 520px) {
   .mt-dialog { padding: 18px; }
+  .mt-section__head { flex-direction: column; align-items: stretch; }
+  .mt-photos { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); grid-auto-rows: 66px; }
   .mt-actions { flex-direction: column-reverse; }
   .mt-actions .mt-btn { justify-content: center; }
 }

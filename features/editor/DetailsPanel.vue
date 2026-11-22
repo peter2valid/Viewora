@@ -62,6 +62,35 @@
           <input class="df-input" v-model="draft.title" placeholder="Enter listing name" maxlength="120" />
         </div>
 
+        <!-- The tour's address: app.viewora.software/p/<slug> -->
+        <div class="df-field">
+          <label class="df-field__label" for="df-slug">Tour link <span class="df-field__opt">optional</span></label>
+          <div class="df-slug" :class="{ 'df-slug--bad': slugChanged && (slugState === 'taken' || slugState === 'invalid'), 'df-slug--ok': slugChanged && slugState === 'ok' }">
+            <span class="df-slug__prefix">{{ PUBLIC_LINK_PREFIX }}</span>
+            <input
+              id="df-slug"
+              class="df-slug__input"
+              :value="draft.slug"
+              placeholder="your-tour-name"
+              maxlength="120"
+              spellcheck="false"
+              autocapitalize="off"
+              autocomplete="off"
+              @input="onSlugInput(($event.target as HTMLInputElement).value)"
+              @blur="draft.slug = draft.slug.replace(/^-+|-+$/g, '')"
+            />
+          </div>
+          <p v-if="slugChanged && slugState === 'checking'" class="df-hint">Checking…</p>
+          <p v-else-if="slugChanged && (slugState === 'taken' || slugState === 'invalid')" class="df-hint df-hint--bad">{{ slugMessage }}</p>
+          <template v-else-if="slugChanged && slugState === 'ok'">
+            <p class="df-hint df-hint--ok">Available. Saved when you press Save changes.</p>
+            <p v-if="space?.is_published && space?.slug" class="df-hint df-hint--warn">
+              The old link ({{ PUBLIC_LINK_PREFIX }}{{ space.slug }}) will stop working. Send the new one to anyone who has the old one.
+            </p>
+          </template>
+          <p v-else class="df-hint">Lowercase letters, numbers and hyphens. {{ space?.slug ? '' : 'Made from the name when you publish, if left empty.' }}</p>
+        </div>
+
         <div v-if="!isCarSpace" class="df-field">
           <label class="df-field__label">Location <span class="df-field__opt">optional</span></label>
           <div class="df-location-wrap">
@@ -499,7 +528,7 @@ import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import SpacePill from '~/features/editor/components/SpacePill.vue'
-import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
+import { resolvePublicTourUrl, PUBLIC_APP_ORIGIN } from '~/utils/publicTourUrl'
 import { useCarSetup } from '~/features/vehicle/useCarSetup'
 import { toast } from 'vue-sonner'
 import { SOCIAL_KEYS, SOCIAL_LABELS, SOCIAL_PLACEHOLDERS, normalizeSocialLink, type SocialKey } from '~/shared/utils/socialLinks'
@@ -534,6 +563,7 @@ function positiveNumberOrUndefined(v: unknown): number | undefined {
 
 const draft = ref({
   title: '',
+  slug: '',
   description: '',
   locationText: '',
   locationLat: null as number | null,
@@ -606,6 +636,7 @@ const dataWarnings = computed(() => {
 function draftFromSpace(s: any) {
   return {
     title: s?.title ?? '',
+    slug: s?.slug ?? '',
     description: s?.description ?? '',
     locationText: s?.location_text ?? '',
     locationLat: s?.location_lat ?? null,
@@ -681,9 +712,64 @@ onActivated(async () => {
 
 watch(draft, () => { isDirty.value = true }, { deep: true })
 
+// ── Tour link (slug) ──────────────────────────────────────────────────────
+// Typed freely, kept to what the API accepts (lowercase a-z, 0-9, hyphens),
+// and checked against other tours as you type.
+const PUBLIC_LINK_PREFIX = `${PUBLIC_APP_ORIGIN.replace(/^https?:\/\//, '')}/p/`
+const slugState = ref<'idle' | 'checking' | 'ok' | 'taken' | 'invalid'>('idle')
+const slugMessage = ref('')
+const slugChanged = computed(() => {
+  const v = draft.value.slug.replace(/^-+|-+$/g, '')
+  return !!v && v !== (space.value?.slug ?? '')
+})
+function normalizeSlug(raw: string) {
+  return raw.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, 120)
+}
+function onSlugInput(raw: string) {
+  draft.value.slug = normalizeSlug(raw)
+}
+let slugTimer: ReturnType<typeof setTimeout> | undefined
+let slugSeq = 0
+watch(() => draft.value.slug, () => {
+  clearTimeout(slugTimer)
+  const v = draft.value.slug.replace(/^-+|-+$/g, '')
+  if (!slugChanged.value) { slugState.value = 'idle'; slugMessage.value = ''; return }
+  if (v.length < 3) {
+    slugState.value = 'invalid'
+    slugMessage.value = 'Use at least 3 characters.'
+    return
+  }
+  slugState.value = 'checking'
+  const seq = ++slugSeq
+  slugTimer = setTimeout(async () => {
+    try {
+      const res: any = await apiFetch(`/spaces/${props.spaceId}/slug-available`, { query: { slug: v } })
+      if (seq !== slugSeq) return
+      const r = res?.data ?? res
+      slugState.value = r?.available ? 'ok' : 'taken'
+      slugMessage.value = r?.available ? '' : (r?.reason || 'Another tour already uses this link.')
+    } catch {
+      // Can't check right now: the save itself still refuses a taken link.
+      if (seq === slugSeq) { slugState.value = 'ok'; slugMessage.value = '' }
+    }
+  }, 400)
+})
+
 // ── Save ──────────────────────────────────────────────────────────────────
 async function save() {
   if (saving.value) return
+  const newSlug = draft.value.slug.replace(/^-+|-+$/g, '')
+  const slugToSave = newSlug && newSlug !== (space.value?.slug ?? '') ? newSlug : undefined
+  if (slugToSave && (slugState.value === 'taken' || slugState.value === 'invalid')) {
+    showToast(slugMessage.value || 'Choose another tour link', 'error')
+    return
+  }
   saving.value = true
 
   const spacePatch: Record<string, any> = {
@@ -707,6 +793,7 @@ async function save() {
     price_period: draft.value.transactionType === 'rent' ? (draft.value.pricePeriod || null) : null,
     amenities: draft.value.amenities,
   }
+  if (slugToSave) spacePatch.slug = slugToSave
   if (draft.value.locationLat !== null) spacePatch.location_lat = draft.value.locationLat
   if (draft.value.locationLng !== null) spacePatch.location_lng = draft.value.locationLng
   const price = positiveNumberOrUndefined(draft.value.priceKes)
@@ -1240,6 +1327,28 @@ async function handleRemoveBg() {
 .df-input--bad { border-color: #f87171 !important; }
 @media (max-width: 520px) { .df-social__row { grid-template-columns: 1fr; gap: 4px; } }
 .df-hint { font-size: 11px; color: rgba(255,255,255,0.32); font-weight: 500; margin-top: 6px; line-height: 1.5; }
+.df-hint--bad { color: #f87171; }
+.df-hint--ok { color: #4ade80; }
+.df-hint--warn { color: #fbbf24; }
+.df-slug {
+  display: flex; align-items: center; height: 42px; border-radius: 9px; overflow: hidden;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  transition: border-color 140ms, background 140ms;
+}
+.df-slug:focus-within { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.08); }
+.df-slug--ok { border-color: rgba(74,222,128,0.5); }
+.df-slug--bad, .df-slug--bad:focus-within { border-color: rgba(248,113,113,0.6); }
+.df-slug__prefix {
+  flex: none; padding: 0 2px 0 14px; color: rgba(255,255,255,0.38);
+  font-size: 13.5px; font-weight: 500; white-space: nowrap;
+}
+.df-slug__input {
+  flex: 1; min-width: 0; height: 100%; padding: 0 14px 0 0; border: 0; background: transparent;
+  color: rgba(255,255,255,0.92); font-size: 13.5px; font-weight: 600; outline: none; font-family: inherit;
+}
+@media (max-width: 480px) {
+  .df-slug__prefix { max-width: 42%; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+}
 .df-warning { font-size: 11px; color: #f0ad4e; font-weight: 600; margin-top: 6px; line-height: 1.5; }
 
 .df-ai-btn {
