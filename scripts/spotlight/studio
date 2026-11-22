@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Spotlight Studio: add Object Spotlights from your browser. See README.md.
+set -e
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="${SPOTLIGHT_CACHE:-$HOME/.cache/viewora-spotlight}/venv/bin/python"
+if [ ! -x "$PY" ]; then
+  echo "The AI tools aren't installed on this computer yet. Run this once (10-20 min):"
+  echo "  $HERE/setup.sh"
+  exit 1
+fi
+cd "$HERE"
+exec "$PY" studio.py "$@"

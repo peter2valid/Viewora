@@ -16,7 +16,28 @@ shared/spotlight/scenes.generated.ts   ← which scenes have spotlights (no fetc
 scripts/spotlight/out/*.jpg            ← previews of each outline, to check (not committed)
 ```
 
-## One-time setup
+## The easy way: Spotlight Studio
+
+```sh
+scripts/spotlight/setup.sh     # once per computer (10-20 min, ~3 GB)
+scripts/spotlight/studio       # opens http://127.0.0.1:8765 in your browser
+```
+
+1. Paste the tour's link, pick a scene.
+2. Click the object on the panorama. A close-up opens and the outline is
+   traced by itself (~10-20 s; the first one also loads the AI).
+3. Check "What visitors will see". Something missing? Click on it. Took too
+   much? Right-click what isn't part of it. It re-traces each time.
+4. Type the tag, title and lines, pick a voice, press **Save & record voice**.
+5. Try it (`npm run dev`, the page gives you the link), then commit the files
+   it lists and push.
+
+Existing spotlights of a scene are listed under the panorama, with Edit and
+Delete. Everything below is what the Studio does for you, by hand.
+
+## One-time setup (by hand)
+
+`setup.sh` does all of this.
 
 Python 3.11 or 3.12 (torch has no wheels for Fedora's 3.15). With
 [uv](https://docs.astral.sh/uv/), which fetches its own Python:
@@ -90,7 +111,7 @@ Below, `py` means `~/.cache/viewora-spotlight/venv/bin/python`.
    |---|---|
    | `at` | a point on the object (degrees). SAM's main prompt. |
    | `points` / `exclude` | more points on it / points that are *not* it. Use one per part for groups (a row of chairs). |
-   | `zoom` | where the zoom ends (0-100, PSV: 0 = 90° view, 100 = 30°). The script warns if the object is too big or too small for it. |
+   | `zoom` | where the zoom ends (0-100, PSV: 0 = 90° view, 100 = 30°), or `"auto"` (frames the object at about half the screen). The script warns if the object is too big or too small for it. |
    | `title`, `lines` | the panel text. Keep it short: under ~2 KB an object, and it is read aloud. |
    | `label` | the small tag over the title. |
    | `say` | optional: what the voice says, if not the title + lines. |
@@ -98,6 +119,7 @@ Below, `py` means `~/.cache/viewora-spotlight/venv/bin/python`.
    | `voiceSrc` | optional: use an existing recording (e.g. a journey line on R2) instead of recording one. |
    | `hint: false` | no hint ring on the object (it still opens on a tap, or by zooming in on it). |
    | `close_px` | gap bridging, in pixels of the 1600×1000 render (default 9). Raise it if a group comes out in pieces. |
+   | `smooth` | gap bridging as a share of the object's size (default 0.07). Higher = a smoother silhouette that ignores dark gaps; 0 = follow every gap. |
    | `context` | how much wider than the landing view SAM sees (default 1.35). |
    | `model` | reserved for the 3D render (`Notes/3d-render-spotlight.md`); copied through, ignored by the tour. |
 
@@ -107,8 +129,9 @@ Below, `py` means `~/.cache/viewora-spotlight/venv/bin/python`.
    py spotlight.py build scenes/ruby-lounge-central-lounge.json --only black-chairs
    ```
 
-   Check `out/<scene>-<id>.jpg`: the cyan line is the outline the tour draws,
-   green dots are your points, red the excluded ones. Lines starting with `!`
+   Check `out/<scene>-<id>.jpg` (the landing view, as visitors see it) and
+   `out/<scene>-<id>-detail.jpg` (the close-up SAM traced: the cyan line is
+   the outline, green dots your points, red the excluded ones). Lines starting with `!`
    are warnings (pieces dropped, cut off at the edge, too small for the zoom).
    Wrong shape? Add `points` / `exclude` and build again. `--no-voice` skips
    recording while you iterate (a voice already recorded is kept).

@@ -12,7 +12,9 @@
            yaw / pitch / fov the tour's zoom ends at; SAM never sees the
            distorted equirectangular image),
         2. runs Segment Anything (SAM 2.1, CPU) with point prompts,
-        3. turns the mask into a simplified polygon (OpenCV findContours +
+        3. re-renders a square close-up around what it found and segments
+           again at full resolution (pass 2), then turns the mask into the
+           closest polygon that fits in 60 points (OpenCV findContours +
            approxPolyDP, ~20-60 points),
         4. maps the polygon back to yaw / pitch with the same projection,
         5. records the voice with the patient-journey voices (Kokoro, through
@@ -156,27 +158,52 @@ class Segmenter:
             self.kind = "SAM ViT-B"
         print(f"segmenter: {self.kind}")
 
-    def mask(self, bgr: np.ndarray, pos: list[tuple[float, float]], neg: list[tuple[float, float]]) -> tuple[np.ndarray, float]:
+    def mask(self, bgr: np.ndarray, pos: list[tuple[float, float]], neg: list[tuple[float, float]],
+             box: tuple[float, float, float, float] | None = None) -> tuple[np.ndarray, float]:
         import torch
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
         pts = np.array(pos + neg, dtype=np.float32)
         labels = np.array([1] * len(pos) + [0] * len(neg), dtype=np.int32)
         with torch.inference_mode():
             self.predictor.set_image(rgb)
-            masks, scores, _ = self.predictor.predict(point_coords=pts, point_labels=labels, multimask_output=len(pos) == 1 and not neg)
+            masks, scores, _ = self.predictor.predict(
+                point_coords=pts, point_labels=labels,
+                box=None if box is None else np.array(box, dtype=np.float32),
+                multimask_output=len(pos) == 1 and not neg and box is None)
         best = int(np.argmax(scores))
-        return masks[best].astype(np.uint8), float(scores[best])
+        out = masks[best].astype(np.uint8)
+        if box is not None and len(pos) > 1:
+            # Groups (a row of chairs): SAM, given all the points at once, tends
+            # to drop the darker or partly hidden members. Add each point's own
+            # mask (same image, no re-encoding), kept to the box and to a
+            # sensible size, so every part you pointed at is in.
+            x0, y0, x1, y1 = (int(v) for v in box)
+            limit = max(out.sum() * 1.2, 1)
+            with torch.inference_mode():
+                for p in pos:
+                    m1, s1, _ = self.predictor.predict(point_coords=np.array([p], np.float32), point_labels=np.array([1], np.int32),
+                                                       box=np.array(box, np.float32), multimask_output=True)
+                    k = int(np.argmax(s1))
+                    one = m1[k].astype(np.uint8)
+                    one[:y0], one[y1 + 1:], one[:, :x0], one[:, x1 + 1:] = 0, 0, 0, 0
+                    if 0 < one.sum() <= limit and s1[k] > 0.5 and all(not one[int(min(max(y, 0), one.shape[0] - 1)), int(min(max(x, 0), one.shape[1] - 1))] for x, y in neg):
+                        out |= one
+        return out, float(scores[best])
 
 
 # ── Mask → polygon ────────────────────────────────────────────────────────────
 
-def mask_to_polygon(mask: np.ndarray, close_px: int) -> tuple[np.ndarray, list[str]]:
+def mask_to_polygon(mask: np.ndarray, close_px: int) -> tuple[np.ndarray, list[str], float]:
+    """The closest outline that fits in POLY_MAX points, and how well it fits
+    the mask (intersection over union, 1 = exact)."""
     notes: list[str] = []
     m = (mask > 0).astype(np.uint8) * 255
     if close_px > 0:
         # Bridge thin gaps (chair legs, a row of chairs) so the outline is one shape.
         k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_px, close_px))
         m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, k)
+    # Soften the pixel staircase SAM leaves, so the points go to real corners.
+    m = (cv2.GaussianBlur(m, (0, 0), max(1.0, min(m.shape) / 400)) > 127).astype(np.uint8) * 255
     contours, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
         raise ValueError("empty mask")
@@ -186,29 +213,26 @@ def mask_to_polygon(mask: np.ndarray, close_px: int) -> tuple[np.ndarray, list[s
     if total and cv2.contourArea(main) / total < 0.9:
         notes.append(f"mask has {len(contours)} parts; kept the largest ({cv2.contourArea(main) / total:.0%} of it). "
                      "Add a point on the missing part or raise close_px.")
+    # Smallest tolerance that still fits in POLY_MAX points (binary search).
     peri = cv2.arcLength(main, True)
-    eps = 0.002 * peri
-    poly = cv2.approxPolyDP(main, eps, True)
-    for _ in range(40):
-        n = len(poly)
-        if POLY_MIN <= n <= POLY_MAX and abs(n - POLY_TARGET) <= 12:
-            break
-        eps *= 1.25 if n > POLY_TARGET else 0.8
-        poly = cv2.approxPolyDP(main, eps, True)
-    return poly.reshape(-1, 2).astype(np.float64), notes
-
-
-def preview(view: np.ndarray, mask: np.ndarray, poly: np.ndarray, pos, neg, path: Path):
-    img = view.copy()
-    tint = img.copy()
-    tint[mask > 0] = (0.5 * tint[mask > 0] + 0.5 * np.array([255, 220, 80])).astype(np.uint8)
-    img = cv2.addWeighted(tint, 0.6, img, 0.4, 0)
-    cv2.polylines(img, [poly.astype(np.int32)], True, (247, 231, 127), 2, cv2.LINE_AA)
-    for x, y in pos:
-        cv2.circle(img, (int(x), int(y)), 7, (0, 200, 0), -1)
-    for x, y in neg:
-        cv2.circle(img, (int(x), int(y)), 7, (0, 0, 230), -1)
-    cv2.imwrite(str(path), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    lo, hi = 0.0002 * peri, 0.05 * peri
+    poly = cv2.approxPolyDP(main, hi, True)
+    for _ in range(30):
+        mid = (lo + hi) / 2
+        cand = cv2.approxPolyDP(main, mid, True)
+        if len(cand) <= POLY_MAX:
+            poly, hi = cand, mid
+        else:
+            lo = mid
+    if len(poly) < POLY_MIN:
+        poly = cv2.approxPolyDP(main, 0.0005 * peri, True)[:: max(1, len(main) // POLY_MIN)] if len(main) > POLY_MIN else poly
+    target = np.zeros(m.shape, np.uint8)
+    cv2.drawContours(target, [main], -1, 1, -1)
+    drawn = np.zeros(m.shape, np.uint8)
+    cv2.fillPoly(drawn, [poly.reshape(-1, 2).astype(np.int32)], 1)
+    union = np.count_nonzero(target | drawn)
+    fit = np.count_nonzero(target & drawn) / union if union else 0.0
+    return poly.reshape(-1, 2).astype(np.float64), notes, fit
 
 
 def grid_view(view: np.ndarray, yaw: float, pitch: float, vfov: float, path: Path):
@@ -285,53 +309,171 @@ def cmd_view(a):
     print(path)
 
 
-def build_object(o: dict, pano: np.ndarray, seg: Segmenter, spec: dict, voice_on: bool) -> tuple[dict, list[str]]:
-    zoom = float(o.get("zoom", 70))
-    vfov = fov_for_zoom(zoom)
-    cyaw, cpitch = rad(o["at"])
-    # The view SAM sees is a bit wider than the landing view, so an object that
-    # fills the screen isn't cut at the edges.
-    seg_fov = min(MAX_FOV, vfov * float(o.get("context", 1.35)))
+SMOOTH = 0.07   # gap bridging as a share of the object's size (0 = follow every gap)
+DETAIL = 1024   # the second pass: a square view just around the object, at SAM's own resolution
+
+
+def auto_zoom(span_v: float, span_h: float) -> int:
+    """Zoom that frames the object at about 55% of the view's height, and
+    keeps it inside a square-ish screen (phones held either way)."""
+    for zoom in range(90, -1, -1):
+        f = fov_for_zoom(zoom)
+        if span_v <= 0.55 * f and span_h <= 0.7 * f:
+            return zoom
+    return 0
+
+
+def trace(pano: np.ndarray, seg: Segmenter, at, points=(), exclude=(), zoom: float | None = None,
+          close_px: int = 9, context: float = 1.35, smooth: float = SMOOTH) -> dict:
+    """Outline one object. at / points / exclude are [yaw, pitch] degrees.
+
+    Pass 1 looks at the object in a view a bit wider than the landing view.
+    Pass 2 re-renders a square view just around what pass 1 found, so SAM sees
+    the object at full resolution (several times larger), and segments again
+    with pass 1's box as an extra prompt. That pass is the outline kept.
+    """
+    notes: list[str] = []
+    cyaw, cpitch = rad(at)
+    zoom1 = float(zoom) if zoom is not None else 50.0
+    seg_fov = min(MAX_FOV, fov_for_zoom(zoom1) * context)
     view = render_view(pano, cyaw, cpitch, seg_fov)
 
-    def to_px(deg_pairs):
+    def to_px(deg_pairs, yaw, pitch, fov, w, h):
         if not deg_pairs:
             return []
         ys, ps = zip(*[rad(p) for p in deg_pairs])
-        x, y, _ = sphere_to_screen(np.array(ys), np.array(ps), cyaw, cpitch, seg_fov, VIEW_W, VIEW_H)
-        return list(zip(x.tolist(), y.tolist()))
+        x, y, ok = sphere_to_screen(np.array(ys), np.array(ps), yaw, pitch, fov, w, h)
+        return [(float(a), float(b)) for a, b, k in zip(x, y, ok) if k and -0.5 <= a < w and -0.5 <= b < h]
 
-    pos = to_px([o["at"]] + o.get("points", []))
-    neg = to_px(o.get("exclude", []))
-    mask, score = seg.mask(view, pos, neg)
-    poly_px, notes = mask_to_polygon(mask, int(o.get("close_px", 9)))
+    pos_deg = [list(at)] + [list(p) for p in points]
+    neg_deg = [list(p) for p in exclude]
+    pos1 = to_px(pos_deg, cyaw, cpitch, seg_fov, VIEW_W, VIEW_H)
+    neg1 = to_px(neg_deg, cyaw, cpitch, seg_fov, VIEW_W, VIEW_H)
+    mask1, score1 = seg.mask(view, pos1, neg1)
+    ys1, xs1 = np.nonzero(mask1)
+    if not len(xs1):
+        raise ValueError("SAM found nothing at that point")
 
-    ys, xs = np.nonzero(mask)
-    if len(xs) and (xs.min() <= 1 or ys.min() <= 1 or xs.max() >= VIEW_W - 2 or ys.max() >= VIEW_H - 2):
-        notes.append("mask touches the edge of the view: the object may be cut off. Lower its zoom or raise context.")
+    # Pass 1's outline on the sphere → centre and size of the detail view.
+    c1, _ = cv2.findContours((mask1 > 0).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    edge = np.concatenate([c.reshape(-1, 2) for c in c1]).astype(np.float64)
+    ey, ep = screen_to_sphere(edge[:, 0], edge[:, 1], cyaw, cpitch, seg_fov, VIEW_W, VIEW_H)
+    rel = np.array([wrap(y - cyaw) for y in ey])
+    dyaw = wrap(cyaw + (rel.min() + rel.max()) / 2)
+    dpitch = float((ep.min() + ep.max()) / 2)
 
-    pyaw, ppitch = screen_to_sphere(poly_px[:, 0], poly_px[:, 1], cyaw, cpitch, seg_fov, VIEW_W, VIEW_H)
-    # Centre the camera on the outline's middle (not on the prompt point).
+    touched1 = xs1.min() <= 1 or ys1.min() <= 1 or xs1.max() >= VIEW_W - 2 or ys1.max() >= VIEW_H - 2
+    margin = 1.3
+    for attempt in range(3):
+        # Tangent-plane extent of the outline around (dyaw, dpitch).
+        f, r, u = camera_basis(dyaw, dpitch)
+        d = np.stack([np.sin(ey) * np.cos(ep), np.sin(ep), np.cos(ey) * np.cos(ep)], axis=1)
+        z = np.clip(d @ f, 1e-3, None)
+        ext = float(max(np.abs(d @ r / z).max(), np.abs(d @ u / z).max()))
+        dfov = min(MAX_FOV * 1.2, max(6.0, math.degrees(2 * math.atan(ext * margin))))
+        dview = render_view(pano, dyaw, dpitch, dfov, DETAIL, DETAIL)
+        pos2 = to_px(pos_deg, dyaw, dpitch, dfov, DETAIL, DETAIL)
+        neg2 = to_px(neg_deg, dyaw, dpitch, dfov, DETAIL, DETAIL)
+        bx, by, _ = sphere_to_screen(ey, ep, dyaw, dpitch, dfov, DETAIL, DETAIL)
+        pad = 0.03 * DETAIL
+        box = (max(0, bx.min() - pad), max(0, by.min() - pad), min(DETAIL - 1, bx.max() + pad), min(DETAIL - 1, by.max() + pad))
+        if not pos2:
+            pos2 = [((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)]
+        mask2, score2 = seg.mask(dview, pos2, neg2, box)
+        ys2, xs2 = np.nonzero(mask2)
+        touched = len(xs2) and (xs2.min() <= 1 or ys2.min() <= 1 or xs2.max() >= DETAIL - 2 or ys2.max() >= DETAIL - 2)
+        if not touched:
+            break
+        margin *= 1.4   # the object goes past the crop: look wider and try again
+    # close_px was given for the 1600-wide pass-1 view; scale it to this one.
+    px_per_deg1 = VIEW_H / seg_fov
+    px_per_deg2 = DETAIL / dfov
+    close2 = int(round(close_px * px_per_deg2 / px_per_deg1)) | 1 if close_px > 0 else 0
+    use2 = len(xs2) > 0 and score2 >= score1 - 0.15
+    if use2 and smooth > 0:
+        # Also bridge gaps relative to the object's own size: dark parts SAM
+        # skips (black seats in shadow) otherwise cut notches into the outline.
+        diag = math.hypot(xs2.max() - xs2.min(), ys2.max() - ys2.min())
+        close2 = max(close2, int(smooth * diag) | 1)
+    close2 = min(close2, 121)
+    if use2:
+        poly_px, n2, fit = mask_to_polygon(mask2, close2)
+        notes += n2
+        pyaw, ppitch = screen_to_sphere(poly_px[:, 0], poly_px[:, 1], dyaw, dpitch, dfov, DETAIL, DETAIL)
+        score = score2
+        if touched:
+            notes.append("the object goes past the detail view: it may be cut off. Add an exclude point or a point on the part that's missing.")
+    else:
+        notes.append(f"the close-up pass looked worse (SAM {score2:.2f} vs {score1:.2f}); kept the first pass.")
+        poly_px, n1, fit = mask_to_polygon(mask1, close_px)
+        notes += n1
+        pyaw, ppitch = screen_to_sphere(poly_px[:, 0], poly_px[:, 1], cyaw, cpitch, seg_fov, VIEW_W, VIEW_H)
+        score = score1
+        if touched1:
+            notes.append("mask touches the edge of the view: the object may be cut off. Lower its zoom or raise context.")
+
     rel = np.array([wrap(y - cyaw) for y in pyaw])
     tyaw = wrap(cyaw + (rel.min() + rel.max()) / 2)
     tpitch = float((ppitch.min() + ppitch.max()) / 2)
     span_v = math.degrees(ppitch.max() - ppitch.min())
     span_h = math.degrees((rel.max() - rel.min()) * math.cos(tpitch))
+    if zoom is None:
+        zoom = auto_zoom(span_v, span_h)
+    vfov = fov_for_zoom(float(zoom))
     if span_v > vfov * 0.8:
-        notes.append(f"outline is {span_v:.0f}° tall but the zoom-{zoom:.0f} view is {vfov:.0f}°: lower the zoom.")
+        notes.append(f"outline is {span_v:.0f}° tall but the zoom-{zoom:.0f} view is {vfov:.0f}°: lower the zoom (auto would pick {auto_zoom(span_v, span_h)}).")
     if max(span_v, span_h) < vfov * 0.12:
-        notes.append(f"outline is small at zoom {zoom:.0f} ({max(span_v, span_h):.0f}° of {vfov:.0f}°): raise the zoom.")
+        notes.append(f"outline is small at zoom {zoom:.0f} ({max(span_v, span_h):.0f}° of {vfov:.0f}°): raise the zoom (auto would pick {auto_zoom(span_v, span_h)}).")
+    if fit < 0.9:
+        notes.append(f"the {POLY_MAX}-point outline covers only {fit:.0%} of the mask: a very detailed shape. It still works; a simpler object or fewer parts fits better.")
 
-    OUT.mkdir(exist_ok=True)
-    preview(view, mask, poly_px, pos, neg, OUT / f"{spec['scene'][:8]}-{o['id']}.jpg")
+    # What the visitor sees: the landing view at a 16:10 screen, with the outline.
+    land = render_view(pano, tyaw, tpitch, vfov, VIEW_W, VIEW_H)
+    lx, ly, _ = sphere_to_screen(pyaw, ppitch, tyaw, tpitch, vfov, VIEW_W, VIEW_H)
+    land_poly = np.stack([lx, ly], 1)
+    dx, dy, _ = sphere_to_screen(pyaw, ppitch, dyaw, dpitch, dfov, DETAIL, DETAIL)
+    return {
+        "yaw": tyaw, "pitch": tpitch, "zoom": int(round(float(zoom))),
+        "polygon": [[round(float(y), 4), round(float(p), 4)] for y, p in zip(pyaw, ppitch)],
+        "score": score, "fit": fit, "notes": notes,
+        "landing": (land, land_poly),
+        "detail": (dview, mask2 if use2 else None, np.stack([dx, dy], 1), pos2, neg2),
+    }
 
+
+def draw_landing(land: np.ndarray, poly: np.ndarray) -> np.ndarray:
+    img = (land * 0.55).astype(np.uint8)
+    m = np.zeros(land.shape[:2], np.uint8)
+    cv2.fillPoly(m, [poly.astype(np.int32)], 1)
+    img[m > 0] = land[m > 0]
+    cv2.polylines(img, [poly.astype(np.int32)], True, (247, 231, 127), 2, cv2.LINE_AA)
+    return img
+
+
+def draw_detail(dview, mask, poly, pos, neg) -> np.ndarray:
+    img = dview.copy()
+    if mask is not None:
+        tint = img.copy()
+        tint[mask > 0] = (0.5 * tint[mask > 0] + 0.5 * np.array([255, 220, 80])).astype(np.uint8)
+        img = cv2.addWeighted(tint, 0.6, img, 0.4, 0)
+    cv2.polylines(img, [poly.astype(np.int32)], True, (247, 231, 127), 2, cv2.LINE_AA)
+    for x, y in poly:
+        cv2.circle(img, (int(x), int(y)), 3, (255, 255, 255), -1, cv2.LINE_AA)
+    for x, y in pos:
+        cv2.circle(img, (int(x), int(y)), 7, (0, 200, 0), -1)
+    for x, y in neg:
+        cv2.circle(img, (int(x), int(y)), 7, (0, 0, 230), -1)
+    return img
+
+
+def make_entry(o: dict, t: dict, spec: dict, voice_on: bool) -> dict:
     entry = {
         "id": o["id"],
         "label": o.get("label", ""),
-        "yaw": round(tyaw, 4),
-        "pitch": round(tpitch, 4),
-        "zoom": round(zoom),
-        "polygon": [[round(float(y), 4), round(float(p), 4)] for y, p in zip(pyaw, ppitch)],
+        "yaw": round(t["yaw"], 4),
+        "pitch": round(t["pitch"], 4),
+        "zoom": t["zoom"],
+        "polygon": t["polygon"],
         "title": o["title"],
         "lines": o.get("lines", []),
     }
@@ -344,40 +486,98 @@ def build_object(o: dict, pano: np.ndarray, seg: Segmenter, spec: dict, voice_on
         entry["voiceSrc"] = record_voice(text, o.get("voice") or spec.get("voice", "af_heart"), spec["scene"], o["id"])
     if o.get("model"):
         entry["model"] = o["model"]
+    return entry
+
+
+def build_object(o: dict, pano: np.ndarray, seg: Segmenter, spec: dict, voice_on: bool) -> tuple[dict, list[str]]:
+    zoom = o.get("zoom")
+    t = trace(pano, seg, o["at"], o.get("points", []), o.get("exclude", []),
+              None if zoom in (None, "auto") else float(zoom),
+              int(o.get("close_px", 9)), float(o.get("context", 1.35)), float(o.get("smooth", SMOOTH)))
+    OUT.mkdir(exist_ok=True)
+    stem = f"{spec['scene'][:8]}-{o['id']}"
+    cv2.imwrite(str(OUT / f"{stem}.jpg"), draw_landing(*t["landing"]), [cv2.IMWRITE_JPEG_QUALITY, 85])
+    cv2.imwrite(str(OUT / f"{stem}-detail.jpg"), draw_detail(*t["detail"]), [cv2.IMWRITE_JPEG_QUALITY, 85])
+    entry = make_entry(o, t, spec, voice_on)
+    notes = list(t["notes"])
     size = len(json.dumps(entry, separators=(",", ":")))
-    print(f"  {o['id']}: SAM score {score:.2f}, {len(entry['polygon'])} points, {size} bytes")
+    print(f"  {o['id']}: SAM score {t['score']:.2f}, {len(entry['polygon'])} points, fit {t['fit']:.0%}, zoom {entry['zoom']}, {size} bytes")
     if size > MAX_OBJECT_BYTES:
         notes.append(f"entry is {size} bytes (target under {MAX_OBJECT_BYTES}); shorten the text.")
     return entry, notes
 
 
-def cmd_build(a):
-    spec_path = Path(a.spec)
+def find_spec(scene_id: str) -> Path | None:
+    for p in sorted((HERE / "scenes").glob("*.json")):
+        try:
+            if json.loads(p.read_text()).get("scene") == scene_id:
+                return p
+        except Exception:
+            pass
+    return None
+
+
+def save_spec(path: Path, spec: dict):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n")
+
+
+def build(spec_path: Path, only: list[str] | None = None, voice_on: bool = True,
+          seg: Segmenter | None = None, pano: np.ndarray | None = None) -> list[tuple[str, dict, list[str]]]:
+    """Builds the objects of one spec (all, or just `only`) and rewrites the
+    scene's JSON. Objects not rebuilt keep their current data; objects no
+    longer in the spec are dropped."""
     spec = json.loads(spec_path.read_text())
     out_path = PUBLIC / f"{spec['scene']}.json"
     existing = {}
     if out_path.exists():
         existing = {o["id"]: o for o in json.loads(out_path.read_text()).get("objects", [])}
-    pano = load_pano(spec["image"])
-    seg = Segmenter()
-    objects = []
+    # only=None: everything. only=[...]: those, plus any never built yet.
+    todo = [o for o in spec["objects"] if only is None or o["id"] in only or o["id"] not in existing]
+    if todo:
+        pano = pano if pano is not None else load_pano(spec["image"])
+        seg = seg or Segmenter()
+    objects, results = [], []
     for o in spec["objects"]:
-        if a.only and o["id"] not in a.only:
-            if o["id"] in existing:
-                objects.append(existing[o["id"]])
+        if o not in todo:
+            objects.append(existing[o["id"]])
             continue
         print(f"{o['id']}:")
-        entry, notes = build_object(o, pano, seg, spec, not a.no_voice)
-        if a.no_voice and "voiceSrc" not in entry and existing.get(o["id"], {}).get("voiceSrc"):
+        entry, notes = build_object(o, pano, seg, spec, voice_on)
+        if not voice_on and "voiceSrc" not in entry and existing.get(o["id"], {}).get("voiceSrc"):
             entry["voiceSrc"] = existing[o["id"]]["voiceSrc"]
         for n in notes:
             print(f"  ! {n}")
         objects.append(entry)
+        results.append((o["id"], entry, notes))
     PUBLIC.mkdir(parents=True, exist_ok=True)
-    data = {"v": 1, "scene": spec["scene"], "objects": objects}
-    out_path.write_text(json.dumps(data, separators=(",", ":")) + "\n")
-    print(f"wrote {out_path.relative_to(APP)} ({out_path.stat().st_size} bytes)")
+    if objects:
+        data = {"v": 1, "scene": spec["scene"], "objects": objects}
+        out_path.write_text(json.dumps(data, separators=(",", ":"), ensure_ascii=False) + "\n")
+        print(f"wrote {out_path.relative_to(APP)} ({out_path.stat().st_size} bytes)")
+    elif out_path.exists():
+        out_path.unlink()
+        print(f"removed {out_path.relative_to(APP)} (no objects left)")
+    prune_voices()
     write_generated()
+    return results
+
+
+def prune_voices():
+    """Deletes recordings no scene uses any more (old text, removed objects)."""
+    used = set()
+    for p in PUBLIC.glob("*.json"):
+        for o in json.loads(p.read_text()).get("objects", []):
+            if o.get("voiceSrc", "").startswith("/spotlight/voice/"):
+                used.add(o["voiceSrc"].rsplit("/", 1)[1])
+    for f in (PUBLIC / "voice").glob("*.mp3"):
+        if f.name not in used:
+            f.unlink()
+            print(f"removed unused voice {f.name}")
+
+
+def cmd_build(a):
+    build(Path(a.spec), a.only or None, not a.no_voice)
 
 
 def write_generated():

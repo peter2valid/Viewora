@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spotlight Studio</title>
+<style>
+  :root { --ink: #7fe7f7; --bg: #0b1118; --panel: #121b25; --line: #233241; --text: #e8eef3; --muted: #8fa1b1; --ok: #3ad07a; --no: #ff5a5a; --warn: #f5c451; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  header h1 { font-size: 15px; margin: 0; letter-spacing: .04em; }
+  header h1 span { color: var(--ink); }
+  .crumbs { color: var(--muted); font-size: 13px; }
+  .crumbs a { color: var(--ink); cursor: pointer; text-decoration: none; }
+  main { padding: 20px; max-width: 1500px; margin: 0 auto; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink); margin: 0 0 10px; }
+  p.help { color: var(--muted); margin: 0 0 12px; }
+  input, textarea, select { width: 100%; background: #0a1017; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font: inherit; }
+  textarea { min-height: 84px; resize: vertical; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  button { background: #1b2a38; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--ink); }
+  button.primary { background: var(--ink); color: #031016; border-color: var(--ink); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .scene { cursor: pointer; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #0a1017; position: relative; }
+  .scene:hover { border-color: var(--ink); }
+  .scene img { width: 100%; aspect-ratio: 2/1; object-fit: cover; display: block; }
+  .scene div { padding: 8px 10px; }
+  .badge { position: absolute; top: 8px; right: 8px; background: var(--ink); color: #031016; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+  .stage { position: relative; user-select: none; line-height: 0; }
+  .stage img { width: 100%; display: block; border-radius: 8px; cursor: crosshair; }
+  .dot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; }
+  .dot.pos { background: var(--ok); } .dot.neg { background: var(--no); }
+  .dot.at { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+  .cross { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 2px solid var(--ink); border-radius: 50%; pointer-events: none; }
+  .two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .two { grid-template-columns: 1fr; } }
+  .result img { width: 100%; border-radius: 8px; display: block; }
+  .result .small { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .stats { display: flex; gap: 16px; margin: 10px 0; color: var(--muted); font-size: 13px; }
+  .stats b { color: var(--text); }
+  .notes { margin: 8px 0 0; padding-left: 18px; color: var(--warn); }
+  .busy { color: var(--ink); }
+  .busy::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink); border-right-color: transparent; animation: spin .8s linear infinite; margin-right: 8px; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .err { color: var(--no); }
+  .list .obj { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .list .obj:last-child { border: 0; }
+  .muted { color: var(--muted); }
+  .hidden { display: none !important; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; color: var(--muted); font-size: 13px; }
+  .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  code, pre { background: #0a1017; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 12.5px; }
+  pre { padding: 10px; white-space: pre-wrap; }
+  .zoomrow { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+  .zoomrow input[type=range] { padding: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>◎</span> Spotlight Studio</h1>
+  <div class="crumbs" id="crumbs"></div>
+</header>
+<main>
+
+  <!-- 1. Tour -->
+  <section class="card" id="step-tour">
+    <h2>1 · Which tour?</h2>
+    <p class="help">Paste the tour's link (or just its name in the link, e.g. <code>ruby-lounge-panari-hotels</code>).</p>
+    <div class="row">
+      <input id="tour-link" placeholder="https://viewora.software/p/…" style="flex:1; min-width: 280px">
+      <button class="primary" id="tour-load">Load scenes</button>
+    </div>
+    <p id="tour-msg"></p>
+  </section>
+
+  <!-- 2. Scene -->
+  <section class="card hidden" id="step-scene">
+    <h2>2 · Which scene?</h2>
+    <p class="help">The number in the corner is how many spotlights a scene already has.</p>
+    <div class="grid" id="scenes"></div>
+  </section>
+
+  <!-- 3. Object -->
+  <section class="hidden" id="step-object">
+    <div class="card">
+      <h2>3 · Click the object</h2>
+      <p class="help">Click once on the thing you want to spotlight. A close-up opens below and the outline is traced automatically.</p>
+      <div class="stage" id="pano-stage"><img id="pano" alt="panorama"></div>
+      <p id="scene-msg"></p>
+      <div class="list hidden" id="existing">
+        <h2 style="margin-top:16px">Already in this scene</h2>
+        <div id="existing-list"></div>
+      </div>
+    </div>
+
+    <div class="two hidden" id="work">
+      <div class="card">
+        <h2>4 · Check the outline</h2>
+        <p class="help">Is something missing? <b>Click</b> on that part. Did it take too much? <b>Right-click</b> (or Shift-click) on what isn't part of it. Click a dot to remove it. It re-traces each time.</p>
+        <div class="legend"><span><i style="background:var(--ok)"></i>part of it</span><span><i style="background:var(--no)"></i>not part of it</span></div>
+        <div class="stage" id="view-stage" style="margin-top:10px"><img id="view" alt="close-up"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="closer">Closer</button>
+          <button id="wider">Wider</button>
+          <button id="clear">Start over</button>
+          <span id="trace-msg"></span>
+        </div>
+      </div>
+
+      <div class="card result">
+        <h2>What visitors will see</h2>
+        <div id="result-empty" class="muted">The outline shows up here.</div>
+        <div id="result" class="hidden">
+          <img id="landing" alt="landing view">
+          <div class="stats"><span>Outline fit <b id="fit"></b></span><span>Zoom <b id="zoomv"></b></span><span><b id="npts"></b> points</span></div>
+          <ul class="notes" id="notes"></ul>
+          <details style="margin-top:8px"><summary class="muted">Close-up of the trace</summary><img id="detail" alt="detail" style="margin-top:8px"></details>
+        </div>
+
+        <h2 style="margin-top:18px">5 · Write the text</h2>
+        <label>Tag (small word over the title)</label>
+        <input id="f-label" placeholder="e.g. Seating">
+        <label>Title</label>
+        <input id="f-title" placeholder="e.g. Black leather armchairs">
+        <label>Lines (one per line, short; they're read aloud)</label>
+        <textarea id="f-lines" placeholder="e.g. Five high-back armchairs line the lounge wall.&#10;A quiet place to wait or meet."></textarea>
+        <label>Voice</label>
+        <select id="f-voice"></select>
+        <label>How close the camera goes</label>
+        <div class="zoomrow">
+          <label style="margin:0"><input type="checkbox" id="f-zauto" checked style="width:auto"> Auto</label>
+          <input type="range" id="f-zoom" min="0" max="90" value="60" disabled>
+          <span id="f-zoomv" class="muted"></span>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button class="primary" id="save" disabled>Save &amp; record voice</button>
+          <button id="cancel">Cancel</button>
+        </div>
+        <p id="save-msg"></p>
+      </div>
+    </div>
+
+    <div class="card hidden" id="done">
+      <h2>Saved</h2>
+      <div id="done-body"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const rad = (d) => d * Math.PI / 180, deg = (r) => r * 180 / Math.PI
+const S = { tour: null, scene: null, view: null, at: null, points: [], exclude: [], editId: null, traced: null, seq: 0, voices: [] }
+
+async function api(name, body) {
+  const r = await fetch('/api/' + name, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const j = await r.json()
+  if (!r.ok) throw new Error(j.error || 'failed')
+  return j
+}
+function msg(el, text, cls = '') { el.className = cls; el.textContent = text }
+
+// Same projection as spotlight.py (PSV's perspective camera, vertical fov).
+function basis(yaw, pitch) {
+  return {
+    f: [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)],
+    r: [Math.cos(yaw), 0, -Math.sin(yaw)],
+    u: [-Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch), -Math.cos(yaw) * Math.sin(pitch)],
+  }
+}
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+function screenToDeg(v, x, y) {
+  const tv = Math.tan(rad(v.fov) / 2), th = tv * v.w / v.h
+  const sx = (2 * (x + 0.5) / v.w - 1) * th, sy = (1 - 2 * (y + 0.5) / v.h) * tv
+  const { f, r, u } = basis(rad(v.yaw), rad(v.pitch))
+  const d = [0, 1, 2].map(i => f[i] + sx * r[i] + sy * u[i]); const n = Math.hypot(...d)
+  return [+deg(Math.atan2(d[0], d[2])).toFixed(2), +deg(Math.asin(d[1] / n)).toFixed(2)]
+}
+function degToScreen(v, p) {
+  const tv = Math.tan(rad(v.fov) / 2), th = tv * v.w / v.h
+  const { f, r, u } = basis(rad(v.yaw), rad(v.pitch))
+  const y = rad(p[0]), pt = rad(p[1])
+  const d = [Math.sin(y) * Math.cos(pt), Math.sin(pt), Math.cos(y) * Math.cos(pt)]
+  const z = dot3(d, f); if (z <= 0) return null
+  return [(dot3(d, r) / z / th + 1) * v.w / 2 - 0.5, (1 - dot3(d, u) / z / tv) * v.h / 2 - 0.5]
+}
+function imgPoint(img, e) {
+  const b = img.getBoundingClientRect()
+  return [(e.clientX - b.left) * img.naturalWidth / b.width, (e.clientY - b.top) * img.naturalHeight / b.height]
+}
+
+// ── 1. Tour ──
+try { $('tour-link').value = localStorage.getItem('spot-tour') || '' } catch {}
+$('tour-link').addEventListener('keydown', e => { if (e.key === 'Enter') loadTour() })
+$('tour-load').onclick = loadTour
+async function loadTour() {
+  const link = $('tour-link').value.trim(); if (!link) return
+  msg($('tour-msg'), 'Loading…', 'busy')
+  try {
+    S.tour = await api('tour', { link })
+    try { localStorage.setItem('spot-tour', link) } catch {}
+    msg($('tour-msg'), `${S.tour.title}: ${S.tour.scenes.length} scenes`, 'muted')
+    $('scenes').innerHTML = ''
+    for (const s of S.tour.scenes) {
+      const el = document.createElement('div'); el.className = 'scene'
+      el.innerHTML = `<img loading="lazy" referrerpolicy="no-referrer"><div></div>${s.count ? `<span class="badge">${s.count}</span>` : ''}`
+      el.querySelector('img').src = s.thumb || ''
+      el.querySelector('div').textContent = s.name
+      el.onclick = () => openScene(s)
+      $('scenes').appendChild(el)
+    }
+    show('scene')
+  } catch (e) { msg($('tour-msg'), e.message, 'err') }
+}
+
+function show(step) {
+  $('step-tour').classList.toggle('hidden', step !== 'tour' && step !== 'scene')
+  $('step-scene').classList.toggle('hidden', step !== 'scene')
+  $('step-object').classList.toggle('hidden', step !== 'object')
+  const c = $('crumbs'); c.innerHTML = ''
+  if (S.tour) { const a = document.createElement('a'); a.textContent = S.tour.title; a.onclick = () => { resetObject(); show('scene') }; c.append(a) }
+  if (step === 'object' && S.scene) c.append(' › ' + S.scene.name)
+  window.scrollTo({ top: 0 })
+}
+
+// ── 3. Scene / object ──
+async function openScene(s) {
+  S.scene = s; resetObject(); show('object')
+  $('pano').removeAttribute('src')
+  msg($('scene-msg'), 'Loading the panorama (the first time downloads it)…', 'busy')
+  try {
+    const r = await api('scene', { scene: s.id })
+    S.voices = r.voices
+    $('f-voice').innerHTML = r.voices.map(v => `<option value="${v}">${v}</option>`).join('') + '<option value="none">No voice</option>'
+    $('pano').src = r.pano
+    msg($('scene-msg'), '')
+    renderExisting(r.objects)
+  } catch (e) { msg($('scene-msg'), e.message, 'err') }
+}
+
+function renderExisting(objects) {
+  $('existing').classList.toggle('hidden', !objects.length)
+  const list = $('existing-list'); list.innerHTML = ''
+  for (const o of objects) {
+    const row = document.createElement('div'); row.className = 'obj'
+    row.innerHTML = `<div><b></b> <span class="muted"></span></div><div class="row"><button>Edit</button><button>Delete</button></div>`
+    row.querySelector('b').textContent = o.title
+    row.querySelector('.muted').textContent = o.label ? '· ' + o.label : ''
+    const [edit, del] = row.querySelectorAll('button')
+    edit.onclick = () => editObject(o)
+    del.onclick = async () => {
+      if (!confirm(`Delete "${o.title}"?`)) return
+      del.disabled = true
+      try { const r = await api('delete', { scene: S.scene.id, id: o.id }); renderExisting(r.objects); if (S.scene) S.scene.count = r.objects.length }
+      catch (e) { alert(e.message); del.disabled = false }
+    }
+    list.appendChild(row)
+  }
+}
+
+$('pano').addEventListener('click', e => {
+  const img = $('pano'); const [x, y] = imgPoint(img, e)
+  const yaw = (x / img.naturalWidth - 0.5) * 360, pitch = (0.5 - y / img.naturalHeight) * 180
+  const stage = $('pano-stage'); stage.querySelectorAll('.cross').forEach(n => n.remove())
+  const c = document.createElement('div'); c.className = 'cross'
+  c.style.left = (100 * x / img.naturalWidth) + '%'; c.style.top = (100 * y / img.naturalHeight) + '%'; stage.append(c)
+  if (!S.at) { S.at = [+yaw.toFixed(2), +pitch.toFixed(2)]; S.points = []; S.exclude = [] }
+  openView(yaw, pitch, S.view?.fov || 50)
+  if (S.points.length === 0 && S.exclude.length === 0) trace()
+})
+
+async function openView(yaw, pitch, fov) {
+  $('work').classList.remove('hidden'); $('done').classList.add('hidden')
+  S.view = { yaw, pitch, fov, w: 1280, h: 800 }
+  const r = await api('view', { scene: S.scene.id, yaw, pitch, fov })
+  $('view').src = r.src
+  drawDots()
+  $('work').scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function drawDots() {
+  const stage = $('view-stage'); stage.querySelectorAll('.dot').forEach(n => n.remove())
+  if (!S.view) return
+  const add = (p, cls, remove) => {
+    const s = degToScreen(S.view, p); if (!s || s[0] < 0 || s[1] < 0 || s[0] > S.view.w || s[1] > S.view.h) return
+    const d = document.createElement('div'); d.className = 'dot ' + cls
+    d.style.left = (100 * s[0] / S.view.w) + '%'; d.style.top = (100 * s[1] / S.view.h) + '%'
+    d.title = 'click to remove'
+    d.addEventListener('click', ev => { ev.stopPropagation(); remove(); drawDots(); trace() })
+    d.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation() })
+    stage.append(d)
+  }
+  if (S.at) add(S.at, 'pos at', () => { S.at = S.points.shift() || null })
+  S.points.forEach((p, i) => add(p, 'pos', () => S.points.splice(i, 1)))
+  S.exclude.forEach((p, i) => add(p, 'neg', () => S.exclude.splice(i, 1)))
+}
+
+function addPoint(e, negative) {
+  const [x, y] = imgPoint($('view'), e)
+  const p = screenToDeg(S.view, x, y)
+  if (negative) S.exclude.push(p)
+  else if (!S.at) S.at = p
+  else S.points.push(p)
+  drawDots(); trace()
+}
+$('view').addEventListener('click', e => addPoint(e, e.shiftKey))
+$('view').addEventListener('contextmenu', e => { e.preventDefault(); addPoint(e, true) })
+$('closer').onclick = () => S.view && openView(S.view.yaw, S.view.pitch, Math.max(10, S.view.fov / 1.4))
+$('wider').onclick = () => S.view && openView(S.view.yaw, S.view.pitch, Math.min(100, S.view.fov * 1.4))
+$('clear').onclick = () => { S.at = null; S.points = []; S.exclude = []; S.traced = null; drawDots(); $('result').classList.add('hidden'); $('result-empty').classList.remove('hidden'); $('save').disabled = true; msg($('trace-msg'), 'Click on the object.', 'muted') }
+$('cancel').onclick = () => resetObject()
+
+$('f-zauto').onchange = () => { $('f-zoom').disabled = $('f-zauto').checked; trace() }
+$('f-zoom').oninput = () => { $('f-zoomv').textContent = $('f-zoom').value }
+$('f-zoom').onchange = () => trace()
+
+let traceTimer = 0
+function trace() {
+  clearTimeout(traceTimer)
+  if (!S.at) return
+  traceTimer = setTimeout(doTrace, 350)
+}
+async function doTrace() {
+  const seq = ++S.seq
+  $('save').disabled = true
+  msg($('trace-msg'), 'Tracing… (the first one loads the AI, ~10 s)', 'busy')
+  try {
+    const r = await api('trace', {
+      scene: S.scene.id, view: S.view, points: [S.at, ...S.points], exclude: S.exclude,
+      zoom: $('f-zauto').checked ? 'auto' : +$('f-zoom').value,
+    })
+    if (seq !== S.seq) return
+    S.traced = r
+    $('landing').src = r.landing; $('detail').src = r.detail
+    $('fit').textContent = Math.round(r.fit * 100) + '%'
+    $('zoomv').textContent = r.zoom + ($('f-zauto').checked ? ' (auto)' : '')
+    $('npts').textContent = r.nPoints
+    if ($('f-zauto').checked) { $('f-zoom').value = r.zoom; $('f-zoomv').textContent = r.zoom }
+    $('notes').innerHTML = ''
+    for (const n of r.notes) { const li = document.createElement('li'); li.textContent = n; $('notes').append(li) }
+    $('result').classList.remove('hidden'); $('result-empty').classList.add('hidden')
+    $('save').disabled = false
+    msg($('trace-msg'), 'Traced. Not right? Add a point.', 'muted')
+  } catch (e) { if (seq === S.seq) msg($('trace-msg'), e.message, 'err') }
+}
+
+function resetObject() {
+  Object.assign(S, { view: null, at: null, points: [], exclude: [], editId: null, traced: null })
+  $('work').classList.add('hidden'); $('done').classList.add('hidden')
+  $('result').classList.add('hidden'); $('result-empty').classList.remove('hidden')
+  $('pano-stage').querySelectorAll('.cross').forEach(n => n.remove())
+  for (const id of ['f-label', 'f-title', 'f-lines']) $(id).value = ''
+  $('f-zauto').checked = true; $('f-zoom').disabled = true
+  $('save').disabled = true; $('save').textContent = 'Save & record voice'
+  msg($('save-msg'), ''); msg($('trace-msg'), '')
+}
+
+function editObject(o) {
+  resetObject()
+  S.editId = o.id; S.at = o.at; S.points = o.points || []; S.exclude = o.exclude || []
+  $('f-label').value = o.label || ''; $('f-title').value = o.title || ''; $('f-lines').value = (o.lines || []).join('\n')
+  if (o.voice === false) $('f-voice').value = 'none'
+  else if (o.voice) $('f-voice').value = o.voice
+  if (typeof o.zoom === 'number') { $('f-zauto').checked = false; $('f-zoom').disabled = false; $('f-zoom').value = o.zoom; $('f-zoomv').textContent = o.zoom }
+  $('save').textContent = 'Save changes'
+  openView(o.at[0], o.at[1], 50); trace()
+}
+
+$('save').onclick = async () => {
+  if (!S.traced) return
+  const title = $('f-title').value.trim()
+  if (!title) { msg($('save-msg'), 'Give it a title first.', 'err'); $('f-title').focus(); return }
+  $('save').disabled = true
+  msg($('save-msg'), 'Saving and recording the voice… (the first time loads the voice, up to a minute)', 'busy')
+  try {
+    const r = await api('save', {
+      scene: S.scene.id,
+      object: {
+        id: S.editId, title, label: $('f-label').value, lines: $('f-lines').value.split('\n'),
+        voice: $('f-voice').value, at: S.at, points: S.points, exclude: S.exclude,
+        zoom: $('f-zauto').checked ? 'auto' : +$('f-zoom').value,
+      },
+    })
+    renderExisting(r.objects)
+    S.scene.count = r.objects.length
+    $('work').classList.add('hidden')
+    const b = $('done-body'); b.innerHTML = ''
+    const p1 = document.createElement('p'); p1.textContent = `"${title}" is saved${r.voice ? ' with its voice' : ''}.`; b.append(p1)
+    if (r.notes.length) { const ul = document.createElement('ul'); ul.className = 'notes'; r.notes.forEach(n => { const li = document.createElement('li'); li.textContent = n; ul.append(li) }); b.append(ul) }
+    const p2 = document.createElement('p'); p2.className = 'muted'
+    p2.innerHTML = 'To try it: run <code>npm run dev</code> in viewora-app, then open '
+    const a = document.createElement('a'); a.href = r.preview; a.target = '_blank'; a.textContent = r.preview; a.style.color = 'var(--ink)'; p2.append(a); b.append(p2)
+    if (r.files.length) {
+      const p3 = document.createElement('p'); p3.className = 'muted'; p3.textContent = 'Files to commit when you are happy:'; b.append(p3)
+      const pre = document.createElement('pre'); pre.textContent = r.files.join('\n'); b.append(pre)
+    }
+    const again = document.createElement('button'); again.className = 'primary'; again.textContent = 'Add another object'
+    again.onclick = () => { resetObject(); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+    b.append(again)
+    $('done').classList.remove('hidden'); $('done').scrollIntoView({ behavior: 'smooth' })
+    Object.assign(S, { at: null, points: [], exclude: [], editId: null, traced: null })
+  } catch (e) { msg($('save-msg'), e.message, 'err'); $('save').disabled = false }
+}
+
+if ($('tour-link').value) loadTour()
+</script>
+</body>
+</html>
