@@ -10,14 +10,46 @@
       </div>
 
       <div class="bg-white rounded-xl border border-zinc-200 shadow-sm p-8">
-        <form @submit.prevent="signUp" class="space-y-6">
+        <section v-if="confirmationPending" class="space-y-6" aria-labelledby="confirmation-title">
+          <div class="space-y-3 text-left">
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-700" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+            </span>
+            <div>
+              <h2 id="confirmation-title" class="text-xl font-bold tracking-tight text-zinc-900">Confirm your email</h2>
+              <p class="mt-2 text-sm leading-6 text-zinc-600">
+                Your Viewora account is ready to confirm. We asked to send a confirmation link to
+                <strong class="font-semibold text-zinc-900">{{ verificationEmail }}</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div class="border-l-2 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm leading-5 text-emerald-900" role="status">
+            Open the link in your inbox to finish creating your account. If it is not there after a few minutes, check Spam or request another link below.
+          </div>
+
+          <p v-if="resendMessage" class="text-sm font-medium" :class="resendError ? 'text-red-600' : 'text-emerald-700'" role="status" aria-live="polite">
+            {{ resendMessage }}
+          </p>
+
+          <button
+            type="button"
+            class="w-full min-h-12 border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="isResending || resendCooldown > 0"
+            @click="resendConfirmation"
+          >
+            {{ isResending ? 'Requesting another link…' : resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : 'Resend confirmation link' }}
+          </button>
+
+          <button type="button" class="w-full text-sm font-medium text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2" @click="useDifferentEmail">
+            Use a different email address
+          </button>
+        </section>
+
+        <form v-else @submit.prevent="signUp" class="space-y-6">
           <div v-if="errorMsg" class="p-3 bg-red-50 border border-red-100 rounded-md text-sm font-medium text-red-600 text-center">
             {{ errorMsg }}
           </div>
-          <div v-if="successMsg" class="p-3 bg-emerald-50 border border-emerald-100 rounded-md text-sm font-medium text-emerald-600 text-center">
-            {{ successMsg }}
-          </div>
-
           <!-- Social Signup -->
           <button 
             type="button" 
@@ -116,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import { definePageMeta, useSupabaseClient, navigateTo, useSeoMeta } from '#imports'
 import { rememberReturnTo, takeReturnTo } from '~/utils/returnTo'
 
@@ -131,14 +163,69 @@ const password = ref('')
 const confirmPassword = ref('')
 const agreedToTerms = ref(false)
 const errorMsg = ref('')
-const successMsg = ref('')
 const isLoading = ref(false)
+const confirmationPending = ref(false)
+const verificationEmail = ref('')
+const isResending = ref(false)
+const resendCooldown = ref(0)
+const resendMessage = ref('')
+const resendError = ref(false)
+let resendCooldownTimer: ReturnType<typeof setInterval> | undefined
 
 const analytics = useAnalytics()
 
+const emailRedirectTo = () => `${window.location.origin}/confirm`
+
+const startResendCooldown = () => {
+  resendCooldown.value = 60
+  if (resendCooldownTimer) clearInterval(resendCooldownTimer)
+  resendCooldownTimer = setInterval(() => {
+    resendCooldown.value -= 1
+    if (resendCooldown.value <= 0 && resendCooldownTimer) {
+      clearInterval(resendCooldownTimer)
+      resendCooldownTimer = undefined
+    }
+  }, 1000)
+}
+
+const resendConfirmation = async () => {
+  if (!verificationEmail.value || isResending.value || resendCooldown.value > 0) return
+
+  isResending.value = true
+  resendMessage.value = ''
+  resendError.value = false
+
+  try {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: verificationEmail.value,
+      options: { emailRedirectTo: emailRedirectTo() },
+    })
+    if (error) throw error
+
+    resendMessage.value = 'Another confirmation link has been requested. Please check your inbox and Spam folder.'
+    startResendCooldown()
+  } catch (err: any) {
+    resendError.value = true
+    resendMessage.value = err.message || 'We could not request another confirmation link. Please try again shortly.'
+  } finally {
+    isResending.value = false
+  }
+}
+
+const useDifferentEmail = () => {
+  confirmationPending.value = false
+  resendMessage.value = ''
+  resendError.value = false
+  resendCooldown.value = 0
+  if (resendCooldownTimer) {
+    clearInterval(resendCooldownTimer)
+    resendCooldownTimer = undefined
+  }
+}
+
 const signUp = async () => {
   errorMsg.value = ''
-  successMsg.value = ''
 
   if (password.value !== confirmPassword.value) {
     errorMsg.value = 'Passwords do not match.'
@@ -162,8 +249,9 @@ const signUp = async () => {
       options: {
         data: {
           full_name: fullName.value,
-        }
-      }
+        },
+        emailRedirectTo: emailRedirectTo(),
+      },
     })
 
     if (error) throw error
@@ -176,7 +264,8 @@ const signUp = async () => {
       useApiFetch().apiFetch('/profile/welcome', { method: 'POST' }).catch(() => {})
       await navigateTo(takeReturnTo() ?? '/app')
     } else {
-      successMsg.value = 'Account created! Check your email for the confirmation link.'
+      verificationEmail.value = email.value.trim()
+      confirmationPending.value = true
     }
   } catch (err: any) {
     errorMsg.value = err.message || 'An error occurred during registration.'
@@ -184,6 +273,10 @@ const signUp = async () => {
     isLoading.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  if (resendCooldownTimer) clearInterval(resendCooldownTimer)
+})
 
 const signInWithGoogle = async () => {
   const { error } = await supabase.auth.signInWithOAuth({
