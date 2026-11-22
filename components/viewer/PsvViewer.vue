@@ -5295,45 +5295,4 @@ watch(() => vtTransitioning.value, (loading) => {
 :global(.device-tier-mid .vhs-info__pin-ring) {
   animation-duration: 3.5s !important;
 }
-
-/* ── Object Spotlight hint ring (shared/spotlight): marks an object that
-   opens a spotlight. The effect's own styles load with its chunk. ── */
-:global(.vw-spot-hint) {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 1.5px solid rgba(127, 231, 247, 0.85);
-  border-radius: 50%;
-  background: rgba(5, 11, 19, 0.35);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-:global(.vw-spot-hint__dot) {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #7fe7f7;
-}
-:global(.vw-spot-hint::after) {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(127, 231, 247, 0.7);
-  animation: vw-spot-hint 2.4s ease-out infinite;
-  pointer-events: none;
-}
-@keyframes vw-spot-hint {
-  0%   { transform: scale(1);   opacity: 0.8; }
-  70%  { transform: scale(1.7); opacity: 0;   }
-  100% { transform: scale(1.7); opacity: 0;   }
-}
-@media (hover: none) and (pointer: coarse), (prefers-reduced-motion: reduce) {
-  :global(.vw-spot-hint::after) { animation: none; opacity: 0; }
-}
-:global(.device-tier-low .vw-spot-hint::after) { animation: none; opacity: 0; }
-/* Hidden while its spotlight is open (the outline marks the object then). */
-:global(.vw-spot-on .vw-spot-hint) { visibility: hidden; }
 </style>

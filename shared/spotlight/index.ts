@@ -8,6 +8,7 @@
 // Data and script: scripts/spotlight/README.md. 3D plans: Notes/3d-render-spotlight.md.
 import type { PsvViewerHandle } from '~/shared/utils/viewerAdapters/psvAdapter'
 import { SPOTLIGHT_SCENES } from './scenes.generated'
+import './hint.css'
 import type { SpotlightEndReason, SpotlightObject, SpotlightRun, SpotlightScene } from './types'
 
 export type { SpotlightObject, SpotlightScene } from './types'
@@ -27,8 +28,13 @@ export interface SpotlightController {
   setScene: (sceneId: string) => void
   /** The pointer is over an object, or a spotlight is open: the floor cursor stands aside. */
   claimsPointer: () => boolean
+  /** Closes an open spotlight (something else needs the view), keeping the rings. */
+  close: () => void
   destroy: () => void
 }
+
+/** A hint ring's marker id (viewers ignore these in their own marker handlers). */
+export const isSpotlightMarkerId = (id: string): boolean => id.startsWith('vw-spot-')
 
 const HINT_PREFIX = 'vw-spot-'
 /** Zooming in to within this many zoom levels of an object's own zoom opens it. */
@@ -297,6 +303,9 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
       } catch {
         return false
       }
+    },
+    close() {
+      close('scene')
     },
     destroy() {
       if (destroyed) return

@@ -80,6 +80,7 @@ import {
   isInteriorLink,
 } from '~/shared/utils/viewerAdapters/psvAdapter'
 import HotspotActionMenu from '~/features/viewer/panorama/HotspotActionMenu.vue'
+import { attachSpotlights, isSpotlightMarkerId, spotlightWeakDevice, type SpotlightController } from '~/shared/spotlight'
 
 const props = defineProps<{
   scene: TourScene | null
@@ -114,6 +115,37 @@ const containerEl = ref<HTMLElement | null>(null)
 /** Wraps the panorama and the action menu layer, so hover tracking sees both. */
 const rootEl = ref<HTMLElement | null>(null)
 const handle = ref<PsvViewerHandle | null>(null)
+
+// Object Spotlight (shared/spotlight): the same callouts as the public tour, so
+// they can be tried here. They stand aside while placing a hotspot, drawing a
+// boundary, using a hotspot's menu or switching scenes.
+let spotlightCtl: SpotlightController | null = null
+function attachSpotlightsTo(h: PsvViewerHandle | null, sceneId: string | undefined) {
+  detachSpotlights()
+  if (!h) return
+  try {
+    spotlightCtl = attachSpotlights(h, {
+      isBlocked: () => !!props.isEditing || !!props.isTracing || menu.locked || sceneLoadInProgress
+        || state.value !== 'ready' || dragTracker.active,
+      onStart: () => closeMenu(),
+      onEnd: () => {},
+      lite: spotlightWeakDevice,
+    })
+    if (sceneId) spotlightCtl.setScene(sceneId)
+  } catch {
+    spotlightCtl = null // the editor works the same without them
+  }
+}
+function detachSpotlights() {
+  spotlightCtl?.destroy()
+  spotlightCtl = null
+}
+/** loadScene clears every marker, the hint rings too: put them back for this scene. */
+function showSpotlights(sceneId: string) {
+  if (!spotlightCtl) return
+  spotlightCtl.setScene('')
+  spotlightCtl.setScene(sceneId)
+}
 const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')
 const isFocusing = ref(false)
@@ -180,6 +212,7 @@ async function retryCurrentScene() {
   }
   
   state.value = 'loading'
+  detachSpotlights()
   try {
     destroy(handle.value)
   } catch { /* noop */ }
@@ -326,12 +359,14 @@ function onMenuPointerLeave() {
 }
 
 function onMarkerEnterCb(id: string) {
+  if (isSpotlightMarkerId(id)) return
   if (menuCloseTimer) { clearTimeout(menuCloseTimer); menuCloseTimer = null }
   if (menu.locked && menu.hotspotId !== id) return
   openMenu(id)
 }
 
 function onMarkerLeaveCb(id: string) {
+  if (isSpotlightMarkerId(id)) return
   if (menu.locked) return
   if (menu.hotspotId !== id) return
   scheduleMenuClose(260)
@@ -412,6 +447,7 @@ async function initWithScene(scene: TourScene) {
       },
       onError: (err) => {
         if (signal.aborted) return
+        detachSpotlights()
         try { destroy(handle.value) } catch { /* noop */ }
         handle.value = null
         state.value = 'error'
@@ -453,6 +489,7 @@ async function initWithScene(scene: TourScene) {
       },
       onMarkerClick: async (id) => {
         if (sceneLoadInProgress || !handle.value) return
+        if (isSpotlightMarkerId(id)) return // its ring opens it by itself
         if (props.isTracing) {
           // While drawing only the trace dots are clickable (CSS disables the
           // rest). The first dot closes the shape once it can be closed; any
@@ -513,6 +550,7 @@ async function initWithScene(scene: TourScene) {
     
     const initPromise = initViewer(containerEl.value, scene, viewerOptions)
     handle.value = await Promise.race([initPromise, timeoutPromise])
+    attachSpotlightsTo(handle.value, scene.id)
     scheduleResize()
   } catch (err: any) {
     if (signal.aborted) {
@@ -659,6 +697,7 @@ onBeforeUnmount(() => {
   if (loadAbortController) {
     loadAbortController.abort()
   }
+  detachSpotlights()
   destroy(handle.value)
   handle.value = null
 })
@@ -692,6 +731,7 @@ watch(
     
     closeMenu()
     isFocusing.value = false
+    spotlightCtl?.close()
     
     // Same image already loaded (e.g. local scene ID → real scene ID mapping after upload).
     // Keep the current panorama visible — only sync markers, no reload or camera reset.
@@ -699,6 +739,7 @@ watch(
       if (props.hotspots?.length) {
         syncHotspots(handle.value, props.hotspots ?? [])
       }
+      showSpotlights(next.id)
       // IMPORTANT: reset the flag so the next real scene change isn't silently blocked.
       sceneLoadInProgress = false
       return
@@ -722,6 +763,7 @@ watch(
         await loadScene(handle.value, next, props.hotspots ?? [])
         if (!signal.aborted) {
           state.value = 'ready'
+          showSpotlights(next.id)
           // Second enforcement check after a short delay for safety
           setTimeout(() => {
             if (!signal.aborted && handle.value && props.hotspots) {
@@ -793,6 +835,11 @@ watch(
 // doesn't swallow the first placement click.
 watch(() => props.isEditing, (isEditing) => {
   if (isEditing) closeMenu()
+})
+
+// Placing a hotspot or drawing a boundary needs the view: close an open spotlight.
+watch(() => [props.isEditing, props.isTracing], ([editing, tracing]) => {
+  if (editing || tracing) spotlightCtl?.close()
 })
 
 // Tracing visualization
