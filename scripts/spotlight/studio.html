@@ -78,7 +78,7 @@
   .tools button.on { border-color: var(--ink); color: var(--ink); background: rgba(127,231,247,.1); }
   .sdot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); cursor: pointer; }
   .sdot.pos { background: var(--ok); } .sdot.neg { background: var(--no); } .sdot.at { width: 18px; height: 18px; }
-  .scorner { width: 12px; height: 12px; background: #fff; border: 2px solid var(--warn); cursor: pointer; }
+  .scorner { width: 12px; height: 12px; background: #fff; border: 2px solid var(--warn); cursor: move; }
   .scorner.first { width: 16px; height: 16px; background: var(--warn); }
   .area-opts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
   .area-opts label { display: inline-flex; gap: 6px; align-items: center; margin: 0; font-size: 13px; }
@@ -142,7 +142,7 @@
         <button id="tool-dots" class="on">Dots</button>
         <button id="tool-area">Draw an area</button>
         <span class="legend" id="legend-dots"><span><i style="background:var(--ok)"></i>click: part of it</span><span><i style="background:var(--no)"></i>right-click: not part of it</span></span>
-        <span class="muted" id="legend-area" style="display:none;font-size:13px">Click the corners in turn (A, B, C, D…). Click the first corner again to close it.</span>
+        <span class="muted" id="legend-area" style="display:none;font-size:13px">Click the corners in turn (A, B, C, D…), then the first corner again to close it. Drag a corner to move it.</span>
       </div>
       <div id="sphere"><div id="sphere-msg"></div></div>
       <div class="area-opts hidden" id="area-opts">
@@ -156,7 +156,7 @@
         <button id="clear">Start over</button>
         <span id="trace-msg"></span>
       </div>
-      <p class="muted" style="font-size:12px;margin:8px 0 0">Click a dot or corner to remove it. It re-traces after each change.</p>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">Click a dot or corner to remove it; drag a corner to move it. It re-traces after each change.</p>
       <p class="muted" style="font-size:12px;margin:14px 0 6px">The whole room: click anywhere to look there.</p>
       <div class="stage" id="pano-stage"><img id="pano" alt="panorama"></div>
       <p id="scene-msg"></p>
@@ -218,7 +218,7 @@
 <script>
 const $ = (id) => document.getElementById(id)
 const rad = (d) => d * Math.PI / 180, deg = (r) => r * 180 / Math.PI
-const S = { tour: null, scene: null, sphere: null, at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, exact: false, tool: 'dots', editId: null, traced: null, seq: 0, voices: [], conn: null, canPublish: false }
+const S = { tour: null, scene: null, sphere: null, at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, exact: false, noAutoExact: false, tool: 'dots', editId: null, traced: null, seq: 0, voices: [], conn: null, canPublish: false }
 
 async function api(name, body) {
   const r = await fetch('/api/' + name, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -469,7 +469,8 @@ $('sphere').addEventListener('pointerup', e => {
 function onSphereClick(data) {
   const p = [+deg(data.yaw > Math.PI ? data.yaw - 2 * Math.PI : data.yaw).toFixed(2), +deg(data.pitch).toFixed(2)]
   if (S.tool === 'area') {
-    if (S.regionClosed) { S.region = []; S.regionClosed = false }
+    if (S.regionClosed) { msg($('trace-msg'), 'The area is closed: drag a corner to change it, or "Remove area" to draw a new one.', 'muted'); return }
+    if (!S.region.length) S.noAutoExact = false
     S.region.push(p)
     drawMarks()
     return
@@ -501,18 +502,50 @@ function drawMarks() {
   if (S.traced && S.traced.outline && S.traced.outline.length > 2) {
     markers.addMarker({ id: 'outline', className: 'nohit', polygon: S.traced.outline.map(p => [rad(p[0]), rad(p[1])]), svgStyle: { fill: 'rgba(127,231,247,0.18)', stroke: 'rgba(127,231,247,0.95)', strokeWidth: '2px' } })
   }
-  if (S.region.length >= 2) {
-    const pts = S.region.map(p => [rad(p[0]), rad(p[1])])
-    if (S.regionClosed) markers.addMarker({ id: 'region', className: 'nohit', polygon: pts, svgStyle: { fill: 'rgba(245,196,81,0.08)', stroke: 'rgba(245,196,81,0.95)', strokeWidth: '2px', strokeDasharray: '6 4' } })
-    else markers.addMarker({ id: 'region', className: 'nohit', polyline: pts, svgStyle: { stroke: 'rgba(245,196,81,0.95)', strokeWidth: '2px', strokeDasharray: '6 4' } })
-  }
+  if (S.region.length >= 2) markers.addMarker(regionMarker())
   S.region.forEach((p, i) => markers.addMarker({ id: 'corner:' + i, position: toRad(p), html: `<div class="scorner ${i === 0 ? 'first' : ''}"></div>`, size: { width: 16, height: 16 }, anchor: 'center center',
-    tooltip: i === 0 && !S.regionClosed && S.region.length >= 3 ? 'click to close the area' : 'click to remove' }))
+    tooltip: i === 0 && !S.regionClosed && S.region.length >= 3 ? 'click to close the area' : 'drag to move, click to remove' }))
   if (S.at && !S.atAuto) dot('at:0', S.at, 'pos at', 'click to remove')
   S.points.forEach((p, i) => dot('pos:' + i, p, 'pos', 'click to remove'))
   S.exclude.forEach((p, i) => dot('neg:' + i, p, 'neg', 'click to remove'))
   $('area-opts').classList.toggle('hidden', !S.region.length)
 }
+
+function regionMarker() {
+  const pts = S.region.map(p => [rad(p[0]), rad(p[1])])
+  const style = { stroke: 'rgba(245,196,81,0.95)', strokeWidth: '2px', strokeDasharray: '6 4' }
+  return S.regionClosed
+    ? { id: 'region', className: 'nohit', polygon: pts, svgStyle: { ...style, fill: 'rgba(245,196,81,0.08)' } }
+    : { id: 'region', className: 'nohit', polyline: pts, svgStyle: style }
+}
+
+// Dragging a corner. Caught before the viewer sees the press, so the view doesn't turn.
+let drag = null
+function sphereAt(e) {
+  const r = $('sphere').getBoundingClientRect()
+  const c = PSV.dataHelper.viewerCoordsToSphericalCoords({ x: e.clientX - r.left, y: e.clientY - r.top })
+  return c && [+deg(c.yaw > Math.PI ? c.yaw - 2 * Math.PI : c.yaw).toFixed(2), +deg(c.pitch).toFixed(2)]
+}
+$('sphere').addEventListener('mousedown', e => {
+  const m = e.button === 0 && e.target.closest('.psv-marker')
+  if (!m || !m.psvMarker || !m.psvMarker.id.startsWith('corner:')) return
+  e.stopPropagation(); e.preventDefault()
+  drag = { i: +m.psvMarker.id.split(':')[1], x: e.clientX, y: e.clientY, moved: false }
+}, true)
+window.addEventListener('mousemove', e => {
+  if (!drag || !PSV) return
+  if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) <= 5) return
+  drag.moved = true
+  const p = sphereAt(e); if (!p) return
+  S.region[drag.i] = p
+  markers.updateMarker({ id: 'corner:' + drag.i, position: toRad(p) })
+  if (S.region.length >= 2) markers.updateMarker(regionMarker())
+})
+window.addEventListener('mouseup', () => {
+  if (!drag) return
+  const moved = drag.moved; drag = null
+  if (moved) { drawMarks(); trace() }
+})
 
 function setTool(t) {
   S.tool = t
@@ -523,9 +556,9 @@ function setTool(t) {
 $('tool-dots').onclick = () => setTool('dots')
 $('tool-area').onclick = () => setTool('area')
 $('sphere').addEventListener('contextmenu', e => e.preventDefault())
-for (const r of document.querySelectorAll('input[name=area-use]')) r.onchange = () => { S.exact = r.value === 'exact' && r.checked; trace() }
+for (const r of document.querySelectorAll('input[name=area-use]')) r.onchange = () => { S.exact = r.value === 'exact' && r.checked; if (!S.exact) S.noAutoExact = true; trace() }
 $('area-undo').onclick = () => { S.region.pop(); if (S.region.length < 3) S.regionClosed = false; drawMarks(); trace() }
-$('area-clear').onclick = () => { S.region = []; S.regionClosed = false; drawMarks(); trace() }
+$('area-clear').onclick = () => { S.region = []; S.regionClosed = false; S.noAutoExact = false; setAreaUse(false); drawMarks(); trace() }
 document.addEventListener('keydown', e => {
   if (S.tool !== 'area' || $('step-object').classList.contains('hidden') || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return
   if (e.key === 'Enter' && S.region.length >= 3 && !S.regionClosed) { S.regionClosed = true; drawMarks(); trace() }
@@ -533,8 +566,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') setTool('dots')
 })
 $('clear').onclick = () => {
-  Object.assign(S, { at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, traced: null })
-  drawMarks(); $('result').classList.add('hidden'); $('result-empty').classList.remove('hidden'); $('save').disabled = true; $('work').classList.add('hidden')
+  Object.assign(S, { at: null, atAuto: false, points: [], exclude: [], region: [], regionClosed: false, noAutoExact: false, traced: null })
+  setAreaUse(false); drawMarks(); $('result').classList.add('hidden'); $('result-empty').classList.remove('hidden'); $('save').disabled = true; $('work').classList.add('hidden')
   msg($('trace-msg'), 'Click on the object, or draw an area around it.', 'muted')
 }
 function hasArea() { return S.regionClosed && S.region.length >= 3 }
@@ -559,10 +592,11 @@ async function doTrace() {
   try {
     const r = await api('trace', {
       scene: S.scene.id, points: (S.at && !S.atAuto ? [S.at] : []).concat(S.points), exclude: S.exclude,
-      region: hasArea() ? S.region : null, exact: hasArea() && S.exact,
+      region: hasArea() ? S.region : null, exact: hasArea() && S.exact, autoExact: hasArea() && !S.exact && !S.noAutoExact,
       zoom: $('f-zauto').checked ? 'auto' : +$('f-zoom').value,
     })
     if (seq !== S.seq) return
+    if (r.switchedExact) setAreaUse(true)
     S.traced = r
     if (r.autoAt) { S.at = r.at; S.atAuto = true }
     drawMarks()
@@ -598,7 +632,7 @@ function resetSaveLabel() {
 function editObject(o) {
   resetObject()
   S.editId = o.id; S.at = o.at; S.atAuto = !!o.atAuto; S.points = o.points || []; S.exclude = o.exclude || []
-  S.region = o.region || []; S.regionClosed = S.region.length >= 3; setAreaUse(o.exact)
+  S.region = o.region || []; S.regionClosed = S.region.length >= 3; setAreaUse(o.exact); S.noAutoExact = S.regionClosed && !o.exact
   $('f-label').value = o.label || ''; $('f-title').value = o.title || ''; $('f-lines').value = (o.lines || []).join('\n')
   if (o.voice === false) $('f-voice').value = 'none'
   else if (o.voice) $('f-voice').value = o.voice

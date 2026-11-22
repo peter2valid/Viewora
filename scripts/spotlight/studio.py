@@ -304,9 +304,10 @@ def area_of(q: dict):
     return region, bool(region and q.get("exact"))
 
 
-def run_trace(sid: str, pos: list, neg: list, region, exact: bool, zoom):
+def run_trace(sid: str, pos: list, neg: list, region, exact: bool, zoom, auto_exact: bool = False):
     """Trace; with only an area (no dot), the area's centre stands in for the first dot."""
-    t = sp.trace(pano(sid), segmenter(), pos[0] if pos else None, pos[1:], neg, zoom_arg(zoom), region=region, region_exact=exact)
+    t = sp.trace(pano(sid), segmenter(), pos[0] if pos else None, pos[1:], neg, zoom_arg(zoom),
+                 region=region, region_exact=exact, auto_exact=auto_exact)
     centre = [round(math.degrees(t["yaw"]), 2), round(math.degrees(t["pitch"]), 2)]
     return t, (pos[0] if pos else centre), not pos
 
@@ -318,11 +319,11 @@ def api_trace(q: dict) -> dict:
     if not pos and not region:
         raise ValueError("click on the object, or draw an area around it")
     with heavy:
-        t, at, auto = run_trace(sid, pos, neg, region, exact, q.get("zoom"))
+        t, at, auto = run_trace(sid, pos, neg, region, exact, q.get("zoom"), bool(q.get("autoExact")))
     return {
         "at": at, "autoAt": auto, "points": pos[1:], "exclude": neg,
         "zoom": t["zoom"], "fit": round(t["fit"], 3), "score": round(t["score"], 2),
-        "nPoints": len(t["polygon"]), "notes": t["notes"],
+        "nPoints": len(t["polygon"]), "notes": t["notes"], "switchedExact": bool(t.get("switchedExact")),
         "outline": [[round(math.degrees(y), 3), round(math.degrees(p), 3)] for y, p in t["polygon"]],
         "landing": jpg(sp.draw_landing(*t["landing"])),
         "detail": jpg(sp.draw_detail(*t["detail"])),

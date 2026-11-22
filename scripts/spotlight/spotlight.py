@@ -361,7 +361,7 @@ def centre_of(yaws: np.ndarray, pitches: np.ndarray) -> tuple[float, float]:
 
 def trace(pano: np.ndarray, seg: Segmenter, at=None, points=(), exclude=(), zoom: float | None = None,
           close_px: int = 9, context: float = 1.35, smooth: float = SMOOTH,
-          region=None, region_exact: bool = False) -> dict:
+          region=None, region_exact: bool = False, auto_exact: bool = False) -> dict:
     """Outline one object. at / points / exclude / region are [yaw, pitch] degrees.
 
     Pass 1 looks at the object in a view a bit wider than the landing view.
@@ -377,7 +377,7 @@ def trace(pano: np.ndarray, seg: Segmenter, at=None, points=(), exclude=(), zoom
     if region is not None and len(region) < 3:
         region = None
     if region is not None:
-        return trace_region(pano, seg, region, region_exact, at, points, exclude, zoom, close_px, smooth)
+        return trace_region(pano, seg, region, region_exact, at, points, exclude, zoom, close_px, smooth, auto_exact)
     if at is None:
         raise ValueError("click on the object first")
     notes: list[str] = []
@@ -463,8 +463,14 @@ def trace(pano: np.ndarray, seg: Segmenter, at=None, points=(), exclude=(), zoom
     return finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2 if use2 else None, dyaw, dpitch, dfov, pos2, neg2)
 
 
-def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, smooth) -> dict:
+AREA_LOW = 0.35   # the AI's outline covering less of the drawn area than this: probably not what was meant
+
+
+def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, smooth, auto_exact=False) -> dict:
+    """auto_exact: with no dots, an AI outline covering only a small part of the
+    area (the kerb inside a parking bay) is replaced by the area itself."""
     notes: list[str] = []
+    cover, switched = 1.0, False
     ry, rp = densify(region, max(2, 60 // len(region)))
     dyaw, dpitch = centre_of(ry, rp)
     cyaw = dyaw
@@ -490,10 +496,7 @@ def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, 
     pos2, neg2 = to_px(pos_deg), to_px([list(p) for p in exclude])
     inside = np.zeros((DETAIL, DETAIL), np.uint8)
     cv2.fillPoly(inside, [region_px.astype(np.int32)], 1)
-    if exact:
-        pyaw, ppitch = ry, rp
-        mask2, score, fit = inside, 1.0, 1.0
-    else:
+    if not exact:
         pos2 = [p for p in pos2 if inside[int(p[1]), int(p[0])]]
         neg2 = [p for p in neg2 if inside[int(p[1]), int(p[0])]]
         box = (max(0, bx.min()), max(0, by.min()), min(DETAIL - 1, bx.max()), min(DETAIL - 1, by.max()))
@@ -501,18 +504,31 @@ def trace_region(pano, seg, region, exact, at, points, exclude, zoom, close_px, 
         # Keep to the drawn area (a little slack for its edges).
         k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(0.02 * DETAIL) | 1,) * 2)
         mask2 = mask2 & cv2.dilate(inside, k)
-        ys2, xs2 = np.nonzero(mask2)
-        if not len(xs2):
+        cover = float((mask2 & inside).sum()) / max(1, int(inside.sum()))
+        if auto_exact and not pos2 and cover < AREA_LOW:
+            exact, switched = True, True
+            notes.append(f"the AI only found a small part of your area ({cover:.0%}), so your area is used as the outline. "
+                         "To have the AI look again, add a green dot on the object.")
+        elif not np.any(mask2):
             raise ValueError("nothing found inside that area: add a green dot on the object, or use the area as the outline")
+    if exact:
+        pyaw, ppitch = ry, rp
+        mask2, score, fit = inside, 1.0, 1.0
+    else:
+        ys2, xs2 = np.nonzero(mask2)
         close2 = int(close_px * 1.5) | 1 if close_px > 0 else 0
         if smooth > 0:
             close2 = max(close2, int(smooth * math.hypot(xs2.max() - xs2.min(), ys2.max() - ys2.min())) | 1)
         poly_px, n2, fit = mask_to_polygon(mask2, min(close2, 121))
         notes += n2
         pyaw, ppitch = screen_to_sphere(poly_px[:, 0], poly_px[:, 1], dyaw, dpitch, dfov, DETAIL, DETAIL)
-        if not pos2:
+        if cover < AREA_LOW and not pos2:   # with a dot, a loose area around the object is fine
+            notes.append(f"the AI only found a small part of your area ({cover:.0%}). For a parking bay or a patch of floor, "
+                         "choose \"Use my area as the outline\".")
+        elif not pos2:
             notes.append("traced from the area alone: add a green dot on the object if it picked the wrong thing")
-    return finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2)
+    out = finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2)
+    return {**out, "areaCover": round(cover, 3), "switchedExact": switched}
 
 
 def finish(pano, notes, cyaw, pyaw, ppitch, zoom, score, fit, dview, mask2, dyaw, dpitch, dfov, pos2, neg2) -> dict:

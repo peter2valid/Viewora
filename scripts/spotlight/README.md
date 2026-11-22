@@ -40,7 +40,9 @@ scripts/spotlight/studio       # opens http://127.0.0.1:8765 in your browser
      Then either *the AI finds the object inside it* (add a green dot on the
      object too: an area alone can pick the wrong thing), or *use my area as
      the outline* for things that aren't one object: a parking bay, a stretch
-     of floor or wall. Backspace removes the last corner.
+     of floor or wall. With no dot, if the AI finds only a small part of the
+     area (the kerb in a parking bay), Studio switches to *use my area* by
+     itself. Drag a corner to move it; Backspace removes the last one.
 
    Click a dot or corner to remove it. It re-traces after each change.
 5. Type the tag, title and lines, pick a voice, press **Publish & record
