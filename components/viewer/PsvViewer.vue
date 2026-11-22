@@ -720,7 +720,7 @@ import PhotoGallery, { type GalleryPhoto } from '~/components/viewer/PhotoGaller
 import { routeJourney, tourAreas, tourJourneys, type TourArea } from '~/shared/utils/journey'
 import { createVisitEvents } from '~/composables/useVisitEvents'
 import { socialIcons } from '~/shared/utils/socialLinks'
-import { copyText } from '~/shared/utils/copyText'
+import { copyText, warmSharePreview } from '~/shared/utils/copyText'
 import LeadForm from '~/components/viewer/LeadForm.vue'
 import { buildSceneGraph, buildVenueFloors, scenePath, venueKindOf, venueWords } from '~/shared/utils/venue'
 import {
@@ -3147,6 +3147,7 @@ watch([showShareModal, publicUrl], async ([open, url]) => {
   qrDataUrl.value = ''
   qrLoading.value = false
   if (!open || !url) return
+  warmSharePreview(url)
 
   qrLoading.value = true
   try {

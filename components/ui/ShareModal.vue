@@ -116,7 +116,7 @@ import QRCode from 'qrcode'
 import type { Space } from '~/composables/useSpaces'
 import { resolvePublicTourUrl, resolveSpinUrl } from '~/utils/publicTourUrl'
 import { usePlanStore } from '~/stores/plan'
-import { copyText } from '~/shared/utils/copyText'
+import { copyText, warmSharePreview } from '~/shared/utils/copyText'
 
 const planStore = usePlanStore()
 const canEmbed = computed(() => planStore.can('embeds_enabled'))
@@ -163,6 +163,8 @@ const shareUrl = computed(() => {
   if (props.url) return props.url
   return props.space && isCar.value && carLink.value === 'spin' ? resolveSpinUrl(props.space) : publicUrl.value
 })
+// Fill the nearest edge's link-preview cache now, so the WhatsApp preview is instant when they paste.
+watch(shareUrl, (u) => { if (u && typeof window !== 'undefined') warmSharePreview(u) }, { immediate: true })
 const visibleTabs = computed(() => (props.visitor ? shareTabs.filter(t => t.id !== 'embed') : shareTabs))
 const embedUrl = computed(() => {
   if (!props.space) return ''

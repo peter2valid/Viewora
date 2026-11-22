@@ -6,19 +6,63 @@
   "headers": [
     {
       "source": "/globe-icon-160.png",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
       "source": "/embed.js",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=86400" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=86400"
+        }
+      ]
     },
     {
       "source": "/spotlight/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=86400" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=86400"
+        }
+      ]
     },
     {
       "source": "/spotlight/voice/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/:kind(p|spin|embed)/:slug([a-z0-9-]{3,120})",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|SkypeUriPreview|Pinterest|redditbot|Embedly|Iframely|vkShare|Viber|Snapchat|Mastodon|Bluesky|bitlybot|Tumblr|Google-PageRenderer).*"
+        }
+      ],
+      "destination": "/share-preview/:kind/:slug"
+    },
+    {
+      "source": "/view/p/:slug([a-z0-9-]{3,120})",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|SkypeUriPreview|Pinterest|redditbot|Embedly|Iframely|vkShare|Viber|Snapchat|Mastodon|Bluesky|bitlybot|Tumblr|Google-PageRenderer).*"
+        }
+      ],
+      "destination": "/share-preview/view/p/:slug"
     }
   ]
 }

@@ -42,3 +42,23 @@ test('share preview: white-label has no Viewora name; text is escaped', () => {
   assert.match(html, /A &quot;quoted&quot; &lt;b&gt;name&lt;\/b&gt;/)
   assert.match(html, /x &amp; y/)
 })
+
+test('share preview: the vercel.json edge rewrite catches the same crawlers, not people', async () => {
+  const { readFileSync } = await import('node:fs')
+  const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
+  const rules = cfg.rewrites.filter((r: any) => r.destination.startsWith('/share-preview/'))
+  assert.equal(rules.length, 2)
+  const ua = new RegExp(`^${rules[0].has[0].value}$`)
+  const bots = [
+    'WhatsApp/2.23.20.0 A', 'WhatsApp/2.2403.2 W', 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+    'Mozilla/5.0 (compatible; Twitterbot/1.0)', 'TelegramBot (like TwitterBot)', 'LinkedInBot/1.0 (compatible; Mozilla/5.0)',
+    'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)', 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
+  ]
+  for (const b of bots) {
+    assert.ok(ua.test(b), b)
+    assert.ok(isPreviewBot(b), b)
+  }
+  for (const p of ['Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)']) {
+    assert.ok(!ua.test(p), p)
+  }
+})

@@ -297,6 +297,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import CarTour from '~/features/viewer/car/CarTour.vue'
 import { spinsFromTour, type CarTourItem } from '~/shared/utils/carTour'
 import { tourShareImage } from '~/shared/utils/shareImage'
+import { warmSharePreview } from '~/shared/utils/copyText'
 import { useAnonymousAuth } from '~/composables/useAnonymousAuth'
 import { formatAcres, formatPrice, factsLine, whatsappUrl, transactionLabel } from '~/utils/listingDisplay'
 import { buildListingJsonLd } from '~/utils/listingJsonLd'
@@ -600,6 +601,7 @@ const shareCopied = ref(false)
 async function shareListing() {
   if (!space.value || typeof window === 'undefined') return
   const url = window.location.href
+  warmSharePreview(url)
   if (navigator.share) {
     try {
       await navigator.share({ title: seoTitle.value, text: seoDescription.value, url })
