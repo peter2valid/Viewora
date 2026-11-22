@@ -146,6 +146,9 @@
           </button>
       </div>
 
+      <!-- Spotlight Studio computers (only shown once there is one) -->
+      <AppConnectedApps />
+
       <!-- Danger zone -->
       <section class="mt-12 pt-12 border-t border-black/[0.08] dark:border-white/20">
         <h3 class="text-[11px] font-black text-rose-500/80 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">

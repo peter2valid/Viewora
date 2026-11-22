@@ -143,8 +143,8 @@ function detachSpotlights() {
 /** loadScene clears every marker, the hint rings too: put them back for this scene. */
 function showSpotlights(sceneId: string) {
   if (!spotlightCtl) return
-  spotlightCtl.setScene('')
   spotlightCtl.setScene(sceneId)
+  spotlightCtl.reload()
 }
 const state = ref<State>('loading')
 const errorMessage = ref('Unable to load panorama')

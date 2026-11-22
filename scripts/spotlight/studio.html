@@ -58,19 +58,41 @@
   pre { padding: 10px; white-space: pre-wrap; }
   .zoomrow { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
   .zoomrow input[type=range] { padding: 0; }
+  .conn { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .conn b { color: var(--text); font-weight: 600; }
+  .conn .on { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; }
+  .tours { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tours button { text-align: left; padding: 10px 12px; }
+  .tours small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .badge.local { left: 8px; right: auto; background: var(--warn); }
+  .local-box { margin-top: 16px; padding: 12px; border: 1px dashed var(--warn); border-radius: 10px; }
+  .local-box h2 { color: var(--warn); }
 </style>
 </head>
 <body>
 <header>
   <h1><span>◎</span> Spotlight Studio</h1>
   <div class="crumbs" id="crumbs"></div>
+  <div class="conn" id="conn"></div>
 </header>
 <main>
 
   <!-- 1. Tour -->
   <section class="card" id="step-tour">
     <h2>1 · Which tour?</h2>
-    <p class="help">Paste the tour's link (or just its name in the link, e.g. <code>ruby-lounge-panari-hotels</code>).</p>
+    <div id="connect-box" class="hidden">
+      <p class="help">Connect to Viewora to publish spotlights straight to your tours: they're live the moment you save. Your browser opens Viewora; press <b>Allow</b> there.</p>
+      <div class="row" style="margin-bottom:14px">
+        <button class="primary" id="connect">Connect to Viewora</button>
+        <button id="paste-code">Paste a code</button>
+        <span id="connect-msg"></span>
+      </div>
+    </div>
+    <div id="tours-box" class="hidden">
+      <p class="help">Your tours:</p>
+      <div class="tours" id="tours"></div>
+    </div>
+    <p class="help" id="link-help">Or paste the tour's link (or just its name in the link, e.g. <code>ruby-lounge-panari-hotels</code>).</p>
     <div class="row">
       <input id="tour-link" placeholder="https://viewora.software/p/…" style="flex:1; min-width: 280px">
       <button class="primary" id="tour-load">Load scenes</button>
@@ -81,7 +103,8 @@
   <!-- 2. Scene -->
   <section class="card hidden" id="step-scene">
     <h2>2 · Which scene?</h2>
-    <p class="help">The number in the corner is how many spotlights a scene already has.</p>
+    <p class="help">The number in the corner is how many spotlights a scene already has. A yellow one: spotlights saved on this computer only, not yet on Viewora.</p>
+    <p id="readonly-msg" class="hidden" style="color:var(--warn)">This isn't one of your connected tours, so saving gives you a <b>.spotlight</b> file to add in the editor (Viewer settings → Object spotlights).</p>
     <div class="grid" id="scenes"></div>
   </section>
 
@@ -95,6 +118,12 @@
       <div class="list hidden" id="existing">
         <h2 style="margin-top:16px">Already in this scene</h2>
         <div id="existing-list"></div>
+      </div>
+      <div class="local-box hidden" id="local">
+        <h2>Saved on this computer only</h2>
+        <p class="help">Made with the earlier Studio. Visitors see these only until the app's built-in copies are removed: move them to Viewora to keep them.</p>
+        <div class="list" id="local-list"></div>
+        <div class="row" style="margin-top:10px"><button class="primary" id="move-local">Move all to Viewora</button><span id="local-msg"></span></div>
       </div>
     </div>
 
@@ -155,7 +184,7 @@
 <script>
 const $ = (id) => document.getElementById(id)
 const rad = (d) => d * Math.PI / 180, deg = (r) => r * 180 / Math.PI
-const S = { tour: null, scene: null, view: null, at: null, points: [], exclude: [], editId: null, traced: null, seq: 0, voices: [] }
+const S = { tour: null, scene: null, view: null, at: null, points: [], exclude: [], editId: null, traced: null, seq: 0, voices: [], conn: null, canPublish: false }
 
 async function api(name, body) {
   const r = await fetch('/api/' + name, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -164,6 +193,64 @@ async function api(name, body) {
   return j
 }
 function msg(el, text, cls = '') { el.className = cls; el.textContent = text }
+
+// ── Connection to Viewora ──
+function renderConn(c) {
+  S.conn = c
+  const el = $('conn'); el.innerHTML = ''
+  $('connect-box').classList.toggle('hidden', !!c.connected)
+  $('tours-box').classList.toggle('hidden', !(c.connected && c.spaces && c.spaces.length))
+  if (c.connected) {
+    el.innerHTML = '<span class="on"></span><span>Connected<b></b></span>'
+    el.querySelector('b').textContent = c.name ? ` as ${c.name}` : ''
+    if (c.offline) el.append(' (offline)')
+    const off = document.createElement('button'); off.textContent = 'Disconnect'
+    off.onclick = async () => { if (confirm('Disconnect this computer from Viewora? (Turn it off for good in Viewora → Settings → Connected apps.)')) renderConn(await api('disconnect', {})) }
+    el.append(off)
+  }
+  if (c.notice && !c.connected) msg($('connect-msg'), c.notice, 'err')
+  const list = $('tours'); list.innerHTML = ''
+  for (const sp of c.spaces || []) {
+    const b = document.createElement('button')
+    b.innerHTML = '<span></span><small></small>'
+    b.querySelector('span').textContent = sp.title || sp.slug
+    b.querySelector('small').textContent = sp.is_published ? (sp.slug || '') : 'not published yet'
+    b.onclick = () => openSpace(sp)
+    list.append(b)
+  }
+}
+
+$('connect').onclick = async () => {
+  try {
+    const r = await api('connect/start', {})
+    msg($('connect-msg'), 'Waiting for you to press Allow in the browser…', 'busy')
+    window.location.href = r.url   // comes back here with #connect=
+  } catch (e) { msg($('connect-msg'), e.message, 'err') }
+}
+$('paste-code').onclick = async () => {
+  const key = prompt('Paste the code from Viewora (starts with vos_):')
+  if (!key) return
+  msg($('connect-msg'), 'Connecting…', 'busy')
+  try { renderConn(await api('connect/paste', { key })); msg($('connect-msg'), '') }
+  catch (e) { msg($('connect-msg'), e.message, 'err') }
+}
+
+async function startup() {
+  // Back from Viewora's Allow page: the key is in the fragment (never sent to any server).
+  const h = new URLSearchParams(location.hash.slice(1))
+  if (h.get('connect')) {
+    history.replaceState(null, '', location.pathname)
+    msg($('connect-msg'), 'Connecting…', 'busy')
+    try { renderConn(await api('connect/finish', { key: h.get('connect'), state: h.get('state') })); msg($('connect-msg'), '') }
+    catch (e) { $('connect-box').classList.remove('hidden'); msg($('connect-msg'), e.message, 'err') }
+  } else {
+    try { renderConn(await api('status', {})) } catch (e) { $('connect-box').classList.remove('hidden'); msg($('connect-msg'), e.message, 'err') }
+  }
+  const last = (() => { try { return localStorage.getItem('spot-space') } catch { return null } })()
+  const sp = last && (S.conn?.spaces || []).find(x => x.id === last)
+  if (sp) openSpace(sp)
+  else if ($('tour-link').value && !S.conn?.connected) loadTour()
+}
 
 // Same projection as spotlight.py (PSV's perspective camera, vertical fov).
 function basis(yaw, pitch) {
@@ -202,20 +289,35 @@ async function loadTour() {
   const link = $('tour-link').value.trim(); if (!link) return
   msg($('tour-msg'), 'Loading…', 'busy')
   try {
-    S.tour = await api('tour', { link })
-    try { localStorage.setItem('spot-tour', link) } catch {}
-    msg($('tour-msg'), `${S.tour.title}: ${S.tour.scenes.length} scenes`, 'muted')
-    $('scenes').innerHTML = ''
-    for (const s of S.tour.scenes) {
-      const el = document.createElement('div'); el.className = 'scene'
-      el.innerHTML = `<img loading="lazy" referrerpolicy="no-referrer"><div></div>${s.count ? `<span class="badge">${s.count}</span>` : ''}`
-      el.querySelector('img').src = s.thumb || ''
-      el.querySelector('div').textContent = s.name
-      el.onclick = () => openScene(s)
-      $('scenes').appendChild(el)
-    }
-    show('scene')
+    showTour(await api('tour', { link }))
+    try { localStorage.setItem('spot-tour', link); localStorage.removeItem('spot-space') } catch {}
   } catch (e) { msg($('tour-msg'), e.message, 'err') }
+}
+async function openSpace(sp) {
+  msg($('tour-msg'), `Loading ${sp.title || sp.slug}…`, 'busy')
+  try {
+    showTour(await api('space', { space: sp }))
+    try { localStorage.setItem('spot-space', sp.id) } catch {}
+  } catch (e) { msg($('tour-msg'), e.message, 'err') }
+}
+function showTour(t) {
+  S.tour = t
+  if (t.enabled === false) { msg($('tour-msg'), 'Viewora needs one database update before spotlights can be published.', 'err'); return }
+  msg($('tour-msg'), `${t.title}: ${t.scenes.length} scenes`, 'muted')
+  $('readonly-msg').classList.toggle('hidden', !t.readOnly)
+  renderScenes()
+  show('scene')
+}
+function renderScenes() {
+  $('scenes').innerHTML = ''
+  for (const s of S.tour.scenes) {
+    const el = document.createElement('div'); el.className = 'scene'
+    el.innerHTML = `<img loading="lazy" referrerpolicy="no-referrer"><div></div>${s.count ? `<span class="badge">${s.count}</span>` : ''}${s.local ? `<span class="badge local">${s.local}</span>` : ''}`
+    el.querySelector('img').src = s.thumb || ''
+    el.querySelector('div').textContent = s.name
+    el.onclick = () => openScene(s)
+    $('scenes').appendChild(el)
+  }
 }
 
 function show(step) {
@@ -223,7 +325,7 @@ function show(step) {
   $('step-scene').classList.toggle('hidden', step !== 'scene')
   $('step-object').classList.toggle('hidden', step !== 'object')
   const c = $('crumbs'); c.innerHTML = ''
-  if (S.tour) { const a = document.createElement('a'); a.textContent = S.tour.title; a.onclick = () => { resetObject(); show('scene') }; c.append(a) }
+  if (S.tour) { const a = document.createElement('a'); a.textContent = S.tour.title; a.onclick = () => { resetObject(); renderScenes(); show('scene') }; c.append(a) }
   if (step === 'object' && S.scene) c.append(' › ' + S.scene.name)
   window.scrollTo({ top: 0 })
 }
@@ -239,11 +341,27 @@ async function openScene(s) {
     $('f-voice').innerHTML = r.voices.map(v => `<option value="${v}">${v}</option>`).join('') + '<option value="none">No voice</option>'
     $('pano').src = r.pano
     msg($('scene-msg'), '')
-    renderExisting(r.objects)
+    renderExisting(r)
   } catch (e) { msg($('scene-msg'), e.message, 'err') }
 }
 
-function renderExisting(objects) {
+/** r: {objects (on Viewora), local (this computer only), canPublish} */
+function renderExisting(r) {
+  const objects = r.objects || [], local = r.local || []
+  S.canPublish = !!r.canPublish
+  if (S.scene) { S.scene.count = objects.length; S.scene.local = local.length }
+  resetSaveLabel()
+  $('local').classList.toggle('hidden', !local.length)
+  $('move-local').classList.toggle('hidden', !S.canPublish)
+  const ll = $('local-list'); ll.innerHTML = ''
+  for (const o of local) {
+    const row = document.createElement('div'); row.className = 'obj'
+    row.innerHTML = `<div><b></b> <span class="muted"></span></div><div class="row"><button>Edit</button></div>`
+    row.querySelector('b').textContent = o.title
+    row.querySelector('.muted').textContent = o.label ? '· ' + o.label : ''
+    row.querySelector('button').onclick = () => editObject(o)
+    ll.appendChild(row)
+  }
   $('existing').classList.toggle('hidden', !objects.length)
   const list = $('existing-list'); list.innerHTML = ''
   for (const o of objects) {
@@ -256,11 +374,22 @@ function renderExisting(objects) {
     del.onclick = async () => {
       if (!confirm(`Delete "${o.title}"?`)) return
       del.disabled = true
-      try { const r = await api('delete', { scene: S.scene.id, id: o.id }); renderExisting(r.objects); if (S.scene) S.scene.count = r.objects.length }
+      try { renderExisting(await api('delete', { scene: S.scene.id, id: o.id })) }
       catch (e) { alert(e.message); del.disabled = false }
     }
     list.appendChild(row)
   }
+}
+
+$('move-local').onclick = async () => {
+  $('move-local').disabled = true
+  msg($('local-msg'), 'Moving them to Viewora…', 'busy')
+  try {
+    const r = await api('publish-local', { scene: S.scene.id })
+    renderExisting(r)
+    msg($('local-msg'), r.failed.length ? `Not moved: ${r.failed.join('; ')}` : `Moved ${r.published.length}. They're live on the tour now.`, r.failed.length ? 'err' : 'muted')
+  } catch (e) { msg($('local-msg'), e.message, 'err') }
+  $('move-local').disabled = false
 }
 
 $('pano').addEventListener('click', e => {
@@ -356,8 +485,12 @@ function resetObject() {
   $('pano-stage').querySelectorAll('.cross').forEach(n => n.remove())
   for (const id of ['f-label', 'f-title', 'f-lines']) $(id).value = ''
   $('f-zauto').checked = true; $('f-zoom').disabled = true
-  $('save').disabled = true; $('save').textContent = 'Save & record voice'
+  $('save').disabled = true; resetSaveLabel()
   msg($('save-msg'), ''); msg($('trace-msg'), '')
+}
+function resetSaveLabel() {
+  if (S.editId) $('save').textContent = S.canPublish ? 'Publish changes' : 'Save changes as a file'
+  else $('save').textContent = S.canPublish ? 'Publish & record voice' : 'Save as a file & record voice'
 }
 
 function editObject(o) {
@@ -367,7 +500,7 @@ function editObject(o) {
   if (o.voice === false) $('f-voice').value = 'none'
   else if (o.voice) $('f-voice').value = o.voice
   if (typeof o.zoom === 'number') { $('f-zauto').checked = false; $('f-zoom').disabled = false; $('f-zoom').value = o.zoom; $('f-zoomv').textContent = o.zoom }
-  $('save').textContent = 'Save changes'
+  resetSaveLabel()
   openView(o.at[0], o.at[1], 50); trace()
 }
 
@@ -376,7 +509,7 @@ $('save').onclick = async () => {
   const title = $('f-title').value.trim()
   if (!title) { msg($('save-msg'), 'Give it a title first.', 'err'); $('f-title').focus(); return }
   $('save').disabled = true
-  msg($('save-msg'), 'Saving and recording the voice… (the first time loads the voice, up to a minute)', 'busy')
+  msg($('save-msg'), (S.canPublish ? 'Recording the voice and publishing…' : 'Recording the voice…') + ' (the first time loads the voice, up to a minute)', 'busy')
   try {
     const r = await api('save', {
       scene: S.scene.id,
@@ -386,19 +519,28 @@ $('save').onclick = async () => {
         zoom: $('f-zauto').checked ? 'auto' : +$('f-zoom').value,
       },
     })
-    renderExisting(r.objects)
-    S.scene.count = r.objects.length
+    Object.assign(S, { editId: null })
+    msg($('save-msg'), '')
+    renderExisting(r)
     $('work').classList.add('hidden')
     const b = $('done-body'); b.innerHTML = ''
-    const p1 = document.createElement('p'); p1.textContent = `"${title}" is saved${r.voice ? ' with its voice' : ''}.`; b.append(p1)
-    if (r.notes.length) { const ul = document.createElement('ul'); ul.className = 'notes'; r.notes.forEach(n => { const li = document.createElement('li'); li.textContent = n; ul.append(li) }); b.append(ul) }
-    const p2 = document.createElement('p'); p2.className = 'muted'
-    p2.innerHTML = 'To try it: run <code>npm run dev</code> in viewora-app, then open '
-    const a = document.createElement('a'); a.href = r.preview; a.target = '_blank'; a.textContent = r.preview; a.style.color = 'var(--ink)'; p2.append(a); b.append(p2)
-    if (r.files.length) {
-      const p3 = document.createElement('p'); p3.className = 'muted'; p3.textContent = 'Files to commit when you are happy:'; b.append(p3)
-      const pre = document.createElement('pre'); pre.textContent = r.files.join('\n'); b.append(pre)
+    const link = (href, text, download) => { const a = document.createElement('a'); a.href = href; a.textContent = text; a.style.color = 'var(--ink)'; if (download) a.download = ''; else a.target = '_blank'; return a }
+    const p1 = document.createElement('p')
+    if (r.mode === 'published') {
+      p1.textContent = `"${title}" is live on the tour${r.hasVoice ? ', with its voice' : ''}.`
+      b.append(p1)
+      if (r.tourUrl) {
+        const p2 = document.createElement('p'); p2.className = 'muted'
+        p2.append(r.tourPublished === false ? 'The tour isn\'t published yet; you can see it in the editor. Tour: ' : 'See it: ', link(r.tourUrl, r.tourUrl)); b.append(p2)
+      }
+    } else {
+      p1.textContent = `"${title}" is saved as a file${r.hasVoice ? ', with its voice' : ''}.`
+      b.append(p1)
+      const p2 = document.createElement('p'); p2.className = 'muted'
+      p2.append(link(r.download, 'Download the .spotlight file', true), ' (also at ')
+      const c = document.createElement('code'); c.textContent = r.path; p2.append(c, '). In the editor: Viewer settings → Object spotlights → Add from file.'); b.append(p2)
     }
+    if (r.notes.length) { const ul = document.createElement('ul'); ul.className = 'notes'; r.notes.forEach(n => { const li = document.createElement('li'); li.textContent = n; ul.append(li) }); b.append(ul) }
     const again = document.createElement('button'); again.className = 'primary'; again.textContent = 'Add another object'
     again.onclick = () => { resetObject(); window.scrollTo({ top: 0, behavior: 'smooth' }) }
     b.append(again)
@@ -407,7 +549,7 @@ $('save').onclick = async () => {
   } catch (e) { msg($('save-msg'), e.message, 'err'); $('save').disabled = false }
 }
 
-if ($('tour-link').value) loadTour()
+startup()
 </script>
 </body>
 </html>

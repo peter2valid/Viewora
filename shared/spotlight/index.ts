@@ -1,6 +1,7 @@
 // Object Spotlight, the part that ships with the tour. It stays small: it
-// knows which scenes have spotlight data (scenes.generated.ts), fetches a
-// scene's JSON only when that scene opens, and listens for the visitor
+// knows which scenes have spotlight data (the tour data gives each such scene
+// a spotlight_url: setSpotlightUrls), fetches a scene's JSON only when that
+// scene opens, and listens for the visitor
 // opening an object (a tap on it, its hint ring, or zooming in on it). The
 // effect itself (GSAP and the overlay) is a separate chunk, imported the first
 // time a spotlight opens: ./runSpotlight.ts.
@@ -26,6 +27,8 @@ export interface SpotlightHost {
 export interface SpotlightController {
   /** The open scene changed (closes a spotlight and loads that scene's objects, if it has any). */
   setScene: (sceneId: string) => void
+  /** Show the current scene's objects again (after the viewer cleared its markers). */
+  reload: () => void
   /** The pointer is over an object, or a spotlight is open: the floor cursor stands aside. */
   claimsPointer: () => boolean
   /** Closes an open spotlight (something else needs the view), keeping the rings. */
@@ -42,8 +45,36 @@ const ZOOM_SLACK = 15
 /** Wait for the zoom to stop before deciding. */
 const ZOOM_SETTLE_MS = 320
 
-/** Parsed scene files, kept for the visit (a revisit costs nothing). */
+/** Parsed scene files by URL, kept for the visit (a revisit costs nothing). */
 const sceneCache = new Map<string, Promise<SpotlightScene | null>>()
+
+/**
+ * Where each scene's file is: published spotlights live on the media domain
+ * (backend utils/spotlights.ts), and the tour data / the editor's list says
+ * which scenes have one. Viewers fill this; open controllers pick up changes.
+ */
+const sceneUrls = new Map<string, string>()
+const controllers = new Set<{ refresh: () => void }>()
+
+/** Scene id → file URL. A null / empty URL removes that scene's entry. */
+export function setSpotlightUrls(entries: Iterable<readonly [string, string | null | undefined]>): void {
+  let changed = false
+  for (const [id, url] of entries) {
+    if (!id) continue
+    if (url) { if (sceneUrls.get(id) !== url) { sceneUrls.set(id, url); changed = true } }
+    else if (sceneUrls.delete(id)) changed = true
+  }
+  if (changed) for (const c of controllers) c.refresh()
+}
+
+/**
+ * The scene's file. Until the first spotlights are moved to the backend, the
+ * ones that shipped with the app (public/spotlight/, scenes.generated.ts)
+ * still count.
+ */
+function sceneUrl(sceneId: string): string | null {
+  return sceneUrls.get(sceneId) ?? (SPOTLIGHT_SCENES.has(sceneId) ? `/spotlight/${encodeURIComponent(sceneId)}.json` : null)
+}
 
 /**
  * Lite spotlight (no scan line or glow, shorter): few cores or little memory.
@@ -61,7 +92,7 @@ export function spotlightWeakDevice(): boolean {
 }
 
 export function hasSpotlights(sceneId: string): boolean {
-  return SPOTLIGHT_SCENES.has(sceneId)
+  return !!sceneUrl(sceneId)
 }
 
 /**
@@ -77,16 +108,16 @@ function loadEffect() {
   return effect
 }
 
-function loadScene(sceneId: string): Promise<SpotlightScene | null> {
-  let p = sceneCache.get(sceneId)
+function loadScene(url: string): Promise<SpotlightScene | null> {
+  let p = sceneCache.get(url)
   if (!p) {
-    p = fetch(`/spotlight/${encodeURIComponent(sceneId)}.json`)
+    p = fetch(url)
       .then(r => (r.ok ? r.json() : null))
       .then((d: any) => (d && Array.isArray(d.objects) ? (d as SpotlightScene) : null))
       .catch(() => null)
     // A failed fetch may be a blip: try again next time the scene opens.
-    p.then(d => { if (!d) sceneCache.delete(sceneId) })
-    sceneCache.set(sceneId, p)
+    p.then(d => { if (!d) sceneCache.delete(url) })
+    sceneCache.set(url, p)
   }
   return p
 }
@@ -147,6 +178,8 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
   const container: HTMLElement = viewer.container
 
   let sceneId = ''
+  /** The file the current scene's objects came from (null: none). */
+  let loadedUrl: string | null = null
   let objects: Prepared[] = []
   /** Objects that may open by zooming: re-armed once the view zooms back out past them. */
   const armed = new Set<string>()
@@ -273,23 +306,36 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
   container.addEventListener('pointermove', onPointerMove, { passive: true })
   container.addEventListener('pointerleave', onPointerLeave)
 
+  function show(id: string) {
+    close('scene')
+    removeHints()
+    if (zoomTimer) { clearTimeout(zoomTimer); zoomTimer = 0 }
+    sceneId = id
+    objects = []
+    armed.clear()
+    const url = id ? sceneUrl(id) : null
+    loadedUrl = url
+    if (!url) return
+    void loadScene(url).then((data) => {
+      if (destroyed || sceneId !== id || loadedUrl !== url || !data) return
+      objects = data.objects.map(prepare).filter((p): p is Prepared => !!p)
+      const z = viewer.getZoomLevel?.() ?? 0
+      for (const o of objects) if (z < o.obj.zoom - ZOOM_SLACK) armed.add(o.obj.id)
+      addHints()
+    })
+  }
+
+  // A scene's file changed (published or deleted meanwhile): show the new one.
+  const live = { refresh: () => { if (!destroyed && sceneId && sceneUrl(sceneId) !== loadedUrl) show(sceneId) } }
+  controllers.add(live)
+
   return {
     setScene(id: string) {
       if (id === sceneId) return
-      close('scene')
-      removeHints()
-      if (zoomTimer) { clearTimeout(zoomTimer); zoomTimer = 0 }
-      sceneId = id
-      objects = []
-      armed.clear()
-      if (!id || !hasSpotlights(id)) return
-      void loadScene(id).then((data) => {
-        if (destroyed || sceneId !== id || !data) return
-        objects = data.objects.map(prepare).filter((p): p is Prepared => !!p)
-        const z = viewer.getZoomLevel?.() ?? 0
-        for (const o of objects) if (z < o.obj.zoom - ZOOM_SLACK) armed.add(o.obj.id)
-        addHints()
-      })
+      show(id)
+    },
+    reload() {
+      if (!destroyed) show(sceneId)
     },
     claimsPointer() {
       if (run || opening) return true
@@ -311,6 +357,7 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
       if (destroyed) return
       close('scene')
       destroyed = true
+      controllers.delete(live)
       removeHints()
       if (zoomTimer) clearTimeout(zoomTimer)
       try { viewer.removeEventListener('click', onClick) } catch { /* viewer gone */ }

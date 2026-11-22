@@ -1,39 +1,57 @@
 # Object Spotlight data (dev machine only)
 
-`spotlight.py` makes the data behind the tour's Object Spotlight: the outline
+Spotlight Studio makes the data behind the tour's Object Spotlight: the outline
 of an object (traced by Segment Anything), where the camera goes, the text and
-a recorded voice. It runs once per object on your own computer. Nothing here is
-deployed, bundled or run on Railway or Vercel: the tour only downloads the small
-files it writes.
+a recorded voice. The AI runs only on your computer. Viewora stores the result
+(viewora-backend `routes/spotlights.ts`): a small file per scene on the media
+domain, plus the voices, live on the tour as soon as you publish. No commit,
+no deploy, nothing extra on Railway or Vercel.
 
 ```
-scripts/spotlight/scenes/<name>.json   ← you write this (one per scene)
-        │  spotlight.py build
-        ▼
-public/spotlight/<sceneId>.json        ← what the tour fetches when the scene opens (~1-2 KB an object)
-public/spotlight/voice/*.mp3           ← the voices (~8 KB a second)
-shared/spotlight/scenes.generated.ts   ← which scenes have spotlights (no fetch for any other)
-scripts/spotlight/out/*.jpg            ← previews of each outline, to check (not committed)
+Studio (this computer)  ── Publish ──▶  Viewora API  ──▶  media.viewora.software
+  traces + records voice                 scene_spotlights     spaces/<tour>/scenes/<scene>/spotlights/
+                                         (one row an object)  scene-<hash>.json + <object>-<hash>.mp3
+                                                    │
+        tour data: each scene with spotlights gets a spotlight_url ──▶ the tour fetches it when the scene opens
 ```
 
-## The easy way: Spotlight Studio
+## Spotlight Studio
 
 ```sh
 scripts/spotlight/setup.sh     # once per computer (10-20 min, ~3 GB)
 scripts/spotlight/studio       # opens http://127.0.0.1:8765 in your browser
 ```
 
-1. Paste the tour's link, pick a scene.
-2. Click the object on the panorama. A close-up opens and the outline is
+1. **Connect to Viewora** (once every 90 days). Your browser opens Viewora;
+   press **Allow**. Studio gets a key that can only add, change or remove
+   spotlights on your tours. It is kept in `~/.cache/viewora-spotlight/` (only
+   your user can read it). See or turn off connected computers in Viewora →
+   Settings → Connected apps.
+2. Pick one of your tours, then a scene.
+3. Click the object on the panorama. A close-up opens and the outline is
    traced by itself (~10-20 s; the first one also loads the AI).
-3. Check "What visitors will see". Something missing? Click on it. Took too
+4. Check "What visitors will see". Something missing? Click on it. Took too
    much? Right-click what isn't part of it. It re-traces each time.
-4. Type the tag, title and lines, pick a voice, press **Save & record voice**.
-5. Try it (`npm run dev`, the page gives you the link), then commit the files
-   it lists and push.
+5. Type the tag, title and lines, pick a voice, press **Publish & record
+   voice**. It's live on the tour.
 
-Existing spotlights of a scene are listed under the panorama, with Edit and
-Delete. Everything below is what the Studio does for you, by hand.
+Each scene lists what is on Viewora, with Edit and Delete (Delete is also in
+the editor: Viewer settings → Object spotlights).
+
+**Not connected?** Paste a tour's link instead. Saving then gives you a
+`.spotlight` file (also in `scripts/spotlight/out/`): drop it in the editor,
+Viewer settings → Object spotlights → Add from file.
+
+**Spotlights from before Viewora stored them** (made by the earlier Studio:
+`scenes/*.json` here, `public/spotlight/` in the app) show in a yellow box
+under the scene: **Move all to Viewora** publishes them as they are. Until
+they are removed from the app, the tour still falls back to those copies;
+one published on Viewora always wins.
+
+Pointing at another Viewora (testing): `VIEWORA_API=… VIEWORA_APP=… ./studio`.
+
+Everything below is the older way, by hand: `spotlight.py build` writing files
+into the app, which then had to be committed and deployed.
 
 ## One-time setup (by hand)
 

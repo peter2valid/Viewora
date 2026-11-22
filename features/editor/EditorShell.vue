@@ -395,6 +395,16 @@
                 />
               </div>
 
+              <div class="ts-section">
+                <SpotlightsSection
+                  :spotlights="editorSpotlights"
+                  :active-scene-id="activeScene?.id ?? null"
+                  :scene-name="activeScene?.name || ''"
+                  @notice="showToast($event)"
+                  @error="showToast($event, 'error')"
+                />
+              </div>
+
             </div><!-- end ts-body -->
 
             <!-- Footer -->
@@ -612,6 +622,8 @@ import {
 import { useEditorStore } from '~/features/editor/store/useEditorStore'
 import ViewerCanvas from '~/features/editor/components/ViewerCanvas.vue'
 import TripodCoverSection from '~/features/editor/components/TripodCoverSection.vue'
+import SpotlightsSection from '~/features/editor/components/SpotlightsSection.vue'
+import { useEditorSpotlights } from '~/features/editor/composables/useEditorSpotlights'
 import { resolveNadirCover, type NadirCoverSettings } from '~/shared/utils/viewerAdapters/nadirCover'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import LeftToolbar from '~/features/editor/components/LeftToolbar.vue'
@@ -897,6 +909,9 @@ const nadirDraft = ref<NadirCoverSettings | null>(null)
 /** The panel steps aside (no dimming, panel on the right) so the floor can be seen. */
 const nadirPeek = ref(false)
 /** Scenes the cover can be placed on: saved ones (an uploading scene has no id the server knows yet), dock order. */
+// Object Spotlights: loaded with the tour so the viewer shows them; listed in the settings panel.
+const editorSpotlights = useEditorSpotlights(() => props.spaceId)
+
 const nadirScenes = computed(() => scenes.value
   .filter((sc: any) => sc?.id && !isLocalSceneId(sc.id))
   .slice()

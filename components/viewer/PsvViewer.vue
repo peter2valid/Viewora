@@ -739,7 +739,7 @@ import {
   type FloorPlanMapController,
 } from '~/shared/utils/viewerAdapters/floorPlanMap'
 import { attachFloorCursor, type FloorCursorController } from '~/shared/utils/viewerAdapters/floorCursor'
-import { attachSpotlights, spotlightWeakDevice, type SpotlightController } from '~/shared/spotlight'
+import { attachSpotlights, setSpotlightUrls, spotlightWeakDevice, type SpotlightController } from '~/shared/spotlight'
 import { resolveNadirCover } from '~/shared/utils/viewerAdapters/nadirCover'
 import { floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
 import { buildDockFloors, dockFloorOf, withInteriorsTab, INTERIORS_TAB_ID, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
@@ -888,6 +888,12 @@ function destroySpotlights() {
   spotlightCtl?.destroy()
   spotlightCtl = null
 }
+// Which scenes have spotlights: the tour data gives each one its file's URL.
+// Only adds (the editor's journey preview passes scenes without them).
+watch(() => props.tour?.scenes, (scenes) => {
+  if (!Array.isArray(scenes)) return
+  setSpotlightUrls(scenes.filter((s: any) => s?.id && s.spotlight_url).map((s: any) => [s.id, s.spotlight_url] as const))
+}, { immediate: true })
 const vtError = ref('')
 /** The scene that failed to open (retry target) — null when the tour itself never opened. */
 const vtFailedNodeId = ref<string | null>(null)

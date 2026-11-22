@@ -1,46 +1,165 @@
 #!/usr/bin/env python3
-"""Spotlight Studio: add Object Spotlights from your browser (dev machine only).
+"""Spotlight Studio: make Object Spotlights in your browser (runs on your computer).
 
     ./studio            (or: python studio.py [--port 8765])
 
-Opens a local page where you paste a tour link, pick a scene, click the object
-and type its text. It traces the outline with SAM, records the voice and
-writes the same files as `spotlight.py build`. Nothing is uploaded: commit and
-push the files it lists when you're happy.
+Opens a local page: pick one of your tours and a scene, click the object, type
+its text. It traces the outline with SAM and records the voice here, then
+publishes to Viewora (once connected: "Connect to Viewora", one click in your
+browser), where it is live at once. Not connected: you get a .spotlight file
+to drop into the editor (Viewer settings → Object spotlights).
+
+The AI runs only here. Viewora's servers only store the result.
 """
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import math
+import os
 import re
+import secrets
+import socket
 import sys
 import threading
 import traceback
+import urllib.error
 import urllib.request
 import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import quote, urlparse
 
 import cv2
 import numpy as np
 
 import spotlight as sp
 
-API = "https://api.viewora.software"
-UA = {"User-Agent": "viewora-spotlight/1.0"}
+API = os.environ.get("VIEWORA_API", "https://api.viewora.software").rstrip("/")
+APP = os.environ.get("VIEWORA_APP", "https://app.viewora.software").rstrip("/")
+UA = "viewora-spotlight-studio/1.0"
 VIEW_W, VIEW_H = 1280, 800        # the "look closer" view you click points on
 PANO_W = 4096                      # the flat panorama you pick the object on
-TMP = sp.CACHE / "studio"
+CONN_FILE = sp.CACHE / "studio-connection.json"
+VOICE_DIR = sp.CACHE / "studio-voices"
+EXPORT_DIR = sp.HERE / "out"
+VOICES = ["af_heart", "af_bella", "bf_emma", "am_michael"]
 
 heavy = threading.Lock()           # SAM / Kokoro / remap: one at a time
 _seg: sp.Segmenter | None = None
 _panos: dict[str, np.ndarray] = {}
-_scenes: dict[str, dict] = {}      # scene id → {id, name, image, tour, tourTitle}
+_scenes: dict[str, dict] = {}      # scene id → {id, name, image, tour, tourTitle, spaceId?}
 _images: dict[str, bytes] = {}     # served jpgs (by token)
+_downloads: dict[str, Path] = {}   # exported .spotlight files (by token)
+_pending: set[str] = set()         # connect requests waiting for the browser
+PORT = 8765
 
+
+class ApiError(Exception):
+    def __init__(self, status: int, message: str, code: str = ""):
+        super().__init__(message)
+        self.status, self.code = status, code
+
+
+# ── Connection (Studio key) ───────────────────────────────────────────────────
+
+def connection() -> dict | None:
+    try:
+        return json.loads(CONN_FILE.read_text())
+    except Exception:
+        return None
+
+
+def save_connection(c: dict | None):
+    if c is None:
+        CONN_FILE.unlink(missing_ok=True)
+        return
+    CONN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CONN_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(c))
+    os.chmod(tmp, 0o600)            # the key: readable by you only
+    tmp.replace(CONN_FILE)
+
+
+def api(method: str, path: str, body: dict | None = None, key: str | None = None, timeout: int = 60):
+    key = key or (connection() or {}).get("key")
+    if not key:
+        raise ApiError(401, "Connect to Viewora first.", "NOT_CONNECTED")
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(f"{API}{path}", data=data, method=method, headers={
+        "Authorization": f"Bearer {key}", "User-Agent": UA,
+        **({"Content-Type": "application/json"} if data is not None else {}),
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            raw = r.read()
+            if not raw:
+                return {}
+            out = json.loads(raw)
+            return out.get("data", out) if isinstance(out, dict) and out.get("success") is True else out
+    except urllib.error.HTTPError as e:
+        try:
+            j = json.loads(e.read() or b"{}")
+        except Exception:
+            j = {}
+        msg = j.get("statusMessage") or (j.get("error") or {}).get("message") or f"Viewora answered {e.code}"
+        if e.code == 401 and j.get("code") == "STUDIO_KEY_INVALID":
+            save_connection(None)   # turned off or expired: forget it
+        raise ApiError(e.code, msg, j.get("code", ""))
+    except urllib.error.URLError as e:
+        raise ApiError(0, f"Can't reach Viewora ({e.reason}). Check your internet connection.")
+
+
+def api_status(_q: dict) -> dict:
+    c = connection()
+    if not c:
+        return {"connected": False, "app": APP}
+    try:
+        me = api("GET", "/studio/me")
+    except ApiError as e:
+        if e.code == "STUDIO_KEY_INVALID":
+            return {"connected": False, "app": APP, "notice": str(e)}
+        return {"connected": True, "offline": True, "name": c.get("name"), "app": APP, "notice": str(e)}
+    c["name"] = me["user"].get("name")
+    save_connection(c)
+    return {"connected": True, "name": c.get("name"), "app": APP, "spaces": me.get("spaces", [])}
+
+
+def api_connect_start(_q: dict) -> dict:
+    state = secrets.token_urlsafe(24)
+    _pending.add(state)
+    device = re.sub(r"[^\w .()'-]", "", socket.gethostname())[:40] or "this computer"
+    return {"url": f"{APP}/app/connect-studio?port={PORT}&state={state}&device={quote(device)}"}
+
+
+def _finish(key: str) -> dict:
+    key = key.strip()
+    if not re.fullmatch(r"vos_[0-9A-Za-z]{32}", key):
+        raise ValueError("That isn't a Spotlight Studio code.")
+    me = api("GET", "/studio/me", key=key)
+    save_connection({"key": key, "name": me["user"].get("name"), "api": API})
+    return {"connected": True, "name": me["user"].get("name"), "app": APP, "spaces": me.get("spaces", [])}
+
+
+def api_connect_finish(q: dict) -> dict:
+    if q.get("state") not in _pending:
+        raise ValueError("That connection wasn't started from this Studio. Press Connect again.")
+    _pending.discard(q["state"])
+    return _finish(q.get("key", ""))
+
+
+def api_connect_paste(q: dict) -> dict:
+    return _finish(q.get("key", ""))
+
+
+def api_disconnect(_q: dict) -> dict:
+    save_connection(None)
+    return {"connected": False, "app": APP}
+
+
+# ── Shared bits ───────────────────────────────────────────────────────────────
 
 def segmenter() -> sp.Segmenter:
     global _seg
@@ -67,7 +186,7 @@ def jpg(img: np.ndarray, q: int = 85) -> str:
 
 
 def slugify(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60] or "object"
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60].strip("-") or "object"
 
 
 def tour_slug(text: str) -> str:
@@ -76,27 +195,72 @@ def tour_slug(text: str) -> str:
     return m.group(1) if m else text.strip("/").split("/")[-1].split("?")[0].split("#")[0]
 
 
-# ── API handlers ──────────────────────────────────────────────────────────────
+# ── Tours and scenes ──────────────────────────────────────────────────────────
+
+def api_space(q: dict) -> dict:
+    """One of your tours (connected): scenes with their published spotlights."""
+    space = q["space"]
+    r = api("GET", f"/spaces/{space['id']}/spotlights")
+    counts: dict[str, int] = {}
+    for row in r.get("spotlights", []):
+        counts[row["scene_id"]] = counts.get(row["scene_id"], 0) + 1
+    scenes = []
+    for s in r.get("scenes", []):
+        if not s.get("image"):
+            continue
+        _scenes[s["id"]] = {"id": s["id"], "name": s["name"], "image": s["image"], "tour": space.get("slug") or "",
+                            "tourTitle": space.get("title") or "", "spaceId": space["id"], "published": space.get("is_published")}
+        scenes.append({"id": s["id"], "name": s["name"], "thumb": s.get("thumb"), "count": counts.get(s["id"], 0),
+                       "local": len(local_objects(s["id"]))})
+    return {"enabled": r.get("enabled", True), "slug": space.get("slug"), "title": space.get("title"), "scenes": scenes}
+
 
 def api_tour(q: dict) -> dict:
+    """A tour by its link (any published tour; publishing needs it to be yours)."""
     slug = tour_slug(q["link"])
-    req = urllib.request.Request(f"{API}/p/{slug}", headers=UA)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        data = json.load(r)["data"]["tour"]
+    c = connection()
+    if c:
+        try:
+            mine = next((s for s in api("GET", "/studio/me").get("spaces", []) if s.get("slug") == slug), None)
+            if mine:
+                return {**api_space({"space": mine}), "space": mine}
+        except ApiError:
+            pass
+    req = urllib.request.Request(f"{API}/p/{quote(slug)}", headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.load(r)["data"]["tour"]
+    except urllib.error.HTTPError as e:
+        raise ValueError("No published tour at that link." if e.code == 404 else f"Viewora answered {e.code}")
     title = data["space"].get("title") or slug
     scenes = []
     for s in data["scenes"]:
         if not s.get("raw_image_url"):
             continue
         _scenes[s["id"]] = {"id": s["id"], "name": s["name"], "image": s["raw_image_url"], "tour": slug, "tourTitle": title}
-        scenes.append({"id": s["id"], "name": s["name"], "thumb": s.get("thumbnail_url"),
-                       "count": len(objects_of(s["id"]))})
-    return {"slug": slug, "title": title, "scenes": scenes}
+        scenes.append({"id": s["id"], "name": s["name"], "thumb": s.get("thumbnail_url"), "count": 0,
+                       "local": len(local_objects(s["id"]))})
+    return {"slug": slug, "title": title, "scenes": scenes, "readOnly": True}
 
 
-def objects_of(scene_id: str) -> list[dict]:
+def local_objects(scene_id: str) -> list[dict]:
+    """Spotlights saved on this computer by the earlier Studio (scripts/spotlight/scenes/)."""
     p = sp.find_spec(scene_id)
-    return json.loads(p.read_text()).get("objects", []) if p else []
+    if not p or not (sp.PUBLIC / f"{scene_id}.json").exists():
+        return []
+    return json.loads(p.read_text()).get("objects", [])
+
+
+def to_page(row: dict) -> dict:
+    """A published row → what the page edits (Studio's notes + the text)."""
+    src, d = row.get("source") or {}, row.get("data") or {}
+    deg = [round(math.degrees(d.get("yaw", 0)), 2), round(math.degrees(d.get("pitch", 0)), 2)]
+    return {
+        "id": row["object_key"], "title": d.get("title", ""), "label": d.get("label", ""), "lines": d.get("lines", []),
+        "at": src.get("at") or deg, "points": src.get("points", []), "exclude": src.get("exclude", []),
+        "zoom": src.get("zoom", d.get("zoom", "auto")), "voice": src.get("voice"),
+        "hasVoice": bool(row.get("voice_url")), "remote": True,
+    }
 
 
 def api_scene(q: dict) -> dict:
@@ -105,8 +269,21 @@ def api_scene(q: dict) -> dict:
         img = pano(sid)
         h = int(PANO_W * img.shape[0] / img.shape[1])
         flat = cv2.resize(img, (PANO_W, h), interpolation=cv2.INTER_AREA)
-    return {"pano": jpg(flat, 80), "objects": objects_of(sid), "voices": ["af_heart", "af_bella", "bf_emma", "am_michael"]}
+    return {"pano": jpg(flat, 80), "voices": VOICES, **scene_objects(sid)}
 
+
+def scene_objects(sid: str) -> dict:
+    sc = _scenes[sid]
+    remote = []
+    if sc.get("spaceId"):
+        r = api("GET", f"/spaces/{sc['spaceId']}/spotlights")
+        remote = [to_page(row) for row in r.get("spotlights", []) if row["scene_id"] == sid]
+    published = {o["id"] for o in remote}
+    local = [{**o, "local": True} for o in local_objects(sid) if o["id"] not in published]
+    return {"objects": remote, "local": local, "canPublish": bool(sc.get("spaceId"))}
+
+
+# ── Tracing ───────────────────────────────────────────────────────────────────
 
 def api_view(q: dict) -> dict:
     """A perspective view to click points on (what the camera would see)."""
@@ -116,24 +293,17 @@ def api_view(q: dict) -> dict:
     return {"src": jpg(v), "w": VIEW_W, "h": VIEW_H}
 
 
-def px_to_deg(view: dict, pts: list) -> list[list[float]]:
-    if not pts:
-        return []
-    xs = np.array([p[0] for p in pts], float)
-    ys = np.array([p[1] for p in pts], float)
-    yy, pp = sp.screen_to_sphere(xs, ys, math.radians(view["yaw"]), math.radians(view["pitch"]), view["fov"], VIEW_W, VIEW_H)
-    return [[round(math.degrees(a), 2), round(math.degrees(b), 2)] for a, b in zip(yy, pp)]
+def zoom_arg(z):
+    return None if z in (None, "auto", "") else float(z)
 
 
 def api_trace(q: dict) -> dict:
-    sid, view = q["scene"], q["view"]
-    pos = px_to_deg(view, q["pos"]) if "pos" in q else q["points"]
-    neg = px_to_deg(view, q["neg"]) if "neg" in q else q.get("exclude", [])
+    sid = q["scene"]
+    pos, neg = q["points"], q.get("exclude", [])
     if not pos:
         raise ValueError("click on the object first")
-    zoom = None if q.get("zoom") in (None, "auto", "") else float(q["zoom"])
     with heavy:
-        t = sp.trace(pano(sid), segmenter(), pos[0], pos[1:], neg, zoom)
+        t = sp.trace(pano(sid), segmenter(), pos[0], pos[1:], neg, zoom_arg(q.get("zoom")))
     return {
         "at": pos[0], "points": pos[1:], "exclude": neg,
         "zoom": t["zoom"], "fit": round(t["fit"], 3), "score": round(t["score"], 2),
@@ -143,87 +313,126 @@ def api_trace(q: dict) -> dict:
     }
 
 
+# ── Saving: publish (connected) or a .spotlight file ──────────────────────────
+
+def build_payload(sid: str, o: dict) -> tuple[str, dict, dict, bytes | None, list[str]]:
+    """Traces again (same clicks, same result) and records the voice here.
+    Returns the object key, the data the tour draws, Studio's notes, the MP3, warnings."""
+    title = (o.get("title") or "").strip()
+    if not title:
+        raise ValueError("give it a title")
+    key = o.get("id") or slugify(title)
+    source = {
+        "at": o["at"], "points": o.get("points", []), "exclude": o.get("exclude", []),
+        "zoom": o.get("zoom", "auto"),
+        "voice": False if o.get("voice") == "none" else (o.get("voice") or "af_heart"),
+    }
+    if o.get("say"):
+        source["say"] = o["say"]
+    lines = [l.strip() for l in o.get("lines", []) if l.strip()]
+    with heavy:
+        t = sp.trace(pano(sid), segmenter(), source["at"], source["points"], source["exclude"], zoom_arg(source["zoom"]))
+        mp3 = None
+        if source["voice"] is not False:
+            text = source.get("say") or " ".join([title + "."] + lines)
+            mp3 = sp.voice_file(text, source["voice"], sid, key, VOICE_DIR).read_bytes()
+    data = {
+        "label": (o.get("label") or "").strip()[:40], "yaw": round(t["yaw"], 4), "pitch": round(t["pitch"], 4),
+        "zoom": t["zoom"], "polygon": t["polygon"], "title": title, "lines": lines,
+    }
+    return key, data, source, mp3, t["notes"]
+
+
+def unique_key(sid: str, key: str, editing: bool) -> str:
+    if editing:
+        return key
+    taken = {x["id"] for x in scene_objects(sid)["objects"]}
+    base, n = key, 2
+    while key in taken:
+        key, n = f"{base}-{n}"[:60], n + 1
+    return key
+
+
 def api_save(q: dict) -> dict:
     sid, o = q["scene"], q["object"]
     sc = _scenes[sid]
-    path = sp.find_spec(sid) or sp.HERE / "scenes" / f"{slugify(sc['tour'])}-{slugify(sc['name'])}.json"
-    spec = json.loads(path.read_text()) if path.exists() else {
-        "name": f"{sc['tourTitle']} · {sc['name']}", "scene": sid, "image": sc["image"], "voice": "af_heart", "objects": []}
-    title = o["title"].strip()
-    if not title:
-        raise ValueError("give it a title")
-    oid = o.get("id") or slugify(title)
-    taken = {x["id"] for x in spec["objects"]}
-    if not o.get("id"):
-        base, n = oid, 2
-        while oid in taken:
-            oid, n = f"{base}-{n}", n + 1
-    entry = {
-        "id": oid,
-        "label": o.get("label", "").strip(),
-        "at": o["at"],
-        "points": o.get("points", []),
-        "exclude": o.get("exclude", []),
-        "zoom": o.get("zoom", "auto"),
-        "title": title,
-        "lines": [l.strip() for l in o.get("lines", []) if l.strip()],
-    }
-    if o.get("voice") and o["voice"] != spec.get("voice"):
-        entry["voice"] = o["voice"]
-    if o.get("voice") == "none":
-        entry["voice"] = False
-    old = next((x for x in spec["objects"] if x["id"] == oid), None)
-    if old:
-        for k in ("say", "voiceSrc", "hint", "model", "close_px", "context", "smooth"):
-            if k in old:
-                entry[k] = old[k]
-        spec["objects"][spec["objects"].index(old)] = entry
-    else:
-        spec["objects"].append(entry)
-    save_spec_and_build = lambda: (sp.save_spec(path, spec), sp.build(path, [oid], True, segmenter(), pano(sid)))
-    with heavy:
-        _, results = save_spec_and_build()
-    res = results[0] if results else (oid, {}, [])
-    return {"id": oid, "spec": str(path.relative_to(sp.APP)), "notes": res[2],
-            "voice": res[1].get("voiceSrc"), "objects": objects_of(sid), "files": changed_files(sid),
-            "preview": f"http://localhost:3000/p/{sc['tour']}#scene={sid}"}
+    key, data, source, mp3, notes = build_payload(sid, o)
+    voice = base64.b64encode(mp3).decode() if mp3 else None
+    if sc.get("spaceId") and connection():
+        key = unique_key(sid, key, bool(o.get("id")))
+        api("PUT", f"/scenes/{sid}/spotlights/{key}", {"data": data, "source": source, "voice": voice}, timeout=120)
+        return {"mode": "published", "id": key, "title": data["title"], "notes": notes, "hasVoice": bool(mp3),
+                "tourUrl": f"{APP}/p/{sc['tour']}#scene={sid}" if sc.get("tour") else None,
+                "tourPublished": sc.get("published", True), **scene_objects(sid)}
+    # Not connected (or not your tour): a file for the editor.
+    bundle = {"kind": "viewora-spotlight", "v": 1, "scene": sid, "key": key, "data": data, "source": source, "voice": voice}
+    EXPORT_DIR.mkdir(exist_ok=True)
+    path = EXPORT_DIR / f"{slugify(sc['name'])}-{key}.spotlight"
+    path.write_text(json.dumps(bundle))
+    token = uuid.uuid4().hex[:12]
+    _downloads[token] = path
+    return {"mode": "file", "id": key, "title": data["title"], "notes": notes, "hasVoice": bool(mp3),
+            "download": f"/download/{token}/{path.name}", "path": str(path), **scene_objects(sid)}
 
 
 def api_delete(q: dict) -> dict:
     sid, oid = q["scene"], q["id"]
-    path = sp.find_spec(sid)
-    if not path:
-        return {"objects": []}
-    spec = json.loads(path.read_text())
-    spec["objects"] = [x for x in spec["objects"] if x["id"] != oid]
-    with heavy:
-        sp.save_spec(path, spec)
-        sp.build(path, [], False)
-    return {"objects": objects_of(sid), "files": changed_files(sid)}
+    api("DELETE", f"/scenes/{sid}/spotlights/{oid}")
+    return scene_objects(sid)
 
 
-def changed_files(sid: str) -> list[str]:
-    import subprocess
-    try:
-        out = subprocess.run(["git", "status", "--porcelain", "--", "public/spotlight", "scripts/spotlight/scenes",
-                              "shared/spotlight/scenes.generated.ts"], cwd=sp.APP, capture_output=True, text=True).stdout
-        return [l[3:] for l in out.splitlines() if l.strip()]
-    except Exception:
-        return []
+def api_publish_local(q: dict) -> dict:
+    """Moves the spotlights saved on this computer (the earlier Studio) to Viewora, as they are."""
+    sid = q["scene"]
+    if not _scenes.get(sid, {}).get("spaceId"):
+        raise ValueError("Open the tour from your tours list (connected) to publish.")
+    spec = {x["id"]: x for x in local_objects(sid)}
+    spec_voice = json.loads(sp.find_spec(sid).read_text()).get("voice", "af_heart")
+    built = {x["id"]: x for x in json.loads((sp.PUBLIC / f"{sid}.json").read_text()).get("objects", [])}
+    done, failed = [], []
+    for oid, o in spec.items():
+        e = built.get(oid)
+        if not e:
+            failed.append(f"{oid}: never built")
+            continue
+        data = {k: e[k] for k in ("label", "yaw", "pitch", "zoom", "polygon", "title", "lines") if k in e}
+        if "hint" in e:
+            data["hint"] = e["hint"]
+        source = {k: o[k] for k in ("at", "points", "exclude", "zoom", "voice", "say") if k in o}
+        source.setdefault("voice", spec_voice)
+        voice = None
+        if e.get("voiceSrc", "").startswith("/spotlight/voice/"):
+            f = sp.PUBLIC / "voice" / e["voiceSrc"].rsplit("/", 1)[1]
+            if f.exists():
+                voice = base64.b64encode(f.read_bytes()).decode()
+        try:
+            api("PUT", f"/scenes/{sid}/spotlights/{oid}", {"data": data, "source": source, "voice": voice}, timeout=120)
+            done.append(oid)
+        except ApiError as err:
+            failed.append(f"{oid}: {err}")
+    return {"published": done, "failed": failed, **scene_objects(sid)}
 
 
-ROUTES = {"tour": api_tour, "scene": api_scene, "view": api_view, "trace": api_trace, "save": api_save, "delete": api_delete}
+ROUTES = {
+    "status": api_status, "connect/start": api_connect_start, "connect/finish": api_connect_finish,
+    "connect/paste": api_connect_paste, "disconnect": api_disconnect,
+    "space": api_space, "tour": api_tour, "scene": api_scene, "view": api_view, "trace": api_trace,
+    "save": api_save, "delete": api_delete, "publish-local": api_publish_local,
+}
 
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
 
-    def send(self, code: int, body: bytes, ctype: str):
+    def send(self, code: int, body: bytes, ctype: str, extra: dict | None = None):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
@@ -234,9 +443,18 @@ class Handler(BaseHTTPRequestHandler):
         m = re.fullmatch(r"/img/([0-9a-f]+)\.jpg", u.path)
         if m and m.group(1) in _images:
             return self.send(200, _images[m.group(1)], "image/jpeg")
+        m = re.fullmatch(r"/download/([0-9a-f]+)/[^/]+", u.path)
+        if m and m.group(1) in _downloads:
+            p = _downloads[m.group(1)]
+            return self.send(200, p.read_bytes(), "application/octet-stream",
+                             {"Content-Disposition": f'attachment; filename="{p.name}"'})
         self.send(404, b"not found", "text/plain")
 
     def do_POST(self):
+        # Only this computer's own page: a website can't drive the Studio.
+        origin = self.headers.get("Origin")
+        if origin and urlparse(origin).netloc not in (f"127.0.0.1:{PORT}", f"localhost:{PORT}"):
+            return self.send(403, b'{"error":"forbidden"}', "application/json")
         name = urlparse(self.path).path.removeprefix("/api/")
         fn = ROUTES.get(name)
         if not fn:
@@ -245,19 +463,23 @@ class Handler(BaseHTTPRequestHandler):
             q = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             out = fn(q)
             self.send(200, json.dumps(out).encode(), "application/json")
+        except ApiError as e:
+            self.send(400, json.dumps({"error": str(e), "code": e.code}).encode(), "application/json")
         except Exception as e:  # shown on the page
             traceback.print_exc()
             msg = str(e) or e.__class__.__name__
-            if isinstance(e, KeyError) and name != "tour":
-                msg = "the studio restarted: load the tour again"
+            if isinstance(e, KeyError):
+                msg = "the Studio restarted: open the tour again"
             self.send(400, json.dumps({"error": msg}).encode(), "application/json")
 
 
 def main():
+    global PORT
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-open", action="store_true")
     a = ap.parse_args()
+    PORT = a.port
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
     url = f"http://127.0.0.1:{a.port}/"
     print(f"Spotlight Studio: {url}   (Ctrl+C to stop)")

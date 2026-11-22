@@ -272,21 +272,31 @@ def grid_view(view: np.ndarray, yaw: float, pitch: float, vfov: float, path: Pat
 
 # ── Voice (the patient-journey voices) ────────────────────────────────────────
 
-def record_voice(text: str, voice: str, scene: str, obj_id: str) -> str:
+_synth = None
+
+
+def voice_file(text: str, voice: str, scene: str, obj_id: str, dest_dir: Path) -> Path:
+    """Records the line (once: the name carries a hash of the words and the voice)."""
+    global _synth
     sys.path.insert(0, str(TTS_WORKER))
     from narration import narration_hash, normalize_line  # type: ignore
     from synth import Synth, encode_mp3, duration_ms      # type: ignore
     line = normalize_line(text)
     name = f"{scene[:8]}-{obj_id}-{narration_hash(line, voice)[:10]}.mp3"
-    dest = PUBLIC / "voice" / name
+    dest = dest_dir / name
     if not dest.exists():
-        samples, _ = Synth().synthesize(line, voice)
+        _synth = _synth or Synth()
+        samples, _ = _synth.synthesize(line, voice)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(encode_mp3(samples))
         print(f"  voice: {name} ({duration_ms(samples) / 1000:.1f}s, {dest.stat().st_size // 1024} KB)")
     else:
         print(f"  voice: {name} (already recorded)")
-    return f"/spotlight/voice/{name}"
+    return dest
+
+
+def record_voice(text: str, voice: str, scene: str, obj_id: str) -> str:
+    return f"/spotlight/voice/{voice_file(text, voice, scene, obj_id, PUBLIC / 'voice').name}"
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
