@@ -3272,8 +3272,9 @@ watch(vtActiveNodeId, (newId, oldId) => {
   const name = scene?.name || ''
   const position = positionLabel(groupableScenes.value, newId)
   if (!name && !position) return
-  // Inside a category: "Kitchen · 2 of 3" (plus the shot's own name if it has one).
-  sceneToastText.value = position ? (name && name !== position.split(' · ')[0] ? `${position} — ${name}` : position) : name
+  // Just the room's name ("Bedroom Hallway"); an unnamed shot inside a
+  // category falls back to the category's name ("Kitchen"), no counts.
+  sceneToastText.value = name || (position ?? '').split(' · ')[0]
   sceneToastVisible.value = true
   if (sceneToastTimer) clearTimeout(sceneToastTimer)
   sceneToastTimer = setTimeout(() => { sceneToastVisible.value = false }, 2600)
