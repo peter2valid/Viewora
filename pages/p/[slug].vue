@@ -101,6 +101,7 @@
         v-if="isOwner && !viewerChromeHidden"
         :to="ownerEditHref"
         class="owner-edit-fab"
+        :class="{ 'owner-edit-fab--below-switch': tour.gallery?.length }"
         aria-label="Edit this listing"
         title="Edit this listing"
       >
@@ -921,6 +922,10 @@ useHead(computed(() => {
   transform: translateY(-1px);
 }
 
+/* Phones: the viewer's 360° / Photos switch takes the top-right corner. */
+@media (max-width: 640px) {
+  .owner-edit-fab.owner-edit-fab--below-switch { top: 62px; right: 12px; }
+}
 .owner-edit-fab {
   position: fixed;
   top: 20px;

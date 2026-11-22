@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, onDeactivated, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onActivated, onDeactivated, watch } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useSpaces } from '~/composables/useSpaces'
 import { useSceneUpload } from '~/features/editor/composables/useSceneUpload'
@@ -221,6 +221,48 @@ async function loadSpace() {
   }
 }
 onMounted(loadSpace)
+
+// ── Processing status refresh ────────────────────────────────────────────
+// A photo comes back from /uploads/complete as 'pending'; the worker flips it
+// to 'complete' (or 'failed') a few seconds later. Without re-checking, the
+// "Processing…" badge stuck until a full page reload, since this panel is
+// kept alive across tab switches. Poll only while something is unfinished,
+// and only merge status/size fields so local edits are never overwritten.
+const STATUS_POLL_MS = 4000
+let statusTimer: ReturnType<typeof setTimeout> | null = null
+let panelActive = true
+const hasUnfinished = computed(() => photos.value.some((p) => p.processing_status !== 'complete' && p.processing_status !== 'failed'))
+
+async function refreshStatuses() {
+  statusTimer = null
+  if (!panelActive || !hasUnfinished.value) return
+  try {
+    const raw: any = await apiFetch(`/spaces/${props.spaceId}`)
+    const fresh: any[] = (raw?.data ?? raw)?.property_media ?? []
+    const byId = new Map(fresh.map((m) => [m.id, m]))
+    if (space.value?.property_media) {
+      space.value.property_media = space.value.property_media.map((m: any) => {
+        const f = byId.get(m.id)
+        return f && f.processing_status !== m.processing_status
+          ? { ...m, processing_status: f.processing_status, width: f.width ?? m.width, height: f.height ?? m.height }
+          : m
+      })
+    }
+  } catch { /* transient — try again next tick */ }
+  scheduleStatusRefresh()
+}
+function scheduleStatusRefresh() {
+  if (statusTimer || !panelActive || !hasUnfinished.value) return
+  statusTimer = setTimeout(refreshStatuses, STATUS_POLL_MS)
+}
+function stopStatusRefresh() {
+  if (statusTimer) clearTimeout(statusTimer)
+  statusTimer = null
+}
+watch(hasUnfinished, (v) => { if (v) scheduleStatusRefresh() })
+onActivated(() => { panelActive = true; scheduleStatusRefresh() })
+onDeactivated(() => { panelActive = false; stopStatusRefresh() })
+onBeforeUnmount(stopStatusRefresh)
 
 // ── Lightbox preview ─────────────────────────────────────────────────────
 const lightboxIndex = ref<number | null>(null)

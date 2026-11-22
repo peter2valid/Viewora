@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive, 'public-viewer--pseudo-fs': pseudoFullscreen, 'public-viewer--map-crowded': floorMapCrowded, 'public-viewer--rail-lifted': dockLift.rail !== null, 'public-viewer--wa-lifted': dockLift.wa !== null, 'public-viewer--rail-tight': dockLift.railTight }" :style="dockLiftStyle" @click="onViewerClick">
+  <div ref="viewerRootEl" class="public-viewer" :class="{ 'public-viewer--chrome-hidden': chromeHidden, 'public-viewer--vr': stereoActive, 'public-viewer--pseudo-fs': pseudoFullscreen, 'public-viewer--map-crowded': floorMapCrowded, 'public-viewer--rail-lifted': dockLift.rail !== null, 'public-viewer--wa-lifted': dockLift.wa !== null, 'public-viewer--rail-tight': dockLift.railTight, 'public-viewer--mode-switch': showPhotoSwitch }" :style="dockLiftStyle" @click="onViewerClick">
 
     <!-- Loading progress bar -->
     <Transition name="viewer-progress">
@@ -62,6 +62,37 @@
       @track="(ev: string, p?: Record<string, unknown>) => $posthog?.capture(ev, p)"
       @click.stop
     />
+
+    <!-- 360° / Photos switch: listings with regular photos as well as 360
+         scenes. Stays on top of the gallery, so going back is one tap. -->
+    <div
+      v-if="showPhotoSwitch"
+      class="mode-switch"
+      :class="{ 'mode-switch--photos': showPhotos }"
+      role="tablist"
+      aria-label="View"
+      @click.stop
+    >
+      <span class="mode-switch__pill" aria-hidden="true" />
+      <button type="button" role="tab" class="mode-switch__btn" :class="{ 'mode-switch__btn--on': !showPhotos }" :aria-selected="!showPhotos" @click="setPhotosOpen(false)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="12" rx="10" ry="4"/><path d="M12 2a10 10 0 0 1 0 20 10 10 0 0 1 0-20"/></svg>
+        360°<span class="mode-switch__long">&nbsp;Tour</span>
+      </button>
+      <button type="button" role="tab" class="mode-switch__btn" :class="{ 'mode-switch__btn--on': showPhotos }" :aria-selected="showPhotos" @click="setPhotosOpen(true)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10.5" r="1.6"/><path d="m21 16-5-5-8 8"/></svg>
+        Photos
+        <span class="mode-switch__count">{{ galleryPhotos.length }}</span>
+      </button>
+    </div>
+    <Transition name="photos-fade">
+      <PhotoGallery
+        v-if="showPhotos"
+        :photos="galleryPhotos"
+        :title="props.tour?.space?.title || 'Listing'"
+        @close="setPhotosOpen(false)"
+        @view="onPhotoViewed"
+      />
+    </Transition>
 
     <!-- Floor-plan minimap: floor switcher under the map (2+ floors) -->
     <div
@@ -685,6 +716,7 @@ import VenueMapViewer, { type VenueWalkRoute, type VenueRouteGap } from '~/compo
 import RouteGuide from '~/components/viewer/RouteGuide.vue'
 import JourneyPlayer, { type JourneyApi, type JourneyCommand, type JourneyTrack } from '~/components/viewer/JourneyPlayer.vue'
 import AreaRail from '~/components/viewer/AreaRail.vue'
+import PhotoGallery, { type GalleryPhoto } from '~/components/viewer/PhotoGallery.vue'
 import { routeJourney, tourAreas, tourJourneys, type TourArea } from '~/shared/utils/journey'
 import { createVisitEvents } from '~/composables/useVisitEvents'
 import { socialIcons } from '~/shared/utils/socialLinks'
@@ -1588,6 +1620,38 @@ function exploreOnMyOwn() {
   exploring.value = true
   endJourney()
 }
+// ── Regular photos (gallery_image), served with the tour as `gallery` ──
+// A listing can have both a 360 walk-through and normal photos; the switch
+// at the top flips between them. The panorama stays mounted underneath, so
+// coming back to 360° lands exactly where the visitor left off.
+const galleryPhotos = computed<GalleryPhoto[]>(() => {
+  const list = (props.tour as any)?.gallery
+  if (!Array.isArray(list)) return []
+  return list.filter((g: any) => g?.url).map((g: any) => ({ id: String(g.id ?? g.url), url: g.url, caption: g.caption ?? null }))
+})
+const showPhotos = ref(false)
+const showPhotoSwitch = computed(() =>
+  galleryPhotos.value.length > 0 && hasTourData.value && vtReady.value
+  && !chromeHidden.value && !stereoActive.value && !props.hideOwnChrome
+  && !showAerial.value && !showVenue.value && !routeGuide.value && !journeyRunning.value)
+let photosHoldingRotate = false
+function setPhotosOpen(open: boolean) {
+  if (showPhotos.value === open) return
+  showPhotos.value = open
+  // Nothing to look at behind the photos; don't keep spinning the camera.
+  if (open && !journeyRunning.value) { holdAutorotate(true); photosHoldingRotate = true }
+  else if (!open && photosHoldingRotate) { holdAutorotate(false); photosHoldingRotate = false }
+  $posthog?.capture(open ? 'viewer_photos_opened' : 'viewer_photos_closed', { photos: galleryPhotos.value.length })
+}
+const photosSeen = new Set<number>()
+function onPhotoViewed(i: number) {
+  if (photosSeen.has(i)) return
+  photosSeen.add(i)
+  $posthog?.capture('viewer_photo_viewed', { index: i, total: galleryPhotos.value.length })
+}
+// Anything that takes over the screen (VR, a journey, the maps) closes the photos.
+watch(() => showPhotos.value && !showPhotoSwitch.value && !chromeHidden.value, (stray) => { if (stray) setPhotosOpen(false) })
+
 // The host page's brand card sits top-left too: it moves right of the list
 // while the list shows (CSS on :root[data-area-rail] in pages/p and pages/embed).
 watch(showAreaRail, (on) => {
@@ -4799,6 +4863,71 @@ watch(() => vtTransitioning.value, (loading) => {
   z-index: 60;
   display: flex; align-items: center; gap: 7px;
   padding: 6px 14px 6px 10px;
+/* ── 360° / Photos switch ──
+   Same glass track + white sliding pill as the dock's floor tabs. */
+.mode-switch {
+  position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 75;
+  display: grid; grid-template-columns: 1fr 1fr;
+  padding: 4px; border-radius: 999px;
+  background: rgba(14, 16, 22, 0.55);
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 26px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.18);
+  animation: mode-switch-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes mode-switch-in { from { opacity: 0; transform: translate(-50%, -8px); } }
+.mode-switch__pill {
+  position: absolute; top: 4px; bottom: 4px; left: 4px;
+  width: calc(50% - 4px); border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.28), inset 0 -1px 0 rgba(0,0,0,0.06);
+  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.mode-switch--photos .mode-switch__pill { transform: translateX(100%); }
+.mode-switch__btn {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 16px;
+  border: 0; border-radius: 999px; background: transparent;
+  color: rgba(255,255,255,0.88); font-size: 13px; font-weight: 700; white-space: nowrap;
+  cursor: pointer; transition: color 0.25s ease;
+}
+.mode-switch__btn:not(.mode-switch__btn--on):hover { color: #fff; }
+.mode-switch__btn--on { color: #0b0d12; }
+.mode-switch__btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.mode-switch__count {
+  min-width: 20px; height: 18px; padding: 0 6px; border-radius: 999px;
+  display: inline-grid; place-items: center;
+  font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: rgba(255,255,255,0.18); color: inherit;
+}
+.mode-switch__btn--on .mode-switch__count { background: rgba(11,13,18,0.1); }
+/* Room for the switch: the scene-name toast and land plot-map controls drop below it. */
+.public-viewer--mode-switch .scene-toast { top: 70px; }
+.public-viewer--mode-switch .plot-map-btn,
+.public-viewer--mode-switch .plot-legend { margin-top: 16px; }
+
+/* Phones: the tour's name card owns the top-left, so the switch tucks right. */
+@media (max-width: 640px) {
+  .mode-switch { left: auto; right: 12px; top: 14px; transform: none; }
+  @keyframes mode-switch-in { from { opacity: 0; transform: translateY(-8px); } }
+  .mode-switch__btn { height: 32px; padding: 0 12px; font-size: 12.5px; }
+  .mode-switch__long { display: none; }
+  .public-viewer--mode-switch .venue-map-btn { margin-top: 8px; }
+}
+@media (hover: none) and (pointer: coarse) {
+  .mode-switch { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(10, 12, 18, 0.88); }
+}
+
+.photos-fade-enter-active, .photos-fade-leave-active { transition: opacity 0.28s ease, transform 0.28s ease; }
+.photos-fade-enter-from, .photos-fade-leave-to { opacity: 0; transform: scale(1.015); }
+@media (prefers-reduced-motion: reduce) {
+  .mode-switch { animation: none; }
+  .mode-switch__pill { transition: none; }
+  .photos-fade-enter-active, .photos-fade-leave-active { transition: opacity 0.15s linear; transform: none; }
+}
+
   border-radius: 8px;
   background: rgba(10, 11, 16, 0.92);
   border: 1px solid rgba(255,255,255,0.09);
