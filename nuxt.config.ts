@@ -122,9 +122,12 @@ export default defineNuxtConfig({
     '/register': { ssr: false },
     '/reset-password': { ssr: false },
     '/confirm': { ssr: false },
-    // Public tour pages — SSR for fast first paint + Vercel edge caching
+    // Public tour pages — SSR for fast first paint + Vercel edge caching.
+    // Kept short: the tour data is baked into this HTML, so an owner's edits
+    // (scenes, hotspots) show at most ~1 min late. Listing details are also
+    // refreshed client-side on load (pages/p/[slug].vue).
     '/p/**': { ssr: true, headers: {
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=30',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'SAMEORIGIN',
