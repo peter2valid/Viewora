@@ -2344,7 +2344,7 @@ async function initVT() {
           loadProgressValue.value = 100
           setTimeout(() => { loadProgressVisible.value = false; loadProgressValue.value = 0 }, 320)
           vtReady.value = true
-          autoRotateActive.value = props.tour?.space?.property_360_settings?.[0]?.auto_rotate_enabled ?? false
+          autoRotateActive.value = false // nothing turns on load; the autorotate event flips it later
           vtActiveNodeId.value = startNodeId
           emit('loaded')
         },

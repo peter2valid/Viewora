@@ -1246,14 +1246,6 @@ export async function initViewer(
   const resolvedPerformanceMode = performanceMode === 'auto' ? detectViewerPerformanceMode() : performanceMode
   const isLiteMode = resolvedPerformanceMode === 'lite'
 
-  const startAutorotate = (viewerInstance: any) => {
-    try {
-      viewerInstance.getPlugin(AutorotatePlugin)?.start?.()
-    } catch {
-      // noop
-    }
-  }
-
   const plugins: any[] = [
     [MarkersPlugin, { clickEventOnMarker: false }],
   ]
@@ -1327,9 +1319,7 @@ export async function initViewer(
 
   viewer.addEventListener('ready', () => {
     onReady?.()
-    if (!isEditing && autorotate && scene.settings.auto_rotate_enabled) {
-      startAutorotate(viewer)
-    }
+    // Never starts turning on load; autorotate waits for AUTOROTATE_IDLE_MS idle.
   }, { once: true })
 
   viewer.addEventListener('panorama-error', (e: any) => {
@@ -1739,105 +1729,6 @@ export function nudgeRender(handle: PsvViewerHandle | null): void {
   } catch { /* noop */ }
 }
 
-// ── Opening turn: tiles first, then turn ──────────────────────────────────────
-// On a fresh load the camera turns toward the first hotspot ("Smart Focus").
-// A profile of that turn (2026-11-04, desktop Firefox) showed it stuttered for
-// exactly as long as sharp tiles were arriving: each tile is a texture upload,
-// and the turn kept bringing new columns on screen. Frames were even (60 fps,
-// none ≥ 25 ms) from the moment the last tile request went out. So before the
-// turn we load the tiles on screen and along its path, then turn over them.
-
-/** Earliest and latest start of the opening turn after `ready`. */
-const OPENING_TURN_MIN_DELAY_MS = 800
-const OPENING_TURN_MAX_DELAY_MS = 3000
-/** Path tiles downloaded at once; PSV's own queue keeps its 8. */
-const OPENING_TURN_PRELOAD_CONCURRENCY = 4
-
-/**
- * Loads the tiles the camera will show while turning from `from` to `to`
- * into PSV's image cache (Cache, keyed by the panorama), so the adapter gets
- * them without a download when they come on screen. Uses the level PSV is
- * currently showing (adapter.state.tileConfig) and skips tiles PSV already
- * queued or loaded. Resolves when all have loaded or failed.
- */
-function preloadTurnTiles(
-  viewer: any,
-  from: { yaw: number; pitch: number },
-  to: { yaw: number; pitch: number },
-  isCancelled: () => boolean,
-): Promise<void> {
-  const adapter = viewer.adapter
-  const config = adapter?.state?.tileConfig
-  const panorama = viewer.config?.panorama
-  const cacheKey = viewer.state?.textureData?.cacheKey
-  if (!config || typeof panorama?.tileUrl !== 'function' || !cacheKey) return Promise.resolve()
-
-  const { cols, rows, level } = config
-  const TWO_PI = Math.PI * 2
-  const halfH = (viewer.state.hFov * Math.PI / 180) / 2 * 1.1
-  const halfV = (viewer.state.vFov * Math.PI / 180) / 2 * 1.1
-  // Shortest way round, as PSV's animate() turns.
-  let dYaw = ((to.yaw - from.yaw) % TWO_PI + TWO_PI) % TWO_PI
-  if (dYaw > Math.PI) dYaw -= TWO_PI
-  const dPitch = to.pitch - from.pitch
-
-  const colOf = (yaw: number) => {
-    const u = ((yaw / TWO_PI + 0.5) % 1 + 1) % 1
-    return Math.min(cols - 1, Math.floor(u * cols))
-  }
-  const rowOf = (pitch: number) => {
-    const p = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch))
-    return Math.max(0, Math.min(rows - 1, Math.floor((0.5 - p / Math.PI) * rows)))
-  }
-
-  // Walk the path in steps of half a column and collect every tile in view
-  // (every column from the left edge to the right edge, wrapping at 360°).
-  const ids = new Set<string>()
-  const tiles: Array<{ col: number; row: number; dist: number }> = []
-  const colAngle = TWO_PI / cols
-  const steps = Math.max(1, Math.ceil(Math.abs(dYaw) / (colAngle / 2)))
-  for (let s = 0; s <= steps; s++) {
-    const t = s / steps
-    const yaw = from.yaw + dYaw * t
-    const pitch = from.pitch + dPitch * t
-    const rowTop = rowOf(pitch + halfV)
-    const rowBottom = rowOf(pitch - halfV)
-    const left = colOf(yaw - halfH)
-    const span = Math.min(cols - 1, (colOf(yaw + halfH) - left + cols) % cols)
-    for (let k = 0; k <= span; k++) {
-      const col = (left + k) % cols
-      for (let row = rowTop; row <= rowBottom; row++) {
-        // PSV's tile id format (tileId() in the tiles adapter).
-        const id = `${col}x${row}/${level}`
-        if (ids.has(id) || adapter.state.tiles?.[id]) continue
-        ids.add(id)
-        tiles.push({ col, row, dist: s })
-      }
-    }
-  }
-  tiles.sort((a, b) => a.dist - b.dist)
-
-  const urls = tiles
-    .map(({ col, row }) => panorama.tileUrl(col, row, level))
-    // KTX2 tiles go through their own loader, not PSV's image cache.
-    .filter((u: unknown): u is string => typeof u === 'string' && !u.endsWith('.ktx2'))
-
-  let next = 0
-  const worker = async () => {
-    while (next < urls.length && !isCancelled()) {
-      const url = urls[next++]
-      try {
-        const img = await viewer.textureLoader.loadImage(url, null, cacheKey)
-        // Decode now, off the turn, rather than at the texture upload.
-        await img?.decode?.().catch(() => {})
-      } catch { /* PSV will try again itself when the tile comes on screen */ }
-    }
-  }
-  const workers: Promise<void>[] = []
-  for (let i = 0; i < OPENING_TURN_PRELOAD_CONCURRENCY; i++) workers.push(worker())
-  return Promise.all(workers).then(() => {})
-}
-
 /** Resolves once PSV has no tile download pending or running. */
 function waitForTileQueueIdle(viewer: any, isCancelled: () => boolean): Promise<void> {
   return new Promise(resolve => {
@@ -2186,72 +2077,21 @@ export async function initVirtualTourViewer(
   let destroyed = false
   cleanupFns.push(() => { destroyed = true })
 
-  // Settles when the opening turn has finished, or was skipped or cut short.
-  // The first room's next-room preload waits for it (handleNodeChanged), so
-  // its downloads don't compete with the tiles the turn needs.
-  let finishOpeningTurn: () => void = () => {}
-  const openingTurnDone = new Promise<void>(resolve => { finishOpeningTurn = resolve })
-
-  // Any input before the turn starts means the visitor is already looking
-  // around: don't take the camera from them.
-  let userInteracted = false
-  const markInteracted = () => { userInteracted = true }
-  const interactionEvents = ['pointerdown', 'wheel', 'keydown', 'touchstart'] as const
-  for (const ev of interactionEvents) container.addEventListener(ev, markInteracted, { passive: true, capture: true })
-  cleanupFns.push(() => {
-    for (const ev of interactionEvents) container.removeEventListener(ev, markInteracted, { capture: true })
-  })
+  // Settles once the first room's on-screen tiles are in (or after 3 s). The
+  // first room's next-room preload waits for it (handleNodeChanged), so its
+  // downloads don't compete with the tiles the visitor is looking at.
+  let finishFirstRoom: () => void = () => {}
+  const firstRoomSettled = new Promise<void>(resolve => { finishFirstRoom = resolve })
 
   viewer.addEventListener('ready', () => {
     onReady?.()
 
-    // ── Smart Focus on Load ────────────────────────────────────────────────
-    // Automatically point the camera at the first valid hotspot (nav or info)
-    // so the user immediately sees interactive content. The turn starts once
-    // the tiles on screen and along its path have loaded (see
-    // preloadTurnTiles), between 0.8 s and 3 s after ready.
-    const firstNode = nodes.find((n: any) => n.id === startNodeId) ?? nodes[0]
-    // Polygon markers (plots) have no single position — skip them here.
-    const firstHotspots = (firstNode?.markers || []).filter((m: any) => m.position)
-    const targetHs = firstHotspots.find((h: any) => h.data?.type === 'scene_link' || h.data?.type === 'info')
-      || firstHotspots[0]
-    if (targetHs?.position) {
-      const target = { yaw: targetHs.position.yaw, pitch: targetHs.position.pitch ?? 0 }
-      const readyAt = performance.now()
-      const turnCancelled = () =>
-        destroyed || userInteracted || walkingViewers.has(viewer) || virtualTour.getCurrentNode?.()?.id !== firstNode.id
-      const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
-
-      void (async () => {
-        // PSV computes the tiles on screen just after ready; give it that time.
-        await delay(OPENING_TURN_MIN_DELAY_MS)
-        if (turnCancelled()) return finishOpeningTurn()
-        const from = viewer.getPosition()
-        const loaded = Promise.all([
-          preloadTurnTiles(viewer, from, target, turnCancelled),
-          waitForTileQueueIdle(viewer, turnCancelled),
-        ])
-        const cap = delay(Math.max(0, OPENING_TURN_MAX_DELAY_MS - (performance.now() - readyAt)))
-        await Promise.race([loaded, cap])
-        if (turnCancelled()) return finishOpeningTurn()
-        try {
-          await viewer.animate({ ...target, speed: '2rpm' })
-        } catch { /* interrupted or destroyed */ }
-        finishOpeningTurn()
-      })()
-    } else {
-      finishOpeningTurn()
-    }
-
-    if (!isLiteMode && autoRotate) {
-      requestAnimationFrame(() => {
-        try {
-          viewer.getPlugin(AutorotatePlugin)?.start?.()
-        } catch {
-          // noop
-        }
-      })
-    }
+    // No camera moves on load: the room opens where it was set to face and
+    // stays put until the visitor moves it. (A "Smart Focus" turn toward the
+    // first hotspot used to run here and couldn't be interrupted; autorotate
+    // now only starts after AUTOROTATE_IDLE_MS untouched.)
+    const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+    void Promise.race([waitForTileQueueIdle(viewer, () => destroyed), delay(3000)]).then(() => finishFirstRoom())
   }, { once: true })
   viewer.addEventListener('panorama-error', (e: any) => {
     onError?.(e.error instanceof Error ? e.error : new Error('Panorama load failed'), requestedNodeId)
@@ -2301,7 +2141,7 @@ export async function initVirtualTourViewer(
     // at 10 s in case the turn never settles.
     const settled = firstNodeChange
       ? Promise.race([
-          openingTurnDone.then(() => new Promise<void>(r => setTimeout(r, 300))),
+          firstRoomSettled.then(() => new Promise<void>(r => setTimeout(r, 300))),
           new Promise<void>(r => setTimeout(r, 10_000)),
         ])
       : new Promise<void>(r => setTimeout(r, 1500))
