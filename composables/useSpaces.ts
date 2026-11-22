@@ -41,10 +41,15 @@ export interface Space {
 export const useSpaces = () => {
   const { apiFetch } = useApiFetch()
 
-  const spaces = ref<Space[]>([])
-  const currentSpace = ref<Space | null>(null)
-  const pending = ref(false)
-  const error = ref<string | null>(null)
+  // Keep the tour list alive while people move between Dashboard and Tours.
+  // These screens are all inside the authenticated app shell, so refetching the
+  // same list on every route change only adds a second skeleton and needless
+  // waiting. Mutations below still update this cache immediately.
+  const spaces = useState<Space[]>('viewora-spaces', () => [])
+  const currentSpace = useState<Space | null>('viewora-current-space', () => null)
+  const pending = useState('viewora-spaces-pending', () => false)
+  const error = useState<string | null>('viewora-spaces-error', () => null)
+  const listLoaded = useState('viewora-spaces-loaded', () => false)
 
   const normalizeSpace = (value: any): Space | null => {
     if (!value || typeof value !== 'object') return null
@@ -69,15 +74,21 @@ export const useSpaces = () => {
   }
 
   // ── List ──────────────────────────────────────────────────────────────────
-  const fetchSpaces = async () => {
+  const fetchSpaces = async ({ force = false }: { force?: boolean } = {}) => {
+    if (listLoaded.value && !force) return spaces.value
+
     pending.value = true
     error.value = null
     try {
       const data = await apiFetch<any>('/spaces')
       spaces.value = normalizeSpaceList(data)
+      listLoaded.value = true
+      return spaces.value
     } catch (e: any) {
       error.value = e.data?.statusMessage ?? e.message
-      spaces.value = []
+      // Keep previously rendered tours visible if a background refresh fails.
+      if (!listLoaded.value) spaces.value = []
+      return spaces.value
     } finally {
       pending.value = false
     }
@@ -152,6 +163,14 @@ export const useSpaces = () => {
     }
   }
 
+  const resetSpaces = () => {
+    spaces.value = []
+    currentSpace.value = null
+    pending.value = false
+    error.value = null
+    listLoaded.value = false
+  }
+
   // ── Publish ───────────────────────────────────────────────────────────────
   const publishSpace = async (id: string, publish: boolean, slug?: string) => {
     pending.value = true
@@ -186,5 +205,6 @@ export const useSpaces = () => {
     updateSpace,
     deleteSpace,
     publishSpace,
+    resetSpaces,
   }
 }

@@ -25,26 +25,25 @@
     <div v-else-if="step === 1" class="w-full max-w-[900px] mt-6 md:mt-12 px-4 flex flex-col items-center">
       <div class="text-center mb-8 md:mb-12 w-full">
         <h1 class="text-3xl md:text-4xl font-extrabold text-main mb-3 md:mb-4 tracking-tighter">What are you creating?</h1>
-        <p class="text-sm md:text-base text-dim max-w-lg mx-auto">Choose a type, then tap the button below to get started.</p>
+        <p class="text-sm md:text-base text-dim max-w-lg mx-auto">Choose the closest match. You can change details later.</p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 w-full max-w-[800px] mx-auto min-h-[320px]">
-        <div 
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-5 w-full max-w-[800px] mx-auto">
+        <button
           v-for="option in typeOptions" 
           :key="option.id"
-          class="flex items-center p-5 md:p-8 rounded-[2rem] transition-all duration-500 cursor-pointer border border-zinc-700/40 bg-zinc-800 hover:bg-zinc-700 group relative overflow-hidden"
+          type="button"
+          class="create-type-option flex w-full min-h-24 items-center p-4 text-left md:min-h-32 md:p-7 rounded-2xl transition-colors duration-150 border border-zinc-700/40 bg-zinc-800 hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white group relative overflow-hidden"
           :class="[
             selectedType === option.id 
-              ? 'ring-1 ring-zinc-400 bg-[#121214] shadow-[0_0_40px_rgba(255,255,255,0.03)] scale-[1.02]' 
+              ? 'ring-1 ring-zinc-400 bg-[#121214]'
               : 'hover:border-white/10'
           ]"
-          @click="selectedType = option.id"
+          :aria-pressed="selectedType === option.id"
+          @click="selectType(option.id)"
         >
-          <!-- Selected Glow -->
-          <div v-if="selectedType === option.id" class="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none"></div>
-
           <div 
-            class="w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 z-10"
+            class="w-12 h-12 md:w-16 md:h-16 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-150 z-10"
             :class="selectedType === option.id ? 'bg-white text-black' : 'bg-white/10 text-white group-hover:bg-white/20'"
           >
             <!-- Property -->
@@ -60,23 +59,14 @@
             <!-- Multiple -->
             <svg v-else-if="option.id === 'other'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="md:w-8 md:h-8"><rect x="2" y="2" width="8" height="8" rx="2" ry="2"/><rect x="14" y="2" width="8" height="8" rx="2" ry="2"/><rect x="2" y="14" width="8" height="8" rx="2" ry="2"/><rect x="14" y="14" width="8" height="8" rx="2" ry="2"/></svg>
           </div>
-          <div class="ml-5 md:ml-6 flex-1 z-10">
+          <div class="ml-4 md:ml-5 flex-1 z-10">
             <h3 class="text-base md:text-xl font-bold text-white leading-tight">{{ option.title }}</h3>
             <p class="text-[13px] md:text-sm text-zinc-300 mt-1.5 leading-snug group-hover:text-white transition-colors">{{ option.description }}</p>
           </div>
-        </div>
-      </div>
-
-      <div class="mt-10 w-full flex flex-col items-center">
-        <p class="text-[13px] text-dim font-medium mb-6 text-center">Not sure? Start with Property — you can change later.</p>
-        <button 
-          class="btn btn-primary w-full md:w-[240px] !h-[54px] !rounded-xl"
-          :disabled="!selectedType"
-          @click="step = 2"
-        >
-          Continue
         </button>
       </div>
+
+      <p class="mt-6 text-[13px] text-dim font-medium text-center">Choose a type to continue.</p>
     </div>
 
     <!-- STEP 2: Basic Setup -->
@@ -107,7 +97,8 @@
       <div class="w-full card-glass p-6 md:p-10 rounded-2xl space-y-6">
         <div class="space-y-2">
           <label for="create-name" class="text-sm font-bold text-main">{{ isCar ? 'Car' : 'Tour Name' }} <span v-if="!isCar" class="text-red-500">*</span></label>
-          <input 
+          <input
+            ref="tourNameInput"
             id="create-name"
             v-model="tourName" 
             type="text" 
@@ -150,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { definePageMeta, navigateTo } from '#imports'
 import { useSpaces } from '~/composables/useSpaces'
 import { usePlanStore } from '~/stores/plan'
@@ -173,6 +164,7 @@ const tourName = ref('')
 const locationText = ref('')
 const creating = ref(false)
 const errorMsg = ref<string | null>(null)
+const tourNameInput = ref<HTMLInputElement | null>(null)
 
 const atSpaceLimit = computed(() => {
   const max = planStore.plan?.max_active_spaces ?? Infinity
@@ -192,6 +184,13 @@ const typeOptions = [
 const selectedOptionData = computed(() => typeOptions.find(o => o.id === selectedType.value))
 const isCar = computed(() => selectedType.value === 'automotive')
 const isHospital = computed(() => selectedType.value === 'hospital')
+
+async function selectType(type: string) {
+  selectedType.value = type
+  step.value = 2
+  await nextTick()
+  tourNameInput.value?.focus()
+}
 
 const handleCreateTour = async () => {
   if (!tourName.value.trim() || !selectedType.value || creating.value) return

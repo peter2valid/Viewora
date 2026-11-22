@@ -364,6 +364,7 @@ const route = useRoute();
 
 const authStore = useAuthStore();
 const planStore = usePlanStore();
+const { resetSpaces } = useSpaces()
 
 const { isDark, toggle: toggleTheme, init: initTheme } = useTheme();
 
@@ -415,6 +416,7 @@ onMounted(async () => {
 const logout = async () => {
   authStore.$reset();
   planStore.$reset();
+  resetSpaces();
   await supabase.auth.signOut();
   await navigateTo("/");
 };

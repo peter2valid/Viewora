@@ -229,17 +229,19 @@ const maxY = computed(() => {
 })
 
 onMounted(async () => {
-  // Billing must not block the spaces fetch — run it in parallel with spaces
+  // The tour list drives the page's first useful state. Start it alongside
+  // billing instead of making people wait for two network round trips.
   const [billingRes] = await Promise.allSettled([
-    apiFetch<any>('/billing/status')
+    apiFetch<any>('/billing/status'),
+    fetchSpaces(),
   ])
   if (billingRes.status === 'fulfilled') {
     const billingData = unwrapApiData<any>(billingRes.value)
     usage.value = billingData?.usage ?? null
   }
 
-  // Spaces determine whether we show the welcome card or the active dashboard
-  await fetchSpaces()
+  // Spaces determine whether we show the welcome card or the active dashboard.
+  // fetchSpaces above has already completed (or returned the in-app cache).
   pending.value = false
 
   // Secondary data — analytics and leads load after the skeleton clears
