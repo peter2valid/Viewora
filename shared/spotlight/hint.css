@@ -1,42 +1,66 @@
 /* Object Spotlight hint ring: marks an object that opens a spotlight.
    Loaded with shared/spotlight/index.ts, so every viewer that attaches
    spotlights (the tour, the editor) has it. The effect's own styles load
-   with its lazy chunk (spotlight.css). */
+   with its lazy chunk (spotlight.css).
+
+   A thick hollow ring in the hotspots' red (the floor pin's #e53935) that
+   breathes, with a halo spreading out from it so it catches the eye. Only
+   transform and opacity animate: the compositor does the work, no layout. */
 .vw-spot-hint {
+  --vw-spot-red: #e53935;
   position: relative;
   width: 100%;
   height: 100%;
   padding: 0;
-  border: 1.5px solid rgba(127, 231, 247, 0.85);
+  border: 0;
   border-radius: 50%;
-  background: rgba(5, 11, 19, 0.35);
+  background: none;
   cursor: pointer;
-  display: grid;
-  place-items: center;
 }
-.vw-spot-hint__dot {
-  width: 8px;
-  height: 8px;
+/* The ring: red, a touch lighter at the top, with a dark inner edge like a cut-out. */
+.vw-spot-hint::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
   border-radius: 50%;
-  background: #7fe7f7;
+  border: 6px solid var(--vw-spot-red);
+  background: radial-gradient(circle, transparent 58%, rgba(0, 0, 0, 0.18) 60%, transparent 66%);
+  box-shadow:
+    inset 0 0 0 1px rgba(80, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+  animation: vw-spot-breathe 1.6s ease-in-out infinite;
 }
+/* The halo: a red ring spreading out and fading. */
 .vw-spot-hint::after {
   content: '';
   position: absolute;
-  inset: -2px;
+  inset: 3px;
   border-radius: 50%;
-  border: 1.5px solid rgba(127, 231, 247, 0.7);
-  animation: vw-spot-hint 2.4s ease-out infinite;
+  border: 3px solid var(--vw-spot-red);
+  opacity: 0;
+  animation: vw-spot-halo 1.6s ease-out infinite;
   pointer-events: none;
 }
-@keyframes vw-spot-hint {
-  0%   { transform: scale(1);   opacity: 0.8; }
-  70%  { transform: scale(1.7); opacity: 0;   }
-  100% { transform: scale(1.7); opacity: 0;   }
+@keyframes vw-spot-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
 }
-@media (hover: none) and (pointer: coarse), (prefers-reduced-motion: reduce) {
+@keyframes vw-spot-halo {
+  0%   { transform: scale(1);    opacity: 0.85; }
+  80%  { transform: scale(1.9);  opacity: 0; }
+  100% { transform: scale(1.9);  opacity: 0; }
+}
+.vw-spot-hint:hover::before { border-color: #f0524f; }
+@media (prefers-reduced-motion: reduce) {
+  .vw-spot-hint::before { animation: none; }
   .vw-spot-hint::after { animation: none; opacity: 0; }
 }
-.device-tier-low .vw-spot-hint::after { animation: none; opacity: 0; }
+/* Editor: grab it and drag it somewhere clearer. */
+.vw-spot-hint--edit { cursor: grab; touch-action: none; }
+.vw-spot-hint--edit.is-dragging { cursor: grabbing; }
+.vw-spot-hint--edit.is-dragging::before,
+.vw-spot-hint--edit.is-dragging::after { animation: none; }
+.vw-spot-hint--edit.is-dragging::before { transform: scale(1.15); }
 /* Hidden while its spotlight is open (the outline marks the object then). */
 .vw-spot-on .vw-spot-hint { visibility: hidden; }

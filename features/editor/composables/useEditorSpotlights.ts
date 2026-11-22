@@ -2,21 +2,22 @@
 // panel) and each scene's published file (so the editor's viewer shows them).
 // Made and published by Spotlight Studio (scripts/spotlight/); here they can
 // be removed, or added from a .spotlight file.
-import { reactive, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { setSpotlightUrls } from '~/shared/spotlight'
+import { SPOTLIGHT_RING_EVENT, setSpotlightUrls, type SpotlightRingMove } from '~/shared/spotlight'
 import { BUNDLE_MAX_BYTES, parseBundle } from '~/shared/spotlight/bundle'
 
 export interface EditorSpotlight {
   id: string
   scene_id: string
   object_key: string
-  data: { title: string; label?: string; lines?: string[]; zoom?: number }
+  data: { title: string; label?: string; lines?: string[]; zoom?: number; ring?: { yaw: number; pitch: number } }
   voice_url: string | null
   updated_at: string
 }
 
-export function useEditorSpotlights(spaceId: () => string | undefined | null) {
+/** rings: save rings dragged in the editor's preview (only the editor itself; one listener per page). */
+export function useEditorSpotlights(spaceId: () => string | undefined | null, opts: { rings?: boolean } = {}) {
   const { apiFetch } = useApiFetch()
   const state = reactive({
     /** False until the backend's migration has run. */
@@ -26,6 +27,8 @@ export function useEditorSpotlights(spaceId: () => string | undefined | null) {
     busy: '' as string,
     rows: [] as EditorSpotlight[],
     sceneNames: {} as Record<string, string>,
+    /** The last ring move that failed, shown in the panel. */
+    moveError: '',
   })
 
   async function refresh() {
@@ -81,7 +84,31 @@ export function useEditorSpotlights(spaceId: () => string | undefined | null) {
     }
   }
 
+  /** Puts a ring somewhere else (dragged in the preview), or back on its object (null). */
+  async function moveRing(sceneId: string, key: string, ring: { yaw: number; pitch: number } | null) {
+    state.moveError = ''
+    try {
+      await apiFetch(`/scenes/${sceneId}/spotlights/${key}`, { method: 'PATCH', body: { ring } })
+      await refresh()
+    } catch (e: any) {
+      state.moveError = e?.data?.statusMessage || 'The ring could not be moved. Try again.'
+      await refresh() // shows it where it really is
+    }
+  }
+
+  // A ring dropped in the editor's preview (shared/spotlight announces it).
+  const onRing = (e: Event) => {
+    const d = (e as CustomEvent<SpotlightRingMove>).detail
+    if (d && state.rows.some(r => r.scene_id === d.sceneId && r.object_key === d.key)) {
+      void moveRing(d.sceneId, d.key, { yaw: d.yaw, pitch: d.pitch })
+    }
+  }
+  if (opts.rings) {
+    onMounted(() => window.addEventListener(SPOTLIGHT_RING_EVENT, onRing))
+    onBeforeUnmount(() => window.removeEventListener(SPOTLIGHT_RING_EVENT, onRing))
+  }
+
   watch(spaceId, () => { void refresh() }, { immediate: true })
 
-  return { state, refresh, forScene, remove, upload }
+  return { state, refresh, forScene, remove, upload, moveRing }
 }

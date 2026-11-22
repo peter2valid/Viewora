@@ -26,7 +26,9 @@
             <div class="sp-row__meta">
               <span v-if="r.data.label">{{ r.data.label }}</span>
               <span v-if="r.voice_url">· voice</span>
+              <span v-if="r.data.ring">· ring moved</span>
             </div>
+            <button v-if="r.data.ring" class="sp-link" :disabled="!!s.busy" @click="spotlights.moveRing(r.scene_id, r.object_key, null)">Put the ring back on it</button>
           </div>
           <button
             class="sp-btn sp-btn--sm sp-btn--ghost"
@@ -39,6 +41,8 @@
         </div>
       </div>
       <p v-else class="sp-hint">{{ sceneName ? `None in ${sceneName} yet.` : 'None in this scene yet.' }}</p>
+      <p v-if="rows.length" class="sp-hint">Is a ring covered by a hotspot? Drag the red ring in the preview to move it. It saves when you let go.</p>
+      <p v-if="s.moveError" class="sp-hint sp-hint--err">{{ s.moveError }}</p>
       <p v-if="otherCount" class="sp-hint">{{ otherCount }} more in other scenes.</p>
 
       <div class="sp-drop" :class="{ 'sp-drop--on': dragging }">
@@ -130,6 +134,10 @@ function onDrop(e: DragEvent) {
 .sp-row__text { min-width: 0; }
 .sp-row__title { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-row__meta { font-size: 10px; color: rgba(127,231,247,0.7); display: flex; gap: 4px; }
+.sp-link { margin-top: 3px; padding: 0; border: 0; background: none; color: rgba(255,255,255,0.55); font: inherit; font-size: 10px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.sp-link:hover:not(:disabled) { color: rgba(255,255,255,0.85); }
+.sp-link:disabled { opacity: 0.4; cursor: not-allowed; }
+.sp-hint--err { color: #f87171; }
 
 .sp-drop { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px dashed rgba(255,255,255,0.14); border-radius: 9px; transition: border-color 130ms, background 130ms; }
 .sp-drop--on { border-color: rgba(127,231,247,0.8); background: rgba(127,231,247,0.06); }

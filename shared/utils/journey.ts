@@ -41,6 +41,12 @@ export type JourneyAction =
   | { say: string; audio?: string; ms?: number; pin?: JourneyPin }
   /** Open an info hotspot's card, narrate, then close it. */
   | { card: string; say?: string; hold?: number; audio?: string; ms?: number }
+  /**
+   * Play one of the room's Object Spotlights (its key): the line, if any, is
+   * said first; then the spotlight opens by itself, reads, closes, and the
+   * visit carries on.
+   */
+  | { spot: string; say?: string; audio?: string; ms?: number }
   | { wait: number }
 
 /** A pulsing marker shown while a line is read ("Parking"). Degrees, like views. */
@@ -88,6 +94,9 @@ export function speakMs(text: string): number {
   return Math.max(2200, words * 400 + 600)
 }
 
+/** A spotlight's usual length (camera, outline, its lines read, a moment to look), for the running time. */
+const SPOT_MS = 16000
+
 /** Rough running time, for "about 3 min" on the start card. */
 export function journeyMinutes(j: Journey): number {
   let ms = 0
@@ -99,6 +108,7 @@ export function journeyMinutes(j: Journey): number {
       if ('around' in a) ms += Math.max(0, a.around - (a.say ? speakMs(a.say) : 0))
       if ('look' in a) ms += a.ms ?? 1500
       if ('card' in a && !a.say) ms += a.hold ?? 4000
+      if ('spot' in a) ms += SPOT_MS
       if ('wait' in a) ms += a.wait
     }
   }
@@ -129,6 +139,8 @@ export interface JourneyDocSentence {
    * (radians) = where it was placed; absent = the middle of the line's view.
    */
   pin?: { label?: string; yaw?: number; pitch?: number } | null
+  /** An Object Spotlight in this step's photo (its key), played right after the line. */
+  spotlight?: string | null
   audio?: JourneyDocAudio | null
 }
 
@@ -188,6 +200,14 @@ export function compileJourney(doc: JourneyDoc, sceneIds: Set<string>): Journey 
       const text = normalizeLine(x.text ?? '')
       const a = freshAudio(x)
       const voice = a ? { audio: a.url, ms: a.duration_ms } : {}
+      if (x.spotlight) {
+        // The spotlight turns the camera to its object itself (and back out
+        // after). A lead-in line with its own view is said facing that first.
+        if (text && k > 0 && x.view) { actions.push({ look: toView(x.view), reframe: true }); facing = x.view }
+        actions.push(text ? { spot: x.spotlight, say: text, ...voice } : { spot: x.spotlight })
+        said++
+        return
+      }
       if (x.hotspot_id) {
         // Opening the card turns the camera to the hotspot itself: no separate look.
         actions.push(text ? { card: x.hotspot_id, say: text, ...voice } : { card: x.hotspot_id, hold: 4000 })
@@ -236,6 +256,7 @@ export interface TourArea {
 
 function linesKey(x: JourneyDocSentence): string {
   const t = normalizeLine(x.text ?? '').toLowerCase()
+  if (x.spotlight) return `s:${x.spotlight}:${t}`
   return t ? `t:${t}` : x.hotspot_id ? `h:${x.hotspot_id}` : ''
 }
 

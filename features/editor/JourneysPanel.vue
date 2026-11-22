@@ -203,7 +203,7 @@
             </div>
             <textarea
               v-model="t.text" class="jy-input jy-textarea" rows="2" maxlength="400"
-              :placeholder="k === 0 ? promptFor(step.title) : 'Anything else they should know?'"
+              :placeholder="t.spotlight ? 'Optional: a few words before it opens (the spotlight reads its own text)' : k === 0 ? promptFor(step.title) : 'Anything else they should know?'"
               @focus="selectLine(k)"
               @input="saveSoon"
               @keydown.enter.exact.prevent="addSentence(k + 1)"
@@ -223,7 +223,7 @@
                 <button v-if="lineView(k)" class="jy-linkbtn jy-linkbtn--muted" @click="clearLineView(k)">Clear</button>
               </div>
               <!-- Mark a spot: a pulsing marker, placed by dragging it in the preview -->
-              <template v-if="step.scene_id && !t.hotspot_id">
+              <template v-if="step.scene_id && !t.hotspot_id && !t.spotlight">
                 <div v-if="placing === t.id" class="jy-spotrow">
                   <span class="jy-spotrow__now">Placing in the preview…</span>
                   <button class="jy-linkbtn" @click="finishPlacing">Done</button>
@@ -244,16 +244,29 @@
                   @input="onSpotName(t)"
                 >
               </template>
+              <!-- What opens with the line: one of the photo's info cards, or a spotlight
+                   (it plays by itself after the line, then the visit carries on). -->
               <select
-                v-if="infoSpots.length" class="jy-select" :value="t.hotspot_id || ''" :aria-label="`Info card for line ${k + 1}`"
-                title="Open one of this photo's info hotspots while the line is read"
-                @change="setLineHotspot(k, ($event.target as HTMLSelectElement).value)"
+                v-if="infoSpots.length || stepSpots.length" class="jy-select" :class="{ 'jy-select--spot': !!t.spotlight }"
+                :value="t.spotlight ? `s:${t.spotlight}` : t.hotspot_id ? `h:${t.hotspot_id}` : ''" :aria-label="`What opens with line ${k + 1}`"
+                title="Open an info card while the line is read, or play a spotlight after it"
+                @change="setLineShows(k, ($event.target as HTMLSelectElement).value)"
               >
-                <option value="">No info card</option>
-                <option v-for="h in infoSpots" :key="h.id" :value="h.id">Show “{{ h.label }}”</option>
+                <option value="">Nothing opens</option>
+                <optgroup v-if="stepSpots.length" label="Spotlights (play by themselves)">
+                  <option v-for="o in stepSpots" :key="o.key" :value="`s:${o.key}`">✦ Spotlight: {{ o.title }}</option>
+                </optgroup>
+                <optgroup v-if="infoSpots.length" label="Info cards">
+                  <option v-for="h in infoSpots" :key="h.id" :value="`h:${h.id}`">Show “{{ h.label }}”</option>
+                </optgroup>
               </select>
+              <p v-if="t.spotlight" class="jy-spotnote">Opens after this line, reads its own text, then the visit carries on.</p>
             </div>
             <button class="jy-btn jy-btn--icon" title="Remove this line" @click="removeSentence(k)">✕</button>
+          </div>
+          <div v-for="o in unusedSpots" :key="o.key" class="jy-spotsuggest">
+            <span>✦ This photo has a spotlight: <b>{{ o.title }}</b></span>
+            <button class="jy-linkbtn" @click="addSpotLine(o.key)">Add it to this step</button>
           </div>
           <button class="jy-btn" @click="addSentence(step.sentences.length)">+ Add a line</button>
 
@@ -328,6 +341,7 @@ import type { JourneyCommand } from '~/components/viewer/JourneyPlayer.vue'
 import { compileJourney, freshAudio, JOURNEY_VOICES, DEFAULT_JOURNEY_VOICE, type JourneyVoice, journeyMinutes, newLocalId, normalizeLine, type JourneyDocSentence, type JourneyDocStep, type JourneyDocView } from '~/shared/utils/journey'
 import { buildSceneGraph, buildVenueFloors, scenePath } from '~/shared/utils/venue'
 import { createSerialWrites } from '~/shared/utils/editorWrites'
+import { useEditorSpotlights } from '~/features/editor/composables/useEditorSpotlights'
 
 const props = defineProps<{ spaceId: string }>()
 const emit = defineEmits<{ (e: 'fix-link', sceneId: string): void }>()
@@ -336,6 +350,9 @@ interface JourneyRow { id: string; title: string; steps: JourneyDocStep[]; is_pu
 
 const { apiFetch } = useApiFetch()
 const serial = createSerialWrites()
+// The tour's Object Spotlights: listed per photo for the lines, and registered
+// so the preview can play them like the tour does.
+const spotlights = useEditorSpotlights(() => props.spaceId)
 
 const loading = ref(true)
 const loadError = ref<boolean | string>(false)
@@ -534,6 +551,7 @@ function normalise(r: any): JourneyRow {
         id: x.id || newLocalId(), text: x.text ?? '',
         ...(x.view ? { view: x.view } : {}),
         ...(x.hotspot_id ? { hotspot_id: x.hotspot_id } : {}),
+        ...(x.spotlight ? { spotlight: x.spotlight } : {}),
         ...(x.pin ? { pin: {
           label: String(x.pin.label ?? ''),
           ...(typeof x.pin.yaw === 'number' && typeof x.pin.pitch === 'number' ? { yaw: x.pin.yaw, pitch: x.pin.pitch } : {}),
@@ -782,6 +800,13 @@ function hear(t: JourneyDocSentence) {
   hearClip.play().catch(() => { hearing.value = null; toast.error('Could not play this recording.') })
 }
 
+// Spotlights in this step's photo (made in Spotlight Studio), and the ones no line plays yet.
+const stepSpots = computed(() => spotlights.forScene(step.value?.scene_id)
+  .map(r => ({ key: r.object_key, title: String(r.data?.title || r.object_key) })))
+const unusedSpots = computed(() => {
+  const used = new Set((step.value?.sentences ?? []).map(x => x.spotlight).filter(Boolean))
+  return stepSpots.value.filter(o => !used.has(o.key))
+})
 // Info hotspots in this step's photo, for "Show … while this line is read".
 const infoSpots = computed(() => {
   const sc = step.value?.scene_id ? sceneById.value.get(step.value.scene_id) : null
@@ -870,11 +895,25 @@ function spotStyle(k: number): Record<string, string> | null {
   if (x < 0 || x > LOOK_W || y < 0 || y > LOOK_H) return null
   return { left: `${x}px`, top: `${y}px` }
 }
-function setLineHotspot(k: number, id: string) {
+/** What opens with line k: "h:<hotspot id>", "s:<spotlight key>", or "" for nothing. */
+function setLineShows(k: number, value: string) {
   const x = step.value?.sentences[k]
   if (!x) return
-  if (id) x.hotspot_id = id
-  else delete x.hotspot_id
+  delete x.hotspot_id
+  delete x.spotlight
+  if (value.startsWith('h:')) x.hotspot_id = value.slice(2)
+  else if (value.startsWith('s:')) {
+    x.spotlight = value.slice(2)
+    if (placing.value === x.id) finishPlacing()
+    delete x.pin // the spotlight marks its object itself
+  }
+  saveNow()
+}
+/** A new line that plays the spotlight (added from the photo's suggestions). */
+function addSpotLine(key: string) {
+  const s = step.value
+  if (!s) return
+  s.sentences.push({ id: newLocalId(), text: '', spotlight: key })
   saveNow()
 }
 function togglePublished() {
@@ -968,7 +1007,7 @@ function choosePhoto(sceneId: string) {
 function clearViews(s: JourneyDocStep) {
   s.view = null
   // Directions and info cards only mean something in their own photo.
-  for (const x of s.sentences) { delete x.view; delete x.hotspot_id; delete x.pin }
+  for (const x of s.sentences) { delete x.view; delete x.hotspot_id; delete x.pin; delete x.spotlight }
 }
 function lineView(k: number): JourneyDocView | null {
   const s = step.value
@@ -1206,6 +1245,10 @@ watch(viewerRef, (v) => {
 .jy-spotrow__now { color: #fda4af; }
 .jy-placebar { position: absolute; left: 12px; right: 12px; top: 12px; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 12px; background: rgba(12,14,20,0.85); color: #fff; font-size: 13px; font-weight: 600; backdrop-filter: blur(8px); }
 .jy-spotname { height: 28px; padding: 0 8px; font-size: 12px; }
+.jy-select--spot { border-color: #e53935; color: #fff; }
+.jy-spotnote { margin: 2px 0 0; font-size: 11px; line-height: 1.35; color: rgba(255,255,255,0.55); }
+.jy-spotsuggest { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 8px; padding: 8px 10px; border: 1px dashed rgba(229,57,53,0.6); border-radius: 10px; font-size: 12px; color: rgba(255,255,255,0.8); }
+.jy-spotsuggest b { color: #fff; }
 /* The marked spot on the thumbnail: the middle of the view. */
 .jy-look__spot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #e11d48; box-shadow: 0 0 0 2px #fff, 0 0 0 6px rgba(225, 29, 72, 0.35); }
 .jy-linkbtn:disabled { opacity: 0.45; cursor: not-allowed; }

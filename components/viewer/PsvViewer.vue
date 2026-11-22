@@ -159,7 +159,7 @@
 
     <!-- Scene name toast -->
     <Transition name="scene-toast">
-      <div v-if="sceneToastVisible" class="scene-toast" :class="{ 'scene-toast--below': showInteriorBack }">
+      <div v-if="sceneToastVisible" ref="sceneToastEl" class="scene-toast" :class="{ 'scene-toast--below': showInteriorBack }">
         <span class="scene-toast__dot" />
         {{ sceneToastText }}
       </div>
@@ -1035,6 +1035,33 @@ const autoplaying = ref(false)
 const showPostTourModal = ref(false)
 const sceneToastText = ref('')
 const sceneToastVisible = ref(false)
+const sceneToastEl = ref<HTMLElement | null>(null)
+
+// The room-name popup sits top-centre, but the owner's card (logo, name,
+// address: any length), the 360°/Photos switch and the shop button also live
+// up there. Each time it shows, drop it just below whichever of them it would
+// overlap sideways; with nothing in the way it keeps its normal spot.
+const SCENE_TOAST_BLOCKERS = '.brand-card, .viewora-free-brand, .mode-switch, .venue-map-btn'
+const SCENE_TOAST_GAP_PX = 10
+function placeSceneToast() {
+  const root = viewerRootEl.value
+  const toast = sceneToastEl.value
+  if (!root || !toast) return
+  toast.style.top = ''
+  const rootRect = root.getBoundingClientRect()
+  const t = toast.getBoundingClientRect()
+  const baseTop = parseFloat(getComputedStyle(toast).top) || 0
+  let top = baseTop
+  for (const el of document.querySelectorAll(SCENE_TOAST_BLOCKERS)) {
+    const r = el.getBoundingClientRect()
+    if (!r.width || !r.height) continue
+    if (r.top - rootRect.top > rootRect.height / 2) continue // only things at the top
+    if (r.right + SCENE_TOAST_GAP_PX <= t.left || r.left - SCENE_TOAST_GAP_PX >= t.right) continue
+    top = Math.max(top, Math.round(r.bottom - rootRect.top + SCENE_TOAST_GAP_PX))
+  }
+  if (top !== baseTop) toast.style.top = `${top}px`
+}
+watch([sceneToastVisible, sceneToastText], ([visible]) => { if (visible) placeSceneToast() }, { flush: 'post' })
 const loadProgressValue = ref(0)
 const loadProgressVisible = ref(false)
 let sceneToastTimer: ReturnType<typeof setTimeout> | null = null
@@ -1889,6 +1916,17 @@ const journeyApi: JourneyApi = {
   },
   hidePin() {
     try { vtHandle.value?.markers?.removeMarker(JOURNEY_PIN_ID) } catch { /* not shown */ }
+  },
+  async playSpotlight(key, voice) {
+    const ctl = spotlightCtl
+    if (!ctl) return
+    await waitFor(() => !vtTransitioning.value, 4000)
+    if (vtFocusing.value && vtHandle.value) dismissInfoCard(vtHandle.value)
+    if (vtActiveNodeId.value) ctl.setScene(vtActiveNodeId.value)
+    await ctl.play(key, { voice })
+  },
+  stopSpotlight() {
+    spotlightCtl?.close()
   },
   container: () => vtContainerEl.value,
 }
@@ -5056,6 +5094,8 @@ watch(() => vtTransitioning.value, (loading) => {
 
 @media (max-width: 640px) {
   .scene-toast { font-size: 11px; padding: 6px 12px 6px 10px; top: 12px; }
+  /* Long messages wrap instead of running off the screen. */
+  .scene-toast { max-width: calc(100% - 24px); box-sizing: border-box; white-space: normal; text-align: center; }
 }
 
 /* ── Floating CTA button ──────────────────────────────── */

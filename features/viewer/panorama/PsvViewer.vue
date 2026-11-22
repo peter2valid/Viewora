@@ -130,6 +130,8 @@ function attachSpotlightsTo(h: PsvViewerHandle | null, sceneId: string | undefin
       onStart: () => closeMenu(),
       onEnd: () => {},
       lite: spotlightWeakDevice,
+      // Rings can be dragged off a hotspot here; useEditorSpotlights saves the move.
+      editRings: true,
     })
     if (sceneId) spotlightCtl.setScene(sceneId)
   } catch {

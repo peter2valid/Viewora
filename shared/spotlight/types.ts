@@ -18,6 +18,8 @@ export interface SpotlightObject {
   voiceSrc?: string
   /** No hint ring on the object (it is still opened by a tap or by zooming in on it). */
   hint?: boolean
+  /** Where the hint ring sits when the owner moved it (editor), e.g. off a hotspot. Absent: at yaw / pitch. */
+  ring?: { yaw: number; pitch: number }
   /**
    * Reserved for the 3D render (Notes/3d-render-spotlight.md): a GLB shown as a
    * hologram beside the panel. Ignored for now.

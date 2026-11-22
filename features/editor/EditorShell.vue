@@ -910,7 +910,7 @@ const nadirDraft = ref<NadirCoverSettings | null>(null)
 const nadirPeek = ref(false)
 /** Scenes the cover can be placed on: saved ones (an uploading scene has no id the server knows yet), dock order. */
 // Object Spotlights: loaded with the tour so the viewer shows them; listed in the settings panel.
-const editorSpotlights = useEditorSpotlights(() => props.spaceId)
+const editorSpotlights = useEditorSpotlights(() => props.spaceId, { rings: true })
 
 const nadirScenes = computed(() => scenes.value
   .filter((sc: any) => sc?.id && !isLocalSceneId(sc.id))

@@ -122,6 +122,13 @@ export interface JourneyApi {
   /** A pulsing marker at a spot (radians) while a line is read; hidePin takes it away. */
   showPin?(pin: { yaw: number; pitch: number; label?: string }): void
   hidePin?(): void
+  /**
+   * Opens one of this room's Object Spotlights (its key) with no tap, using
+   * `voice` (the visit's own audio element, already allowed to play) for its
+   * recording. Resolves once it has closed; stopSpotlight closes it early.
+   */
+  playSpotlight?(key: string, voice: HTMLAudioElement | null): Promise<void>
+  stopSpotlight?(): void
   /** The element the visitor drags; pressing on it pauses the visit. */
   container(): HTMLElement | null
 }
@@ -171,7 +178,8 @@ const minutesOf = (j: Journey) => journeyMinutes(j)
 // lines already said are full, and the next step starts a fresh set.
 /** How far the line being said has got (0–1). */
 const lineFrac = ref(0)
-const speaks = (a: JourneyAction | undefined) => !!a && 'say' in a && !!a.say
+// A spotlight counts as a line too: it gets its own segment, filled as it reads.
+const speaks = (a: JourneyAction | undefined) => !!a && (('say' in a && !!a.say) || 'spot' in a)
 /** Where each segment's line sits in this step's actions. */
 const segAt = computed<number[]>(() => {
   const acts = journey.value.chapters[chapter.value]?.actions ?? []
@@ -359,6 +367,20 @@ async function exec(a: JourneyAction, stopped: () => boolean) {
       props.api.closeCard()
       await sleep(900, stopped) // let the camera settle back before moving on
     }
+  } else if ('spot' in a) {
+    if (a.say) await say(a.say, stopped, a.audio, a.ms)
+    if (stopped() || !props.api.playSpotlight) return
+    caption.value = ''
+    lineFrac.value = 0
+    // Its recording plays through the visit's own element (sound is allowed on
+    // it), so the segment fills from that clip as the spotlight reads.
+    const el = clip
+    const tick = () => { if (el && el.duration > 0 && !stopped()) lineFrac.value = Math.min(1, el.currentTime / el.duration) }
+    el?.addEventListener('timeupdate', tick)
+    if (el) el.muted = muted.value
+    try { await props.api.playSpotlight(a.spot, el) }
+    finally { el?.removeEventListener('timeupdate', tick) }
+    if (!stopped()) await sleep(500, stopped) // a breath before the visit carries on
   } else if ('say' in a) {
     if (a.pin) props.api.showPin?.({ yaw: deg(a.pin.yaw), pitch: deg(a.pin.pitch), label: a.pin.label })
     await say(a.say, stopped, a.audio, a.ms)
@@ -399,6 +421,7 @@ async function play() {
 function halt() {
   run++
   clip?.pause()
+  props.api.stopSpotlight?.()
   props.api.stopCamera()
 }
 
@@ -467,8 +490,8 @@ async function goLine(n: number) {
   setState('playing')
   const me = run
   const first = c.actions[start]
-  // A turn or an info card moves the camera itself; otherwise face where the line is said.
-  if (!(first && ('look' in first || 'card' in first))) {
+  // A turn, an info card or a spotlight moves the camera itself; otherwise face where the line is said.
+  if (!(first && ('look' in first || 'card' in first || 'spot' in first))) {
     let face: JourneyView | undefined = c.view
     for (let i = start - 1; i >= 0; i--) {
       const a = c.actions[i]!
