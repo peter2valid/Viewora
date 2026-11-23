@@ -1919,11 +1919,11 @@ const journeyApi: JourneyApi = {
   },
   async playSpotlight(key, voice, bottomInset) {
     const ctl = spotlightCtl
-    if (!ctl) return
+    if (!ctl) return undefined
     await waitFor(() => !vtTransitioning.value, 4000)
     if (vtFocusing.value && vtHandle.value) dismissInfoCard(vtHandle.value)
     if (vtActiveNodeId.value) ctl.setScene(vtActiveNodeId.value)
-    await ctl.play(key, { voice, bottomInset })
+    return ctl.play(key, { voice, bottomInset })
   },
   stopSpotlight() {
     spotlightCtl?.close()

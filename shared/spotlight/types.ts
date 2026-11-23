@@ -38,4 +38,10 @@ export type SpotlightEndReason = 'close' | 'tap' | 'done' | 'moved' | 'hidden' |
 
 export interface SpotlightRun {
   dismiss: (reason: SpotlightEndReason) => void
+  /**
+   * A tap on the view while it's open. On a phone the first tap folds the
+   * panel into a small label (the outline stays, so the object can be seen);
+   * the next one closes it. Elsewhere a tap closes it.
+   */
+  tap: () => void
 }

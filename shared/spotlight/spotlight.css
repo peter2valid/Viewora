@@ -128,3 +128,45 @@
   white-space: nowrap;
   margin: 0;
 }
+
+/* Phones: the panel folded into a small label (a tap on the view). The
+   outline stays; the label opens the panel again. */
+.vw-spot > .vw-spot__pill {
+  top: auto;
+  left: 50%;
+  margin-left: -120px;
+  width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px 9px 14px;
+  border: 1px solid var(--vw-spot-ink-soft);
+  border-radius: 999px;
+  background: rgba(5, 11, 19, 0.86);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+  visibility: hidden;
+  opacity: 0;
+}
+.vw-spot__pill-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vw-spot__pill-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--vw-spot-ink); }
+.vw-spot__pill-more {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(127, 231, 247, 0.16);
+  color: var(--vw-spot-ink);
+  font-size: 12px;
+}
+.vw-spot__pill:focus-visible { outline: 2px solid var(--vw-spot-ink); outline-offset: 2px; }
+.vw-spot--mini .vw-spot__panel { pointer-events: none; }
+.vw-spot__pill-name small { display: block; margin-top: 1px; font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.65); }
+/* Folded: the outline that follows the view (full view size). */
+.vw-spot__track { overflow: visible; visibility: hidden; opacity: 0; }
+.vw-spot__track path { fill: none; stroke-linejoin: round; stroke-linecap: round; }

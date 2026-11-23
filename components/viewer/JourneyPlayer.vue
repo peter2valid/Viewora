@@ -139,7 +139,8 @@ export interface JourneyApi {
    * recording. Resolves once it has closed; stopSpotlight closes it early.
    */
   /** bottomInset: px of the view the visit's bar covers (the spotlight keeps clear of it). */
-  playSpotlight?(key: string, voice: HTMLAudioElement | null, bottomInset?: number): Promise<void>
+  /** Resolves when it has closed, with how ('moved': the visitor took the camera). */
+  playSpotlight?(key: string, voice: HTMLAudioElement | null, bottomInset?: number): Promise<string | undefined>
   stopSpotlight?(): void
   /** The element the visitor drags; pressing on it pauses the visit. */
   container(): HTMLElement | null
@@ -406,8 +407,12 @@ async function exec(a: JourneyAction, stopped: () => boolean) {
     const tick = () => { if (el && el.duration > 0 && !stopped()) lineFrac.value = Math.min(1, el.currentTime / el.duration) }
     el?.addEventListener('timeupdate', tick)
     if (el) el.muted = muted.value
-    try { await props.api.playSpotlight(a.spot, el, inset) }
+    let why: string | undefined
+    try { why = await props.api.playSpotlight(a.spot, el, inset) }
     finally { el?.removeEventListener('timeupdate', tick); spotOn.value = false }
+    // Dragged the view away: the visitor is looking around, so the visit waits
+    // (the spotlight plays again on Resume).
+    if (why === 'moved' && !stopped()) { pause(true); return }
     if (!stopped()) await sleep(500, stopped) // a breath before the visit carries on
   } else if ('say' in a) {
     if (a.pin) props.api.showPin?.({ yaw: deg(a.pin.yaw), pitch: deg(a.pin.pitch), label: a.pin.label })
@@ -640,7 +645,9 @@ watch(() => props.command?.nonce, () => {
 }, { immediate: true })
 
 // Dragging, scrolling or tapping the view takes the camera back: pause.
-function onUserMove() { pause(true) }
+// While a spotlight plays, a tap is the spotlight's (on a phone it folds the
+// panel to show the object); a drag closes it and the visit pauses then.
+function onUserMove() { if (!spotOn.value) pause(true) }
 let watched: HTMLElement | null = null
 onMounted(() => {
   clip = new Audio()

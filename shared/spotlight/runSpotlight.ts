@@ -34,6 +34,8 @@ export interface RunOptions {
 const SVGNS = 'http://www.w3.org/2000/svg'
 /** Seconds the finished panel stays up after the voice ends, then it closes itself. */
 const LINGER_S = 4
+/** Extra seconds when the visitor has folded the panel to look at the object. */
+const MINI_LINGER_S = 6
 /** Waiting longer than this for the voice's length: go on with a reading time. */
 const VOICE_WAIT_MS = 1500
 /** Typing never runs faster than this (characters a second). */
@@ -46,13 +48,47 @@ const ZOOM_EPS = 0.5
  * The pitch to aim at so obj sits in the middle of the view above a covered
  * band of `inset` px (the camera looks a little lower, the object rides up).
  */
-function framedPitch(viewer: any, obj: SpotlightObject, inset: number): number {
+function framedPitch(viewer: any, obj: SpotlightObject, inset: number, zoom: number): number {
   const h: number = viewer.state?.size?.height || viewer.container?.clientHeight || 0
   if (!inset || !h) return obj.pitch
   let vfov = 60
-  try { vfov = viewer.dataHelper.zoomLevelToFov(obj.zoom) } catch { /* default */ }
+  try { vfov = viewer.dataHelper.zoomLevelToFov(zoom) } catch { /* default */ }
   const shift = ((Math.min(inset, h * 0.6) / 2) / h) * (vfov * Math.PI / 180)
   return Math.max(-Math.PI / 2, Math.min(Math.PI / 2, obj.pitch - shift))
+}
+
+/**
+ * The zoom to land at: the one saved for the object, or wider if the object
+ * wouldn't fit the view at it. Studio picks the zoom on a wide screen; a phone
+ * held upright shows less than half that width, and the object's edges ended
+ * up off screen. Both directions are checked, with some room round it (and
+ * only the part of the view above a covered band counts).
+ */
+function fitZoom(viewer: any, obj: SpotlightObject, inset: number): number {
+  const size = viewer.state?.size
+  const w: number = size?.width || viewer.container?.clientWidth || 0
+  const h: number = (size?.height || viewer.container?.clientHeight || 0) - Math.min(inset, (size?.height || 0) * 0.6)
+  const minFov: number = viewer.config?.minFov
+  const maxFov: number = viewer.config?.maxFov
+  if (!w || !h || !Number.isFinite(minFov) || !Number.isFinite(maxFov) || maxFov <= minFov || !obj.polygon?.length) return obj.zoom
+  // The object's angular size round its centre (yaw unwrapped).
+  let yMin = 0, yMax = 0, pMin = Infinity, pMax = -Infinity
+  for (const [yaw, pitch] of obj.polygon) {
+    const dy = Math.atan2(Math.sin(yaw - obj.yaw), Math.cos(yaw - obj.yaw))
+    yMin = Math.min(yMin, dy); yMax = Math.max(yMax, dy)
+    pMin = Math.min(pMin, pitch); pMax = Math.max(pMax, pitch)
+  }
+  // Half-angles it needs either side of the centre, plus room for the brackets
+  // (on a phone the panel sits above or below, so height gets more room).
+  const ROOM_X = 1.18, ROOM_Y = w < h ? 1.9 : 1.3
+  const halfX = Math.max(-yMin, yMax) * ROOM_X
+  const halfY = Math.max(obj.pitch - pMin, pMax - obj.pitch) * ROOM_Y
+  // Vertical fov (degrees) that shows those: PSV's fov is vertical.
+  const needX = 2 * Math.atan(Math.tan(Math.min(halfX, 1.45)) * (h / w))
+  const needY = 2 * Math.min(halfY, 1.45)
+  const need = Math.min(maxFov, Math.max(needX, needY) * 180 / Math.PI)
+  const level = ((maxFov - need) / (maxFov - minFov)) * 100
+  return Math.max(0, Math.min(obj.zoom, level))
 }
 
 // Open spotlights and their listeners, for the leak check (window.__vwSpotlight()).
@@ -155,6 +191,21 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
   let linger: gsap.core.Tween | null = null
   let starter = 0
   let landed = { yaw: obj.yaw, pitch: obj.pitch, zoom: obj.zoom }
+  /** Folded to a small label by a tap (phones): the outline stays, the panel waits. */
+  let mini = false
+  let fold: ((on: boolean) => void) | null = null
+  let small = false
+  /** Folded: redraw the following outline (after the view moved). */
+  let trackRedraw: (() => void) | null = null
+  /** When the folded view was last looked around (the auto close waits for a pause). */
+  let lastLook = 0
+  const awayFromLanding = () => {
+    const p = viewer.getPosition?.()
+    const z = viewer.getZoomLevel?.() ?? landed.zoom
+    if (!p) return false
+    const dy = Math.abs(Math.atan2(Math.sin(p.yaw - landed.yaw), Math.cos(p.yaw - landed.yaw)))
+    return dy > MOVE_EPS || Math.abs(p.pitch - landed.pitch) > MOVE_EPS || Math.abs(z - landed.zoom) > ZOOM_EPS
+  }
   const offs: Array<() => void> = []
   liveRuns++
 
@@ -168,13 +219,14 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
   // and the sharper tiles for the zoomed view wait until the outline is drawn:
   // their uploads made the landing frames 40-150 ms at 4x CPU throttle. ──
   const inset = Math.max(0, opts.bottomInset ?? 0)
-  const to = { yaw: obj.yaw, pitch: framedPitch(viewer, obj, inset) }
+  const zoomTo = fitZoom(viewer, obj, inset)
+  const to = { yaw: obj.yaw, pitch: framedPitch(viewer, obj, inset, zoomTo) }
   let tilesHeld = true
   const releaseTiles = () => { if (tilesHeld) { tilesHeld = false; adapter?.vwHoldTiles?.(false) } }
   adapter?.vwHoldTiles?.(true)
   let anim: any = null
   try {
-    anim = viewer.animate({ ...to, zoom: obj.zoom, speed: cameraMoveMs({ viewer } as any, to) })
+    anim = viewer.animate({ ...to, zoom: zoomTo, speed: cameraMoveMs({ viewer } as any, to) })
   } catch { anim = null }
   const voiceLen = voiceSeconds(voice)
 
@@ -214,6 +266,7 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
 
     root = document.createElement('div')
     root.className = 'vw-spot' + (lite ? ' vw-spot--lite' : '')
+    small = w < 640
 
     // Dim layer: the whole view with the object cut out. Static; only fades.
     const dim = svg('svg', { class: 'vw-spot__dim', width: w, height: h, viewBox: `0 0 ${w} ${h}`, 'aria-hidden': 'true' })
@@ -342,6 +395,105 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
     const dot = svg('circle', { cx: fmt(anchor.x - lx0), cy: fmt(anchor.y - ly0), r: 3, opacity: 0 })
     leader.append(lpath, dot)
     root.append(dim, outline, leader, wrapEl)
+
+    // Phones: the small label a tap folds the panel into. Tapping it opens the
+    // panel again; the outline stays up the whole time.
+    if (small) {
+      const pill = document.createElement('button')
+      pill.type = 'button'
+      pill.className = 'vw-spot__pill'
+      pill.style.bottom = `${Math.round(inset) + 14}px`
+      pill.innerHTML = '<span class="vw-spot__pill-dot" aria-hidden="true"></span>'
+      const name = document.createElement('span')
+      name.className = 'vw-spot__pill-name'
+      name.textContent = obj.title
+      // Wider than the screen (a car park on a phone): say it can be looked along.
+      if (bx0 < -4 || bx1 > w + 4) {
+        const hint = document.createElement('small')
+        hint.textContent = 'Drag to see all of it'
+        name.append(hint)
+      }
+      pill.append(name)
+      const more = document.createElement('span')
+      more.className = 'vw-spot__pill-more'
+      more.textContent = 'Read'
+      pill.append(more)
+      pill.setAttribute('aria-label', `${obj.title}: show the description`)
+      for (const t of ['pointerdown', 'mousedown', 'touchstart', 'wheel']) on(pill, t, (e: Event) => e.stopPropagation(), t === 'touchstart' || t === 'wheel' ? { passive: true } : undefined)
+      on(pill, 'click', (e: Event) => { e.stopPropagation(); fold?.(false) })
+      root.append(pill)
+      // Folded, the view can be dragged and zoomed: a full-view outline then
+      // follows the object (redrawn on the next frame after each move; only a
+      // thin path, the dim is hidden while folded).
+      const track = svg('svg', { class: 'vw-spot__track', width: w, height: h, viewBox: `0 0 ${w} ${h}`, 'aria-hidden': 'true' })
+      const trackPath = svg('path', { class: 'vw-spot__line', d: '' })
+      track.appendChild(trackPath)
+      let trackFrame = 0
+      const drawTrack = () => {
+        trackFrame = 0
+        if (!mini) return
+        const cam = viewer.getPosition?.()
+        if (!cam) return
+        const dir = [Math.cos(cam.pitch) * Math.sin(cam.yaw), Math.sin(cam.pitch), Math.cos(cam.pitch) * Math.cos(cam.yaw)]
+        const n = obj.polygon.length
+        const pts2 = obj.polygon.map(([yaw, pitch]) => {
+          const v = [Math.cos(pitch) * Math.sin(yaw), Math.sin(pitch), Math.cos(pitch) * Math.cos(yaw)]
+          // Points behind (or far to the side of) the camera project badly: skipped.
+          if (v[0]! * dir[0]! + v[1]! * dir[1]! + v[2]! * dir[2]! < 0.15) return null
+          try { const q = viewer.dataHelper.sphericalCoordsToViewerCoords({ yaw, pitch }); return Number.isFinite(q?.x) && Number.isFinite(q?.y) ? q : null } catch { return null }
+        })
+        let d = ''
+        let at = -1
+        for (let i = 0; i < n; i++) {
+          const a = pts2[i], b = pts2[(i + 1) % n]
+          if (!a || !b) continue
+          if (at !== i) d += `M${fmt(a.x)} ${fmt(a.y)}`
+          d += `L${fmt(b.x)} ${fmt(b.y)}`
+          at = (i + 1) % n
+        }
+        trackPath.setAttribute('d', d)
+      }
+      trackRedraw = () => { if (mini && !trackFrame) trackFrame = requestAnimationFrame(drawTrack) }
+      offs.push(() => { if (trackFrame) cancelAnimationFrame(trackFrame) })
+      let returning = false
+      fold = (on: boolean) => {
+        if (state !== 'open' || on === mini || returning) return
+        if (on) {
+          mini = true
+          lastLook = performance.now()
+          root?.classList.add('vw-spot--mini')
+          if (!track.parentNode) root?.insertBefore(track, outline)
+          drawTrack()
+          gsap.set(outline, { autoAlpha: 0 })
+          gsap.set(track, { autoAlpha: 1 })
+          // The panel, its leader and the dim step aside; the outline stays.
+          gsap.to([panel, leader], { autoAlpha: 0, duration: 0.2, overwrite: 'auto' })
+          gsap.to(dim, { opacity: 0, duration: 0.25, overwrite: 'auto' })
+          gsap.fromTo(pill, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.2 })
+          pill.focus({ preventScroll: true })
+          return
+        }
+        // Back to the panel: first back to where it was drawn, if the view moved.
+        const unfold = () => {
+          returning = false
+          if (state !== 'open') return
+          mini = false
+          root?.classList.remove('vw-spot--mini')
+          gsap.set(track, { autoAlpha: 0 })
+          gsap.set(outline, { autoAlpha: 1 })
+          gsap.to([panel, leader], { autoAlpha: 1, duration: 0.2, overwrite: 'auto' })
+          gsap.to(dim, { opacity: 1, duration: 0.25, overwrite: 'auto' })
+          gsap.to(pill, { autoAlpha: 0, y: 8, duration: 0.2 })
+        }
+        if (awayFromLanding()) {
+          returning = true
+          gsap.to(pill, { autoAlpha: 0, duration: 0.15 })
+          let back: any = null
+          try { back = viewer.animate({ yaw: landed.yaw, pitch: landed.pitch, zoom: landed.zoom, speed: reduce ? 250 : 500 }) } catch { back = null }
+          Promise.resolve(back).then(unfold, unfold)
+        } else unfold()
+      }
+    }
     container.appendChild(root)
 
     // Text: one counter drives the typing (the title goes three times faster).
@@ -373,6 +525,15 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
 
     state = 'open'
     const D = lite ? 0.6 : 1
+    // Done reading: it closes by itself, a little later if the visitor folded
+    // it to look at the object.
+    const autoClose = () => {
+      if (mini) {
+        const idle = (performance.now() - lastLook) / 1000
+        if (idle < MINI_LINGER_S) { linger = gsap.delayedCall(MINI_LINGER_S - idle + 0.1, autoClose); return }
+      }
+      dismiss('done')
+    }
 
     // The overlay goes in now (invisible) and starts moving two frames later:
     // the next frame lays it out as part of its normal rendering, and only
@@ -392,14 +553,14 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
         showUpTo(weight)
         releaseTiles()
         playVoice?.play().catch(() => {})
-        linger = gsap.delayedCall(totalS + LINGER_S, () => dismiss('done'))
+        linger = gsap.delayedCall(totalS + LINGER_S, autoClose)
         return
       }
       const typeStart = 1.15 * D
       const textEnd = Math.max(typeStart + weight / MAX_CPS, totalS)
       dim.style.willChange = 'opacity'
       panel.style.willChange = 'opacity, transform'
-      tl = gsap.timeline({ onComplete: () => { linger = gsap.delayedCall(LINGER_S, () => dismiss('done')) } })
+      tl = gsap.timeline({ onComplete: () => { linger = gsap.delayedCall(LINGER_S, autoClose) } })
       tl.fromTo(dim, { opacity: 0 }, { opacity: 1, duration: 0.45 * D, ease: 'power2.out' }, 0)
       tl.fromTo(glow ? [line, glow] : line, { attr: { 'stroke-dashoffset': len } }, { attr: { 'stroke-dashoffset': 0 }, duration: 0.9 * D, ease: 'power2.inOut' }, 0.1 * D)
       tl.fromTo(corners, { opacity: 0 }, { opacity: 1, duration: 0.3 * D }, 0.25 * D)
@@ -420,12 +581,10 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
     }
 
     // Anything the visitor does to the view closes it (nothing tracks the view).
+    // Folded on a phone, looking around is allowed: the outline follows.
     const moved = () => {
-      const p = viewer.getPosition?.()
-      const z = viewer.getZoomLevel?.() ?? landed.zoom
-      if (!p) return
-      const dy = Math.abs(Math.atan2(Math.sin(p.yaw - landed.yaw), Math.cos(p.yaw - landed.yaw)))
-      if (dy > MOVE_EPS || Math.abs(p.pitch - landed.pitch) > MOVE_EPS || Math.abs(z - landed.zoom) > ZOOM_EPS) dismiss('moved')
+      if (mini) { lastLook = performance.now(); trackRedraw?.(); return }
+      if (awayFromLanding()) dismiss('moved')
     }
     on(viewer, 'position-updated', moved)
     on(viewer, 'zoom-updated', moved)
@@ -467,5 +626,11 @@ export function runSpotlight(viewer: any, obj: SpotlightObject, opts: RunOptions
     opts.onEnd(reason)
   }
 
-  return { dismiss }
+  /** A tap on the view: on a phone, fold first, close on the next one. */
+  function tap() {
+    if (state === 'open' && small && fold && !mini) { fold(true); return }
+    dismiss('tap')
+  }
+
+  return { dismiss, tap }
 }

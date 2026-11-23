@@ -54,7 +54,8 @@ export interface SpotlightController {
    * once it has closed again (read to the end, or stopped). An object that
    * isn't there resolves at once.
    */
-  play: (key: string, opts?: SpotlightPlayOptions) => Promise<void>
+  /** Resolves once it has closed, with how (undefined: it never opened). */
+  play: (key: string, opts?: SpotlightPlayOptions) => Promise<SpotlightEndReason | undefined>
   destroy: () => void
 }
 
@@ -309,8 +310,8 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
    * whatever the tour is doing, with its own audio element. done() runs once
    * it has closed, however that happened.
    */
-  function trigger(o: Prepared, forced?: { voice: HTMLAudioElement | null; done: () => void; bottomInset?: number }) {
-    if (run || (forced ? destroyed || !!opening : blocked())) { forced?.done(); return }
+  function trigger(o: Prepared, forced?: { voice: HTMLAudioElement | null; done: (reason: SpotlightEndReason) => void; bottomInset?: number }) {
+    if (run || (forced ? destroyed || !!opening : blocked())) { forced?.done('cancelled'); return }
     const token = {}
     opening = token
     armed.delete(o.obj.id)
@@ -329,7 +330,7 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
       run = null
       container.classList.remove('vw-spot-on')
       host.onEnd()
-      forced?.done()
+      forced?.done(_reason)
     }
     loadEffect()
       .then(({ runSpotlight }) => {
@@ -353,7 +354,7 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
   // A tap on the panorama: closes an open spotlight, or opens the object under it.
   // MarkersPlugin stops this event for taps on markers, so hotspots keep theirs.
   const onClick = (e: any) => {
-    if (run) { run.dismiss('tap'); return }
+    if (run) { run.tap(); return }
     if (!objects.length || e?.data?.rightclick || blocked()) return
     const { yaw, pitch } = e?.data ?? {}
     if (typeof yaw !== 'number' || typeof pitch !== 'number') return
@@ -439,14 +440,14 @@ export function attachSpotlights(handle: PsvViewerHandle, host: SpotlightHost): 
     close() {
       close('scene')
     },
-    async play(key: string, opts?: SpotlightPlayOptions) {
+    async play(key: string, opts?: SpotlightPlayOptions): Promise<SpotlightEndReason | undefined> {
       const scene = sceneId
       await ready
-      if (destroyed || sceneId !== scene) return
+      if (destroyed || sceneId !== scene) return undefined
       const o = objects.find(p => p.obj.id === key)
-      if (!o) return
+      if (!o) return undefined
       if (run || opening) close('scene')
-      await new Promise<void>(resolve => trigger(o, { voice: opts?.voice ?? null, done: resolve, bottomInset: opts?.bottomInset }))
+      return new Promise<SpotlightEndReason>(resolve => trigger(o, { voice: opts?.voice ?? null, done: resolve, bottomInset: opts?.bottomInset }))
     },
     destroy() {
       if (destroyed) return
