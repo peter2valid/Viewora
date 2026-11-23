@@ -351,9 +351,10 @@ useHead(computed(() => {
   :root[data-area-rail] .brand-card,
   :root[data-area-rail] .viewora-free-brand { left: 176px; }
 }
-/* Phones: the Areas button sits top right (AreaRail.vue sets --area-open-space
-   to the width it takes), so the brand keeps left of it and wraps. */
-:root[data-area-rail] .viewora-free-brand { max-width: calc(100vw - 20px - var(--area-open-space, 0px)); }
-:root[data-area-rail] .brand-card { max-width: min(200px, calc(100vw - 20px - var(--area-open-space, 0px))); }
-:root[data-area-rail] .viewora-free-brand__name { min-width: 0; line-height: 1.1; }
+/* Phones: a viewer button top right (Areas, Guided visit) sets
+   --brand-clear-right to the width it takes (useBesideBrandHeading), so the
+   brand keeps left of it and wraps. Unset, nothing changes. */
+.viewora-free-brand { max-width: calc(100vw - 20px - var(--brand-clear-right, 0px)); }
+.brand-card { max-width: min(200px, 46%, calc(100vw - 14px - var(--brand-clear-right, 0px))); }
+.viewora-free-brand__name { min-width: 0; line-height: 1.1; }
 </style>

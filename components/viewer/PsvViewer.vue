@@ -646,7 +646,8 @@
     <!-- Exploring on their own: one tap back to the guided layout -->
     <button
       v-if="exploring && areas.length && hasTourData && vtReady && !chromeHidden && !props.hideOwnChrome && !showVenue && !routeGuide"
-      type="button" class="guided-back" @click.stop="openVisits"
+      ref="guidedBackEl"
+      type="button" class="guided-back" :style="guidedBackTop !== null ? { top: `${guidedBackTop}px` } : undefined" @click.stop="openVisits"
     >
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
       Guided visit
@@ -734,6 +735,7 @@ import PhotoGallery, { type GalleryPhoto } from '~/components/viewer/PhotoGaller
 import { routeJourney, tourAreas, tourJourneys, type TourArea } from '~/shared/utils/journey'
 import { createVisitEvents } from '~/composables/useVisitEvents'
 import { socialIcons } from '~/shared/utils/socialLinks'
+import { useBesideBrandHeading } from '~/composables/useBesideBrandHeading'
 import { copyText, warmSharePreview } from '~/shared/utils/copyText'
 import LeadForm from '~/components/viewer/LeadForm.vue'
 import { buildSceneGraph, buildVenueFloors, scenePath, venueKindOf, venueWords } from '~/shared/utils/venue'
@@ -1718,6 +1720,9 @@ watch(() => showPhotos.value && !showPhotoSwitch.value && !chromeHidden.value, (
 
 const showAreaRail = computed(() => areas.value.length > 0 && hasTourData.value && vtReady.value
   && !exploring.value && !showVenue.value && !routeGuide.value && !chromeHidden.value && !props.hideOwnChrome)
+// Phones: "Guided visit" sits level with the page's brand heading, which wraps clear of it.
+const guidedBackEl = ref<HTMLElement | null>(null)
+const { top: guidedBackTop } = useBesideBrandHeading(guidedBackEl, '(max-width: 600px)')
 function exploreOnMyOwn() {
   exploring.value = true
   endJourney()

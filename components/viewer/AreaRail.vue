@@ -106,7 +106,8 @@
 // Chester's tour): each photo the guided visits use, once. Choosing one walks
 // there and plays its guide. Above the list: the guided visits, and
 // directions from one area to another. On a phone it's a drawer.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useBesideBrandHeading } from '~/composables/useBesideBrandHeading'
 import type { TourArea } from '~/shared/utils/journey'
 
 const props = defineProps<{
@@ -134,51 +135,9 @@ onMounted(() => {
 })
 onBeforeUnmount(() => mq?.removeEventListener?.('change', onMq))
 
-// Phone button, top right, beside the page's brand heading (pages/p, top left):
-//  - it tells the page how much width it takes (--area-open-space on :root), so
-//    the heading wraps before reaching it, whatever its length;
-//  - it sits level with the middle of the "Viewora Virtual Tours" heading, and
-//    follows it when the heading wraps onto more lines.
+// Phone button: level with the page's brand heading, which wraps clear of it.
 const openBtn = ref<HTMLElement | null>(null)
-const openTop = ref<number | null>(null)
-const OPEN_GAP_PX = 12
-let headingObserver: ResizeObserver | null = null
-let observedHeading: Element | null = null
-function placeOpenBtn() {
-  if (typeof document === 'undefined') return
-  const root = document.documentElement
-  const btn = openBtn.value
-  if (!compact.value || !btn) {
-    root.style.removeProperty('--area-open-space')
-    openTop.value = null
-    return
-  }
-  const b = btn.getBoundingClientRect()
-  root.style.setProperty('--area-open-space', `${Math.ceil(window.innerWidth - b.left + OPEN_GAP_PX)}px`)
-  const heading = document.querySelector('.viewora-free-brand__name')
-  if (heading !== observedHeading) {
-    headingObserver?.disconnect()
-    observedHeading = heading
-    if (heading && 'ResizeObserver' in window) {
-      headingObserver = new ResizeObserver(() => placeOpenBtn())
-      headingObserver.observe(heading)
-    }
-  }
-  const parent = btn.offsetParent
-  if (!heading || !parent) { openTop.value = null; return }
-  const h = heading.getBoundingClientRect()
-  const p = parent.getBoundingClientRect()
-  if (!h.height) { openTop.value = null; return }
-  openTop.value = Math.max(8, Math.round(h.top + h.height / 2 - p.top - btn.offsetHeight / 2))
-}
-const schedulePlace = () => nextTick(() => requestAnimationFrame(placeOpenBtn))
-watch([compact, open], schedulePlace)
-onMounted(() => { schedulePlace(); window.addEventListener('resize', schedulePlace) })
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', schedulePlace)
-  headingObserver?.disconnect()
-  if (typeof document !== 'undefined') document.documentElement.style.removeProperty('--area-open-space')
-})
+const { top: openTop } = useBesideBrandHeading(openBtn, '(max-width: 900px), (max-height: 520px)')
 
 const showRoute = ref(false)
 const from = ref<string>('__here')
