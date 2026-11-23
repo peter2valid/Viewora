@@ -150,6 +150,18 @@
               @journey-chapter="onChapter"
             />
           </ClientOnly>
+          <!-- Phone check: what an upright phone shows of this view, the visit's box shaded -->
+          <div v-if="phoneOn && phoneWin" class="jy-phone" aria-hidden="true" :style="phoneWin">
+            <span class="jy-phone__tag">Phone</span>
+            <span class="jy-phone__box" :style="{ top: phoneBoxTop }"><span>Visit box</span></span>
+          </div>
+          <button
+            v-if="!placing" type="button" class="jy-phonebtn" :class="{ 'is-on': phoneOn }" :aria-pressed="phoneOn"
+            title="Show what a phone held upright sees of this view" @click="togglePhone"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg>
+            Phone view
+          </button>
           <div v-if="!placing" class="jy-preview__bar">
             <button class="jy-btn jy-btn--primary" :disabled="!playable" @click="playAll">▶ Play the whole visit</button>
           </div>
@@ -342,6 +354,7 @@ import { compileJourney, freshAudio, JOURNEY_VOICES, DEFAULT_JOURNEY_VOICE, type
 import { buildSceneGraph, buildVenueFloors, scenePath } from '~/shared/utils/venue'
 import { createSerialWrites } from '~/shared/utils/editorWrites'
 import { useEditorSpotlights } from '~/features/editor/composables/useEditorSpotlights'
+import { phoneWindow } from '~/shared/utils/phoneFrame'
 
 const props = defineProps<{ spaceId: string }>()
 const emit = defineEmits<{ (e: 'fix-link', sceneId: string): void }>()
@@ -417,6 +430,32 @@ const compiled = computed(() => journey.value ? compileJourney(journey.value, sc
 const playable = computed(() => !!compiled.value)
 const minutes = computed(() => compiled.value ? journeyMinutes(compiled.value) : 0)
 const previewReady = ref(false)
+
+// ── Phone check: the part of the preview an upright phone shows ──
+// (shared/utils/phoneFrame: on a phone the visit zooms out to keep the width
+// and frames the view above its box; this draws where that lands).
+const PHONE_KEY = 'vw-journey-phone-view'
+const phoneOn = ref(false)
+const phoneWin = ref<Record<string, string> | null>(null)
+const phoneBoxTop = ref('75%')
+let phoneTimer: ReturnType<typeof setInterval> | null = null
+function measurePhone() {
+  const f = (viewerRef.value as any)?.getFov?.()
+  if (!f || f.playing || !Number.isFinite(f.minFov) || !Number.isFinite(f.maxFov)) { phoneWin.value = null; return }
+  const w = phoneWindow(f.vfov, f.aspect, f.zoom, f)
+  const pct = (n: number) => `${(n * 100).toFixed(2)}%`
+  phoneWin.value = { left: pct(w.left), width: pct(w.right - w.left), top: pct(w.top), height: pct(w.bottom - w.top) }
+  phoneBoxTop.value = pct((w.barTop - w.top) / (w.bottom - w.top))
+}
+function setPhone(on: boolean) {
+  phoneOn.value = on
+  try { localStorage.setItem(PHONE_KEY, on ? '1' : '0') } catch { /* private mode */ }
+  if (phoneTimer) { clearInterval(phoneTimer); phoneTimer = null }
+  if (on) { measurePhone(); phoneTimer = setInterval(measurePhone, 250) } // follows zooming
+}
+function togglePhone() { setPhone(!phoneOn.value) }
+onMounted(() => { try { if (localStorage.getItem(PHONE_KEY) === '1') setPhone(true) } catch { /* private mode */ } })
+onBeforeUnmount(() => { if (phoneTimer) clearInterval(phoneTimer) })
 
 /** The walk between each step and the next, as the visit will take it. */
 const links = computed(() => {
@@ -1194,6 +1233,13 @@ watch(viewerRef, (v) => {
 .jy-main { min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
 .jy-preview { position: relative; flex: none; height: min(46vh, 440px); min-height: 240px; border-radius: 16px; overflow: hidden; background: #000; }
 .jy-preview__bar { position: absolute; top: 12px; right: 12px; z-index: 50; }
+.jy-phonebtn { position: absolute; top: 12px; left: 12px; z-index: 50; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; background: rgba(10,12,18,0.72); color: #e5e7eb; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.jy-phonebtn:hover { background: rgba(10,12,18,0.9); }
+.jy-phonebtn.is-on { background: #fff; color: #111827; border-color: #fff; }
+/* The phone's window: everything outside it shaded; its bottom is the visit's box. */
+.jy-phone { position: absolute; z-index: 40; pointer-events: none; border: 2px solid rgba(255,255,255,0.9); border-radius: 18px; box-shadow: 0 0 0 9999px rgba(5,7,12,0.55); }
+.jy-phone__tag { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); padding: 2px 8px; border-radius: 999px; background: rgba(5,7,12,0.7); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+.jy-phone__box { position: absolute; left: 6px; right: 6px; bottom: 6px; display: grid; place-items: center; border-radius: 12px; background: rgba(255,255,255,0.82); color: #374151; font-size: 12px; font-weight: 700; }
 .jy-card { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
 .jy-card--empty { flex: none; padding: 32px; text-align: center; }
 .jy-card__head { display: flex; align-items: center; gap: 8px; }

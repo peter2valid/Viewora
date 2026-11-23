@@ -144,6 +144,11 @@ export interface JourneyApi {
   stopSpotlight?(): void
   /** The element the visitor drags; pressing on it pauses the visit. */
   container(): HTMLElement | null
+  /**
+   * How many px at the bottom of the view the visit's box covers, asked when
+   * the camera turns (views are framed in the part above it). null: none.
+   */
+  setCover?(fn: (() => number) | null): void
 }
 
 /**
@@ -529,6 +534,7 @@ async function continueVisit(i: number) {
   caption.value = ''
   setState('playing')
   const me = run
+  await nextTick() // the box is on screen before the camera turns (views are framed above it)
   await props.api.jumpTo(c.scene, c.view ? view(c.view) : undefined)
   if (me === run) void goLine(Math.min(v.line, segAt.value.length - 1))
 }
@@ -562,6 +568,7 @@ async function goChapter(i: number, only = false) {
   caption.value = ''
   setState('playing')
   const me = run
+  await nextTick() // the box is on screen before the camera turns (views are framed above it)
   await props.api.jumpTo(c.scene, c.view ? view(c.view) : undefined)
   if (me === run) void play()
 }
@@ -655,10 +662,12 @@ onMounted(() => {
   clip.setAttribute('playsinline', '')
   try { captionsOn.value = localStorage.getItem(CAPTIONS_KEY) !== '0' } catch { /* private mode */ }
   watched = props.api.container()
+  props.api.setCover?.(() => (state.value === 'idle' || state.value === 'intro' ? 0 : barInset()))
   watched?.addEventListener('pointerdown', onUserMove, true)
   watched?.addEventListener('wheel', onUserMove, { capture: true, passive: true })
 })
 onBeforeUnmount(() => {
+  props.api.setCover?.(null)
   if (state.value === 'playing' || state.value === 'paused') trackEnd(false)
   halt()
   props.api.hidePin?.()

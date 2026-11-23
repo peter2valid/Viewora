@@ -758,6 +758,7 @@ import { resolveNadirCover } from '~/shared/utils/viewerAdapters/nadirCover'
 import { floorGlyph, isFloorIcon } from '~/shared/utils/hotspotIcons'
 import { buildDockFloors, dockFloorOf, withInteriorsTab, INTERIORS_TAB_ID, OTHER_FLOOR_ID } from '~/shared/utils/dockFloors'
 import GlassDock from '~/components/ui/GlassDock.vue'
+import { framedView, keepWidthZoom, type FrameEnv } from '~/shared/utils/phoneFrame'
 import {
   initVirtualTourViewer,
   vtGoToNode,
@@ -1797,6 +1798,36 @@ function restZoom(): number {
   return typeof z === 'number' ? z : 0
 }
 
+// ── Framing a visit's views for this screen (shared/utils/phoneFrame) ──
+// The visit's box covers the bottom of the view, and a phone held upright
+// shows about half the width framed in the editor: views aim a little lower
+// (the spot sits in the middle of the part above the box) and, on a narrow
+// screen, zoom out to keep the framed width.
+let journeyCover: () => number = () => 0
+function frameEnv(): FrameEnv | null {
+  const v = vtHandle.value?.viewer
+  const size = v?.state?.size
+  const minFov = v?.config?.minFov, maxFov = v?.config?.maxFov
+  if (!size?.width || !size?.height || typeof minFov !== 'number' || typeof maxFov !== 'number') return null
+  return { w: size.width, h: size.height, cover: journeyCover(), minFov, maxFov }
+}
+/** The last framed aim and what was asked: "Use this view" reads back what was asked. */
+let lastFramed: { at: { yaw: number; pitch: number; zoom: number }; asked: { yaw: number; pitch: number; zoom: number } } | null = null
+function frameJourney(to: { yaw: number; pitch: number; zoom?: number }): { yaw: number; pitch: number; zoom?: number } {
+  const env = frameEnv()
+  const v = vtHandle.value?.viewer
+  if (!env || !v) return to
+  const z0 = to.zoom ?? Number(v.getZoomLevel?.() ?? restZoom())
+  const f = framedView({ yaw: to.yaw, pitch: to.pitch, zoom: z0 }, env)
+  lastFramed = { at: f, asked: { yaw: to.yaw, pitch: to.pitch, zoom: z0 } }
+  return { yaw: f.yaw, pitch: f.pitch, ...(to.zoom != null || Math.abs(f.zoom - z0) > 0.5 ? { zoom: f.zoom } : {}) }
+}
+/** The wide zoom for this screen (a narrow one goes wider to keep the framed width). */
+function restZoomHere(): number {
+  const env = frameEnv()
+  return env ? keepWidthZoom(restZoom(), env) : restZoom()
+}
+
 const journeyApi: JourneyApi = {
   async walkTo(target, stopped, direct) {
     // Straight there in one step (e.g. back to the middle of the room when
@@ -1837,11 +1868,12 @@ const journeyApi: JourneyApi = {
       navVia = 'journey'
       // With no view given, let the room open on its own start view.
       walkedInto = view ? sceneId : null
-      const ok = await vtWalkToNode(h, sceneId, { step: false, arrive: view ? { yaw: view.yaw, pitch: view.pitch } : null })
+      const arrive = view ? frameJourney({ ...view, zoom: view.zoom ?? restZoom() }) : null
+      const ok = await vtWalkToNode(h, sceneId, { step: false, arrive: arrive ? { yaw: arrive.yaw, pitch: arrive.pitch } : null })
       if (!ok) { vtTransitioning.value = false; walkedInto = null; navVia = null }
       await waitFor(() => vtActiveNodeId.value === sceneId && !vtTransitioning.value, 10000)
       // Arrive at the step's close-up, or wide when it has none.
-      if (view?.zoom) await journeyApi.look(view, 900)
+      if (view) await journeyApi.look({ ...view, zoom: view.zoom ?? restZoom() }, view.zoom ? 900 : 500)
       else await journeyApi.widen(500)
     } else if (view) {
       await journeyApi.look({ ...view, zoom: view.zoom ?? restZoom() }, 900)
@@ -1850,13 +1882,14 @@ const journeyApi: JourneyApi = {
   async widen(ms) {
     const v = vtHandle.value?.viewer
     if (!v) return
-    const rest = restZoom()
+    const rest = restZoomHere()
     if (Math.abs((v.getZoomLevel?.() ?? rest) - rest) < 1) return
     try { await v.animate({ zoom: rest, speed: ms }) } catch { /* stopped */ }
   },
-  async look(to, ms) {
+  async look(view, ms) {
     const v = vtHandle.value?.viewer
     if (!v) return
+    const to = frameJourney(view)
     try { await v.animate({ yaw: to.yaw, pitch: to.pitch, ...(to.zoom != null ? { zoom: to.zoom } : {}), speed: ms }) } catch { /* stopped */ }
   },
   lookAround(ms, stopped) {
@@ -1929,6 +1962,7 @@ const journeyApi: JourneyApi = {
     spotlightCtl?.close()
   },
   container: () => vtContainerEl.value,
+  setCover(fn) { journeyCover = fn ?? (() => 0) },
 }
 /** The one "mark the spot" marker a journey line can show (JourneyPlayer showPin). */
 const JOURNEY_PIN_ID = 'journey-spot'
@@ -2700,15 +2734,33 @@ function getView() {
   const pos = vtHandle.value?.viewer?.getPosition?.()
   if (!pos || !vtActiveNodeId.value) return null
   const zoom = Number(vtHandle.value?.viewer?.getZoomLevel?.() ?? 0)
+  // Still where a visit's line framed it (the preview paused mid-visit): the view as asked.
+  const f = lastFramed
+  if (f && Math.abs(pos.yaw - f.at.yaw) < 0.002 && Math.abs(pos.pitch - f.at.pitch) < 0.002 && Math.abs(zoom - f.at.zoom) < 0.6) {
+    return { sceneId: vtActiveNodeId.value, yaw: f.asked.yaw, pitch: f.asked.pitch, zoom: Math.round(f.asked.zoom * 10) / 10 }
+  }
   return { sceneId: vtActiveNodeId.value, yaw: pos.yaw as number, pitch: pos.pitch as number, zoom: Math.round(zoom * 10) / 10 }
 }
 /** Show a photo, facing `view` (and at its zoom) when given: the journey editor selecting a step. */
 function showScene(sceneId: string, view?: { yaw: number; pitch: number; zoom?: number } | null) {
   return journeyApi.jumpTo(sceneId, view ?? undefined)
 }
+/** The preview's field of view (the journey editor's phone check). */
+function getFov() {
+  const v = vtHandle.value?.viewer
+  const size = v?.state?.size
+  if (!v || !size?.width) return null
+  const zoom = Number(v.getZoomLevel?.() ?? 0)
+  let vfov = 60
+  try { vfov = v.dataHelper.zoomLevelToFov(zoom) } catch { /* default */ }
+  // playing: a visit plays in the preview (it shows its own box then).
+  const playing = journeyState.value === 'playing' || journeyState.value === 'paused'
+  return { vfov, aspect: size.width / size.height, zoom, minFov: v.config?.minFov as number, maxFov: v.config?.maxFov as number, playing }
+}
 defineExpose({
   goToScene: (sceneId: string) => handleDockSelect(sceneId, 'host-chrome'),
   getView,
+  getFov,
   showScene,
   placeSpot,
   endSpotPlacing,
