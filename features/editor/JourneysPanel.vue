@@ -155,6 +155,16 @@
             <span class="jy-phone__tag">Phone</span>
             <span class="jy-phone__box" :style="{ top: phoneBoxTop }"><span>Visit box</span></span>
           </div>
+          <!-- Phone view: save the framing to a line without scrolling down to Facing.
+               ‹ › pick the line (the preview stays where it is). -->
+          <div v-if="phoneOn && !placing && step && activeK >= 0 && phoneWin" class="jy-phonesave" :style="{ maxWidth: `calc(${phoneWin.left} - 24px)` }">
+            <button type="button" class="jy-phonesave__nav" :disabled="activeK <= 0" aria-label="Previous line" @click="markLine(activeK - 1)">‹</button>
+            <span class="jy-phonesave__line" :title="step.sentences[activeK]?.text || ''">Line {{ activeK + 1 }}/{{ step.sentences.length }}</span>
+            <button type="button" class="jy-phonesave__nav" :disabled="activeK >= step.sentences.length - 1" aria-label="Next line" @click="markLine(activeK + 1)">›</button>
+            <button type="button" class="jy-btn jy-btn--primary jy-phonesave__go" :disabled="!previewReady" @click="setLineView(activeK)">
+              {{ lineView(activeK) ? 'Update' : 'Use this view' }}<span class="jy-phonesave__for"> for line {{ activeK + 1 }}</span>
+            </button>
+          </div>
           <button
             v-if="!placing" type="button" class="jy-phonebtn" :class="{ 'is-on': phoneOn }" :aria-pressed="phoneOn"
             title="Show what a phone held upright sees of this view" @click="togglePhone"
@@ -986,6 +996,8 @@ async function deleteJourney() {
 // Facing column marks its line without moving the preview, so "Use this view"
 // and "Update" still take whatever the preview is showing.
 const activeLineId = ref<string | null>(null)
+/** The selected line's place in the step (-1: none). */
+const activeK = computed(() => step.value?.sentences.findIndex(x => x.id === activeLineId.value) ?? -1)
 function markLine(k: number) {
   const id = step.value?.sentences[k]?.id
   if (id) activeLineId.value = id
@@ -1234,6 +1246,11 @@ watch(viewerRef, (v) => {
 .jy-preview { position: relative; flex: none; height: min(46vh, 440px); min-height: 240px; border-radius: 16px; overflow: hidden; background: #000; }
 .jy-preview__bar { position: absolute; top: 12px; right: 12px; z-index: 50; }
 .jy-phonebtn { position: absolute; top: 12px; left: 12px; z-index: 50; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; background: rgba(10,12,18,0.72); color: #e5e7eb; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.jy-phonesave { position: absolute; left: 12px; bottom: 12px; z-index: 50; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 6px; border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; background: rgba(10,12,18,0.82); }
+.jy-phonesave__nav { flex-shrink: 0; width: 30px; height: 34px; border: 0; border-radius: 9px; background: rgba(255,255,255,0.08); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+.jy-phonesave__nav:disabled { opacity: 0.3; cursor: default; }
+.jy-phonesave__line { min-width: 0; display: grid; padding: 0 4px; color: #fff; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.jy-phonesave__go { flex-shrink: 1; min-width: 0; height: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jy-phonebtn:hover { background: rgba(10,12,18,0.9); }
 .jy-phonebtn.is-on { background: #fff; color: #111827; border-color: #fff; }
 /* The phone's window: everything outside it shaded; its bottom is the visit's box. */
