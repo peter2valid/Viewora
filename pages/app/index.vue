@@ -42,6 +42,9 @@
     <!-- Active Dashboard -->
     <section v-else class="flex flex-col gap-6">
 
+      <!-- Partner apps asking to manage a tour (only while some are waiting) -->
+      <AppPartnerClaims v-if="partnerListings" />
+
       <!-- Capture nudge strip — always visible for active users -->
       <AppCaptureNudge variant="strip" />
 
@@ -157,6 +160,7 @@ import type { Space } from '~/composables/useSpaces'
 definePageMeta({ layout: 'app', middleware: 'auth' })
 
 const { apiFetch } = useApiFetch()
+const partnerListings = useRuntimeConfig().public.partnerListings
 const { spaces, fetchSpaces } = useSpaces()
 const pending = ref(true)
 

@@ -48,6 +48,12 @@
 
         <p class="lf-consent">{{ T.consent }}</p>
 
+        <!-- Partner listings: sharing with the partner is a separate, unticked choice. -->
+        <label v-if="partnerConsent" class="lf-share">
+          <input v-model="shareWithPartner" type="checkbox" />
+          <span>{{ partnerConsent.wording }}</span>
+        </label>
+
         <button type="submit" class="lf-btn lf-btn--primary" :disabled="state === 'sending'">
           {{ state === 'sending' ? T.sending : T.send }}
         </button>
@@ -59,6 +65,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { unwrapApiData } from '~/shared/utils/api'
 
 const props = defineProps<{
   spaceId: string
@@ -99,6 +106,11 @@ const T = {
 
 const { apiFetch } = useApiFetch()
 const { $posthog } = useNuxtApp() as any
+const partnerListings = useRuntimeConfig().public.partnerListings
+
+// The wording comes from the server (editable by staff, with the partner's name).
+const partnerConsent = ref<{ text_id: string; wording: string } | null>(null)
+const shareWithPartner = ref(false)
 
 const uid = Math.random().toString(36).slice(2, 8)
 const titleId = `lf-title-${uid}`
@@ -131,6 +143,9 @@ const mailtoHref = computed(() =>
 
 onMounted(async () => {
   $posthog?.capture('lead_form_opened', { space_id: props.spaceId, source: props.source })
+  if (partnerListings) {
+    apiFetch(`/partner/lead-consent/${props.spaceId}`).then((r: any) => { partnerConsent.value = unwrapApiData<any>(r)?.consent ?? null }).catch(() => {})
+  }
   await nextTick()
   nameEl.value?.focus({ preventScroll: true })
 })
@@ -158,6 +173,8 @@ async function submit() {
         ...(phone.value ? { phone: phone.value } : {}),
         ...(message.value.trim() ? { message: message.value.trim() } : {}),
         source: props.source,
+        // Recorded either way, with the exact words shown.
+        ...(partnerConsent.value ? { partnerConsent: { accepted: shareWithPartner.value, textId: partnerConsent.value.text_id } } : {}),
       },
     })
     state.value = 'sent'
@@ -218,6 +235,9 @@ function onFallbackClick() {
 .lf-btn:focus-visible, .lf-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .lf-err { margin: 4px 0 0; font-size: 0.8rem; color: #fca5a5; }
 .lf-consent { margin: 2px 0 12px; font-size: 0.78rem; color: #aeb2ba; }
+.lf-share { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; min-height: 48px; font-size: 0.85rem; line-height: 1.4; color: #e3e5e8; cursor: pointer; }
+.lf-share input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: #fff; }
+.lf-share input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .lf-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; min-height: 48px; padding: 0 16px;

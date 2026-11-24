@@ -64,6 +64,8 @@ export default defineNuxtConfig({
       quoteEngine: process.env.NUXT_PUBLIC_QUOTE_ENGINE === '1',
       // A/B test: ask for WhatsApp first (control) or after the extras. Off unless set
       quoteAbContact: process.env.NUXT_PUBLIC_QUOTE_AB_CONTACT === '1',
+      // Partner listing platform (claims on the dashboard, sharing consent on lead forms). Off unless 1.
+      partnerListings: process.env.NUXT_PUBLIC_PARTNER_LISTINGS === '1',
     },
   },
 
