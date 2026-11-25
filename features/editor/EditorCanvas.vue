@@ -70,7 +70,11 @@ function clientToSpherical(clientX: number, clientY: number) {
   return viewerShellRef.value?.clientToSpherical(clientX, clientY) ?? null
 }
 
-defineExpose({ refreshSettings, clientToSpherical })
+function currentView() {
+  return viewerShellRef.value?.currentView() ?? null
+}
+
+defineExpose({ refreshSettings, clientToSpherical, currentView })
 </script>
 
 <style scoped>

@@ -341,7 +341,11 @@ function clientToSpherical(clientX: number, clientY: number) {
   return editorCanvasRef.value?.clientToSpherical(clientX, clientY) ?? null
 }
 
-defineExpose({ refreshSettings, clientToSpherical })
+function currentView() {
+  return editorCanvasRef.value?.currentView() ?? null
+}
+
+defineExpose({ refreshSettings, clientToSpherical, currentView })
 </script>
 
 <style scoped>

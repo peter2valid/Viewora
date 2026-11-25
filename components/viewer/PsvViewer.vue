@@ -977,7 +977,7 @@ function walkTo(targetId: string, clickedYaw?: number | null) {
   const raw = tourScenes.value.find((x: any) => x.id === targetId)
   const arrive = route.arriveYaw !== null
     ? { yaw: route.arriveYaw, pitch: 0 }
-    : resolveStartView(raw, props.tour?.space?.property_360_settings?.[0])
+    : startViewFor(raw)
   return { towardYaw: route.travelYaw, arrive, stepScale: route.stepScale, step: route.step, previewUrl: previewFor(targetId) }
 }
 
@@ -2233,8 +2233,18 @@ async function copyEmbedCode() {
 }
 
 // ── Map raw API scene → TourScene (for passing to initVirtualTourViewer) ──
+/** Saved start view, else the tour's, else facing the arrow to the next scene (domain/scene). */
+function startViewFor(s: any) {
+  const list = tourScenes.value
+  const i = list.findIndex((x: any) => x.id === s?.id)
+  return resolveStartView(s, props.tour?.space?.property_360_settings?.[0], {
+    nextSceneId: i >= 0 ? list[i + 1]?.id ?? null : null,
+  })
+}
+
 function mapRawScene(s: any): TourScene {
   const settings360 = props.tour?.space?.property_360_settings?.[0]
+  const start = startViewFor(s)
   return {
     id: s.id,
     imageUrl: sceneImageUrl(s),
@@ -2254,8 +2264,8 @@ function mapRawScene(s: any): TourScene {
     hotspots: [],
     settings: {
       hfov_default: settings360?.hfov_default ?? 90,
-      pitch_default: resolveStartView(s, settings360).pitch,
-      yaw_default: resolveStartView(s, settings360).yaw,
+      pitch_default: start.pitch,
+      yaw_default: start.yaw,
       auto_rotate_enabled: settings360?.auto_rotate_enabled ?? false,
     },
     nadirCover: resolveNadirCover(settings360?.nadir_cover, s.id),

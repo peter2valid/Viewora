@@ -341,6 +341,21 @@
             <!-- Scrollable body -->
             <div class="ts-body ts-scroll">
 
+              <!-- Per-scene start view: wins over the tour-wide sliders below. -->
+              <div v-if="activeScene" class="ts-section">
+                <div class="ts-field__label">This scene opens facing</div>
+                <div class="ts-toggle-sub ts-start-sub">
+                  <template v-if="activeSceneHasStart">Saved for “{{ activeScene.name || 'this scene' }}”.</template>
+                  <template v-else>Not set: it faces its arrow to the next scene. Turn the view, then press the button.</template>
+                </div>
+                <div class="ts-start-row">
+                  <button type="button" class="ts-start-btn" :disabled="savingStart" @click="setStartViewHere">
+                    {{ savingStart ? 'Saving…' : 'Start facing here' }}
+                  </button>
+                  <button v-if="activeSceneHasStart" type="button" class="ts-start-btn ts-start-btn--ghost" :disabled="savingStart" @click="clearStartView">Reset</button>
+                </div>
+              </div>
+
               <div class="ts-section">
                 <div class="ts-field">
                   <div class="ts-slider-header">
@@ -1031,6 +1046,49 @@ async function aiUpdateHotspot(hotspotId: string, sceneId: string, body: object)
   }
 }
 
+// ── Per-scene start view ("Start facing here") ─────────────
+// Saved in DEGREES on scenes.initial_yaw/pitch (domain/scene resolveStartView).
+const savingStart = ref(false)
+const activeSceneHasStart = computed(() =>
+  Number(activeScene.value?.initial_yaw || 0) !== 0 || Number(activeScene.value?.initial_pitch || 0) !== 0)
+
+async function saveStartView(sceneId: string, yawDeg: number, pitchDeg: number, okMsg: string) {
+  const before = scenes.value.find(s => s.id === sceneId)
+  const prev = { initial_yaw: before?.initial_yaw ?? 0, initial_pitch: before?.initial_pitch ?? 0 }
+  const body = { initial_yaw: yawDeg, initial_pitch: pitchDeg }
+  savingStart.value = true
+  scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, ...body } : s)
+  try {
+    await writes.track(sceneId, serial.patch(`scene:${sceneId}`, body, b => apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body: b })))
+    showToast(okMsg)
+  } catch (e: any) {
+    writes.forget(sceneId)
+    scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, ...prev } : s)
+    showToast(e?.data?.statusMessage || 'Could not save the start view', 'error')
+  } finally {
+    savingStart.value = false
+  }
+}
+
+function setStartViewHere() {
+  const id = activeScene.value?.id
+  const view = viewerCanvasRef.value?.currentView()
+  if (!id || !view) { showToast('Open a scene first', 'error'); return }
+  const deg = (r: number) => Math.round((r * 180) / Math.PI)
+  let yaw = deg(view.yaw)
+  if (yaw > 180) yaw -= 360
+  if (yaw < -180) yaw += 360
+  let pitch = Math.max(-90, Math.min(90, deg(view.pitch)))
+  // 0°/0° reads as "never set"; a 1° nudge keeps an exact straight-ahead choice saved.
+  if (yaw === 0 && pitch === 0) pitch = -1
+  void saveStartView(id, yaw, pitch, 'Start view saved: the tour opens facing this way')
+}
+
+function clearStartView() {
+  const id = activeScene.value?.id
+  if (id) void saveStartView(id, 0, 0, 'Start view reset')
+}
+
 async function aiUpdateScene(sceneId: string, body: object) {
   await writes.track(sceneId, serial.patch(`scene:${sceneId}`, body as Record<string, any>, b => apiFetch(`/scenes/${sceneId}`, { method: 'PATCH', body: b })))
   scenes.value = scenes.value.map(s => s.id === sceneId ? { ...s, ...body } : s)
@@ -1310,7 +1368,13 @@ const activeViewerScene = computed(() => {
   const url = activePanoramaSrc.value
   if (!url || url === placeholderPanoramaUrl) return null
   const s = space.value?.property_360_settings?.[0]
-  const startView = resolveStartView(activeScene.value, s)
+  // Same fallback as the public viewer: unset → face the arrow to the next scene.
+  const ordered = [...scenes.value].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+  const idx = ordered.findIndex((x: any) => x.id === activeScene.value?.id)
+  const startView = resolveStartView(activeScene.value, s, {
+    arrows: hotspotsByScene.value[activeScene.value?.id ?? ''] ?? [],
+    nextSceneId: idx >= 0 ? ordered[idx + 1]?.id ?? null : null,
+  })
   return {
     id: activeScene.value?.id ?? 'editor-scene',
     imageUrl: url,
@@ -2749,6 +2813,12 @@ defineExpose({
 .ts-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 .ts-section { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .ts-section:last-child { border-bottom: none; }
+.ts-start-sub { margin: 4px 0 10px; line-height: 1.45; }
+.ts-start-row { display: flex; gap: 8px; }
+.ts-start-btn { height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid rgba(34,197,94,0.5); background: rgba(34,197,94,0.14); color: #86efac; font-size: 12px; font-weight: 700; cursor: pointer; }
+.ts-start-btn:hover:not(:disabled) { background: rgba(34,197,94,0.24); }
+.ts-start-btn:disabled { opacity: 0.5; cursor: default; }
+.ts-start-btn--ghost { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); }
 .ts-field { margin-bottom: 16px; }
 .ts-field:last-child { margin-bottom: 0; }
 .ts-field__label {

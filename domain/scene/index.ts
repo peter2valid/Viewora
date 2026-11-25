@@ -60,6 +60,15 @@ export interface TourScene {
   nadirCover?: import('../../shared/utils/viewerAdapters/nadirCover').NadirCover | null
 }
 
+/** An arrow as the public tour (snake_case) or the editor (camelCase) carries it. Yaw/pitch in radians. */
+export type StartArrow = {
+  type?: string | null
+  yaw?: number | null
+  pitch?: number | null
+  target_scene_id?: string | null
+  targetSceneId?: string | null
+}
+
 /**
  * Start view for a scene, in RADIANS (what PSV expects for numeric yaw/pitch).
  *
@@ -67,16 +76,44 @@ export interface TourScene {
  * degrees to property_360_settings, and scenes.initial_yaw/pitch use the same
  * ±180/±90 ranges. They used to be handed to PSV unconverted (45° → 45 rad),
  * and the public viewer never fell back to the tour setting because a scene's
- * initial_* is 0, not null. A non-zero per-scene value wins; otherwise the
- * tour-wide setting applies.
+ * initial_* is 0, not null.
+ *
+ * Order: a non-zero per-scene value, then the tour-wide setting, then — when
+ * neither was ever set — face the scene's way forward: its arrow to the next
+ * scene in order (`nextSceneId`), else its first arrow. Without that, a scene
+ * nobody set opens at the camera's raw front, which can put the only arrow
+ * behind the visitor (Kings Boma "Outside Premise": arrow at ~105°, opened at 0°).
  */
 export function resolveStartView(
-  scene: { initial_yaw?: number | null; initial_pitch?: number | null } | null | undefined,
+  scene: { initial_yaw?: number | null; initial_pitch?: number | null; hotspots?: StartArrow[] | null } | null | undefined,
   tour: { yaw_default?: number | null; pitch_default?: number | null } | null | undefined,
+  opts: { arrows?: StartArrow[] | null; nextSceneId?: string | null } = {},
 ): { yaw: number; pitch: number } {
   const toRad = (deg: number) => (deg * Math.PI) / 180
   const sceneYaw = Number(scene?.initial_yaw ?? 0)
   const scenePitch = Number(scene?.initial_pitch ?? 0)
   if (sceneYaw || scenePitch) return { yaw: toRad(sceneYaw), pitch: toRad(scenePitch) }
-  return { yaw: toRad(Number(tour?.yaw_default ?? 0)), pitch: toRad(Number(tour?.pitch_default ?? 0)) }
+  const tourYaw = Number(tour?.yaw_default ?? 0)
+  const tourPitch = Number(tour?.pitch_default ?? 0)
+  if (tourYaw || tourPitch) return { yaw: toRad(tourYaw), pitch: toRad(tourPitch) }
+  const arrow = forwardArrow(opts.arrows ?? scene?.hotspots, opts.nextSceneId)
+  if (arrow) {
+    // Half the arrow's tilt: a stair arrow 25° up still sits in view, the horizon stays level-ish.
+    const pitch = Math.max(-0.35, Math.min(0.35, Number(arrow.pitch ?? 0) / 2))
+    return { yaw: Number(arrow.yaw), pitch }
+  }
+  return { yaw: 0, pitch: 0 }
+}
+
+/** The arrow a visitor most likely wants first: to the next scene in order, else the first arrow. */
+export function forwardArrow(arrows: StartArrow[] | null | undefined, nextSceneId?: string | null): StartArrow | null {
+  if (!Array.isArray(arrows)) return null
+  const links = arrows.filter(h =>
+    h?.type === 'scene_link' && Number.isFinite(Number(h.yaw)) && (h.target_scene_id || h.targetSceneId))
+  if (!links.length) return null
+  if (nextSceneId) {
+    const next = links.find(h => (h.target_scene_id ?? h.targetSceneId) === nextSceneId)
+    if (next) return next
+  }
+  return links[0]
 }

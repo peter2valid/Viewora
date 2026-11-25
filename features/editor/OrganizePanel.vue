@@ -99,6 +99,7 @@
           </button>
           <button class="og-btn" :disabled="saving" @click="apply('')">Remove category</button>
           <button class="og-btn og-btn--move" :disabled="saving" title="Make a separate tour, with its own link, from these scenes" @click="moveOpen = true">Move to new tour…</button>
+          <button class="og-btn og-btn--move" :disabled="saving" title="Copy or move these scenes into one of your other tours" @click="addOpen = true">Add to existing tour…</button>
           <button class="og-btn og-btn--icon" aria-label="Clear selection" @click="clearSelection">✕</button>
         </div>
       </Transition>
@@ -113,6 +114,15 @@
         @close="moveOpen = false"
         @moved="onMoved"
       />
+      <AddToTourDialog
+        v-if="addOpen"
+        :space-id="spaceId"
+        :scene-ids="[...selected]"
+        :total-scenes="scenes.length"
+        :has-pins="selectedHasPins"
+        @close="addOpen = false"
+        @moved="onAddedAway"
+      />
     </template>
   </div>
 </template>
@@ -125,6 +135,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import { isPlaced } from '~/shared/utils/floorPlan'
 import { CATEGORY_SUGGESTIONS, normalizeGroup } from '~/shared/utils/sceneGroups'
 import MoveToTourDialog, { type MoveResult } from '~/features/editor/components/MoveToTourDialog.vue'
+import AddToTourDialog, { type AddResult } from '~/features/editor/components/AddToTourDialog.vue'
 
 const props = defineProps<{ spaceId: string }>()
 const emit = defineEmits<{
@@ -326,10 +337,20 @@ function onMoved({ sceneIds, photoIds, result }: { sceneIds: string[]; photoIds:
   emit('scenes-moved', { sceneIds, photoIds, result })
 }
 
+// ── Add to an existing tour (copy or move) ──────────────────
+const addOpen = ref(false)
+/** A MOVE into another tour: same clean-up as moving to a new one. A copy changes nothing here. */
+function onAddedAway({ sceneIds, result }: { sceneIds: string[]; result: AddResult }) {
+  const gone = new Set(sceneIds)
+  scenes.value = scenes.value.filter(s => !gone.has(s.id))
+  clearSelection()
+  emit('scenes-moved', { sceneIds, photoIds: [], result: result as any })
+}
+
 // ── Keyboard ────────────────────────────────────────────────
 function onKey(e: KeyboardEvent) {
   const typing = (e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable="true"]')
-  if (moveOpen.value) return
+  if (moveOpen.value || addOpen.value) return
   if (e.key === 'Escape' && selected.value.size) { clearSelection(); return }
   if (typing) return
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && shown.value.length) {

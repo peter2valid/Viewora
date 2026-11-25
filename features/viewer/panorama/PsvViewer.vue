@@ -906,7 +906,17 @@ function clientToSpherical(clientX: number, clientY: number): { yaw: number; pit
   }
 }
 
-defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, toggleViewerStereo, clientToSpherical })
+/** Where the camera points now (radians, yaw in −π..π), for "Start facing here". */
+function currentView(): { yaw: number; pitch: number } | null {
+  const viewer = handle.value?.viewer
+  if (!viewer) return null
+  try {
+    const p = viewer.getPosition()
+    return { yaw: p.yaw > Math.PI ? p.yaw - 2 * Math.PI : p.yaw, pitch: p.pitch }
+  } catch { return null }
+}
+
+defineExpose({ refreshSettings, toggleViewerSettings, toggleViewerAutorotate, toggleViewerStereo, clientToSpherical, currentView })
 </script>
 
 <style scoped>

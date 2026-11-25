@@ -115,7 +115,11 @@ function clientToSpherical(clientX: number, clientY: number) {
   return psvViewerRef.value?.clientToSpherical(clientX, clientY) ?? null
 }
 
-defineExpose({ refreshSettings, toggleSettings, toggleAutorotate, toggleStereo, clientToSpherical })
+function currentView() {
+  return psvViewerRef.value?.currentView() ?? null
+}
+
+defineExpose({ refreshSettings, toggleSettings, toggleAutorotate, toggleStereo, clientToSpherical, currentView })
 </script>
 
 <style scoped>
