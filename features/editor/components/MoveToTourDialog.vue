@@ -18,7 +18,7 @@
           <p v-else class="mt-muted">It's saved as a draft. Publish it from its Details tab to get its own link.</p>
           <div class="mt-actions">
             <button type="button" class="mt-btn" @click="emit('close')">Stay here</button>
-            <NuxtLink :to="`/app/spaces/${result.space.id}`" class="mt-btn mt-btn--primary">Open the new tour</NuxtLink>
+            <button type="button" class="mt-btn mt-btn--primary" @click="openNew">Open the new tour</button>
           </div>
         </template>
 
@@ -97,7 +97,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { toast } from 'vue-sonner'
-import { useImage } from '#imports'
+import { useImage, useRouter } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { resolvePublicTourUrl } from '~/utils/publicTourUrl'
 
@@ -188,6 +188,15 @@ async function submit() {
   } finally {
     busy.value = false
   }
+}
+
+const router = useRouter()
+/** Close first, then open the new tour (the editor page reloads for it). */
+function openNew() {
+  const r = result.value
+  if (!r) return
+  emit('close')
+  router.push({ path: `/app/spaces/${r.space.id}`, query: { tab: 'tour' } })
 }
 
 async function copy() {

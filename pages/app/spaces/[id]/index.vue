@@ -144,7 +144,10 @@ import { useCarSetup } from '~/features/vehicle/useCarSetup'
 import TopBar from '~/features/editor/components/TopBar.vue'
 import { toast } from 'vue-sonner'
 
-definePageMeta({ layout: 'editor', middleware: 'auth' })
+// key: a fresh page per tour. Going from one tour to another (e.g. "Open" after
+// copying scenes into it) reuses this page otherwise, and everything below reads the
+// tour id once — tabs would keep editing the tour you came from.
+definePageMeta({ layout: 'editor', middleware: 'auth', key: r => String(r.params.id) })
 useSeoMeta({ title: 'Edit Tour | Viewora' })
 
 const route = useRoute()
@@ -303,6 +306,26 @@ watch(() => route.query.tab, (t) => {
   const next = tabToMode(t)
   if (next !== mode.value) setMode(next)
 })
+
+// ?scene=<id>: open on that scene once the tour has loaded (e.g. the first scene just
+// copied in from another tour), then drop it from the address so a reload starts normally.
+const openSceneId = typeof route.query.scene === 'string' ? route.query.scene : ''
+if (openSceneId) {
+  let done = false
+  const stop = watch(
+    () => ((editorShellRef.value as any)?.scenes as any[] | undefined)?.some((s: any) => s?.id === openSceneId),
+    (found) => {
+      if (!found || done) return
+      done = true
+      queueMicrotask(() => stop())
+      // After the shell's own "select the first scene" on load.
+      setTimeout(() => (editorShellRef.value as any)?.selectScene?.(openSceneId), 0)
+      const { scene: _drop, ...rest } = route.query
+      router.replace({ query: rest })
+    },
+    { immediate: true },
+  )
+}
 </script>
 
 <style scoped>

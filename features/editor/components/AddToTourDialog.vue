@@ -6,17 +6,11 @@
         <template v-if="result">
           <div class="at-done-icon" aria-hidden="true">✓</div>
           <h2 id="at-title" class="at-title">Added to “{{ result.space.title }}”</h2>
-          <p class="at-muted">
-            {{ plural(result.added.scenes, 'scene') }} {{ result.copied ? 'copied' : 'moved' }}.
-            <template v-if="result.copied">They stay in this tour too.</template>
-            <template v-if="result.links_removed">
-              {{ plural(result.links_removed, 'arrow') }} to scenes you didn't pick {{ result.copied ? 'were left out of the copies' : 'were removed' }}.
-            </template>
-            They come after that tour's last scene: open it to add arrows from its own scenes to them.
-          </p>
+          <p class="at-muted">{{ doneText }}</p>
+          <p class="at-muted">Next: open that tour and add an arrow from one of its scenes, so visitors can reach them.</p>
           <div class="at-actions">
             <button type="button" class="at-btn" @click="emit('close')">Stay here</button>
-            <NuxtLink :to="`/app/spaces/${result.space.id}`" class="at-btn at-btn--primary">Open “{{ result.space.title }}”</NuxtLink>
+            <button ref="openBtn" type="button" class="at-btn at-btn--primary" @click="openTarget">Open “{{ result.space.title }}”</button>
           </div>
         </template>
 
@@ -89,13 +83,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { toast } from 'vue-sonner'
-import { useImage } from '#imports'
+import { useImage, useRouter } from '#imports'
 import { useApiFetch } from '~/composables/useApiFetch'
 
 export type AddResult = {
   space: { id: string; slug: string | null; title: string }
   copied: boolean
   added: { scenes: number; photos: number }
+  /** The scenes in the other tour, in order (empty if the database doesn't return them yet). */
+  scene_ids?: string[]
   links_removed: number
 }
 
@@ -123,6 +119,30 @@ const copy = ref(true)
 const busy = ref(false)
 const result = ref<AddResult | null>(null)
 const searchInput = ref<HTMLInputElement | null>(null)
+const openBtn = ref<HTMLButtonElement | null>(null)
+const router = useRouter()
+
+const doneText = computed(() => {
+  const r = result.value
+  if (!r) return ''
+  const parts = [r.copied
+    ? `${plural(r.added.scenes, 'scene')} copied. They stay in this tour too, and the copies are at the end of “${r.space.title}”.`
+    : `${plural(r.added.scenes, 'scene')} moved to the end of “${r.space.title}”.`]
+  if (r.links_removed) {
+    parts.push(`${plural(r.links_removed, 'arrow')} to scenes you didn't pick ${r.copied ? 'were left out of the copies' : 'were removed'}.`)
+  }
+  return parts.join(' ')
+})
+
+/** Close, then open the other tour on the first scene that just arrived there. */
+function openTarget() {
+  const r = result.value
+  if (!r) return
+  const first = r.scene_ids?.[0]
+  emit('close')
+  toast.success(`Showing ${first ? 'the first scene you added' : `“${r.space.title}”`}. Add an arrow to it from this tour's own scenes.`, { duration: 7000 })
+  router.push({ path: `/app/spaces/${r.space.id}`, query: { tab: 'tour', ...(first ? { scene: first } : {}) } })
+}
 
 const movesEverything = computed(() => props.sceneIds.length >= props.totalScenes)
 const shown = computed(() => {
@@ -162,6 +182,8 @@ async function submit() {
     })
     result.value = (res?.data ?? res) as AddResult
     if (!result.value.copied) emit('moved', { result: result.value, sceneIds: [...props.sceneIds] })
+    await nextTick()
+    openBtn.value?.focus()
   } catch (e: any) {
     toast.error(e?.data?.statusMessage || 'Could not add the scenes. Nothing was changed.')
   } finally {
@@ -220,6 +242,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 .at-btn--primary { background: #22c55e; border-color: #22c55e; color: #0b0d14; }
 .at-btn--primary:hover:not(:disabled) { background: #4ade80; }
 
+.at-actions .at-btn--primary { min-width: 0; }
 .at-done-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(34,197,94,0.16); color: #4ade80; font-size: 22px; font-weight: 900; }
 
 @media (max-width: 520px) {
